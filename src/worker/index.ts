@@ -93,6 +93,27 @@ export default {
       return handleLogin(request, dos.session)
     }
 
+    // --- WebSocket (auth via query param) ---
+    if (path === '/ws' && request.headers.get('Upgrade') === 'websocket') {
+      const authParam = url.searchParams.get('auth')
+      if (!authParam) return error('Unauthorized', 401)
+      let auth: { pubkey: string; timestamp: number; token: string }
+      try {
+        auth = JSON.parse(decodeURIComponent(authParam))
+      } catch {
+        return error('Invalid auth', 401)
+      }
+      const { verifyAuthToken } = await import('./lib/auth')
+      if (!(await verifyAuthToken(auth))) return error('Unauthorized', 401)
+      const volRes = await dos.session.fetch(new Request(`http://do/volunteer/${auth.pubkey}`))
+      if (!volRes.ok) return error('Unknown user', 401)
+      // Forward to CallRouter DO with pubkey
+      const wsUrl = new URL(request.url)
+      wsUrl.pathname = '/ws'
+      wsUrl.searchParams.set('pubkey', auth.pubkey)
+      return dos.calls.fetch(new Request(wsUrl.toString(), request))
+    }
+
     // --- Authenticated Routes ---
     const authResult = await authenticateRequest(request, dos.session)
     if (!authResult) {
@@ -119,15 +140,6 @@ export default {
       }))
       await audit(dos.session, 'transcriptionToggled', pubkey, { enabled: body.enabled })
       return json({ ok: true })
-    }
-
-    // --- WebSocket ---
-    if (path === '/ws') {
-      // Forward to CallRouter DO with pubkey
-      const wsUrl = new URL(request.url)
-      wsUrl.pathname = '/ws'
-      wsUrl.searchParams.set('pubkey', pubkey)
-      return dos.calls.fetch(new Request(wsUrl.toString(), request))
     }
 
     // --- Volunteers (admin only) ---
