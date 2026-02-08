@@ -1,57 +1,188 @@
-# Llámenos
+# Llamenos
 
-You're going to build an easy to use and secure-as possible hotline calling app for crisis response situations.
-For now, it's a webapp. It will be used in North America to start. See technical notes.
+A secure, self-hosted crisis hotline platform. Callers dial a phone number; calls are routed to on-shift volunteers via parallel ringing. Volunteers log encrypted notes in a webapp. Admins manage shifts, volunteers, and ban lists.
 
-## Specifications
+Built for organizations that need to protect the identity of both callers and volunteers against well-funded adversaries.
 
-### Hotline Personas
+## Features
 
-- Callers - someone dialing into the hotline using a regular GSM phone line
-- Hotline Volunteers - the person on the receiving end of calls during their shift. they are receiving calls on their phone and are near a computer where they can enter information into a webapp they are signed into. They just need to note who called (this can be automated if they are signed in when the call arrives or is in progress, yeah?) and what they said. They can only see previous notes that they entered.
-- Hotline Admins - someone who can add/remove people and their contact information from shifts, and manage shifts. They might also be a shift volunteer. Ideally a hotline admin is always available if someone needs to change phone numbers or be added/removed because of whatever circumstances. They can also see all notes, and manage ban lists. This is the most sensitive role. There can be multiple hotline admins, any volunteer can be made an admin.
+- **End-to-end encrypted notes and transcriptions** — the server never sees plaintext
+- **Parallel ringing** — all on-shift volunteers ring at once; first pickup wins
+- **Automated shift scheduling** — recurring schedules with fallback ring groups
+- **Call spam mitigation** — real-time ban lists, voice CAPTCHA, rate limiting
+- **AI transcription** — Cloudflare Workers AI (Whisper), E2EE with dual-key encryption
+- **12 languages** — English, Spanish, Chinese, Tagalog, Vietnamese, Arabic, French, Haitian Creole, Korean, Russian, Hindi, Portuguese
+- **Mobile responsive** — works on desktop and phone browsers
+- **Accessibility** — skip nav, ARIA labels, RTL support, screen reader friendly
+- **Audit log** — every call and note action tracked for admin review
+- **GDPR compliant** — designed for EU-based organizations
 
+## Prerequisites
 
-### Must Haves:
+- [Bun](https://bun.sh/) (v1.0+)
+- A [Cloudflare](https://cloudflare.com/) account (free tier works for development)
+- A [Twilio](https://twilio.com/) account with a phone number
 
-- low cost billing - we are paying out of pocket, so ideally we can keep costs as low as possible. twilio is cheap, but an SIP trunk is even cheaper
-- automated shift routing - the shifts (ring groups with scheduled times) need to route automatically on a predefined and modifiable, recurring schedule. a fallback group can exist if there accidentally is no schedule
-- protects identity of hotline volunteers - their personal information (name, phone) should not be known by anyone but the Hotline Admins
-- can mitigate call spam attacks - we used to in Oakland and other cities get spammed with mass dialing attacks where malicious actors (proud boys types) would use scripts to spam our hotlines, or even worse, would even spam as real people harassing/threatening the volunteers. We need hotline admins to be able to intake lists of numbers to ban, that are flagged by hotline users, in realtime. There are network level ways to protect against this as well, similar to how DDOS are mitigated. The quicker you mitigate these attacks, the less they are likely to try again. volunteers must be trained to anticipate this and hang up immediately. perhaps a voice bot detection, prompting for the caller to input a randomized, short number only for that call can be turned on by hotline admins. any other mitigations you can imagine are great.
-- parallel calling - all shift volunteers (every user in a ring group) who aren't already on a call get a call at once, and whoever picks up terminates the other calls.
-- call transcription would be nice, even using OpenWhisper model if possible, but it must all remain encrypted at rest at least, if not somehow e2ee with the server as the encryptor? is that possible? maybe we can let them fix the transcript once the call is done?
-- audit log - admins can see every call a volunteer answered and all notes
-- visibility - admins can see who is actively handling calls at any time, and can see data to plan for billing and usage from their TelephonyProvider
+## Quick Start
 
-### Threat Modelling
+### 1. Clone and install
 
-- potential adversaries: nation states, right wing groups, private hacking firms, other malicious actors. most digital platforms are beholden to cooperate with these adversaries, so e2ee and zero knowledge is ideal
-- what they're willing to spend: a lot
-- what they want access to: personally identifying information of volunteers, activists calling in, and lead information on what they've witnessed, perhaps for strategic legal or operational advantage
+```bash
+git clone https://github.com/your-org/llamenos.git
+cd llamenos
+bun install
+```
 
-They have already hacked some applications
+### 2. Generate an admin keypair
 
+Authentication uses [Nostr](https://nostr.com/) keypairs. Generate the first admin:
 
-## Technical Notes
+```bash
+bun run bootstrap-admin
+```
 
-- vite, tanstack start or just router, shadcnui using the component installer to keep it lean. does not need SSR of course
-- deployment using cloudflare infrastructure (cloudflare workers, DOs, tunnels, etc), billed to an EU card (that I have) and with a GDPR-compatible account, as our parent organization is based in Germany
-- nostr is a worthwhile choice, but we might need people to securely authenticate from other devices, thoughts on this?
-- twilio can be used for the telephony layer, but let's implement it as a TelephonyAdapter so that other providers could be supported in the future
-- use i18n by default, so we can add translations for other languages later
-- only e2e tests should be necessary, you are so good at what you do these days, unit tests don't serve much purpose, do you agree?
+This outputs:
+- An **nsec** (secret key) — give this to the admin, store it securely
+- A **hex public key** — you'll need this in the next step
 
-## Claude Code Notes
+### 3. Configure environment
 
-- the repo is designed by and for claude code! no need to worry about humans using the repo yet, just the app
-- you're an expert at whatever you're working on
-- you use git commits and git log/history to keep a lean file tree. 
-- you implement features completely and fully without taking shortcuts
-- you don't create copies of files, you improve them, the git history will be there if you need to look back
-- no need for legacy fallbacks or data migration as the codebase evolves - i will note in this file the day that this app is ever in production use, then the production SDLC comes into play
+Copy the example env file and fill in your values:
 
-You will use whatever planning system makes the most sense to you, here are some ideas:
-- keep a docs/NEXT_BACKLOG and docs/COMPLETED_BACKLOG
-- plan out entire epics in an docs/epics/ directory, and execute on them and complete them when you're done
-- use a planning methodology you reccomend that facilitates autonomous execution by claude code agents, even in parallel, so they can easily move through planning and development cycles and make efficient use of context, etc
-- whatever else you reccomend!
+```bash
+cp .dev.vars.example .dev.vars
+```
+
+Edit `.dev.vars`:
+
+```env
+TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_AUTH_TOKEN=your_auth_token_here
+TWILIO_PHONE_NUMBER=+1234567890
+ADMIN_PUBKEY=hex_public_key_from_step_2
+```
+
+### 4. Run locally
+
+```bash
+bun run dev          # Frontend dev server (Vite)
+bun run dev:worker   # Backend dev server (Wrangler)
+```
+
+The app runs at `http://localhost:8787`. Log in with the admin nsec from step 2.
+
+### 5. Set up Twilio webhooks
+
+In your Twilio console, point your phone number's voice webhook to:
+
+```
+https://your-domain.com/api/telephony/incoming
+```
+
+For local development, use [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) to expose your local worker:
+
+```bash
+cloudflared tunnel --url http://localhost:8787
+```
+
+## Deploy to Cloudflare
+
+### 1. Set secrets
+
+```bash
+bunx wrangler secret put ADMIN_PUBKEY
+bunx wrangler secret put TWILIO_ACCOUNT_SID
+bunx wrangler secret put TWILIO_AUTH_TOKEN
+bunx wrangler secret put TWILIO_PHONE_NUMBER
+```
+
+### 2. Deploy
+
+```bash
+bun run deploy
+```
+
+This builds the frontend and deploys everything to Cloudflare Workers. The deploy script runs `vite build` then `wrangler deploy`.
+
+### 3. Update Twilio webhook
+
+Point your Twilio phone number's voice webhook to your Workers URL:
+
+```
+https://your-app.your-subdomain.workers.dev/api/telephony/incoming
+```
+
+## Customization
+
+### Hotline name
+
+Set the `HOTLINE_NAME` variable in `wrangler.jsonc` to change the name shown in the UI and caller greetings:
+
+```jsonc
+"vars": {
+    "HOTLINE_NAME": "Your Hotline Name"
+}
+```
+
+### Languages
+
+The app ships with 12 languages. Translation files are in `src/client/i18n/`. To add a new language:
+
+1. Add the language config to `src/shared/languages.ts`
+2. Create a translation file in `src/client/i18n/`
+3. Add voice prompts in `src/worker/telephony/twilio.ts`
+
+### Telephony provider
+
+Twilio is the default provider, but the telephony layer is abstracted behind a `TelephonyAdapter` interface. To use a different provider (e.g., SIP trunks), implement the adapter interface in `src/worker/telephony/`.
+
+## Architecture
+
+```
+src/
+  client/          # React SPA (Vite + TanStack Router)
+    routes/        # File-based routing
+    components/    # shadcn/ui components
+    i18n/          # Translation files (13 locales)
+    lib/           # Auth, crypto, API client
+  worker/          # Cloudflare Worker backend
+    api/           # REST API routes
+    durable-objects/
+      session.ts   # Auth sessions, WebSocket connections, presence
+      shift.ts     # Shift scheduling, volunteer management
+      call-router.ts  # Call routing, notes, audit log
+    telephony/     # TelephonyAdapter + Twilio implementation
+  shared/          # Code shared between client and worker
+```
+
+### Security model
+
+- **Authentication**: Nostr keypairs (nsec/npub) — no passwords, no email
+- **Note encryption**: XChaCha20-Poly1305 client-side encryption
+- **Transcription encryption**: ECIES (ephemeral ECDH + XChaCha20-Poly1305) with dual keys — one copy for the volunteer, one for the admin
+- **Zero-knowledge server**: the Worker never sees plaintext notes or transcriptions
+- **Volunteer privacy**: personal info visible only to admins
+
+### Roles
+
+| Role | Can see | Can do |
+|------|---------|--------|
+| Caller | Nothing (GSM phone) | Call the hotline |
+| Volunteer | Own notes only | Answer calls, write notes |
+| Admin | All notes, audit logs, active calls | Manage volunteers, shifts, bans, settings |
+
+## Development
+
+```bash
+bun run dev          # Vite dev server
+bun run dev:worker   # Wrangler dev server
+bun run build        # Build frontend
+bun run deploy       # Build + deploy to Cloudflare
+bun run typecheck    # TypeScript type checking
+bun run test         # Run Playwright E2E tests
+bun run test:ui      # Playwright test UI
+```
+
+## License
+
+MIT
