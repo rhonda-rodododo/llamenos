@@ -1,6 +1,7 @@
 import type { Env } from './types'
 import { authenticateRequest } from './lib/auth'
-import { TwilioAdapter, detectLanguageFromPhone } from './telephony/twilio'
+import { TwilioAdapter, getPrompt } from './telephony/twilio'
+import { detectLanguageFromPhone, LANGUAGE_MAP, DEFAULT_LANGUAGE } from '../shared/languages'
 import { encryptForPublicKey } from './lib/crypto'
 
 // Re-export Durable Object classes
@@ -520,7 +521,7 @@ async function handleTelephonyWebhook(
     const url = new URL(request.url)
     const expected = url.searchParams.get('expected') || ''
     const callSid = url.searchParams.get('callSid') || ''
-    const callerLang = (url.searchParams.get('lang') === 'es' ? 'es' : 'en') as 'en' | 'es'
+    const callerLang = url.searchParams.get('lang') || DEFAULT_LANGUAGE
 
     const response = await twilio.handleCaptchaResponse({ callSid, digits, expectedDigits: expected, callerLanguage: callerLang })
 
@@ -584,11 +585,9 @@ async function handleTelephonyWebhook(
   // Wait music for callers in queue
   if (path === '/telephony/wait-music') {
     const url = new URL(request.url)
-    const lang = (url.searchParams.get('lang') === 'es' ? 'es' : 'en') as 'en' | 'es'
-    const tLang = lang === 'es' ? 'es-MX' : 'en-US'
-    const waitMsg = lang === 'es'
-      ? 'Su llamada es importante para nosotros. Por favor, espere mientras lo conectamos con un voluntario.'
-      : 'Your call is important to us. Please hold while we connect you with a volunteer.'
+    const lang = url.searchParams.get('lang') || DEFAULT_LANGUAGE
+    const tLang = LANGUAGE_MAP[lang]?.twilioVoice ?? LANGUAGE_MAP[DEFAULT_LANGUAGE].twilioVoice
+    const waitMsg = getPrompt('waitMessage', lang)
     return new Response(`
       <Response>
         <Say language="${tLang}">${waitMsg}</Say>

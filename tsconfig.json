@@ -15,7 +15,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/client/*"],
-      "@worker/*": ["./src/worker/*"]
+      "@worker/*": ["./src/worker/*"],
+      "@shared/*": ["./src/shared/*"]
     },
     "types": ["@cloudflare/workers-types"]
   },

@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/auth'
 import { useEffect, type ReactNode } from 'react'
 import { connectWebSocket, disconnectWebSocket } from '@/lib/ws'
 import { setLanguage } from '@/lib/i18n'
+import { LANGUAGES } from '@shared/languages'
 import {
   LayoutDashboard,
   StickyNote,
@@ -117,19 +118,17 @@ function RootLayout() {
         <div className="border-t border-border p-3 space-y-2">
           <div className="flex items-center gap-1.5">
             <Globe className="h-3.5 w-3.5 text-muted-foreground" />
-            <div className="flex gap-0.5">
-              <button
-                onClick={() => setLanguage('en')}
-                className={`rounded px-2 py-0.5 text-xs transition-colors ${i18n.language === 'en' ? 'bg-primary/20 text-primary font-medium' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                EN
-              </button>
-              <button
-                onClick={() => setLanguage('es')}
-                className={`rounded px-2 py-0.5 text-xs transition-colors ${i18n.language === 'es' ? 'bg-primary/20 text-primary font-medium' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                ES
-              </button>
+            <div className="flex flex-wrap gap-0.5">
+              {LANGUAGES.map(lang => (
+                <button
+                  key={lang.code}
+                  onClick={() => setLanguage(lang.code)}
+                  className={`rounded px-1.5 py-0.5 text-xs transition-colors ${i18n.language === lang.code ? 'bg-primary/20 text-primary font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+                  title={lang.label}
+                >
+                  {lang.flag}
+                </button>
+              ))}
             </div>
           </div>
           <button

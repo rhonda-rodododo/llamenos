@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth'
 import { isValidNsec } from '@/lib/crypto'
 import { setLanguage } from '@/lib/i18n'
+import { LANGUAGES } from '@shared/languages'
 import { Phone, KeyRound, LogIn, Globe, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -52,22 +53,19 @@ function LoginPage() {
 
         <CardContent className="space-y-4">
           {/* Language toggle */}
-          <div className="flex items-center justify-center gap-1.5">
+          <div className="flex flex-wrap items-center justify-center gap-1">
             <Globe className="h-3.5 w-3.5 text-muted-foreground" />
-            <Button
-              variant={i18n.language === 'en' ? 'secondary' : 'ghost'}
-              size="xs"
-              onClick={() => setLanguage('en')}
-            >
-              English
-            </Button>
-            <Button
-              variant={i18n.language === 'es' ? 'secondary' : 'ghost'}
-              size="xs"
-              onClick={() => setLanguage('es')}
-            >
-              Espanol
-            </Button>
+            {LANGUAGES.map(lang => (
+              <Button
+                key={lang.code}
+                variant={i18n.language === lang.code ? 'secondary' : 'ghost'}
+                size="xs"
+                onClick={() => setLanguage(lang.code)}
+                title={lang.label}
+              >
+                {lang.flag}
+              </Button>
+            ))}
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">

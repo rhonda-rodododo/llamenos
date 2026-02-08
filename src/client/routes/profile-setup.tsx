@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth'
 import { updateMyProfile } from '@/lib/api'
 import { setLanguage } from '@/lib/i18n'
 import { useToast } from '@/lib/toast'
+import { LANGUAGES } from '@shared/languages'
 import { Globe, Languages, Phone, ArrowRight, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -12,11 +13,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 export const Route = createFileRoute('/profile-setup')({
   component: ProfileSetupPage,
 })
-
-const AVAILABLE_LANGUAGES = [
-  { code: 'en', label: 'English', flag: 'EN' },
-  { code: 'es', label: 'Espanol', flag: 'ES' },
-]
 
 function ProfileSetupPage() {
   const { t, i18n } = useTranslation()
@@ -79,21 +75,21 @@ function ProfileSetupPage() {
               <Globe className="h-4 w-4 text-muted-foreground" />
               {t('profile.uiLanguage')}
             </div>
-            <div className="flex gap-2">
-              {AVAILABLE_LANGUAGES.map(lang => (
+            <div className="flex flex-wrap gap-2">
+              {LANGUAGES.map(lang => (
                 <button
                   key={lang.code}
                   onClick={() => {
                     setUiLang(lang.code)
                     setLanguage(lang.code)
                   }}
-                  className={`flex items-center gap-2 rounded-lg border px-4 py-3 text-sm transition-colors ${
+                  className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
                     uiLang === lang.code
                       ? 'border-primary bg-primary/10 text-primary font-medium'
                       : 'border-border hover:border-primary/50'
                   }`}
                 >
-                  <span className="text-lg">{lang.flag}</span>
+                  <span>{lang.flag}</span>
                   {lang.label}
                   {uiLang === lang.code && <Check className="h-4 w-4" />}
                 </button>
@@ -110,18 +106,18 @@ function ProfileSetupPage() {
             <p className="text-xs text-muted-foreground">
               {t('profile.spokenLanguagesHelp')}
             </p>
-            <div className="flex gap-2">
-              {AVAILABLE_LANGUAGES.map(lang => (
+            <div className="flex flex-wrap gap-2">
+              {LANGUAGES.map(lang => (
                 <button
                   key={lang.code}
                   onClick={() => toggleSpokenLang(lang.code)}
-                  className={`flex items-center gap-2 rounded-lg border px-4 py-3 text-sm transition-colors ${
+                  className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
                     spokenLangs.includes(lang.code)
                       ? 'border-primary bg-primary/10 text-primary font-medium'
                       : 'border-border hover:border-primary/50'
                   }`}
                 >
-                  <span className="text-lg">{lang.flag}</span>
+                  <span>{lang.flag}</span>
                   {lang.label}
                   {spokenLangs.includes(lang.code) && <Check className="h-4 w-4" />}
                 </button>

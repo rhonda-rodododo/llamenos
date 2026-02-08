@@ -6,73 +6,131 @@ import type {
   RingVolunteersParams,
   TelephonyResponse,
 } from './adapter'
+import { LANGUAGE_MAP, DEFAULT_LANGUAGE } from '../../shared/languages'
 
-/** Twilio voice language codes */
-const TWILIO_LANG = { en: 'en-US', es: 'es-MX' } as const
+/**
+ * Get Twilio voice language code for a language.
+ * Falls back to en-US if the language isn't configured.
+ */
+function getTwilioVoice(lang: string): string {
+  return LANGUAGE_MAP[lang]?.twilioVoice ?? LANGUAGE_MAP[DEFAULT_LANGUAGE].twilioVoice
+}
 
-/** Voice prompts in English and Spanish */
-const VOICE_PROMPTS = {
+/**
+ * Voice prompts for all supported languages.
+ * Each prompt has a key-per-language with fallback to English.
+ */
+const VOICE_PROMPTS: Record<string, Record<string, string>> = {
   rateLimited: {
     en: 'We are currently experiencing high call volume. Please try again later.',
     es: 'Estamos experimentando un alto volumen de llamadas. Por favor, intente más tarde.',
+    zh: '我们目前通话量较大，请稍后再试。',
+    tl: 'Maraming tumatawag sa ngayon. Pakisubukan muli mamaya.',
+    vi: 'Chúng tôi hiện đang có lượng cuộc gọi cao. Vui lòng thử lại sau.',
+    ar: 'نحن نواجه حاليا حجم مكالمات كبير. يرجى المحاولة مرة أخرى لاحقا.',
+    fr: 'Nous connaissons actuellement un volume d\'appels élevé. Veuillez réessayer plus tard.',
+    ht: 'Nou gen anpil apèl kounye a. Tanpri eseye ankò pita.',
+    ko: '현재 통화량이 많습니다. 나중에 다시 시도해 주세요.',
+    ru: 'В настоящее время у нас большой объем звонков. Пожалуйста, перезвоните позже.',
+    hi: 'वर्तमान में कॉल की संख्या अधिक है। कृपया बाद में पुनः प्रयास करें।',
+    pt: 'Estamos com um alto volume de chamadas. Por favor, tente novamente mais tarde.',
+    de: 'Wir haben derzeit ein hohes Anrufaufkommen. Bitte versuchen Sie es später erneut.',
   },
   captchaPrompt: {
     en: 'Please enter the following digits:',
     es: 'Por favor, ingrese los siguientes dígitos:',
+    zh: '请输入以下数字：',
+    tl: 'Pakilagay ang mga sumusunod na numero:',
+    vi: 'Vui lòng nhập các chữ số sau:',
+    ar: 'يرجى إدخال الأرقام التالية:',
+    fr: 'Veuillez saisir les chiffres suivants :',
+    ht: 'Tanpri antre chif sa yo:',
+    ko: '다음 숫자를 입력해 주세요:',
+    ru: 'Пожалуйста, введите следующие цифры:',
+    hi: 'कृपया निम्नलिखित अंक दर्ज करें:',
+    pt: 'Por favor, digite os seguintes números:',
+    de: 'Bitte geben Sie die folgenden Ziffern ein:',
   },
   captchaTimeout: {
     en: 'We did not receive your input. Goodbye.',
     es: 'No recibimos su entrada. Adiós.',
+    zh: '我们未收到您的输入。再见。',
+    tl: 'Hindi namin natanggap ang iyong input. Paalam.',
+    vi: 'Chúng tôi không nhận được thông tin của bạn. Tạm biệt.',
+    ar: 'لم نتلق مدخلاتك. مع السلامة.',
+    fr: 'Nous n\'avons pas reçu votre saisie. Au revoir.',
+    ht: 'Nou pa resevwa repons ou. Orevwa.',
+    ko: '입력을 받지 못했습니다. 안녕히 계세요.',
+    ru: 'Мы не получили ваш ввод. До свидания.',
+    hi: 'हमें आपका इनपुट नहीं मिला। अलविदा।',
+    pt: 'Não recebemos sua entrada. Até logo.',
+    de: 'Wir haben Ihre Eingabe nicht erhalten. Auf Wiederhören.',
   },
   pleaseHold: {
     en: 'Please hold while we connect you.',
     es: 'Por favor, espere mientras lo conectamos.',
+    zh: '请稍候，我们正在为您转接。',
+    tl: 'Pakihintay habang kinokonekta ka namin.',
+    vi: 'Xin vui lòng chờ trong khi chúng tôi kết nối bạn.',
+    ar: 'يرجى الانتظار بينما نقوم بتوصيلك.',
+    fr: 'Veuillez patienter pendant que nous vous connectons.',
+    ht: 'Tanpri tann pandan n ap konekte ou.',
+    ko: '연결해 드릴 때까지 잠시만 기다려 주세요.',
+    ru: 'Пожалуйста, подождите, пока мы вас соединяем.',
+    hi: 'कृपया प्रतीक्षा करें, हम आपको कनेक्ट कर रहे हैं।',
+    pt: 'Por favor, aguarde enquanto conectamos você.',
+    de: 'Bitte warten Sie, während wir Sie verbinden.',
   },
   captchaSuccess: {
     en: 'Thank you. Please hold while we connect you.',
     es: 'Gracias. Por favor, espere mientras lo conectamos.',
+    zh: '谢谢。请稍候，我们正在为您转接。',
+    tl: 'Salamat. Pakihintay habang kinokonekta ka namin.',
+    vi: 'Cảm ơn bạn. Xin vui lòng chờ trong khi chúng tôi kết nối bạn.',
+    ar: 'شكرا لك. يرجى الانتظار بينما نقوم بتوصيلك.',
+    fr: 'Merci. Veuillez patienter pendant que nous vous connectons.',
+    ht: 'Mèsi. Tanpri tann pandan n ap konekte ou.',
+    ko: '감사합니다. 연결해 드릴 때까지 잠시만 기다려 주세요.',
+    ru: 'Спасибо. Пожалуйста, подождите, пока мы вас соединяем.',
+    hi: 'धन्यवाद। कृपया प्रतीक्षा करें, हम आपको कनेक्ट कर रहे हैं।',
+    pt: 'Obrigado. Por favor, aguarde enquanto conectamos você.',
+    de: 'Danke. Bitte warten Sie, während wir Sie verbinden.',
   },
   captchaFail: {
     en: 'Invalid input. Goodbye.',
     es: 'Entrada inválida. Adiós.',
+    zh: '输入无效。再见。',
+    tl: 'Hindi valid ang input. Paalam.',
+    vi: 'Thông tin không hợp lệ. Tạm biệt.',
+    ar: 'إدخال غير صالح. مع السلامة.',
+    fr: 'Saisie invalide. Au revoir.',
+    ht: 'Repons envalid. Orevwa.',
+    ko: '잘못된 입력입니다. 안녕히 계세요.',
+    ru: 'Неверный ввод. До свидания.',
+    hi: 'अमान्य इनपुट। अलविदा।',
+    pt: 'Entrada inválida. Até logo.',
+    de: 'Ungültige Eingabe. Auf Wiederhören.',
   },
   waitMessage: {
     en: 'Your call is important to us. Please hold while we connect you with a volunteer.',
     es: 'Su llamada es importante para nosotros. Por favor, espere mientras lo conectamos con un voluntario.',
+    zh: '您的来电对我们非常重要。请稍候，我们正在为您转接志愿者。',
+    tl: 'Mahalaga sa amin ang iyong tawag. Pakihintay habang kinokonekta ka namin sa isang boluntaryo.',
+    vi: 'Cuộc gọi của bạn rất quan trọng với chúng tôi. Xin vui lòng chờ trong khi chúng tôi kết nối bạn với tình nguyện viên.',
+    ar: 'مكالمتك مهمة بالنسبة لنا. يرجى الانتظار بينما نقوم بتوصيلك بمتطوع.',
+    fr: 'Votre appel est important pour nous. Veuillez patienter pendant que nous vous connectons avec un bénévole.',
+    ht: 'Apèl ou enpòtan pou nou. Tanpri tann pandan n ap konekte ou ak yon volontè.',
+    ko: '귀하의 전화는 소중합니다. 자원봉사자와 연결해 드릴 때까지 잠시만 기다려 주세요.',
+    ru: 'Ваш звонок важен для нас. Пожалуйста, подождите, пока мы соединяем вас с волонтёром.',
+    hi: 'आपकी कॉल हमारे लिए महत्वपूर्ण है। कृपया प्रतीक्षा करें, हम आपको एक स्वयंसेवक से जोड़ रहे हैं।',
+    pt: 'Sua chamada é importante para nós. Por favor, aguarde enquanto conectamos você com um voluntário.',
+    de: 'Ihr Anruf ist uns wichtig. Bitte warten Sie, während wir Sie mit einem Freiwilligen verbinden.',
   },
-} as const
+}
 
-/**
- * Detect caller language from phone number country code.
- * Spanish-speaking country codes → 'es', everything else → 'en'.
- */
-export function detectLanguageFromPhone(phone: string): 'en' | 'es' {
-  const spanishPrefixes = [
-    '+52',   // Mexico
-    '+34',   // Spain
-    '+54',   // Argentina
-    '+56',   // Chile
-    '+57',   // Colombia
-    '+58',   // Venezuela
-    '+51',   // Peru
-    '+53',   // Cuba
-    '+591',  // Bolivia
-    '+593',  // Ecuador
-    '+595',  // Paraguay
-    '+598',  // Uruguay
-    '+502',  // Guatemala
-    '+503',  // El Salvador
-    '+504',  // Honduras
-    '+505',  // Nicaragua
-    '+506',  // Costa Rica
-    '+507',  // Panama
-    '+809', '+829', '+849',  // Dominican Republic
-  ]
-  // Sort by length descending so longer prefixes match first
-  for (const prefix of spanishPrefixes.sort((a, b) => b.length - a.length)) {
-    if (phone.startsWith(prefix)) return 'es'
-  }
-  return 'en'
+/** Get a voice prompt in the given language, falling back to English. */
+export function getPrompt(key: string, lang: string): string {
+  return VOICE_PROMPTS[key]?.[lang] ?? VOICE_PROMPTS[key]?.[DEFAULT_LANGUAGE] ?? ''
 }
 
 /**
@@ -91,7 +149,7 @@ export class TwilioAdapter implements TelephonyAdapter {
 
   async handleIncomingCall(params: IncomingCallParams): Promise<TelephonyResponse> {
     const lang = params.callerLanguage
-    const tLang = TWILIO_LANG[lang]
+    const tLang = getTwilioVoice(lang)
 
     if (params.isBanned) {
       return this.twiml('<Response><Reject reason="rejected"/></Response>')
@@ -100,7 +158,7 @@ export class TwilioAdapter implements TelephonyAdapter {
     if (params.rateLimited) {
       return this.twiml(`
         <Response>
-          <Say language="${tLang}">${VOICE_PROMPTS.rateLimited[lang]}</Say>
+          <Say language="${tLang}">${getPrompt('rateLimited', lang)}</Say>
           <Hangup/>
         </Response>
       `)
@@ -111,9 +169,9 @@ export class TwilioAdapter implements TelephonyAdapter {
       return this.twiml(`
         <Response>
           <Gather numDigits="4" action="/api/telephony/captcha?expected=${digits}&amp;callSid=${params.callSid}&amp;lang=${lang}" method="POST" timeout="10">
-            <Say language="${tLang}">${VOICE_PROMPTS.captchaPrompt[lang]} ${digits.split('').join(', ')}.</Say>
+            <Say language="${tLang}">${getPrompt('captchaPrompt', lang)} ${digits.split('').join(', ')}.</Say>
           </Gather>
-          <Say language="${tLang}">${VOICE_PROMPTS.captchaTimeout[lang]}</Say>
+          <Say language="${tLang}">${getPrompt('captchaTimeout', lang)}</Say>
           <Hangup/>
         </Response>
       `)
@@ -121,7 +179,7 @@ export class TwilioAdapter implements TelephonyAdapter {
 
     return this.twiml(`
       <Response>
-        <Say language="${tLang}">${VOICE_PROMPTS.pleaseHold[lang]}</Say>
+        <Say language="${tLang}">${getPrompt('pleaseHold', lang)}</Say>
         <Enqueue waitUrl="/api/telephony/wait-music?lang=${lang}">${params.callSid}</Enqueue>
       </Response>
     `)
@@ -129,19 +187,19 @@ export class TwilioAdapter implements TelephonyAdapter {
 
   async handleCaptchaResponse(params: CaptchaResponseParams): Promise<TelephonyResponse> {
     const lang = params.callerLanguage
-    const tLang = TWILIO_LANG[lang]
+    const tLang = getTwilioVoice(lang)
 
     if (params.digits === params.expectedDigits) {
       return this.twiml(`
         <Response>
-          <Say language="${tLang}">${VOICE_PROMPTS.captchaSuccess[lang]}</Say>
+          <Say language="${tLang}">${getPrompt('captchaSuccess', lang)}</Say>
           <Enqueue waitUrl="/api/telephony/wait-music?lang=${lang}">${params.callSid}</Enqueue>
         </Response>
       `)
     }
     return this.twiml(`
       <Response>
-        <Say language="${tLang}">${VOICE_PROMPTS.captchaFail[lang]}</Say>
+        <Say language="${tLang}">${getPrompt('captchaFail', lang)}</Say>
         <Hangup/>
       </Response>
     `)
