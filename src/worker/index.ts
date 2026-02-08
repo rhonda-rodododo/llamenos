@@ -39,13 +39,33 @@ async function audit(session: DurableObjectStub, event: string, actorPubkey: str
   }))
 }
 
+const SECURITY_HEADERS = {
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+}
+
+function addSecurityHeaders(response: Response): Response {
+  const newHeaders = new Headers(response.headers)
+  for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
+    newHeaders.set(key, value)
+  }
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: newHeaders,
+  })
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url)
 
     // Only handle /api/* routes — everything else goes to static assets
     if (!url.pathname.startsWith('/api/')) {
-      return env.ASSETS.fetch(request)
+      const assetResponse = await env.ASSETS.fetch(request)
+      return addSecurityHeaders(assetResponse)
     }
 
     const path = url.pathname.slice(4) // Remove /api prefix

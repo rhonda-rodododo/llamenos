@@ -1,4 +1,4 @@
-import { createRootRoute, Outlet, Link, useNavigate } from '@tanstack/react-router'
+import { createRootRoute, Outlet, Link, useNavigate, useLocation } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth'
 import { useEffect } from 'react'
@@ -13,6 +13,7 @@ function RootLayout() {
   const { t, i18n } = useTranslation()
   const { isAuthenticated, isAdmin, signOut, name, isLoading } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -20,6 +21,20 @@ function RootLayout() {
       return () => disconnectWebSocket()
     }
   }, [isAuthenticated])
+
+  // Redirect to login when not authenticated (unless already on login page)
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated && location.pathname !== '/login') {
+      navigate({ to: '/login' })
+    }
+  }, [isLoading, isAuthenticated, location.pathname, navigate])
+
+  // Redirect away from login when authenticated
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && location.pathname === '/login') {
+      navigate({ to: '/' })
+    }
+  }, [isLoading, isAuthenticated, location.pathname, navigate])
 
   if (isLoading) {
     return (
