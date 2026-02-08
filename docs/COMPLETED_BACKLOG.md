@@ -83,3 +83,112 @@
 - [x] Smoke test: app loads, shows login, rejects invalid nsec
 - [x] Admin flow: login, nav, volunteer CRUD, shifts, bans, audit log, settings, call history, notes, i18n, logout
 - [x] Updated tests for ConfirmDialog (replaced window.confirm)
+
+## 2026-02-08: Production Quality Polish
+
+### Epic 11: Mobile Responsive
+- [x] Collapsible sidebar with hamburger menu on mobile
+- [x] Responsive grid forms (1-col mobile, 2-col desktop)
+- [x] Adaptive data row layouts with flex-wrap
+- [x] Responsive search form (stacked on mobile)
+- [x] Mobile top bar with hotline name
+- [x] Close sidebar on navigation
+
+### Epic 12: Accessibility (A11y)
+- [x] Skip-to-content link
+- [x] aria-labels on all icon-only buttons
+- [x] aria-pressed on toggle buttons
+- [x] Fixed heading hierarchy (h1 per page)
+- [x] HTML lang and dir (RTL) sync on language change
+- [x] Toast role="alert" for errors, role="status" for success
+- [x] a11y i18n namespace in all 13 locales
+
+### Epic 13: Command Palette
+- [x] Cmd/Ctrl+K global keyboard shortcut
+- [x] Navigation, actions, theme, and language command groups
+- [x] Admin-only navigation commands filtered
+- [x] Sidebar trigger button with keyboard shortcut hint
+- [x] commandPalette i18n namespace in all 13 locales
+
+### Epic 14: E2E Test Expansion
+- [x] Shared test helpers (login, create volunteer, profile setup)
+- [x] 56 tests across 8 files (up from 14)
+- [x] Volunteer flow: login, profile setup, limited nav, break toggle, admin page guards
+- [x] Notes CRUD: create, view, edit, cancel, grouping
+- [x] Auth guards: redirects, session persistence, API 403
+- [x] Theme: dark/light/system switching, persistence
+- [x] Form validation: phone format, E.164, bulk import
+- [x] Responsive: mobile hamburger, no horizontal overflow
+- [x] Mobile-chromium Playwright project for responsive tests
+
+## 2026-02-08: UX / Design / Product Review
+
+### Comprehensive Audit
+- [x] Playwright screenshot audit of every page (login, dashboard, notes, shifts, volunteers, bans, calls, audit, settings)
+- [x] Desktop (1280px) and mobile (375px) viewport testing
+- [x] Light mode, dark mode, and system theme testing
+- [x] Multilingual testing (English, Spanish, Arabic RTL)
+- [x] Error state testing (invalid login)
+- [x] All three persona flows reviewed (Caller, Volunteer, Admin)
+
+### Findings Documented
+- [x] 4 critical bugs identified (C1-C4): broken light mode, dead metric, duplicate identities, deployment gap
+- [x] 6 high-priority UX issues (H1-H6): card wrapping, notes UX, missing translations, no notifications, no status dashboard, copy-paste bug
+- [x] 8 medium-priority issues (M1-M8): tooltips, audit formatting, empty states, double-negative toggle
+- [x] 8 low-priority issues (L1-L8): keyboard shortcuts, component consistency, pagination
+
+### Epics Created
+- [x] Epic 15: Light Mode & Design System Cleanup
+- [x] Epic 16: Real-Time Volunteer Status & Admin Dashboard
+- [x] Epic 17: Notification System
+- [x] Epic 18: Notes & Search Improvements
+
+### Backlog Updated
+- [x] NEXT_BACKLOG.md reorganized with Critical/High/Medium/Low tiers and reference IDs
+
+## 2026-02-08: Epics 15–18 & Full Bug Sweep
+
+### Epic 15: Light Mode & Design System
+- [x] Fixed hardcoded dark-mode colors across all pages (dashboard, notes, shifts, volunteers, bans, calls, audit, settings)
+- [x] Dual light/dark theme support with proper CSS variable usage
+- [x] Login button color fix for light mode (M3)
+
+### Epic 16: Volunteer Status Dashboard & Presence
+- [x] Backend presence tracking in SessionManager DO (online/offline/on-break per volunteer)
+- [x] Real-time status updates via WebSocket broadcast
+- [x] Admin dashboard card showing volunteer online/offline/on-break counts
+- [x] Volunteer status indicators in admin volunteer list
+
+### Epic 17: Notification System
+- [x] Web Audio API ringtone for incoming calls (with play/pause toggle)
+- [x] Browser push notifications (with permission request flow)
+- [x] Tab title flashing on incoming call
+- [x] Settings toggles for ringtone and browser notifications
+- [x] Notification preferences persisted per-session
+
+### Epic 18: Notes Search, Pagination & Call ID UX
+- [x] URL-persisted search via TanStack Router validateSearch
+- [x] Full-text search across note content
+- [x] Pagination with configurable page size
+- [x] Call ID selection from dropdown or manual entry
+- [x] GDPR-compliant data export (JSON download)
+
+### Bug Fixes
+- [x] **C1** Fixed hardcoded dark-mode colors (Epic 15)
+- [x] **C2** Fixed dead "Active Calls" metric — wired to real call data
+- [x] **C3** Fixed duplicate volunteer identities — dedup by pubkey
+- [x] **H1** Fixed card content wrapping/overflow on small viewports
+- [x] **H3** Fixed notes UX — added search, pagination, call ID picker
+- [x] **H6** Fixed missing translations — 20 new keys added to all 13 locales (238 keys parity)
+- [x] **M1–M8** Medium priority items (tooltips, audit formatting, empty states, toggle labels, etc.)
+- [x] **L4** Changed "Get Started" to "Complete Setup" in profile flow
+- [x] **L5** Added keyboard shortcuts section to command palette
+
+### Infrastructure & Test Fixes
+- [x] CardTitle component changed from `<div>` to `<h3>` for proper heading semantics (a11y)
+- [x] Playwright responsive tests fixed (`test.use()` moved to top-level)
+- [x] Admin flow test fixed (strict mode violation on `getByText('Admin')`)
+- [x] Test helper `completeProfileSetup` updated for new button text
+- [x] Playwright config: explicit worker count (4 local, 1 CI)
+- [x] i18n: 20 new keys translated across 12 locales (238 keys parity across all 13 files)
+- [x] Deployed to https://llamenos.rhonda-rodododo.workers.dev/

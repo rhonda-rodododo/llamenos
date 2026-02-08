@@ -26,12 +26,13 @@
   },
   "auth": {
     "login": "Войти",
-    "loginTitle": "Вход в Llámenos",
+    "loginTitle": "Вход в {{name}}",
     "loginDescription": "Введите секретный ключ для доступа к горячей линии",
     "secretKey": "Секретный ключ (nsec)",
     "secretKeyPlaceholder": "nsec1...",
     "invalidKey": "Неверный секретный ключ",
-    "loginError": "Ошибка входа. Проверьте ключ и попробуйте снова."
+    "loginError": "Ошибка входа. Проверьте ключ и попробуйте снова.",
+    "securityNote": "Ваш ключ никогда не покидает ваше устройство"
   },
   "nav": {
     "dashboard": "Панель",
@@ -58,7 +59,11 @@
     "onBreak": "На перерыве",
     "goOnBreak": "Уйти на перерыв",
     "endBreak": "Завершить перерыв",
-    "breakDescription": "Вы не будете получать звонки во время перерыва"
+    "breakDescription": "Вы не будете получать звонки во время перерыва",
+    "volunteerStatus": "Статус волонтёра",
+    "available": "Доступен",
+    "offline": "Не в сети",
+    "noVolunteersOnline": "Нет волонтёров в сети"
   },
   "calls": {
     "incoming": "Входящий звонок",
@@ -85,7 +90,16 @@
     "savedAt": "Сохранено в {{time}}",
     "noNotes": "Заметок пока нет",
     "callWith": "Звонок с {{number}}",
-    "encryptionNote": "Заметки зашифрованы сквозным шифрованием"
+    "encryptionNote": "Заметки зашифрованы сквозным шифрованием",
+    "searchNotes": "Поиск заметок",
+    "searchPlaceholder": "Поиск по содержимому заметок...",
+    "noSearchResults": "Заметки по вашему запросу не найдены",
+    "callId": "ID звонка",
+    "selectCall": "Выберите недавний звонок...",
+    "enterManually": "Ввести ID звонка вручную",
+    "callIdPlaceholder": "ID звонка или ссылка",
+    "export": "Экспорт",
+    "viewNotes": "Заметки"
   },
   "transcription": {
     "title": "Транскрипция",
@@ -228,6 +242,37 @@
     "enableTranscription": "Включить транскрипцию звонков",
     "transcriptionDescription": "Использует ИИ для транскрипции звонков. Можно отключить для каждого волонтёра.",
     "language": "Язык",
-    "theme": "Тема"
+    "theme": "Тема",
+    "notifications": "Уведомления о звонках",
+    "notificationsDescription": "Настройте способ получения уведомлений о входящих звонках",
+    "playRingtone": "Воспроизводить рингтон для входящих звонков",
+    "playRingtoneDescription": "Воспроизводит звуковой сигнал при входящем звонке",
+    "browserNotifications": "Уведомления браузера",
+    "browserNotificationsDescription": "Показывать системное уведомление для входящих звонков"
+  },
+  "commandPalette": {
+    "label": "Палитра команд",
+    "placeholder": "Введите команду или найдите...",
+    "noResults": "Результатов не найдено",
+    "keyboardShortcuts": "Горячие клавиши",
+    "navigation": "Навигация",
+    "actions": "Действия",
+    "theme": "Тема",
+    "language": "Язык"
+  },
+  "a11y": {
+    "skipToContent": "Перейти к содержимому",
+    "switchToLanguage": "Переключить на {{language}}",
+    "copyToClipboard": "Копировать в буфер обмена",
+    "deleteItem": "Удалить",
+    "editItem": "Редактировать",
+    "removeItem": "Убрать",
+    "searchButton": "Поиск",
+    "clearFilters": "Очистить фильтры",
+    "openMenu": "Открыть меню",
+    "closeSidebar": "Закрыть боковую панель",
+    "themeSystem": "Системная тема",
+    "themeLight": "Светлая тема",
+    "themeDark": "Тёмная тема"
   }
 }

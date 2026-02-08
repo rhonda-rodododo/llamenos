@@ -26,12 +26,13 @@
   },
   "auth": {
     "login": "Đăng nhập",
-    "loginTitle": "Đăng nhập vào Llámenos",
+    "loginTitle": "Đăng nhập vào {{name}}",
     "loginDescription": "Nhập khóa bí mật để truy cập đường dây nóng",
     "secretKey": "Khóa bí mật (nsec)",
     "secretKeyPlaceholder": "nsec1...",
     "invalidKey": "Khóa bí mật không hợp lệ",
-    "loginError": "Đăng nhập thất bại. Vui lòng kiểm tra khóa và thử lại."
+    "loginError": "Đăng nhập thất bại. Vui lòng kiểm tra khóa và thử lại.",
+    "securityNote": "Khóa của bạn không bao giờ rời khỏi thiết bị"
   },
   "nav": {
     "dashboard": "Bảng điều khiển",
@@ -58,7 +59,11 @@
     "onBreak": "Đang nghỉ",
     "goOnBreak": "Nghỉ giải lao",
     "endBreak": "Kết thúc nghỉ",
-    "breakDescription": "Bạn sẽ không nhận cuộc gọi khi đang nghỉ"
+    "breakDescription": "Bạn sẽ không nhận cuộc gọi khi đang nghỉ",
+    "volunteerStatus": "Trạng thái tình nguyện viên",
+    "available": "Sẵn sàng",
+    "offline": "Ngoại tuyến",
+    "noVolunteersOnline": "Không có tình nguyện viên trực tuyến"
   },
   "calls": {
     "incoming": "Cuộc gọi đến",
@@ -85,7 +90,16 @@
     "savedAt": "Đã lưu lúc {{time}}",
     "noNotes": "Chưa có ghi chú",
     "callWith": "Cuộc gọi với {{number}}",
-    "encryptionNote": "Ghi chú được mã hóa đầu cuối"
+    "encryptionNote": "Ghi chú được mã hóa đầu cuối",
+    "searchNotes": "Tìm ghi chú",
+    "searchPlaceholder": "Tìm nội dung ghi chú...",
+    "noSearchResults": "Không có ghi chú nào phù hợp với tìm kiếm của bạn",
+    "callId": "Mã cuộc gọi",
+    "selectCall": "Chọn cuộc gọi gần đây...",
+    "enterManually": "Nhập mã cuộc gọi thủ công",
+    "callIdPlaceholder": "Mã cuộc gọi hoặc tham chiếu",
+    "export": "Xuất",
+    "viewNotes": "Ghi chú"
   },
   "transcription": {
     "title": "Phiên âm",
@@ -228,6 +242,37 @@
     "enableTranscription": "Bật phiên âm cuộc gọi",
     "transcriptionDescription": "Sử dụng AI để phiên âm cuộc gọi. Có thể tắt theo từng tình nguyện viên.",
     "language": "Ngôn ngữ",
-    "theme": "Giao diện"
+    "theme": "Giao diện",
+    "notifications": "Thông báo cuộc gọi",
+    "notificationsDescription": "Cấu hình cách bạn nhận cảnh báo cuộc gọi đến",
+    "playRingtone": "Phát nhạc chuông cho cuộc gọi đến",
+    "playRingtoneDescription": "Phát âm thanh khi có cuộc gọi đến",
+    "browserNotifications": "Thông báo trình duyệt",
+    "browserNotificationsDescription": "Hiển thị thông báo hệ thống cho cuộc gọi đến"
+  },
+  "commandPalette": {
+    "label": "Bảng lệnh",
+    "placeholder": "Nhập lệnh hoặc tìm kiếm...",
+    "noResults": "Không tìm thấy kết quả",
+    "keyboardShortcuts": "Phím tắt",
+    "navigation": "Điều hướng",
+    "actions": "Hành động",
+    "theme": "Giao diện",
+    "language": "Ngôn ngữ"
+  },
+  "a11y": {
+    "skipToContent": "Chuyển đến nội dung",
+    "switchToLanguage": "Chuyển sang {{language}}",
+    "copyToClipboard": "Sao chép vào clipboard",
+    "deleteItem": "Xóa",
+    "editItem": "Chỉnh sửa",
+    "removeItem": "Xóa bỏ",
+    "searchButton": "Tìm kiếm",
+    "clearFilters": "Xóa bộ lọc",
+    "openMenu": "Mở menu",
+    "closeSidebar": "Đóng thanh bên",
+    "themeSystem": "Giao diện hệ thống",
+    "themeLight": "Giao diện sáng",
+    "themeDark": "Giao diện tối"
   }
 }

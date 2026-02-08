@@ -2,10 +2,12 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth'
+import { useConfig } from '@/lib/config'
+import { useTheme } from '@/lib/theme'
 import { isValidNsec } from '@/lib/crypto'
 import { setLanguage } from '@/lib/i18n'
 import { LANGUAGES } from '@shared/languages'
-import { Phone, KeyRound, LogIn, Globe, Lock } from 'lucide-react'
+import { Phone, KeyRound, LogIn, Globe, Lock, Sun, Moon, Monitor } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -18,6 +20,8 @@ export const Route = createFileRoute('/login')({
 function LoginPage() {
   const { t, i18n } = useTranslation()
   const { signIn, error, isLoading } = useAuth()
+  const { hotlineName } = useConfig()
+  const { theme, setTheme } = useTheme()
   const navigate = useNavigate()
   const [nsec, setNsec] = useState('')
   const [validationError, setValidationError] = useState('')
@@ -47,12 +51,12 @@ function LoginPage() {
           <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
             <Phone className="h-7 w-7 text-primary" />
           </div>
-          <CardTitle className="text-2xl">{t('auth.loginTitle')}</CardTitle>
+          <CardTitle className="text-2xl">{t('auth.loginTitle', { name: hotlineName })}</CardTitle>
           <CardDescription>{t('auth.loginDescription')}</CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-4">
-          {/* Language toggle */}
+          {/* Language & theme toggles */}
           <div className="flex flex-wrap items-center justify-center gap-1">
             <Globe className="h-3.5 w-3.5 text-muted-foreground" />
             {LANGUAGES.map(lang => (
@@ -62,8 +66,22 @@ function LoginPage() {
                 size="xs"
                 onClick={() => setLanguage(lang.code)}
                 title={lang.label}
+                aria-label={t('a11y.switchToLanguage', { language: lang.label })}
               >
                 {lang.flag}
+              </Button>
+            ))}
+            <span className="mx-1 h-4 w-px bg-border" />
+            {([['system', Monitor], ['light', Sun], ['dark', Moon]] as const).map(([value, Icon]) => (
+              <Button
+                key={value}
+                variant={theme === value ? 'secondary' : 'ghost'}
+                size="xs"
+                onClick={() => setTheme(value)}
+                title={t(`a11y.theme${value.charAt(0).toUpperCase() + value.slice(1)}`)}
+                aria-label={t(`a11y.theme${value.charAt(0).toUpperCase() + value.slice(1)}`)}
+              >
+                <Icon className="h-3 w-3" />
               </Button>
             ))}
           </div>
@@ -107,7 +125,7 @@ function LoginPage() {
         <CardFooter className="justify-center">
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Lock className="h-3 w-3" />
-            {t('auth.securityNote', { defaultValue: 'Your key never leaves your device' })}
+            {t('auth.securityNote')}
           </p>
         </CardFooter>
       </Card>

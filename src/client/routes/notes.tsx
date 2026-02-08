@@ -1,18 +1,29 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth'
-import { useEffect, useState } from 'react'
-import { listNotes, createNote, updateNote, type EncryptedNote } from '@/lib/api'
+import { useEffect, useState, useCallback } from 'react'
+import { listNotes, createNote, updateNote, getCallHistory, type EncryptedNote, type CallRecord } from '@/lib/api'
 import { encryptNote, decryptNote, decryptTranscription } from '@/lib/crypto'
 import { useToast } from '@/lib/toast'
-import { StickyNote, Plus, Pencil, Lock, Mic, Save, X } from 'lucide-react'
+import { StickyNote, Plus, Pencil, Lock, Mic, Save, X, Search, ChevronLeft, ChevronRight, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
+type NotesSearch = {
+  page: number
+  callId: string
+  search: string
+}
+
 export const Route = createFileRoute('/notes')({
+  validateSearch: (search: Record<string, unknown>): NotesSearch => ({
+    page: Number(search?.page ?? 1),
+    callId: (search?.callId as string) || '',
+    search: (search?.search as string) || '',
+  }),
   component: NotesPage,
 })
 
@@ -25,7 +36,10 @@ function NotesPage() {
   const { t } = useTranslation()
   const { keyPair, isAdmin } = useAuth()
   const { toast } = useToast()
+  const navigate = useNavigate({ from: '/notes' })
+  const { page, callId, search } = Route.useSearch()
   const [notes, setNotes] = useState<DecryptedNote[]>([])
+  const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editText, setEditText] = useState('')
@@ -33,50 +47,51 @@ function NotesPage() {
   const [newNoteText, setNewNoteText] = useState('')
   const [showNewNote, setShowNewNote] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [recentCalls, setRecentCalls] = useState<CallRecord[]>([])
+  const [searchInput, setSearchInput] = useState(search)
+  const limit = 50
+
+  // Load recent calls for the dropdown
+  useEffect(() => {
+    if (isAdmin) {
+      getCallHistory({ limit: 20 }).then(r => setRecentCalls(r.calls)).catch(() => {})
+    }
+  }, [isAdmin])
+
+  const loadNotes = useCallback(() => {
+    setLoading(true)
+    listNotes({ callId: callId || undefined, page, limit })
+      .then(res => {
+        const decryptedNotes: DecryptedNote[] = res.notes
+          .filter(note => {
+            if (note.authorPubkey === 'system:transcription:admin') return isAdmin
+            if (note.authorPubkey === 'system:transcription') return !isAdmin
+            return true
+          })
+          .map(note => {
+            const isTranscription = note.authorPubkey.startsWith('system:transcription')
+            let decrypted: string
+            if (isTranscription && note.ephemeralPubkey && keyPair) {
+              decrypted = decryptTranscription(note.encryptedContent, note.ephemeralPubkey, keyPair.secretKey) || '[Decryption failed]'
+            } else if (isTranscription && !note.ephemeralPubkey) {
+              decrypted = note.encryptedContent
+            } else if (keyPair) {
+              decrypted = decryptNote(note.encryptedContent, keyPair.secretKey) || '[Decryption failed]'
+            } else {
+              decrypted = '[No key]'
+            }
+            return { ...note, decrypted, isTranscription }
+          })
+        setNotes(decryptedNotes)
+        setTotal(res.total)
+      })
+      .catch(() => toast(t('common.error'), 'error'))
+      .finally(() => setLoading(false))
+  }, [page, callId, keyPair, isAdmin])
 
   useEffect(() => {
     loadNotes()
-  }, [])
-
-  async function loadNotes() {
-    try {
-      const res = await listNotes()
-      const decryptedNotes: DecryptedNote[] = res.notes
-        .filter(note => {
-          // Admin copies of transcriptions (system:transcription:admin) are only shown to admin
-          if (note.authorPubkey === 'system:transcription:admin') {
-            return isAdmin
-          }
-          // Regular transcriptions are shown to the volunteer (not admin, who uses the :admin copy)
-          if (note.authorPubkey === 'system:transcription') {
-            return !isAdmin
-          }
-          return true
-        })
-        .map(note => {
-          const isTranscription = note.authorPubkey.startsWith('system:transcription')
-          let decrypted: string
-          if (isTranscription && note.ephemeralPubkey && keyPair) {
-            decrypted = decryptTranscription(note.encryptedContent, note.ephemeralPubkey, keyPair.secretKey) || '[Decryption failed]'
-          } else if (isTranscription && !note.ephemeralPubkey) {
-            // Legacy plaintext transcription (pre-E2EE)
-            decrypted = note.encryptedContent
-          } else if (keyPair) {
-            decrypted = decryptNote(note.encryptedContent, keyPair.secretKey) || '[Decryption failed]'
-          } else {
-            decrypted = '[No key]'
-          }
-          return { ...note, decrypted, isTranscription }
-        })
-      setNotes(decryptedNotes.sort((a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      ))
-    } catch {
-      toast(t('common.error'), 'error')
-    } finally {
-      setLoading(false)
-    }
-  }
+  }, [loadNotes])
 
   async function handleSaveEdit(noteId: string) {
     if (!keyPair || !editText.trim()) return
@@ -106,6 +121,7 @@ function NotesPage() {
         { ...res.note, decrypted: newNoteText, isTranscription: false },
         ...prev,
       ])
+      setTotal(prev => prev + 1)
       setNewNoteText('')
       setNewNoteCallId('')
       setShowNewNote(false)
@@ -116,29 +132,110 @@ function NotesPage() {
     }
   }
 
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault()
+    navigate({ search: { page: 1, callId, search: searchInput } })
+  }
+
+  function setPage(newPage: number) {
+    navigate({ search: (prev) => ({ ...prev, page: newPage }) })
+  }
+
+  // Client-side search filtering (notes are decrypted client-side)
+  const filteredNotes = search
+    ? notes.filter(n => n.decrypted.toLowerCase().includes(search.toLowerCase()))
+    : notes
+
   // Group notes by callId
-  const notesByCall = notes.reduce<Record<string, DecryptedNote[]>>((acc, note) => {
+  const notesByCall = filteredNotes.reduce<Record<string, DecryptedNote[]>>((acc, note) => {
     const key = note.callId
     if (!acc[key]) acc[key] = []
     acc[key].push(note)
     return acc
   }, {})
 
+  const totalPages = Math.ceil(total / limit)
+
+  async function handleExport() {
+    const rows = filteredNotes.map(n => ({
+      id: n.id,
+      callId: n.callId,
+      content: n.decrypted,
+      isTranscription: n.isTranscription,
+      createdAt: n.createdAt,
+      updatedAt: n.updatedAt,
+    }))
+    const blob = new Blob([JSON.stringify(rows, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `notes-export-${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="text-2xl font-bold">{t('notes.title')}</h2>
+          <h1 className="text-xl font-bold sm:text-2xl">{t('notes.title')}</h1>
           <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
             <Lock className="h-3 w-3" />
             {t('notes.encryptionNote')}
           </p>
         </div>
-        <Button onClick={() => setShowNewNote(!showNewNote)}>
-          <Plus className="h-4 w-4" />
-          {t('notes.newNote')}
-        </Button>
+        <div className="flex gap-2">
+          {isAdmin && (
+            <Button variant="outline" size="sm" onClick={handleExport}>
+              <Download className="h-4 w-4" />
+              {t('notes.export')}
+            </Button>
+          )}
+          <Button onClick={() => setShowNewNote(!showNewNote)}>
+            <Plus className="h-4 w-4" />
+            {t('notes.newNote')}
+          </Button>
+        </div>
       </div>
+
+      {/* Search bar */}
+      <Card>
+        <CardContent className="py-3">
+          <form onSubmit={handleSearch} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="flex-1">
+              <label className="mb-1 block text-xs text-muted-foreground">{t('notes.searchNotes')}</label>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={searchInput}
+                  onChange={e => setSearchInput(e.target.value)}
+                  placeholder={t('notes.searchPlaceholder')}
+                  className="pl-9"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button type="submit" size="sm" aria-label={t('a11y.searchButton')}>
+                <Search className="h-4 w-4" />
+              </Button>
+              {(search || callId) && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSearchInput('')
+                    navigate({ search: { page: 1, callId: '', search: '' } })
+                  }}
+                  aria-label={t('a11y.clearFilters')}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </form>
+        </CardContent>
+      </Card>
 
       {/* New note form */}
       {showNewNote && (
@@ -151,13 +248,37 @@ function NotesPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="call-id">Call ID</Label>
-              <Input
-                id="call-id"
-                value={newNoteCallId}
-                onChange={e => setNewNoteCallId(e.target.value)}
-                placeholder="Call ID or reference"
-              />
+              <Label htmlFor="call-id">{t('notes.callId')}</Label>
+              {recentCalls.length > 0 ? (
+                <select
+                  id="call-id"
+                  value={newNoteCallId}
+                  onChange={e => setNewNoteCallId(e.target.value)}
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+                >
+                  <option value="">{t('notes.selectCall')}</option>
+                  {recentCalls.map(call => (
+                    <option key={call.id} value={call.id}>
+                      {call.callerNumber} — {new Date(call.startedAt).toLocaleString()}
+                    </option>
+                  ))}
+                  <option value="__manual">{t('notes.enterManually')}</option>
+                </select>
+              ) : (
+                <Input
+                  id="call-id"
+                  value={newNoteCallId}
+                  onChange={e => setNewNoteCallId(e.target.value)}
+                  placeholder={t('notes.callIdPlaceholder')}
+                />
+              )}
+              {newNoteCallId === '__manual' && (
+                <Input
+                  value=""
+                  onChange={e => setNewNoteCallId(e.target.value)}
+                  placeholder={t('notes.callIdPlaceholder')}
+                />
+              )}
             </div>
             <div className="space-y-2">
               <Label>{t('notes.newNote')}</Label>
@@ -170,7 +291,7 @@ function NotesPage() {
               />
             </div>
             <div className="flex gap-2">
-              <Button onClick={handleCreateNote} disabled={saving || !newNoteText.trim() || !newNoteCallId.trim()}>
+              <Button onClick={handleCreateNote} disabled={saving || !newNoteText.trim() || !newNoteCallId.trim() || newNoteCallId === '__manual'}>
                 <Save className="h-4 w-4" />
                 {saving ? t('common.loading') : t('common.save')}
               </Button>
@@ -199,16 +320,16 @@ function NotesPage() {
           <CardContent>
             <div className="py-8 text-center text-muted-foreground">
               <StickyNote className="mx-auto mb-2 h-8 w-8 opacity-40" />
-              {t('notes.noNotes')}
+              {search ? t('notes.noSearchResults') : t('notes.noNotes')}
             </div>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-4">
-          {Object.entries(notesByCall).map(([callId, callNotes]) => (
-            <Card key={callId}>
+          {Object.entries(notesByCall).map(([cId, callNotes]) => (
+            <Card key={cId}>
               <CardHeader className="border-b py-3">
-                <CardTitle className="text-sm">{t('notes.callWith', { number: callId.slice(0, 20) })}</CardTitle>
+                <CardTitle className="text-sm">{t('notes.callWith', { number: cId.slice(0, 20) })}</CardTitle>
               </CardHeader>
               <CardContent className="p-0 divide-y divide-border">
                 {callNotes.map(note => (
@@ -254,6 +375,7 @@ function NotesPage() {
                           variant="ghost"
                           size="icon-xs"
                           onClick={() => { setEditingId(note.id); setEditText(note.decrypted) }}
+                          aria-label={t('a11y.editItem')}
                         >
                           <Pencil className="h-3 w-3" />
                         </Button>
@@ -264,6 +386,31 @@ function NotesPage() {
               </CardContent>
             </Card>
           ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage(Math.max(1, page - 1))}
+            disabled={page === 1}
+          >
+            <ChevronLeft className="h-4 w-4" />
+            {t('common.back')}
+          </Button>
+          <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage(Math.min(totalPages, page + 1))}
+            disabled={page === totalPages}
+          >
+            {t('common.next')}
+            <ChevronRight className="h-4 w-4" />
+          </Button>
         </div>
       )}
     </div>

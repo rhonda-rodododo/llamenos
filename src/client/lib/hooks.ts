@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { onMessage, sendMessage } from './ws'
+import { startRinging, stopRinging } from './notifications'
 import type { ActiveCall } from './api'
 
 /**
@@ -17,7 +18,13 @@ export function useCalls() {
     })
 
     const unsubIncoming = onMessage('call:incoming', (data) => {
-      setCalls(prev => [...prev, data as ActiveCall])
+      const call = data as ActiveCall
+      setCalls(prev => [...prev, call])
+      // Start ringing notification
+      startRinging(
+        call.callerNumber || 'Unknown',
+        'Incoming Call!'
+      )
     })
 
     const unsubUpdate = onMessage('call:update', (data) => {
@@ -34,6 +41,11 @@ export function useCalls() {
         }
         return [...prev, call]
       })
+
+      // Stop ringing when call is answered or completed
+      if (call.status === 'in-progress' || call.status === 'completed') {
+        stopRinging()
+      }
 
       // Update current call if it's the one we're on
       if (currentCall?.id === call.id) {
@@ -54,6 +66,7 @@ export function useCalls() {
 
   const answerCall = useCallback((callId: string) => {
     sendMessage('call:answer', { callId })
+    stopRinging()
     const call = calls.find(c => c.id === callId)
     if (call) {
       setCurrentCall({ ...call, status: 'in-progress' })

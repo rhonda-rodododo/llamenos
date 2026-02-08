@@ -26,12 +26,13 @@
   },
   "auth": {
     "login": "登录",
-    "loginTitle": "登录 Llámenos",
+    "loginTitle": "登录 {{name}}",
     "loginDescription": "输入您的密钥以访问热线",
     "secretKey": "密钥 (nsec)",
     "secretKeyPlaceholder": "nsec1...",
     "invalidKey": "密钥无效",
-    "loginError": "登录失败。请检查您的密钥并重试。"
+    "loginError": "登录失败。请检查您的密钥并重试。",
+    "securityNote": "您的密钥从不离开您的设备"
   },
   "nav": {
     "dashboard": "仪表盘",
@@ -58,7 +59,11 @@
     "onBreak": "休息中",
     "goOnBreak": "休息一下",
     "endBreak": "结束休息",
-    "breakDescription": "休息期间不会接到电话"
+    "breakDescription": "休息期间不会接到电话",
+    "volunteerStatus": "志愿者状态",
+    "available": "可用",
+    "offline": "离线",
+    "noVolunteersOnline": "没有志愿者在线"
   },
   "calls": {
     "incoming": "来电",
@@ -85,7 +90,16 @@
     "savedAt": "保存于 {{time}}",
     "noNotes": "暂无笔记",
     "callWith": "与 {{number}} 的通话",
-    "encryptionNote": "笔记已端到端加密"
+    "encryptionNote": "笔记已端到端加密",
+    "searchNotes": "搜索笔记",
+    "searchPlaceholder": "搜索笔记内容...",
+    "noSearchResults": "没有匹配的笔记",
+    "callId": "通话ID",
+    "selectCall": "选择最近的通话...",
+    "enterManually": "手动输入通话ID",
+    "callIdPlaceholder": "通话ID或参考号",
+    "export": "导出",
+    "viewNotes": "笔记"
   },
   "transcription": {
     "title": "转录",
@@ -228,6 +242,37 @@
     "enableTranscription": "启用通话转录",
     "transcriptionDescription": "使用AI转录通话。可按志愿者单独禁用。",
     "language": "语言",
-    "theme": "主题"
+    "theme": "主题",
+    "notifications": "来电通知",
+    "notificationsDescription": "配置您接收来电提醒的方式",
+    "playRingtone": "来电时播放铃声",
+    "playRingtoneDescription": "来电响铃时播放提示音",
+    "browserNotifications": "浏览器通知",
+    "browserNotificationsDescription": "来电时显示系统通知"
+  },
+  "commandPalette": {
+    "label": "命令面板",
+    "placeholder": "输入命令或搜索...",
+    "noResults": "未找到结果",
+    "keyboardShortcuts": "键盘快捷键",
+    "navigation": "导航",
+    "actions": "操作",
+    "theme": "主题",
+    "language": "语言"
+  },
+  "a11y": {
+    "skipToContent": "跳到内容",
+    "switchToLanguage": "切换到{{language}}",
+    "copyToClipboard": "复制到剪贴板",
+    "deleteItem": "删除",
+    "editItem": "编辑",
+    "removeItem": "移除",
+    "searchButton": "搜索",
+    "clearFilters": "清除筛选",
+    "openMenu": "打开菜单",
+    "closeSidebar": "关闭侧边栏",
+    "themeSystem": "系统主题",
+    "themeLight": "浅色主题",
+    "themeDark": "深色主题"
   }
 }

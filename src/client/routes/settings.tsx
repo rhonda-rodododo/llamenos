@@ -11,7 +11,8 @@ import {
   type SpamSettings,
 } from '@/lib/api'
 import { useToast } from '@/lib/toast'
-import { Settings2, Mic, ShieldAlert, Bot, Timer } from 'lucide-react'
+import { Settings2, Mic, ShieldAlert, Bot, Timer, Bell } from 'lucide-react'
+import { getNotificationPrefs, setNotificationPrefs } from '@/lib/notifications'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
@@ -28,6 +29,7 @@ function SettingsPage() {
   const [spam, setSpam] = useState<SpamSettings | null>(null)
   const [globalTranscription, setGlobalTranscription] = useState(false)
   const [myTranscription, setMyTranscription] = useState(transcriptionEnabled)
+  const [notifPrefs, setNotifPrefs] = useState(getNotificationPrefs)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -50,7 +52,7 @@ function SettingsPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-2">
         <Settings2 className="h-6 w-6 text-muted-foreground" />
-        <h2 className="text-2xl font-bold">{t('settings.title')}</h2>
+        <h1 className="text-xl font-bold sm:text-2xl">{t('settings.title')}</h1>
       </div>
 
       {/* Transcription */}
@@ -85,9 +87,7 @@ function SettingsPage() {
 
           <div className="flex items-center justify-between rounded-lg border border-border p-4">
             <div className="space-y-0.5">
-              <Label>
-                {myTranscription ? t('transcription.disableForCalls') : t('transcription.enableForCalls')}
-              </Label>
+              <Label>{t('transcription.enableForCalls')}</Label>
             </div>
             <Switch
               checked={myTranscription}
@@ -98,6 +98,45 @@ function SettingsPage() {
                 } catch {
                   toast(t('common.error'), 'error')
                 }
+              }}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Call Notifications */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Bell className="h-5 w-5 text-muted-foreground" />
+            {t('settings.notifications')}
+          </CardTitle>
+          <CardDescription>{t('settings.notificationsDescription')}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between rounded-lg border border-border p-4">
+            <div className="space-y-0.5">
+              <Label>{t('settings.playRingtone')}</Label>
+              <p className="text-xs text-muted-foreground">{t('settings.playRingtoneDescription')}</p>
+            </div>
+            <Switch
+              checked={notifPrefs.ringtoneEnabled}
+              onCheckedChange={(checked) => {
+                const updated = setNotificationPrefs({ ringtoneEnabled: checked })
+                setNotifPrefs(updated)
+              }}
+            />
+          </div>
+          <div className="flex items-center justify-between rounded-lg border border-border p-4">
+            <div className="space-y-0.5">
+              <Label>{t('settings.browserNotifications')}</Label>
+              <p className="text-xs text-muted-foreground">{t('settings.browserNotificationsDescription')}</p>
+            </div>
+            <Switch
+              checked={notifPrefs.browserNotificationsEnabled}
+              onCheckedChange={(checked) => {
+                const updated = setNotificationPrefs({ browserNotificationsEnabled: checked })
+                setNotifPrefs(updated)
               }}
             />
           </div>
@@ -157,7 +196,7 @@ function SettingsPage() {
             </div>
 
             {spam.rateLimitEnabled && (
-              <div className="grid grid-cols-2 gap-4 rounded-lg border border-border p-4">
+              <div className="grid grid-cols-1 gap-4 rounded-lg border border-border p-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="max-calls">{t('spam.maxCallsPerMinute')}</Label>
                   <Input

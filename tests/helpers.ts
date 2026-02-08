@@ -1,0 +1,55 @@
+import { expect, type Page } from '@playwright/test'
+
+export const ADMIN_NSEC = 'nsec174zsa94n3e7t0ugfldh9tgkkzmaxhalr78uxt9phjq3mmn6d6xas5jdffh'
+
+export async function loginAsAdmin(page: Page) {
+  await page.goto('/login')
+  await page.getByRole('textbox', { name: /secret key/i }).fill(ADMIN_NSEC)
+  await page.getByRole('button', { name: /log in/i }).click()
+  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible({ timeout: 15000 })
+}
+
+export async function loginAsVolunteer(page: Page, nsec: string) {
+  await page.goto('/login')
+  await page.getByRole('textbox', { name: /secret key/i }).fill(nsec)
+  await page.getByRole('button', { name: /log in/i }).click()
+  // Volunteer may land on profile-setup or dashboard
+  await page.waitForURL(/\/(profile-setup)?$/, { timeout: 15000 })
+}
+
+export async function logout(page: Page) {
+  // On desktop, click the logout button in sidebar
+  await page.getByRole('button', { name: /log out/i }).click()
+  await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible()
+}
+
+export async function createVolunteerAndGetNsec(page: Page, name: string, phone: string): Promise<string> {
+  await page.getByRole('link', { name: 'Volunteers' }).click()
+  await expect(page.getByRole('heading', { name: 'Volunteers' })).toBeVisible()
+
+  await page.getByRole('button', { name: /add volunteer/i }).click()
+  const form = page.locator('form')
+  await form.locator('input').first().fill(name)
+  await form.locator('input[type="tel"]').fill(phone)
+  await page.getByRole('button', { name: /save/i }).click()
+
+  // Wait for the nsec to appear
+  await expect(page.locator('code')).toBeVisible()
+  const nsec = await page.locator('code').textContent()
+  if (!nsec) throw new Error('Failed to get nsec')
+  return nsec
+}
+
+export async function completeProfileSetup(page: Page) {
+  // If we're on profile-setup, complete it
+  if (page.url().includes('profile-setup')) {
+    // Select English as spoken language (should already be selected)
+    await page.getByRole('button', { name: /complete setup/i }).click()
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
+  }
+}
+
+export function uniquePhone(): string {
+  const suffix = Date.now().toString().slice(-7)
+  return `+1555${suffix}`
+}

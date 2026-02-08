@@ -37,6 +37,14 @@ export class ApiError extends Error {
   }
 }
 
+// --- Public config (no auth) ---
+
+export async function getConfig() {
+  const res = await fetch(`${API_BASE}/config`)
+  if (!res.ok) return { hotlineName: 'Hotline' }
+  return res.json() as Promise<{ hotlineName: string }>
+}
+
 // --- Auth ---
 
 export async function login(pubkey: string, token: string) {
@@ -135,9 +143,12 @@ export async function bulkAddBans(data: { phones: string[]; reason: string }) {
 
 // --- Notes ---
 
-export async function listNotes(callId?: string) {
-  const params = callId ? `?callId=${callId}` : ''
-  return request<{ notes: EncryptedNote[] }>(`/notes${params}`)
+export async function listNotes(params?: { callId?: string; page?: number; limit?: number }) {
+  const qs = new URLSearchParams()
+  if (params?.callId) qs.set('callId', params.callId)
+  if (params?.page) qs.set('page', String(params.page))
+  if (params?.limit) qs.set('limit', String(params.limit))
+  return request<{ notes: EncryptedNote[]; total: number }>(`/notes?${qs}`)
 }
 
 export async function createNote(data: { callId: string; encryptedContent: string }) {
@@ -168,6 +179,18 @@ export async function getCallHistory(params?: { page?: number; limit?: number; s
   if (params?.dateFrom) qs.set('dateFrom', params.dateFrom)
   if (params?.dateTo) qs.set('dateTo', params.dateTo)
   return request<{ calls: CallRecord[]; total: number }>(`/calls/history?${qs}`)
+}
+
+// --- Calls Today ---
+
+export async function getCallsTodayCount() {
+  return request<{ count: number }>('/calls/today-count')
+}
+
+// --- Volunteer Presence (admin only) ---
+
+export async function getVolunteerPresence() {
+  return request<{ volunteers: VolunteerPresence[] }>('/calls/presence')
 }
 
 // --- Audit Log (admin only) ---
@@ -290,6 +313,11 @@ export interface AuditLogEntry {
   actorPubkey: string
   details: Record<string, unknown>
   createdAt: string
+}
+
+export interface VolunteerPresence {
+  pubkey: string
+  status: 'available' | 'on-call' | 'online'
 }
 
 export interface SpamSettings {

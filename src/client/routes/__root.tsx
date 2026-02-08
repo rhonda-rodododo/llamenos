@@ -1,10 +1,13 @@
 import { createRootRoute, Outlet, Link, useNavigate, useLocation } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth'
-import { useEffect, type ReactNode } from 'react'
+import { useConfig } from '@/lib/config'
+import { useTheme } from '@/lib/theme'
+import { useEffect, useState, type ReactNode } from 'react'
 import { connectWebSocket, disconnectWebSocket } from '@/lib/ws'
 import { setLanguage } from '@/lib/i18n'
 import { LANGUAGES } from '@shared/languages'
+import { CommandPalette, triggerCommandPalette } from '@/components/command-palette'
 import {
   LayoutDashboard,
   StickyNote,
@@ -17,6 +20,12 @@ import {
   LogOut,
   Globe,
   Phone,
+  Sun,
+  Moon,
+  Monitor,
+  Menu,
+  X,
+  Search,
 } from 'lucide-react'
 
 export const Route = createRootRoute({
@@ -26,6 +35,8 @@ export const Route = createRootRoute({
 function RootLayout() {
   const { t, i18n } = useTranslation()
   const { isAuthenticated, isAdmin, signOut, name, role, isLoading, profileCompleted } = useAuth()
+  const { hotlineName } = useConfig()
+  const { theme, setTheme } = useTheme()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -70,14 +81,49 @@ function RootLayout() {
     return <Outlet />
   }
 
+  return <AuthenticatedLayout />
+}
+
+function AuthenticatedLayout() {
+  const { t, i18n } = useTranslation()
+  const { isAdmin, signOut, name, role } = useAuth()
+  const { hotlineName } = useConfig()
+  const { theme, setTheme } = useTheme()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  // Close sidebar on navigation
+  useEffect(() => {
+    setSidebarOpen(false)
+  }, [location.pathname])
+
   return (
     <div className="flex h-screen">
+      {/* Skip link */}
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground">
+        {t('a11y.skipToContent')}
+      </a>
+
+      {/* Mobile backdrop */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/50 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <nav className="flex w-64 flex-col border-r border-border bg-sidebar">
+      <nav className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-border bg-sidebar transition-transform md:static md:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="border-b border-border px-4 py-5">
-          <div className="flex items-center gap-2">
-            <Phone className="h-5 w-5 text-primary" />
-            <h1 className="text-lg font-bold text-sidebar-foreground">{t('common.appName')}</h1>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Phone className="h-5 w-5 text-primary" />
+              <p className="text-lg font-bold text-sidebar-foreground">{hotlineName}</p>
+            </div>
+            <button onClick={() => setSidebarOpen(false)} className="md:hidden text-muted-foreground hover:text-foreground" aria-label={t('a11y.closeSidebar')}>
+              <X className="h-5 w-5" />
+            </button>
           </div>
           {name && (
             <div className="mt-2 flex items-center gap-2">
@@ -92,7 +138,7 @@ function RootLayout() {
           )}
         </div>
 
-        <div className="flex flex-1 flex-col gap-0.5 p-3">
+        <div className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-3">
           <NavLink to="/" icon={<LayoutDashboard className="h-4 w-4" />}>{t('nav.dashboard')}</NavLink>
           <NavLink to="/notes" icon={<StickyNote className="h-4 w-4" />}>{t('nav.notes')}</NavLink>
           {!isAdmin && (
@@ -125,12 +171,38 @@ function RootLayout() {
                   onClick={() => setLanguage(lang.code)}
                   className={`rounded px-1.5 py-0.5 text-xs transition-colors ${i18n.language === lang.code ? 'bg-primary/20 text-primary font-medium' : 'text-muted-foreground hover:text-foreground'}`}
                   title={lang.label}
+                  aria-label={t('a11y.switchToLanguage', { language: lang.label })}
                 >
                   {lang.flag}
                 </button>
               ))}
             </div>
           </div>
+          <div className="flex items-center gap-1.5">
+            {theme === 'dark' ? <Moon className="h-3.5 w-3.5 text-muted-foreground" /> : theme === 'light' ? <Sun className="h-3.5 w-3.5 text-muted-foreground" /> : <Monitor className="h-3.5 w-3.5 text-muted-foreground" />}
+            <div className="flex gap-0.5">
+              {([['system', Monitor], ['light', Sun], ['dark', Moon]] as const).map(([value, Icon]) => (
+                <button
+                  key={value}
+                  onClick={() => setTheme(value)}
+                  className={`rounded px-1.5 py-0.5 text-xs transition-colors ${theme === value ? 'bg-primary/20 text-primary font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+                  aria-label={t(`a11y.theme${value.charAt(0).toUpperCase() + value.slice(1)}`)}
+                >
+                  <Icon className="h-3 w-3" />
+                </button>
+              ))}
+            </div>
+          </div>
+          <button
+            onClick={triggerCommandPalette}
+            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          >
+            <Search className="h-4 w-4" />
+            {t('commandPalette.label')}
+            <kbd className="ml-auto rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
+              {navigator.platform?.includes('Mac') ? '⌘K' : 'Ctrl K'}
+            </kbd>
+          </button>
           <button
             onClick={() => {
               signOut()
@@ -145,9 +217,24 @@ function RootLayout() {
       </nav>
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto bg-background p-6">
-        <Outlet />
-      </main>
+      <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Mobile top bar */}
+        <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-background px-4 py-3 md:hidden">
+          <button onClick={() => setSidebarOpen(true)} aria-label={t('a11y.openMenu')}>
+            <Menu className="h-5 w-5" />
+          </button>
+          <div className="flex items-center gap-2">
+            <Phone className="h-4 w-4 text-primary" />
+            <span className="font-semibold">{hotlineName}</span>
+          </div>
+        </header>
+
+        <main id="main-content" tabIndex={-1} className="flex-1 overflow-y-auto bg-background p-4 md:p-6">
+          <Outlet />
+        </main>
+      </div>
+
+      <CommandPalette />
     </div>
   )
 }

@@ -26,12 +26,13 @@
   },
   "auth": {
     "login": "Se connecter",
-    "loginTitle": "Connexion à Llámenos",
+    "loginTitle": "Connexion à {{name}}",
     "loginDescription": "Entrez votre clé secrète pour accéder à la ligne d'aide",
     "secretKey": "Clé secrète (nsec)",
     "secretKeyPlaceholder": "nsec1...",
     "invalidKey": "Clé secrète invalide",
-    "loginError": "Échec de la connexion. Veuillez vérifier votre clé et réessayer."
+    "loginError": "Échec de la connexion. Veuillez vérifier votre clé et réessayer.",
+    "securityNote": "Votre clé ne quitte jamais votre appareil"
   },
   "nav": {
     "dashboard": "Tableau de bord",
@@ -58,7 +59,11 @@
     "onBreak": "En pause",
     "goOnBreak": "Prendre une pause",
     "endBreak": "Fin de pause",
-    "breakDescription": "Vous ne recevrez pas d'appels pendant la pause"
+    "breakDescription": "Vous ne recevrez pas d'appels pendant la pause",
+    "volunteerStatus": "Statut du bénévole",
+    "available": "Disponible",
+    "offline": "Hors ligne",
+    "noVolunteersOnline": "Aucun bénévole en ligne"
   },
   "calls": {
     "incoming": "Appel entrant",
@@ -85,7 +90,16 @@
     "savedAt": "Enregistré à {{time}}",
     "noNotes": "Aucune note",
     "callWith": "Appel avec {{number}}",
-    "encryptionNote": "Les notes sont chiffrées de bout en bout"
+    "encryptionNote": "Les notes sont chiffrées de bout en bout",
+    "searchNotes": "Rechercher des notes",
+    "searchPlaceholder": "Rechercher dans le contenu des notes...",
+    "noSearchResults": "Aucune note ne correspond à votre recherche",
+    "callId": "ID d'appel",
+    "selectCall": "Sélectionner un appel récent...",
+    "enterManually": "Saisir l'ID d'appel manuellement",
+    "callIdPlaceholder": "ID d'appel ou référence",
+    "export": "Exporter",
+    "viewNotes": "Notes"
   },
   "transcription": {
     "title": "Transcription",
@@ -228,6 +242,37 @@
     "enableTranscription": "Activer la transcription des appels",
     "transcriptionDescription": "Utilise l'IA pour transcrire les appels. Peut être désactivé par bénévole.",
     "language": "Langue",
-    "theme": "Thème"
+    "theme": "Thème",
+    "notifications": "Notifications d'appel",
+    "notificationsDescription": "Configurez la manière dont vous recevez les alertes d'appels entrants",
+    "playRingtone": "Jouer une sonnerie pour les appels entrants",
+    "playRingtoneDescription": "Joue un son lorsqu'un appel est en cours de sonnerie",
+    "browserNotifications": "Notifications du navigateur",
+    "browserNotificationsDescription": "Afficher une notification système pour les appels entrants"
+  },
+  "commandPalette": {
+    "label": "Palette de commandes",
+    "placeholder": "Tapez une commande ou recherchez...",
+    "noResults": "Aucun résultat trouvé",
+    "keyboardShortcuts": "Raccourcis clavier",
+    "navigation": "Navigation",
+    "actions": "Actions",
+    "theme": "Thème",
+    "language": "Langue"
+  },
+  "a11y": {
+    "skipToContent": "Aller au contenu",
+    "switchToLanguage": "Passer à {{language}}",
+    "copyToClipboard": "Copier dans le presse-papiers",
+    "deleteItem": "Supprimer",
+    "editItem": "Modifier",
+    "removeItem": "Retirer",
+    "searchButton": "Rechercher",
+    "clearFilters": "Effacer les filtres",
+    "openMenu": "Ouvrir le menu",
+    "closeSidebar": "Fermer la barre latérale",
+    "themeSystem": "Thème système",
+    "themeLight": "Thème clair",
+    "themeDark": "Thème sombre"
   }
 }

@@ -8,6 +8,7 @@ export interface Env {
   TWILIO_AUTH_TOKEN: string
   TWILIO_PHONE_NUMBER: string
   ADMIN_PUBKEY: string
+  HOTLINE_NAME: string
   ENVIRONMENT: string
 }
 

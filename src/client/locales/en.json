@@ -26,12 +26,13 @@
   },
   "auth": {
     "login": "Log in",
-    "loginTitle": "Sign in to Llámenos",
+    "loginTitle": "Sign in to {{name}}",
     "loginDescription": "Enter your secret key to access the hotline",
     "secretKey": "Secret Key (nsec)",
     "secretKeyPlaceholder": "nsec1...",
     "invalidKey": "Invalid secret key",
-    "loginError": "Failed to log in. Please check your key and try again."
+    "loginError": "Failed to log in. Please check your key and try again.",
+    "securityNote": "Your key never leaves your device"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -58,7 +59,12 @@
     "onBreak": "On Break",
     "goOnBreak": "Take a Break",
     "endBreak": "End Break",
-    "breakDescription": "You won't receive calls while on break"
+    "breakDescription": "You won't receive calls while on break",
+    "volunteerStatus": "Volunteer Status",
+    "available": "Available",
+    "onCall": "On Call",
+    "offline": "Offline",
+    "noVolunteersOnline": "No volunteers online"
   },
   "calls": {
     "incoming": "Incoming Call",
@@ -85,7 +91,16 @@
     "savedAt": "Saved at {{time}}",
     "noNotes": "No notes yet",
     "callWith": "Call with {{number}}",
-    "encryptionNote": "Notes are encrypted end-to-end"
+    "encryptionNote": "Notes are encrypted end-to-end",
+    "searchNotes": "Search notes",
+    "searchPlaceholder": "Search note content...",
+    "noSearchResults": "No notes match your search",
+    "callId": "Call ID",
+    "selectCall": "Select a recent call...",
+    "enterManually": "Enter call ID manually",
+    "callIdPlaceholder": "Call ID or reference",
+    "export": "Export",
+    "viewNotes": "Notes"
   },
   "transcription": {
     "title": "Transcription",
@@ -109,7 +124,7 @@
     "recurring": "Recurring",
     "volunteers": "Volunteers",
     "assignVolunteers": "Assign Volunteers",
-    "noShifts": "No shifts scheduled",
+    "noShifts": "No shifts scheduled. Create a shift to start routing calls.",
     "fallbackGroup": "Fallback Group",
     "fallbackDescription": "These volunteers receive calls when no shift is scheduled",
     "days": {
@@ -150,7 +165,7 @@
     "reason": "Reason",
     "bannedAt": "Banned At",
     "bannedBy": "Banned By",
-    "noEntries": "No banned numbers",
+    "noEntries": "No banned numbers. Add numbers to block spam callers.",
     "confirmBan": "Are you sure you want to ban this number?",
     "confirmUnban": "Are you sure you want to unban this number?",
     "bulkImport": "Import Ban List",
@@ -214,7 +229,7 @@
     "uiLanguage": "Interface language",
     "spokenLanguages": "Languages you can take calls in",
     "spokenLanguagesHelp": "Select all languages you can comfortably handle calls in.",
-    "getStarted": "Get started",
+    "getStarted": "Complete Setup",
     "selectLanguage": "Please select at least one language",
     "preferences": "My Preferences",
     "updateProfile": "Update Profile"
@@ -228,6 +243,37 @@
     "enableTranscription": "Enable call transcription",
     "transcriptionDescription": "Uses AI to transcribe calls. Can be disabled per-volunteer.",
     "language": "Language",
-    "theme": "Theme"
+    "theme": "Theme",
+    "notifications": "Call Notifications",
+    "notificationsDescription": "Configure how you receive incoming call alerts",
+    "playRingtone": "Play ringtone for incoming calls",
+    "playRingtoneDescription": "Plays an audio tone when a call is ringing",
+    "browserNotifications": "Browser notifications",
+    "browserNotificationsDescription": "Show a system notification for incoming calls"
+  },
+  "commandPalette": {
+    "label": "Command Palette",
+    "placeholder": "Type a command or search...",
+    "noResults": "No results found",
+    "keyboardShortcuts": "Keyboard Shortcuts",
+    "navigation": "Navigation",
+    "actions": "Actions",
+    "theme": "Theme",
+    "language": "Language"
+  },
+  "a11y": {
+    "skipToContent": "Skip to content",
+    "switchToLanguage": "Switch to {{language}}",
+    "copyToClipboard": "Copy to clipboard",
+    "deleteItem": "Delete",
+    "editItem": "Edit",
+    "removeItem": "Remove",
+    "searchButton": "Search",
+    "clearFilters": "Clear filters",
+    "openMenu": "Open menu",
+    "closeSidebar": "Close sidebar",
+    "themeSystem": "System theme",
+    "themeLight": "Light theme",
+    "themeDark": "Dark theme"
   }
 }

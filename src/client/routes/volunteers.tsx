@@ -11,7 +11,7 @@ import {
 } from '@/lib/api'
 import { generateKeyPair } from '@/lib/crypto'
 import { useToast } from '@/lib/toast'
-import { UserPlus, Shield, ShieldCheck, Trash2, Key, AlertTriangle, Copy, Coffee } from 'lucide-react'
+import { UserPlus, Shield, ShieldCheck, Trash2, Key, AlertTriangle, Copy, Coffee, Eye, EyeOff } from 'lucide-react'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -53,8 +53,8 @@ function VolunteersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">{t('volunteers.title')}</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-xl font-bold sm:text-2xl">{t('volunteers.title')}</h1>
         <Button onClick={() => { setShowAddForm(true); setGeneratedNsec(null) }}>
           <UserPlus className="h-4 w-4" />
           {t('volunteers.addVolunteer')}
@@ -63,13 +63,13 @@ function VolunteersPage() {
 
       {/* Generated key warning */}
       {generatedNsec && (
-        <Card className="border-yellow-600/50 bg-yellow-950/10">
+        <Card className="border-yellow-400/50 bg-yellow-50 dark:border-yellow-600/50 dark:bg-yellow-950/10">
           <CardContent className="space-y-3">
             <div className="flex items-start gap-2">
-              <Key className="mt-0.5 h-4 w-4 text-yellow-400" />
+              <Key className="mt-0.5 h-4 w-4 text-yellow-600 dark:text-yellow-400" />
               <div>
-                <p className="text-sm font-medium text-yellow-300">{t('volunteers.inviteGenerated')}</p>
-                <p className="mt-0.5 text-xs text-yellow-400/80">{t('volunteers.secretKeyWarning')}</p>
+                <p className="text-sm font-medium text-yellow-800 dark:text-yellow-300">{t('volunteers.inviteGenerated')}</p>
+                <p className="mt-0.5 text-xs text-yellow-600 dark:text-yellow-400/80">{t('volunteers.secretKeyWarning')}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -78,6 +78,7 @@ function VolunteersPage() {
                 variant="outline"
                 size="icon"
                 onClick={() => { navigator.clipboard.writeText(generatedNsec); toast(t('common.success'), 'success') }}
+                aria-label={t('a11y.copyToClipboard')}
               >
                 <Copy className="h-3.5 w-3.5" />
               </Button>
@@ -181,7 +182,7 @@ function AddVolunteerForm({ onCreated, onCancel }: {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="vol-name">{t('volunteers.name')}</Label>
               <Input
@@ -237,6 +238,12 @@ function VolunteerRow({ volunteer, onUpdate, onDelete }: {
   const { t } = useTranslation()
   const { toast } = useToast()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showPhone, setShowPhone] = useState(false)
+
+  function maskedPhone(phone: string) {
+    if (!phone || phone.length < 6) return phone
+    return phone.slice(0, 3) + '•'.repeat(phone.length - 5) + phone.slice(-2)
+  }
 
   async function toggleRole() {
     const newRole = volunteer.role === 'admin' ? 'volunteer' : 'admin'
@@ -267,47 +274,56 @@ function VolunteerRow({ volunteer, onUpdate, onDelete }: {
   }
 
   return (
-    <div className="flex items-center gap-4 px-6 py-3">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
-        {volunteer.name.charAt(0).toUpperCase()}
+    <div className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-4 sm:px-6">
+      <div className="flex items-center gap-3 sm:gap-4">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
+          {volunteer.name.charAt(0).toUpperCase()}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium">{volunteer.name} <span className="font-mono text-xs text-muted-foreground">({volunteer.pubkey.slice(0, 8)})</span></p>
+          <p className="flex items-center gap-1 font-mono text-xs text-muted-foreground">
+            {showPhone ? volunteer.phone : maskedPhone(volunteer.phone)}
+            <button onClick={() => setShowPhone(!showPhone)} className="text-muted-foreground hover:text-foreground">
+              {showPhone ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+            </button>
+          </p>
+        </div>
       </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium">{volunteer.name}</p>
-        <p className="font-mono text-xs text-muted-foreground">{volunteer.phone}</p>
-      </div>
-      <Badge variant={volunteer.role === 'admin' ? 'default' : 'secondary'}>
-        {volunteer.role === 'admin' ? (
-          <><ShieldCheck className="h-3 w-3" /> {t('volunteers.roleAdmin')}</>
-        ) : (
-          t('volunteers.roleVolunteer')
-        )}
-      </Badge>
-      <button onClick={toggleActive}>
-        <Badge variant="outline" className={
-          volunteer.active
-            ? 'border-green-500/50 text-green-400'
-            : 'border-red-500/50 text-red-400'
-        }>
-          {volunteer.active ? t('volunteers.active') : t('volunteers.inactive')}
-        </Badge>
-      </button>
-      {volunteer.onBreak && (
-        <Badge variant="outline" className="border-yellow-500/50 text-yellow-400">
-          <Coffee className="h-3 w-3" />
-          {t('dashboard.onBreak')}
-        </Badge>
-      )}
-      <div className="flex items-center gap-1">
-        <Button variant="ghost" size="xs" onClick={toggleRole}>
+      <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+        <Badge variant={volunteer.role === 'admin' ? 'default' : 'secondary'}>
           {volunteer.role === 'admin' ? (
-            <><Shield className="h-3 w-3" /> {t('volunteers.removeAdmin')}</>
+            <><ShieldCheck className="h-3 w-3" /> {t('volunteers.roleAdmin')}</>
           ) : (
-            <><ShieldCheck className="h-3 w-3" /> {t('volunteers.makeAdmin')}</>
+            t('volunteers.roleVolunteer')
           )}
-        </Button>
-        <Button variant="ghost" size="icon-xs" onClick={() => setShowDeleteConfirm(true)} className="text-destructive hover:text-destructive">
-          <Trash2 className="h-3 w-3" />
-        </Button>
+        </Badge>
+        <button onClick={toggleActive} aria-pressed={volunteer.active}>
+          <Badge variant="outline" className={
+            volunteer.active
+              ? 'border-green-500/50 text-green-700 dark:text-green-400'
+              : 'border-red-500/50 text-red-700 dark:text-red-400'
+          }>
+            {volunteer.active ? t('volunteers.active') : t('volunteers.inactive')}
+          </Badge>
+        </button>
+        {volunteer.onBreak && (
+          <Badge variant="outline" className="border-yellow-500/50 text-yellow-700 dark:text-yellow-400">
+            <Coffee className="h-3 w-3" />
+            {t('dashboard.onBreak')}
+          </Badge>
+        )}
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="xs" onClick={toggleRole}>
+            {volunteer.role === 'admin' ? (
+              <><Shield className="h-3 w-3" /> {t('volunteers.removeAdmin')}</>
+            ) : (
+              <><ShieldCheck className="h-3 w-3" /> {t('volunteers.makeAdmin')}</>
+            )}
+          </Button>
+          <Button variant="ghost" size="icon-xs" onClick={() => setShowDeleteConfirm(true)} className="text-destructive hover:text-destructive" aria-label={t('a11y.deleteItem')}>
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
       </div>
 
       <ConfirmDialog

@@ -26,12 +26,13 @@
   },
   "auth": {
     "login": "Iniciar sesión",
-    "loginTitle": "Iniciar sesión en Llámenos",
+    "loginTitle": "Iniciar sesión en {{name}}",
     "loginDescription": "Ingrese su clave secreta para acceder a la línea de ayuda",
     "secretKey": "Clave Secreta (nsec)",
     "secretKeyPlaceholder": "nsec1...",
     "invalidKey": "Clave secreta inválida",
-    "loginError": "Error al iniciar sesión. Verifique su clave e intente de nuevo."
+    "loginError": "Error al iniciar sesión. Verifique su clave e intente de nuevo.",
+    "securityNote": "Su clave nunca sale de su dispositivo"
   },
   "nav": {
     "dashboard": "Panel",
@@ -58,7 +59,11 @@
     "onBreak": "En Descanso",
     "goOnBreak": "Tomar un Descanso",
     "endBreak": "Terminar Descanso",
-    "breakDescription": "No recibirás llamadas durante el descanso"
+    "breakDescription": "No recibirás llamadas durante el descanso",
+    "volunteerStatus": "Estado del Voluntario",
+    "available": "Disponible",
+    "offline": "Desconectado",
+    "noVolunteersOnline": "No hay voluntarios en línea"
   },
   "calls": {
     "incoming": "Llamada Entrante",
@@ -85,7 +90,16 @@
     "savedAt": "Guardado a las {{time}}",
     "noNotes": "Sin notas aún",
     "callWith": "Llamada con {{number}}",
-    "encryptionNote": "Las notas están cifradas de extremo a extremo"
+    "encryptionNote": "Las notas están cifradas de extremo a extremo",
+    "searchNotes": "Buscar notas",
+    "searchPlaceholder": "Buscar contenido de notas...",
+    "noSearchResults": "Ninguna nota coincide con tu búsqueda",
+    "callId": "ID de Llamada",
+    "selectCall": "Seleccionar una llamada reciente...",
+    "enterManually": "Ingresar ID de llamada manualmente",
+    "callIdPlaceholder": "ID de llamada o referencia",
+    "export": "Exportar",
+    "viewNotes": "Notas"
   },
   "transcription": {
     "title": "Transcripción",
@@ -228,6 +242,37 @@
     "enableTranscription": "Habilitar transcripción de llamadas",
     "transcriptionDescription": "Usa IA para transcribir llamadas. Puede deshabilitarse por voluntario.",
     "language": "Idioma",
-    "theme": "Tema"
+    "theme": "Tema",
+    "notifications": "Notificaciones de Llamada",
+    "notificationsDescription": "Configura cómo recibes alertas de llamadas entrantes",
+    "playRingtone": "Reproducir tono para llamadas entrantes",
+    "playRingtoneDescription": "Reproduce un tono de audio cuando suena una llamada",
+    "browserNotifications": "Notificaciones del navegador",
+    "browserNotificationsDescription": "Mostrar una notificación del sistema para llamadas entrantes"
+  },
+  "commandPalette": {
+    "label": "Paleta de comandos",
+    "placeholder": "Escribe un comando o busca...",
+    "noResults": "No se encontraron resultados",
+    "keyboardShortcuts": "Atajos de Teclado",
+    "navigation": "Navegación",
+    "actions": "Acciones",
+    "theme": "Tema",
+    "language": "Idioma"
+  },
+  "a11y": {
+    "skipToContent": "Ir al contenido",
+    "switchToLanguage": "Cambiar a {{language}}",
+    "copyToClipboard": "Copiar al portapapeles",
+    "deleteItem": "Eliminar",
+    "editItem": "Editar",
+    "removeItem": "Eliminar",
+    "searchButton": "Buscar",
+    "clearFilters": "Limpiar filtros",
+    "openMenu": "Abrir menú",
+    "closeSidebar": "Cerrar barra lateral",
+    "themeSystem": "Tema del sistema",
+    "themeLight": "Tema claro",
+    "themeDark": "Tema oscuro"
   }
 }

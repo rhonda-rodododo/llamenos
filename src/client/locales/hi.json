@@ -26,12 +26,13 @@
   },
   "auth": {
     "login": "लॉग इन करें",
-    "loginTitle": "Llámenos में लॉग इन करें",
+    "loginTitle": "{{name}} में लॉग इन करें",
     "loginDescription": "हॉटलाइन तक पहुंचने के लिए अपनी गुप्त कुंजी दर्ज करें",
     "secretKey": "गुप्त कुंजी (nsec)",
     "secretKeyPlaceholder": "nsec1...",
     "invalidKey": "अमान्य गुप्त कुंजी",
-    "loginError": "लॉग इन विफल। कृपया अपनी कुंजी जांचें और पुनः प्रयास करें।"
+    "loginError": "लॉग इन विफल। कृपया अपनी कुंजी जांचें और पुनः प्रयास करें।",
+    "securityNote": "आपकी कुंजी कभी भी आपके डिवाइस से बाहर नहीं जाती"
   },
   "nav": {
     "dashboard": "डैशबोर्ड",
@@ -58,7 +59,11 @@
     "onBreak": "ब्रेक पर",
     "goOnBreak": "ब्रेक लें",
     "endBreak": "ब्रेक समाप्त करें",
-    "breakDescription": "ब्रेक के दौरान आपको कॉल नहीं आएंगी"
+    "breakDescription": "ब्रेक के दौरान आपको कॉल नहीं आएंगी",
+    "volunteerStatus": "स्वयंसेवक की स्थिति",
+    "available": "उपलब्ध",
+    "offline": "ऑफ़लाइन",
+    "noVolunteersOnline": "कोई स्वयंसेवक ऑनलाइन नहीं"
   },
   "calls": {
     "incoming": "आने वाली कॉल",
@@ -85,7 +90,16 @@
     "savedAt": "{{time}} पर सहेजा गया",
     "noNotes": "अभी तक कोई नोट नहीं",
     "callWith": "{{number}} के साथ कॉल",
-    "encryptionNote": "नोट्स एंड-टू-एंड एन्क्रिप्टेड हैं"
+    "encryptionNote": "नोट्स एंड-टू-एंड एन्क्रिप्टेड हैं",
+    "searchNotes": "नोट्स खोजें",
+    "searchPlaceholder": "नोट सामग्री खोजें...",
+    "noSearchResults": "आपकी खोज से कोई नोट मेल नहीं खाता",
+    "callId": "कॉल ID",
+    "selectCall": "हाल की कॉल चुनें...",
+    "enterManually": "कॉल ID मैन्युअल रूप से दर्ज करें",
+    "callIdPlaceholder": "कॉल ID या संदर्भ",
+    "export": "निर्यात करें",
+    "viewNotes": "नोट्स"
   },
   "transcription": {
     "title": "ट्रांसक्रिप्शन",
@@ -228,6 +242,37 @@
     "enableTranscription": "कॉल ट्रांसक्रिप्शन सक्षम करें",
     "transcriptionDescription": "कॉल ट्रांसक्राइब करने के लिए AI का उपयोग करता है। प्रति स्वयंसेवक अक्षम किया जा सकता है।",
     "language": "भाषा",
-    "theme": "थीम"
+    "theme": "थीम",
+    "notifications": "कॉल सूचनाएं",
+    "notificationsDescription": "आने वाली कॉल अलर्ट कैसे प्राप्त करें यह कॉन्फ़िगर करें",
+    "playRingtone": "आने वाली कॉल के लिए रिंगटोन बजाएं",
+    "playRingtoneDescription": "कॉल आने पर एक ऑडियो टोन बजाता है",
+    "browserNotifications": "ब्राउज़र सूचनाएं",
+    "browserNotificationsDescription": "आने वाली कॉल के लिए सिस्टम सूचना दिखाएं"
+  },
+  "commandPalette": {
+    "label": "कमांड पैलेट",
+    "placeholder": "कमांड टाइप करें या खोजें...",
+    "noResults": "कोई परिणाम नहीं मिला",
+    "keyboardShortcuts": "कीबोर्ड शॉर्टकट",
+    "navigation": "नेविगेशन",
+    "actions": "क्रियाएं",
+    "theme": "थीम",
+    "language": "भाषा"
+  },
+  "a11y": {
+    "skipToContent": "सामग्री पर जाएं",
+    "switchToLanguage": "{{language}} में बदलें",
+    "copyToClipboard": "क्लिपबोर्ड पर कॉपी करें",
+    "deleteItem": "हटाएं",
+    "editItem": "संपादित करें",
+    "removeItem": "निकालें",
+    "searchButton": "खोजें",
+    "clearFilters": "फ़िल्टर साफ़ करें",
+    "openMenu": "मेनू खोलें",
+    "closeSidebar": "साइडबार बंद करें",
+    "themeSystem": "सिस्टम थीम",
+    "themeLight": "लाइट थीम",
+    "themeDark": "डार्क थीम"
   }
 }

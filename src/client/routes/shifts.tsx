@@ -62,8 +62,8 @@ function ShiftsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">{t('shifts.title')}</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-xl font-bold sm:text-2xl">{t('shifts.title')}</h1>
         <Button onClick={() => { setShowForm(true); setEditingShift(null) }}>
           <CalendarPlus className="h-4 w-4" />
           {t('shifts.createShift')}
@@ -145,13 +145,14 @@ function ShiftsPage() {
                     </p>
                   </div>
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="icon-xs" onClick={() => setEditingShift(shift)}>
+                    <Button variant="ghost" size="icon-xs" onClick={() => setEditingShift(shift)} aria-label={t('a11y.editItem')}>
                       <Pencil className="h-3 w-3" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon-xs"
                       className="text-destructive hover:text-destructive"
+                      aria-label={t('a11y.deleteItem')}
                       onClick={async () => {
                         try {
                           await deleteShift(shift.id)
@@ -196,6 +197,7 @@ function ShiftsPage() {
                   className="rounded border-input"
                 />
                 {vol.name}
+                <span className="font-mono text-xs text-muted-foreground">({vol.pubkey.slice(0, 8)})</span>
               </label>
             ))}
           </div>
@@ -248,7 +250,7 @@ function ShiftForm({ shift, volunteers, onSave, onCancel }: {
               required
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="start-time">{t('shifts.startTime')}</Label>
               <Input
@@ -275,6 +277,7 @@ function ShiftForm({ shift, volunteers, onSave, onCancel }: {
                 <button
                   key={i}
                   type="button"
+                  aria-pressed={days.includes(i)}
                   onClick={() => setDays(prev => prev.includes(i) ? prev.filter(d => d !== i) : [...prev, i])}
                 >
                   <Badge variant={days.includes(i) ? 'default' : 'outline'}>
@@ -302,6 +305,7 @@ function ShiftForm({ shift, volunteers, onSave, onCancel }: {
                     className="rounded border-input"
                   />
                   {vol.name}
+                  <span className="font-mono text-xs text-muted-foreground">({vol.pubkey.slice(0, 8)})</span>
                 </label>
               ))}
             </div>

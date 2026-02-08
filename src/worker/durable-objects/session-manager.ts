@@ -18,27 +18,25 @@ export class SessionManagerDO extends DurableObject<Env> {
   private async ensureInit() {
     if (this.initialized) return
     this.initialized = true
-    // Bootstrap admin if ADMIN_PUBKEY is set and no volunteers exist
-    const volunteers = await this.ctx.storage.get<Record<string, Volunteer>>('volunteers')
-    if (!volunteers || Object.keys(volunteers).length === 0) {
-      const adminPubkey = this.env.ADMIN_PUBKEY
-      if (adminPubkey) {
-        const admin: Volunteer = {
-          pubkey: adminPubkey,
-          name: 'Admin',
-          phone: '',
-          role: 'admin',
-          active: true,
-          createdAt: new Date().toISOString(),
-          encryptedSecretKey: '',
-          transcriptionEnabled: true,
-          spokenLanguages: ['en', 'es'],
-          uiLanguage: 'en',
-          profileCompleted: true,
-          onBreak: false,
-        }
-        await this.ctx.storage.put('volunteers', { [adminPubkey]: admin })
+    // Ensure ADMIN_PUBKEY always exists as an admin volunteer
+    const adminPubkey = this.env.ADMIN_PUBKEY
+    const volunteers = await this.ctx.storage.get<Record<string, Volunteer>>('volunteers') || {}
+    if (adminPubkey && !volunteers[adminPubkey]) {
+      volunteers[adminPubkey] = {
+        pubkey: adminPubkey,
+        name: 'Admin',
+        phone: '',
+        role: 'admin',
+        active: true,
+        createdAt: new Date().toISOString(),
+        encryptedSecretKey: '',
+        transcriptionEnabled: true,
+        spokenLanguages: ['en', 'es'],
+        uiLanguage: 'en',
+        profileCompleted: true,
+        onBreak: false,
       }
+      await this.ctx.storage.put('volunteers', volunteers)
     }
 
     // Init defaults
@@ -107,7 +105,9 @@ export class SessionManagerDO extends DurableObject<Env> {
     if (path === '/notes' && method === 'GET') {
       const authorPubkey = url.searchParams.get('author')
       const callId = url.searchParams.get('callId')
-      return this.getNotes(authorPubkey, callId)
+      const page = url.searchParams.get('page') ? parseInt(url.searchParams.get('page')!) : undefined
+      const limit = url.searchParams.get('limit') ? parseInt(url.searchParams.get('limit')!) : undefined
+      return this.getNotes(authorPubkey, callId, page, limit)
     }
     if (path === '/notes' && method === 'POST') {
       return this.createNoteEntry(await request.json())
@@ -265,7 +265,7 @@ export class SessionManagerDO extends DurableObject<Env> {
 
   // --- Note Methods ---
 
-  private async getNotes(authorPubkey: string | null, callId: string | null): Promise<Response> {
+  private async getNotes(authorPubkey: string | null, callId: string | null, page?: number, limit?: number): Promise<Response> {
     const notes = await this.ctx.storage.get<EncryptedNote[]>('notes') || []
     let filtered = notes
     if (authorPubkey) {
@@ -274,7 +274,15 @@ export class SessionManagerDO extends DurableObject<Env> {
     if (callId) {
       filtered = filtered.filter(n => n.callId === callId)
     }
-    return Response.json({ notes: filtered })
+    // Sort newest first
+    filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
+    const total = filtered.length
+    if (page && limit) {
+      const start = (page - 1) * limit
+      filtered = filtered.slice(start, start + limit)
+    }
+    return Response.json({ notes: filtered, total })
   }
 
   private async createNoteEntry(data: { callId: string; authorPubkey: string; encryptedContent: string; ephemeralPubkey?: string }): Promise<Response> {

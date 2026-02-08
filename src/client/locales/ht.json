@@ -26,12 +26,13 @@
   },
   "auth": {
     "login": "Konekte",
-    "loginTitle": "Konekte nan Llámenos",
+    "loginTitle": "Konekte nan {{name}}",
     "loginDescription": "Antre kle sekrè ou pou aksede liy asistans lan",
     "secretKey": "Kle Sekrè (nsec)",
     "secretKeyPlaceholder": "nsec1...",
     "invalidKey": "Kle sekrè envalid",
-    "loginError": "Echèk koneksyon. Verifye kle ou epi eseye ankò."
+    "loginError": "Echèk koneksyon. Verifye kle ou epi eseye ankò.",
+    "securityNote": "Kle ou pa janm kite aparèy ou"
   },
   "nav": {
     "dashboard": "Tablo",
@@ -58,7 +59,11 @@
     "onBreak": "An Pòz",
     "goOnBreak": "Pran yon Pòz",
     "endBreak": "Fini Pòz",
-    "breakDescription": "Ou pa p resevwa apèl pandan pòz la"
+    "breakDescription": "Ou pa p resevwa apèl pandan pòz la",
+    "volunteerStatus": "Eta Volontè",
+    "available": "Disponib",
+    "offline": "Òflayn",
+    "noVolunteersOnline": "Pa gen volontè an liy"
   },
   "calls": {
     "incoming": "Apèl Antre",
@@ -85,7 +90,16 @@
     "savedAt": "Anrejistre a {{time}}",
     "noNotes": "Pa gen nòt ankò",
     "callWith": "Apèl avèk {{number}}",
-    "encryptionNote": "Nòt yo chifre de bout an bout"
+    "encryptionNote": "Nòt yo chifre de bout an bout",
+    "searchNotes": "Chèche nòt",
+    "searchPlaceholder": "Chèche kontni nòt...",
+    "noSearchResults": "Pa gen nòt ki koresponn ak rechèch ou a",
+    "callId": "ID Apèl",
+    "selectCall": "Chwazi yon apèl resan...",
+    "enterManually": "Antre ID apèl manyèlman",
+    "callIdPlaceholder": "ID apèl oswa referans",
+    "export": "Ekspòte",
+    "viewNotes": "Nòt"
   },
   "transcription": {
     "title": "Transkripsyon",
@@ -228,6 +242,37 @@
     "enableTranscription": "Aktive transkripsyon apèl",
     "transcriptionDescription": "Sèvi ak IA pou transkri apèl. Ka dezaktive pa volontè.",
     "language": "Lang",
-    "theme": "Tèm"
+    "theme": "Tèm",
+    "notifications": "Notifikasyon Apèl",
+    "notificationsDescription": "Konfigure kijan ou resevwa alèt apèl ki antre",
+    "playRingtone": "Jwe sonnri pou apèl ki antre",
+    "playRingtoneDescription": "Jwe yon son lè yon apèl ap sonnen",
+    "browserNotifications": "Notifikasyon navigatè",
+    "browserNotificationsDescription": "Montre yon notifikasyon sistèm pou apèl ki antre"
+  },
+  "commandPalette": {
+    "label": "Palèt kòmand",
+    "placeholder": "Tape yon kòmand oswa chèche...",
+    "noResults": "Pa gen rezilta",
+    "keyboardShortcuts": "Rakousi Klavye",
+    "navigation": "Navigasyon",
+    "actions": "Aksyon",
+    "theme": "Tèm",
+    "language": "Lang"
+  },
+  "a11y": {
+    "skipToContent": "Ale nan kontni",
+    "switchToLanguage": "Chanje a {{language}}",
+    "copyToClipboard": "Kopye nan clipboard",
+    "deleteItem": "Efase",
+    "editItem": "Modifye",
+    "removeItem": "Retire",
+    "searchButton": "Chèche",
+    "clearFilters": "Efase filtè yo",
+    "openMenu": "Louvri meni",
+    "closeSidebar": "Fèmen ba lateral",
+    "themeSystem": "Tèm sistèm",
+    "themeLight": "Tèm klè",
+    "themeDark": "Tèm fonse"
   }
 }

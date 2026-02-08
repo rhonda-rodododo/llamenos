@@ -37,8 +37,8 @@ function BansPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">{t('banList.title')}</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-xl font-bold sm:text-2xl">{t('banList.title')}</h1>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setShowBulk(!showBulk)}>
             <Upload className="h-4 w-4" />
@@ -144,7 +144,7 @@ function AddBanForm({ onAdded, onCancel }: {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="ban-phone">{t('banList.phoneNumber')}</Label>
               <Input
@@ -189,7 +189,7 @@ function BanRow({ ban, onRemoved }: {
   const [showConfirm, setShowConfirm] = useState(false)
 
   return (
-    <div className="flex items-center gap-4 px-6 py-3">
+    <div className="flex flex-wrap items-center gap-4 px-4 py-3 sm:px-6">
       <code className="text-xs font-mono">{ban.phone}</code>
       <span className="flex-1 text-sm text-muted-foreground">{ban.reason}</span>
       <span className="text-xs text-muted-foreground">
@@ -200,6 +200,7 @@ function BanRow({ ban, onRemoved }: {
         size="icon-xs"
         className="text-destructive hover:text-destructive"
         onClick={() => setShowConfirm(true)}
+        aria-label={t('a11y.removeItem')}
       >
         <Trash2 className="h-3 w-3" />
       </Button>

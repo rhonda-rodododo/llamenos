@@ -42,9 +42,22 @@ i18n.use(initReactI18next).init({
   interpolation: { escapeValue: false },
 })
 
+const RTL_LANGUAGES = ['ar']
+
+function syncDocumentLang(lang: string) {
+  document.documentElement.lang = lang
+  document.documentElement.dir = RTL_LANGUAGES.includes(lang) ? 'rtl' : 'ltr'
+}
+
+// Sync on init
+if (typeof window !== 'undefined') {
+  syncDocumentLang(i18n.language)
+}
+
 export function setLanguage(lang: string) {
   i18n.changeLanguage(lang)
   localStorage.setItem('llamenos-lang', lang)
+  syncDocumentLang(lang)
 }
 
 export default i18n

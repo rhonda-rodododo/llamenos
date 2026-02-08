@@ -26,12 +26,13 @@
   },
   "auth": {
     "login": "로그인",
-    "loginTitle": "Llámenos 로그인",
+    "loginTitle": "{{name}} 로그인",
     "loginDescription": "비밀 키를 입력하여 핫라인에 접속하세요",
     "secretKey": "비밀 키 (nsec)",
     "secretKeyPlaceholder": "nsec1...",
     "invalidKey": "유효하지 않은 비밀 키",
-    "loginError": "로그인 실패. 키를 확인하고 다시 시도해 주세요."
+    "loginError": "로그인 실패. 키를 확인하고 다시 시도해 주세요.",
+    "securityNote": "키는 기기 밖으로 전송되지 않습니다"
   },
   "nav": {
     "dashboard": "대시보드",
@@ -58,7 +59,11 @@
     "onBreak": "휴식 중",
     "goOnBreak": "휴식하기",
     "endBreak": "휴식 종료",
-    "breakDescription": "휴식 중에는 전화를 받지 않습니다"
+    "breakDescription": "휴식 중에는 전화를 받지 않습니다",
+    "volunteerStatus": "자원봉사자 상태",
+    "available": "대기 중",
+    "offline": "오프라인",
+    "noVolunteersOnline": "온라인 자원봉사자가 없습니다"
   },
   "calls": {
     "incoming": "수신 전화",
@@ -85,7 +90,16 @@
     "savedAt": "{{time}}에 저장됨",
     "noNotes": "아직 메모가 없습니다",
     "callWith": "{{number}}와의 통화",
-    "encryptionNote": "메모는 종단간 암호화되어 있습니다"
+    "encryptionNote": "메모는 종단간 암호화되어 있습니다",
+    "searchNotes": "메모 검색",
+    "searchPlaceholder": "메모 내용 검색...",
+    "noSearchResults": "검색과 일치하는 메모가 없습니다",
+    "callId": "통화 ID",
+    "selectCall": "최근 통화 선택...",
+    "enterManually": "통화 ID 직접 입력",
+    "callIdPlaceholder": "통화 ID 또는 참조",
+    "export": "내보내기",
+    "viewNotes": "메모"
   },
   "transcription": {
     "title": "전사",
@@ -228,6 +242,37 @@
     "enableTranscription": "통화 전사 활성화",
     "transcriptionDescription": "AI를 사용하여 통화를 전사합니다. 자원봉사자별로 비활성화 가능합니다.",
     "language": "언어",
-    "theme": "테마"
+    "theme": "테마",
+    "notifications": "통화 알림",
+    "notificationsDescription": "수신 통화 알림 수신 방식을 설정합니다",
+    "playRingtone": "수신 전화 시 벨소리 재생",
+    "playRingtoneDescription": "전화가 올 때 알림 소리를 재생합니다",
+    "browserNotifications": "브라우저 알림",
+    "browserNotificationsDescription": "수신 전화 시 시스템 알림을 표시합니다"
+  },
+  "commandPalette": {
+    "label": "명령 팔레트",
+    "placeholder": "명령을 입력하거나 검색...",
+    "noResults": "결과를 찾을 수 없습니다",
+    "keyboardShortcuts": "키보드 단축키",
+    "navigation": "탐색",
+    "actions": "작업",
+    "theme": "테마",
+    "language": "언어"
+  },
+  "a11y": {
+    "skipToContent": "콘텐츠로 건너뛰기",
+    "switchToLanguage": "{{language}}(으)로 전환",
+    "copyToClipboard": "클립보드에 복사",
+    "deleteItem": "삭제",
+    "editItem": "편집",
+    "removeItem": "제거",
+    "searchButton": "검색",
+    "clearFilters": "필터 지우기",
+    "openMenu": "메뉴 열기",
+    "closeSidebar": "사이드바 닫기",
+    "themeSystem": "시스템 테마",
+    "themeLight": "밝은 테마",
+    "themeDark": "어두운 테마"
   }
 }

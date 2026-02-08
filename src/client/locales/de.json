@@ -26,12 +26,13 @@
   },
   "auth": {
     "login": "Anmelden",
-    "loginTitle": "Bei Llámenos anmelden",
+    "loginTitle": "Bei {{name}} anmelden",
     "loginDescription": "Geben Sie Ihren geheimen Schlüssel ein, um auf die Hotline zuzugreifen",
     "secretKey": "Geheimer Schlüssel (nsec)",
     "secretKeyPlaceholder": "nsec1...",
     "invalidKey": "Ungültiger geheimer Schlüssel",
-    "loginError": "Anmeldung fehlgeschlagen. Bitte überprüfen Sie Ihren Schlüssel und versuchen Sie es erneut."
+    "loginError": "Anmeldung fehlgeschlagen. Bitte überprüfen Sie Ihren Schlüssel und versuchen Sie es erneut.",
+    "securityNote": "Ihr Schlüssel verlässt niemals Ihr Gerät"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -58,7 +59,11 @@
     "onBreak": "In Pause",
     "goOnBreak": "Pause machen",
     "endBreak": "Pause beenden",
-    "breakDescription": "Sie erhalten keine Anrufe während der Pause"
+    "breakDescription": "Sie erhalten keine Anrufe während der Pause",
+    "volunteerStatus": "Freiwilligenstatus",
+    "available": "Verfügbar",
+    "offline": "Offline",
+    "noVolunteersOnline": "Keine Freiwilligen online"
   },
   "calls": {
     "incoming": "Eingehender Anruf",
@@ -85,7 +90,16 @@
     "savedAt": "Gespeichert um {{time}}",
     "noNotes": "Noch keine Notizen",
     "callWith": "Anruf mit {{number}}",
-    "encryptionNote": "Notizen sind Ende-zu-Ende verschlüsselt"
+    "encryptionNote": "Notizen sind Ende-zu-Ende verschlüsselt",
+    "searchNotes": "Notizen durchsuchen",
+    "searchPlaceholder": "Notizinhalt durchsuchen...",
+    "noSearchResults": "Keine Notizen entsprechen Ihrer Suche",
+    "callId": "Anruf-ID",
+    "selectCall": "Einen aktuellen Anruf auswählen...",
+    "enterManually": "Anruf-ID manuell eingeben",
+    "callIdPlaceholder": "Anruf-ID oder Referenz",
+    "export": "Exportieren",
+    "viewNotes": "Notizen"
   },
   "transcription": {
     "title": "Transkription",
@@ -228,6 +242,37 @@
     "enableTranscription": "Anruftranskription aktivieren",
     "transcriptionDescription": "Verwendet KI zur Transkription von Anrufen. Kann pro Freiwilligem deaktiviert werden.",
     "language": "Sprache",
-    "theme": "Design"
+    "theme": "Design",
+    "notifications": "Anrufbenachrichtigungen",
+    "notificationsDescription": "Konfigurieren Sie, wie Sie Benachrichtigungen über eingehende Anrufe erhalten",
+    "playRingtone": "Klingelton bei eingehenden Anrufen abspielen",
+    "playRingtoneDescription": "Spielt einen Ton ab, wenn ein Anruf klingelt",
+    "browserNotifications": "Browser-Benachrichtigungen",
+    "browserNotificationsDescription": "Systembenachrichtigung bei eingehenden Anrufen anzeigen"
+  },
+  "commandPalette": {
+    "label": "Befehlspalette",
+    "placeholder": "Befehl eingeben oder suchen...",
+    "noResults": "Keine Ergebnisse gefunden",
+    "keyboardShortcuts": "Tastaturkürzel",
+    "navigation": "Navigation",
+    "actions": "Aktionen",
+    "theme": "Thema",
+    "language": "Sprache"
+  },
+  "a11y": {
+    "skipToContent": "Zum Inhalt springen",
+    "switchToLanguage": "Zu {{language}} wechseln",
+    "copyToClipboard": "In die Zwischenablage kopieren",
+    "deleteItem": "Löschen",
+    "editItem": "Bearbeiten",
+    "removeItem": "Entfernen",
+    "searchButton": "Suchen",
+    "clearFilters": "Filter löschen",
+    "openMenu": "Menü öffnen",
+    "closeSidebar": "Seitenleiste schließen",
+    "themeSystem": "System-Theme",
+    "themeLight": "Helles Theme",
+    "themeDark": "Dunkles Theme"
   }
 }

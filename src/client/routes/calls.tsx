@@ -4,7 +4,8 @@ import { useAuth } from '@/lib/auth'
 import { useEffect, useState, useCallback } from 'react'
 import { getCallHistory, type CallRecord } from '@/lib/api'
 import { useToast } from '@/lib/toast'
-import { PhoneIncoming, ChevronLeft, ChevronRight, Clock, Mic, Search, X } from 'lucide-react'
+import { PhoneIncoming, ChevronLeft, ChevronRight, Clock, Mic, Search, X, StickyNote } from 'lucide-react'
+import { Link } from '@tanstack/react-router'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -96,13 +97,13 @@ function CallHistoryPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-2">
         <PhoneIncoming className="h-6 w-6 text-muted-foreground" />
-        <h2 className="text-2xl font-bold">{t('callHistory.title')}</h2>
+        <h1 className="text-xl font-bold sm:text-2xl">{t('callHistory.title')}</h1>
       </div>
 
       {/* Search and filter bar */}
       <Card>
         <CardContent className="py-3">
-          <form onSubmit={handleSearch} className="flex items-end gap-3">
+          <form onSubmit={handleSearch} className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex-1">
               <label className="mb-1 block text-xs text-muted-foreground">{t('common.search')}</label>
               <div className="relative">
@@ -121,7 +122,7 @@ function CallHistoryPage() {
                 type="date"
                 value={dateFromInput}
                 onChange={e => setDateFromInput(e.target.value)}
-                className="w-36"
+                className="w-full sm:w-36"
               />
             </div>
             <div>
@@ -130,17 +131,19 @@ function CallHistoryPage() {
                 type="date"
                 value={dateToInput}
                 onChange={e => setDateToInput(e.target.value)}
-                className="w-36"
+                className="w-full sm:w-36"
               />
             </div>
-            <Button type="submit" size="sm">
-              <Search className="h-4 w-4" />
-            </Button>
-            {hasFilters && (
-              <Button type="button" variant="ghost" size="sm" onClick={clearFilters}>
-                <X className="h-4 w-4" />
+            <div className="flex gap-2">
+              <Button type="submit" size="sm" aria-label={t('a11y.searchButton')}>
+                <Search className="h-4 w-4" />
               </Button>
-            )}
+              {hasFilters && (
+                <Button type="button" variant="ghost" size="sm" onClick={clearFilters} aria-label={t('a11y.clearFilters')}>
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
           </form>
         </CardContent>
       </Card>
@@ -166,7 +169,7 @@ function CallHistoryPage() {
           ) : (
             <div className="divide-y divide-border">
               {calls.map(call => (
-                <div key={call.id} className="flex items-center gap-4 px-6 py-3">
+                <div key={call.id} className="flex flex-wrap items-center gap-4 px-4 py-3 sm:px-6">
                   <code className="text-xs font-mono">{call.callerNumber}</code>
                   <span className="text-xs text-muted-foreground">
                     {call.answeredBy ? `${call.answeredBy.slice(0, 12)}...` : '-'}
@@ -178,6 +181,14 @@ function CallHistoryPage() {
                   <span className="flex-1 text-right text-xs text-muted-foreground">
                     {new Date(call.startedAt).toLocaleString()}
                   </span>
+                  <Link
+                    to="/notes"
+                    search={{ page: 1, callId: call.id, search: '' }}
+                    className="text-xs text-primary hover:underline flex items-center gap-1"
+                  >
+                    <StickyNote className="h-3 w-3" />
+                    {t('notes.viewNotes')}
+                  </Link>
                   {call.hasTranscription && (
                     <Badge variant="secondary">
                       <Mic className="h-3 w-3" />

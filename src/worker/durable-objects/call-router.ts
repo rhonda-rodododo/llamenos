@@ -33,6 +33,16 @@ export class CallRouterDO extends DurableObject<Env> {
       return this.getActiveCalls()
     }
 
+    // Volunteer presence (admin only — caller must verify admin status)
+    if (path === '/calls/presence' && method === 'GET') {
+      return this.getVolunteerPresence()
+    }
+
+    // Calls today count
+    if (path === '/calls/today-count' && method === 'GET') {
+      return this.getCallsTodayCount()
+    }
+
     // Call history
     if (path === '/calls/history' && method === 'GET') {
       const page = parseInt(url.searchParams.get('page') || '1')
@@ -92,6 +102,9 @@ export class CallRouterDO extends DurableObject<Env> {
       }
     })
 
+    // Broadcast presence update to all (new volunteer came online)
+    this.broadcastPresenceUpdate()
+
     return new Response(null, { status: 101, webSocket: client })
   }
 
@@ -139,6 +152,7 @@ export class CallRouterDO extends DurableObject<Env> {
     const pubkey = tags[0]
     if (pubkey) {
       this.connections.delete(pubkey)
+      this.broadcastPresenceUpdate()
     }
   }
 
@@ -147,6 +161,7 @@ export class CallRouterDO extends DurableObject<Env> {
     const pubkey = tags[0]
     if (pubkey) {
       this.connections.delete(pubkey)
+      this.broadcastPresenceUpdate()
     }
   }
 
@@ -198,6 +213,7 @@ export class CallRouterDO extends DurableObject<Env> {
       type: 'call:update',
       ...call,
     })
+    this.broadcastPresenceUpdate()
 
     return Response.json({ call })
   }
@@ -235,6 +251,7 @@ export class CallRouterDO extends DurableObject<Env> {
       type: 'call:update',
       ...call,
     })
+    this.broadcastPresenceUpdate()
 
     return Response.json({ call })
   }
@@ -291,6 +308,31 @@ export class CallRouterDO extends DurableObject<Env> {
     })
   }
 
+  // --- Presence & Metrics ---
+
+  private getVolunteerPresence(): Response {
+    const statuses: Array<{ pubkey: string; status: 'available' | 'on-call' | 'online' }> = []
+    for (const conn of this.connections.values()) {
+      statuses.push({
+        pubkey: conn.pubkey,
+        status: conn.onCall ? 'on-call' : 'available',
+      })
+    }
+    return Response.json({ volunteers: statuses })
+  }
+
+  private async getCallsTodayCount(): Promise<Response> {
+    const history = await this.ctx.storage.get<CallRecord[]>('callHistory') || []
+    const activeCalls = await this.ctx.storage.get<CallRecord[]>('activeCalls') || []
+    const todayStart = new Date()
+    todayStart.setUTCHours(0, 0, 0, 0)
+    const todayMs = todayStart.getTime()
+
+    const historyToday = history.filter(c => new Date(c.startedAt).getTime() >= todayMs).length
+    const activeToday = activeCalls.filter(c => new Date(c.startedAt).getTime() >= todayMs).length
+    return Response.json({ count: historyToday + activeToday })
+  }
+
   // --- Broadcasting ---
 
   private broadcast(pubkeys: string[], message: Record<string, unknown>) {
@@ -310,5 +352,16 @@ export class CallRouterDO extends DurableObject<Env> {
         conn.ws.send(data)
       }
     }
+  }
+
+  private broadcastPresenceUpdate() {
+    const statuses: Array<{ pubkey: string; status: string }> = []
+    for (const conn of this.connections.values()) {
+      statuses.push({
+        pubkey: conn.pubkey,
+        status: conn.onCall ? 'on-call' : 'available',
+      })
+    }
+    this.broadcastAll({ type: 'presence:update', volunteers: statuses })
   }
 }

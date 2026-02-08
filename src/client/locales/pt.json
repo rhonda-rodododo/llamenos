@@ -26,12 +26,13 @@
   },
   "auth": {
     "login": "Entrar",
-    "loginTitle": "Entrar no Llámenos",
+    "loginTitle": "Entrar no {{name}}",
     "loginDescription": "Digite sua chave secreta para acessar a linha de ajuda",
     "secretKey": "Chave secreta (nsec)",
     "secretKeyPlaceholder": "nsec1...",
     "invalidKey": "Chave secreta inválida",
-    "loginError": "Falha ao entrar. Verifique sua chave e tente novamente."
+    "loginError": "Falha ao entrar. Verifique sua chave e tente novamente.",
+    "securityNote": "Sua chave nunca sai do seu dispositivo"
   },
   "nav": {
     "dashboard": "Painel",
@@ -58,7 +59,11 @@
     "onBreak": "Em Pausa",
     "goOnBreak": "Fazer uma Pausa",
     "endBreak": "Fim da Pausa",
-    "breakDescription": "Você não receberá chamadas durante a pausa"
+    "breakDescription": "Você não receberá chamadas durante a pausa",
+    "volunteerStatus": "Status do Voluntário",
+    "available": "Disponível",
+    "offline": "Offline",
+    "noVolunteersOnline": "Nenhum voluntário online"
   },
   "calls": {
     "incoming": "Chamada Recebida",
@@ -85,7 +90,16 @@
     "savedAt": "Salvo às {{time}}",
     "noNotes": "Nenhuma nota ainda",
     "callWith": "Chamada com {{number}}",
-    "encryptionNote": "As notas são criptografadas de ponta a ponta"
+    "encryptionNote": "As notas são criptografadas de ponta a ponta",
+    "searchNotes": "Pesquisar notas",
+    "searchPlaceholder": "Pesquisar conteúdo das notas...",
+    "noSearchResults": "Nenhuma nota corresponde à sua pesquisa",
+    "callId": "ID da Chamada",
+    "selectCall": "Selecionar uma chamada recente...",
+    "enterManually": "Inserir ID da chamada manualmente",
+    "callIdPlaceholder": "ID da chamada ou referência",
+    "export": "Exportar",
+    "viewNotes": "Notas"
   },
   "transcription": {
     "title": "Transcrição",
@@ -228,6 +242,37 @@
     "enableTranscription": "Ativar transcrição de chamadas",
     "transcriptionDescription": "Usa IA para transcrever chamadas. Pode ser desativado por voluntário.",
     "language": "Idioma",
-    "theme": "Tema"
+    "theme": "Tema",
+    "notifications": "Notificações de Chamada",
+    "notificationsDescription": "Configure como você recebe alertas de chamadas recebidas",
+    "playRingtone": "Tocar toque para chamadas recebidas",
+    "playRingtoneDescription": "Toca um tom de áudio quando uma chamada está tocando",
+    "browserNotifications": "Notificações do navegador",
+    "browserNotificationsDescription": "Exibir uma notificação do sistema para chamadas recebidas"
+  },
+  "commandPalette": {
+    "label": "Paleta de comandos",
+    "placeholder": "Digite um comando ou pesquise...",
+    "noResults": "Nenhum resultado encontrado",
+    "keyboardShortcuts": "Atalhos de Teclado",
+    "navigation": "Navegação",
+    "actions": "Ações",
+    "theme": "Tema",
+    "language": "Idioma"
+  },
+  "a11y": {
+    "skipToContent": "Pular para o conteúdo",
+    "switchToLanguage": "Mudar para {{language}}",
+    "copyToClipboard": "Copiar para a área de transferência",
+    "deleteItem": "Excluir",
+    "editItem": "Editar",
+    "removeItem": "Remover",
+    "searchButton": "Pesquisar",
+    "clearFilters": "Limpar filtros",
+    "openMenu": "Abrir menu",
+    "closeSidebar": "Fechar barra lateral",
+    "themeSystem": "Tema do sistema",
+    "themeLight": "Tema claro",
+    "themeDark": "Tema escuro"
   }
 }

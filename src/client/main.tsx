@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client'
 import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { routeTree } from './routeTree.gen'
 import { AuthProvider } from '@/lib/auth'
+import { ConfigProvider } from '@/lib/config'
+import { ThemeProvider } from '@/lib/theme'
 import { ToastProvider } from '@/lib/toast'
 import '@/lib/i18n'
 import '@/app.css'
@@ -17,10 +19,14 @@ declare module '@tanstack/react-router' {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ToastProvider>
-      <AuthProvider>
-        <RouterProvider router={router} />
-      </AuthProvider>
-    </ToastProvider>
+    <ThemeProvider>
+      <ConfigProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <RouterProvider router={router} />
+          </AuthProvider>
+        </ToastProvider>
+      </ConfigProvider>
+    </ThemeProvider>
   </StrictMode>,
 )

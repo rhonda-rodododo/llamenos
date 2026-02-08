@@ -1,0 +1,95 @@
+import { test, expect } from '@playwright/test'
+import { loginAsAdmin, uniquePhone } from './helpers'
+
+test.describe('Form validation', () => {
+  test.beforeEach(async ({ page }) => {
+    await loginAsAdmin(page)
+  })
+
+  test('volunteer form rejects invalid phone', async ({ page }) => {
+    await page.getByRole('link', { name: 'Volunteers' }).click()
+    await page.getByRole('button', { name: /add volunteer/i }).click()
+
+    const form = page.locator('form')
+    await form.locator('input').first().fill('Test')
+    await form.locator('input[type="tel"]').fill('abc')
+    await page.getByRole('button', { name: /save/i }).click()
+
+    await expect(page.getByText(/invalid phone/i)).toBeVisible()
+  })
+
+  test('volunteer form rejects phone without plus prefix', async ({ page }) => {
+    await page.getByRole('link', { name: 'Volunteers' }).click()
+    await page.getByRole('button', { name: /add volunteer/i }).click()
+
+    const form = page.locator('form')
+    await form.locator('input').first().fill('Test')
+    await form.locator('input[type="tel"]').fill('1234567890')
+    await page.getByRole('button', { name: /save/i }).click()
+
+    await expect(page.getByText(/invalid phone/i)).toBeVisible()
+  })
+
+  test('volunteer form accepts valid E.164 phone', async ({ page }) => {
+    const phone = uniquePhone()
+    await page.getByRole('link', { name: 'Volunteers' }).click()
+    await page.getByRole('button', { name: /add volunteer/i }).click()
+
+    const form = page.locator('form')
+    await form.locator('input').first().fill('Valid Phone Test')
+    await form.locator('input[type="tel"]').fill(phone)
+    await page.getByRole('button', { name: /save/i }).click()
+
+    // Should show nsec (success)
+    await expect(page.getByText(/nsec1/)).toBeVisible()
+  })
+
+  test('ban form rejects invalid phone', async ({ page }) => {
+    await page.getByRole('link', { name: 'Ban List' }).click()
+    await page.getByRole('button', { name: /ban number/i }).click()
+
+    const form = page.locator('form')
+    await form.locator('input[type="tel"]').fill('not-valid')
+    await form.locator('input').last().fill('Test reason')
+    await page.getByRole('button', { name: /save/i }).click()
+
+    await expect(page.getByText(/invalid phone/i)).toBeVisible()
+  })
+
+  test('ban form rejects short phone numbers', async ({ page }) => {
+    await page.getByRole('link', { name: 'Ban List' }).click()
+    await page.getByRole('button', { name: /ban number/i }).click()
+
+    const form = page.locator('form')
+    await form.locator('input[type="tel"]').fill('+123')
+    await form.locator('input').last().fill('Test reason')
+    await page.getByRole('button', { name: /save/i }).click()
+
+    await expect(page.getByText(/invalid phone/i)).toBeVisible()
+  })
+
+  test('login rejects nsec without nsec prefix', async ({ page }) => {
+    await page.getByRole('button', { name: /log out/i }).click()
+    await page.getByRole('textbox', { name: /secret key/i }).fill('npub1abc123')
+    await page.getByRole('button', { name: /log in/i }).click()
+    await expect(page.getByText(/invalid/i)).toBeVisible()
+  })
+
+  test('login rejects very short nsec', async ({ page }) => {
+    await page.getByRole('button', { name: /log out/i }).click()
+    await page.getByRole('textbox', { name: /secret key/i }).fill('nsec1short')
+    await page.getByRole('button', { name: /log in/i }).click()
+    await expect(page.getByText(/invalid/i)).toBeVisible()
+  })
+
+  test('bulk ban import validates phone format', async ({ page }) => {
+    await page.getByRole('link', { name: 'Ban List' }).click()
+    await page.getByRole('button', { name: /import/i }).click()
+
+    await page.locator('textarea').fill('not-a-phone\n+invalid')
+    await page.locator('form').last().locator('input').fill('Test reason')
+    await page.getByRole('button', { name: /submit/i }).click()
+
+    await expect(page.getByText(/invalid phone/i)).toBeVisible()
+  })
+})

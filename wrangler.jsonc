@@ -43,6 +43,7 @@
 
   // Environment variables (secrets go in .dev.vars for local dev)
   "vars": {
-    "ENVIRONMENT": "production"
+    "ENVIRONMENT": "production",
+    "HOTLINE_NAME": "Llámenos"
   }
 }

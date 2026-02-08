@@ -26,12 +26,13 @@
   },
   "auth": {
     "login": "تسجيل الدخول",
-    "loginTitle": "تسجيل الدخول إلى Llámenos",
+    "loginTitle": "تسجيل الدخول إلى {{name}}",
     "loginDescription": "أدخل مفتاحك السري للوصول إلى خط المساعدة",
     "secretKey": "المفتاح السري (nsec)",
     "secretKeyPlaceholder": "nsec1...",
     "invalidKey": "مفتاح سري غير صالح",
-    "loginError": "فشل تسجيل الدخول. يرجى التحقق من مفتاحك والمحاولة مرة أخرى."
+    "loginError": "فشل تسجيل الدخول. يرجى التحقق من مفتاحك والمحاولة مرة أخرى.",
+    "securityNote": "مفتاحك لا يغادر جهازك أبداً"
   },
   "nav": {
     "dashboard": "لوحة التحكم",
@@ -58,7 +59,11 @@
     "onBreak": "في استراحة",
     "goOnBreak": "أخذ استراحة",
     "endBreak": "إنهاء الاستراحة",
-    "breakDescription": "لن تتلقى مكالمات أثناء الاستراحة"
+    "breakDescription": "لن تتلقى مكالمات أثناء الاستراحة",
+    "volunteerStatus": "حالة المتطوع",
+    "available": "متاح",
+    "offline": "غير متصل",
+    "noVolunteersOnline": "لا يوجد متطوعون متصلون"
   },
   "calls": {
     "incoming": "مكالمة واردة",
@@ -85,7 +90,16 @@
     "savedAt": "تم الحفظ في {{time}}",
     "noNotes": "لا توجد ملاحظات بعد",
     "callWith": "مكالمة مع {{number}}",
-    "encryptionNote": "الملاحظات مشفرة من طرف إلى طرف"
+    "encryptionNote": "الملاحظات مشفرة من طرف إلى طرف",
+    "searchNotes": "البحث في الملاحظات",
+    "searchPlaceholder": "البحث في محتوى الملاحظات...",
+    "noSearchResults": "لا توجد ملاحظات مطابقة لبحثك",
+    "callId": "معرف المكالمة",
+    "selectCall": "اختر مكالمة حديثة...",
+    "enterManually": "إدخال معرف المكالمة يدوياً",
+    "callIdPlaceholder": "معرف المكالمة أو المرجع",
+    "export": "تصدير",
+    "viewNotes": "ملاحظات"
   },
   "transcription": {
     "title": "النسخ",
@@ -228,6 +242,37 @@
     "enableTranscription": "تفعيل نسخ المكالمات",
     "transcriptionDescription": "يستخدم الذكاء الاصطناعي لنسخ المكالمات. يمكن تعطيله لكل متطوع.",
     "language": "اللغة",
-    "theme": "المظهر"
+    "theme": "المظهر",
+    "notifications": "إشعارات المكالمات",
+    "notificationsDescription": "تكوين طريقة تلقي تنبيهات المكالمات الواردة",
+    "playRingtone": "تشغيل نغمة رنين للمكالمات الواردة",
+    "playRingtoneDescription": "تشغيل صوت عند ورود مكالمة",
+    "browserNotifications": "إشعارات المتصفح",
+    "browserNotificationsDescription": "عرض إشعار النظام للمكالمات الواردة"
+  },
+  "commandPalette": {
+    "label": "لوحة الأوامر",
+    "placeholder": "اكتب أمراً أو ابحث...",
+    "noResults": "لم يتم العثور على نتائج",
+    "keyboardShortcuts": "اختصارات لوحة المفاتيح",
+    "navigation": "التنقل",
+    "actions": "الإجراءات",
+    "theme": "السمة",
+    "language": "اللغة"
+  },
+  "a11y": {
+    "skipToContent": "انتقل إلى المحتوى",
+    "switchToLanguage": "التبديل إلى {{language}}",
+    "copyToClipboard": "نسخ إلى الحافظة",
+    "deleteItem": "حذف",
+    "editItem": "تعديل",
+    "removeItem": "إزالة",
+    "searchButton": "بحث",
+    "clearFilters": "مسح المرشحات",
+    "openMenu": "فتح القائمة",
+    "closeSidebar": "إغلاق الشريط الجانبي",
+    "themeSystem": "سمة النظام",
+    "themeLight": "سمة فاتحة",
+    "themeDark": "سمة داكنة"
   }
 }

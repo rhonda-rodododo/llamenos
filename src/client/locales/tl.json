@@ -26,12 +26,13 @@
   },
   "auth": {
     "login": "Mag-log in",
-    "loginTitle": "Mag-sign in sa Llámenos",
+    "loginTitle": "Mag-sign in sa {{name}}",
     "loginDescription": "Ilagay ang iyong secret key para ma-access ang hotline",
     "secretKey": "Secret Key (nsec)",
     "secretKeyPlaceholder": "nsec1...",
     "invalidKey": "Hindi valid ang secret key",
-    "loginError": "Hindi makapag-log in. Pakisuri ang iyong key at subukan muli."
+    "loginError": "Hindi makapag-log in. Pakisuri ang iyong key at subukan muli.",
+    "securityNote": "Ang iyong key ay hindi kailanman umaalis sa iyong device"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -58,7 +59,11 @@
     "onBreak": "Naka-break",
     "goOnBreak": "Mag-break",
     "endBreak": "Tapusin ang Break",
-    "breakDescription": "Hindi ka makakatanggap ng mga tawag habang naka-break"
+    "breakDescription": "Hindi ka makakatanggap ng mga tawag habang naka-break",
+    "volunteerStatus": "Status ng Boluntaryo",
+    "available": "Available",
+    "offline": "Offline",
+    "noVolunteersOnline": "Walang boluntaryo na online"
   },
   "calls": {
     "incoming": "Papasok na Tawag",
@@ -85,7 +90,16 @@
     "savedAt": "Na-save noong {{time}}",
     "noNotes": "Wala pang mga tala",
     "callWith": "Tawag sa {{number}}",
-    "encryptionNote": "Ang mga tala ay naka-encrypt end-to-end"
+    "encryptionNote": "Ang mga tala ay naka-encrypt end-to-end",
+    "searchNotes": "Maghanap ng mga tala",
+    "searchPlaceholder": "Maghanap sa nilalaman ng tala...",
+    "noSearchResults": "Walang tala na tumugma sa iyong paghahanap",
+    "callId": "ID ng Tawag",
+    "selectCall": "Pumili ng kamakailang tawag...",
+    "enterManually": "Manu-manong ilagay ang ID ng tawag",
+    "callIdPlaceholder": "ID ng tawag o reference",
+    "export": "I-export",
+    "viewNotes": "Mga Tala"
   },
   "transcription": {
     "title": "Transkripsyon",
@@ -228,6 +242,37 @@
     "enableTranscription": "I-enable ang transkripsyon ng tawag",
     "transcriptionDescription": "Gumagamit ng AI para ma-transcribe ang mga tawag. Puwedeng i-disable bawat boluntaryo.",
     "language": "Wika",
-    "theme": "Tema"
+    "theme": "Tema",
+    "notifications": "Mga Notipikasyon ng Tawag",
+    "notificationsDescription": "I-configure kung paano ka makakatanggap ng mga alerto sa papasok na tawag",
+    "playRingtone": "Mag-play ng ringtone para sa papasok na tawag",
+    "playRingtoneDescription": "Nagpe-play ng tunog kapag may tumatawag",
+    "browserNotifications": "Mga notipikasyon ng browser",
+    "browserNotificationsDescription": "Magpakita ng notipikasyon ng system para sa papasok na tawag"
+  },
+  "commandPalette": {
+    "label": "Command Palette",
+    "placeholder": "Mag-type ng command o maghanap...",
+    "noResults": "Walang nakitang resulta",
+    "keyboardShortcuts": "Mga Shortcut sa Keyboard",
+    "navigation": "Nabigasyon",
+    "actions": "Mga Aksyon",
+    "theme": "Tema",
+    "language": "Wika"
+  },
+  "a11y": {
+    "skipToContent": "Pumunta sa nilalaman",
+    "switchToLanguage": "Lumipat sa {{language}}",
+    "copyToClipboard": "Kopyahin sa clipboard",
+    "deleteItem": "Tanggalin",
+    "editItem": "I-edit",
+    "removeItem": "Alisin",
+    "searchButton": "Maghanap",
+    "clearFilters": "I-clear ang mga filter",
+    "openMenu": "Buksan ang menu",
+    "closeSidebar": "Isara ang sidebar",
+    "themeSystem": "Tema ng system",
+    "themeLight": "Maliwanag na tema",
+    "themeDark": "Madilim na tema"
   }
 }

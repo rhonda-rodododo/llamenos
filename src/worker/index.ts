@@ -99,6 +99,11 @@ export default {
       })
     }
 
+    // --- Public config (no auth) ---
+    if (path === '/config' && method === 'GET') {
+      return json({ hotlineName: env.HOTLINE_NAME || 'Hotline' })
+    }
+
     // --- Telephony Webhooks (no auth — validated by Twilio signature) ---
     if (path.startsWith('/telephony/')) {
       return handleTelephonyWebhook(path, request, env, dos)
@@ -307,10 +312,15 @@ export default {
     // --- Notes ---
     if (path === '/notes' && method === 'GET') {
       const callId = url.searchParams.get('callId')
+      const page = url.searchParams.get('page') || '1'
+      const limit = url.searchParams.get('limit') || '50'
       // Volunteers can only see their own notes; admins can see all
-      const authorParam = isAdmin ? '' : `&author=${pubkey}`
-      const callParam = callId ? `callId=${callId}` : ''
-      return dos.session.fetch(new Request(`http://do/notes?${callParam}${authorParam}`))
+      const params = new URLSearchParams()
+      if (callId) params.set('callId', callId)
+      if (!isAdmin) params.set('author', pubkey)
+      params.set('page', page)
+      params.set('limit', limit)
+      return dos.session.fetch(new Request(`http://do/notes?${params}`))
     }
     if (path === '/notes' && method === 'POST') {
       const body = await request.json() as { callId: string; encryptedContent: string }
@@ -344,6 +354,17 @@ export default {
       }
       return res
     }
+    // Calls today count
+    if (path === '/calls/today-count' && method === 'GET') {
+      return dos.calls.fetch(new Request('http://do/calls/today-count'))
+    }
+
+    // Volunteer presence (admin only)
+    if (path === '/calls/presence' && method === 'GET') {
+      if (!isAdmin) return error('Forbidden', 403)
+      return dos.calls.fetch(new Request('http://do/calls/presence'))
+    }
+
     if (path === '/calls/history' && method === 'GET') {
       if (!isAdmin) return error('Forbidden', 403)
       const params = new URLSearchParams()

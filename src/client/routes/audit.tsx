@@ -38,7 +38,7 @@ function AuditPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-2">
         <ScrollText className="h-6 w-6 text-muted-foreground" />
-        <h2 className="text-2xl font-bold">{t('auditLog.title')}</h2>
+        <h1 className="text-xl font-bold sm:text-2xl">{t('auditLog.title')}</h1>
       </div>
 
       <Card>
@@ -62,8 +62,8 @@ function AuditPage() {
           ) : (
             <div className="divide-y divide-border">
               {entries.map(entry => (
-                <div key={entry.id} className="flex items-center gap-4 px-6 py-3">
-                  <span className="w-36 shrink-0 text-xs text-muted-foreground whitespace-nowrap">
+                <div key={entry.id} className="flex flex-wrap items-center gap-4 px-4 py-3 sm:px-6">
+                  <span className="w-full text-xs text-muted-foreground whitespace-nowrap sm:w-36 sm:shrink-0">
                     {new Date(entry.createdAt).toLocaleString()}
                   </span>
                   <Badge variant="secondary">
@@ -71,7 +71,7 @@ function AuditPage() {
                   </Badge>
                   <code className="text-xs text-muted-foreground">{entry.actorPubkey.slice(0, 12)}...</code>
                   <span className="flex-1 truncate text-xs text-muted-foreground">
-                    {JSON.stringify(entry.details)}
+                    {Object.entries(entry.details || {}).map(([k, v]) => `${k}: ${v}`).join(', ') || '—'}
                   </span>
                 </div>
               ))}
