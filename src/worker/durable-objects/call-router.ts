@@ -96,14 +96,34 @@ export class CallRouterDO extends DurableObject<Env> {
     try {
       const msg = JSON.parse(message as string)
 
+      const tags = this.ctx.getTags(ws)
+      const pubkey = tags[0]
+      if (!pubkey) return
+
       if (msg.type === 'status:update') {
-        const tags = this.ctx.getTags(ws)
-        const pubkey = tags[0]
-        if (pubkey) {
-          const conn = this.connections.get(pubkey)
-          if (conn) {
-            conn.onCall = msg.onCall ?? conn.onCall
-          }
+        const conn = this.connections.get(pubkey)
+        if (conn) {
+          conn.onCall = msg.onCall ?? conn.onCall
+        }
+      }
+
+      // Volunteer answers a call via WebSocket
+      if (msg.type === 'call:answer' && msg.callId) {
+        await this.handleCallAnswered(msg.callId, { pubkey })
+      }
+
+      // Volunteer hangs up via WebSocket
+      if (msg.type === 'call:hangup' && msg.callId) {
+        await this.handleCallEnded(msg.callId)
+      }
+
+      // Volunteer reports spam via WebSocket
+      if (msg.type === 'call:reportSpam' && msg.callId) {
+        const result = await this.handleReportSpam(msg.callId, { pubkey })
+        // Send back the caller number so the UI can confirm
+        if (ws.readyState === WebSocket.OPEN) {
+          const data = await result.json() as Record<string, unknown>
+          ws.send(JSON.stringify({ type: 'spam:reported', ...data }))
         }
       }
     } catch {

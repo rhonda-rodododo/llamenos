@@ -535,10 +535,30 @@ async function startParallelRinging(
 
 // --- Rate Limiting ---
 
-async function checkRateLimit(session: DurableObjectStub, phone: string, maxPerMinute: number): Promise<boolean> {
-  // Simple rate limit check using the session DO
-  // In production, this would use a separate rate limiting DO or KV
-  return false // TODO: implement proper rate limiting
+// Simple sliding-window rate limiter using in-memory Map (resets on worker restart).
+// Fine for a single-instance Worker + DO architecture.
+const rateLimitMap = new Map<string, number[]>()
+
+async function checkRateLimit(_session: DurableObjectStub, phone: string, maxPerMinute: number): Promise<boolean> {
+  const now = Date.now()
+  const windowMs = 60_000
+  const timestamps = rateLimitMap.get(phone) || []
+
+  // Remove timestamps outside the window
+  const recent = timestamps.filter(t => now - t < windowMs)
+  recent.push(now)
+  rateLimitMap.set(phone, recent)
+
+  // Clean up old entries periodically (keep map from growing unbounded)
+  if (rateLimitMap.size > 10000) {
+    for (const [key, val] of rateLimitMap) {
+      if (val.every(t => now - t > windowMs)) {
+        rateLimitMap.delete(key)
+      }
+    }
+  }
+
+  return recent.length > maxPerMinute
 }
 
 // --- Transcription ---
