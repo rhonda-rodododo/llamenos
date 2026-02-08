@@ -1,0 +1,48 @@
+{
+  "name": "llamenos",
+  "main": "src/worker/index.ts",
+  "compatibility_date": "2025-04-23",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Serve the Vite-built SPA as static assets
+  "assets": {
+    "directory": "dist/client",
+    "not_found_handling": "single-page-application"
+  },
+
+  // Durable Object bindings
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "CALL_ROUTER",
+        "class_name": "CallRouterDO"
+      },
+      {
+        "name": "SHIFT_MANAGER",
+        "class_name": "ShiftManagerDO"
+      },
+      {
+        "name": "SESSION_MANAGER",
+        "class_name": "SessionManagerDO"
+      }
+    ]
+  },
+
+  // Durable Object migrations
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_classes": ["CallRouterDO", "ShiftManagerDO", "SessionManagerDO"]
+    }
+  ],
+
+  // AI binding for Whisper transcription
+  "ai": {
+    "binding": "AI"
+  },
+
+  // Environment variables (secrets go in .dev.vars)
+  "vars": {
+    "ENVIRONMENT": "development"
+  }
+}

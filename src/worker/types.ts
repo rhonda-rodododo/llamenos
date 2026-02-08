@@ -1,0 +1,81 @@
+export interface Env {
+  CALL_ROUTER: DurableObjectNamespace
+  SHIFT_MANAGER: DurableObjectNamespace
+  SESSION_MANAGER: DurableObjectNamespace
+  AI: Ai
+  ASSETS: Fetcher
+  TWILIO_ACCOUNT_SID: string
+  TWILIO_AUTH_TOKEN: string
+  TWILIO_PHONE_NUMBER: string
+  ADMIN_PUBKEY: string
+  ENVIRONMENT: string
+}
+
+export interface Volunteer {
+  pubkey: string
+  name: string
+  phone: string
+  role: 'volunteer' | 'admin'
+  active: boolean
+  createdAt: string
+  encryptedSecretKey: string // Admin-encrypted copy of the volunteer's nsec
+  transcriptionEnabled: boolean
+}
+
+export interface Shift {
+  id: string
+  name: string
+  startTime: string
+  endTime: string
+  days: number[]
+  volunteerPubkeys: string[]
+  createdAt: string
+}
+
+export interface BanEntry {
+  phone: string
+  reason: string
+  bannedBy: string
+  bannedAt: string
+}
+
+export interface CallRecord {
+  id: string
+  callerNumber: string
+  answeredBy: string | null
+  startedAt: string
+  endedAt?: string
+  duration?: number
+  status: 'ringing' | 'in-progress' | 'completed'
+  hasTranscription: boolean
+}
+
+export interface EncryptedNote {
+  id: string
+  callId: string
+  authorPubkey: string
+  encryptedContent: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AuditLogEntry {
+  id: string
+  event: string
+  actorPubkey: string
+  details: Record<string, unknown>
+  createdAt: string
+}
+
+export interface SpamSettings {
+  voiceCaptchaEnabled: boolean
+  rateLimitEnabled: boolean
+  maxCallsPerMinute: number
+  blockDurationMinutes: number
+}
+
+export interface AuthPayload {
+  pubkey: string
+  timestamp: number
+  token: string
+}

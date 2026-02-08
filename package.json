@@ -1,6 +1,42 @@
 {
-  "dependencies": {},
+  "name": "llamenos",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "deploy": "bun run build && bunx wrangler deploy",
+    "dev:worker": "bunx wrangler dev",
+    "typecheck": "bunx tsc --noEmit",
+    "bootstrap-admin": "bun run scripts/bootstrap-admin.ts",
+    "test": "bunx playwright test",
+    "test:ui": "bunx playwright test --ui"
+  },
+  "dependencies": {
+    "@noble/ciphers": "^2.1.1",
+    "@noble/hashes": "^2.0.1",
+    "@scure/base": "^2.0.0",
+    "@tanstack/react-router": "^1.158.4",
+    "@tanstack/router-plugin": "^1.158.4",
+    "clsx": "^2.1.1",
+    "i18next": "^25.8.4",
+    "nostr-tools": "^2.23.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-i18next": "^16.5.4",
+    "tailwind-merge": "^3.4.0"
+  },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260207.0",
+    "@tailwindcss/vite": "^4.1.18",
+    "@types/node": "^25.2.2",
+    "@types/react": "^19.2.13",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.3",
+    "tailwindcss": "^4.1.18",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1",
     "wrangler": "^4.63.0"
   }
 }
