@@ -13,6 +13,13 @@ import {
   type Shift,
   type Volunteer,
 } from '@/lib/api'
+import { useToast } from '@/lib/toast'
+import { CalendarPlus, Clock, Users, Pencil, Trash2, LifeBuoy } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 export const Route = createFileRoute('/shifts')({
   component: ShiftsPage,
@@ -23,6 +30,7 @@ const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'frida
 function ShiftsPage() {
   const { t } = useTranslation()
   const { isAdmin } = useAuth()
+  const { toast } = useToast()
   const [shifts, setShifts] = useState<Shift[]>([])
   const [volunteers, setVolunteers] = useState<Volunteer[]>([])
   const [fallback, setFallback] = useState<string[]>([])
@@ -35,7 +43,8 @@ function ShiftsPage() {
       listShifts().then(r => setShifts(r.shifts)),
       listVolunteers().then(r => setVolunteers(r.volunteers)),
       getFallbackGroup().then(r => setFallback(r.volunteers)),
-    ]).finally(() => setLoading(false))
+    ]).catch(() => toast(t('common.error'), 'error'))
+      .finally(() => setLoading(false))
   }, [])
 
   if (!isAdmin) {
@@ -43,20 +52,22 @@ function ShiftsPage() {
   }
 
   async function handleSaveFallback(selected: string[]) {
-    await setFallbackGroup(selected)
-    setFallback(selected)
+    try {
+      await setFallbackGroup(selected)
+      setFallback(selected)
+    } catch {
+      toast(t('common.error'), 'error')
+    }
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">{t('shifts.title')}</h2>
-        <button
-          onClick={() => { setShowForm(true); setEditingShift(null) }}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-        >
+        <Button onClick={() => { setShowForm(true); setEditingShift(null) }}>
+          <CalendarPlus className="h-4 w-4" />
           {t('shifts.createShift')}
-        </button>
+        </Button>
       </div>
 
       {(showForm || editingShift) && (
@@ -64,15 +75,20 @@ function ShiftsPage() {
           shift={editingShift}
           volunteers={volunteers}
           onSave={async (data) => {
-            if (editingShift) {
-              const res = await updateShift(editingShift.id, data)
-              setShifts(prev => prev.map(s => s.id === editingShift.id ? res.shift : s))
-            } else {
-              const res = await createShift(data as Omit<Shift, 'id'>)
-              setShifts(prev => [...prev, res.shift])
+            try {
+              if (editingShift) {
+                const res = await updateShift(editingShift.id, data)
+                setShifts(prev => prev.map(s => s.id === editingShift.id ? res.shift : s))
+              } else {
+                const res = await createShift(data as Omit<Shift, 'id'>)
+                setShifts(prev => [...prev, res.shift])
+              }
+              setShowForm(false)
+              setEditingShift(null)
+              toast(t('common.success'), 'success')
+            } catch {
+              toast(t('common.error'), 'error')
             }
-            setShowForm(false)
-            setEditingShift(null)
           }}
           onCancel={() => { setShowForm(false); setEditingShift(null) }}
         />
@@ -81,75 +97,110 @@ function ShiftsPage() {
       {/* Shifts list */}
       <div className="space-y-3">
         {loading ? (
-          <div className="rounded-lg border border-border p-8 text-center text-muted-foreground">{t('common.loading')}</div>
-        ) : shifts.length === 0 ? (
-          <div className="rounded-lg border border-border p-8 text-center text-muted-foreground">{t('shifts.noShifts')}</div>
-        ) : (
-          shifts.map(shift => (
-            <div key={shift.id} className="rounded-lg border border-border p-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="font-medium">{shift.name}</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {shift.startTime} - {shift.endTime}
-                  </p>
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {shift.days.map(d => (
-                      <span key={d} className="rounded bg-accent px-1.5 py-0.5 text-xs">
-                        {t(`shifts.days.${DAY_KEYS[d]}`)}
-                      </span>
+          <div className="space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Card key={i}>
+                <CardContent className="space-y-2">
+                  <div className="h-5 w-40 animate-pulse rounded bg-muted" />
+                  <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+                  <div className="flex gap-1">
+                    {Array.from({ length: 5 }).map((_, j) => (
+                      <div key={j} className="h-5 w-12 animate-pulse rounded bg-muted" />
                     ))}
                   </div>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {shift.volunteerPubkeys.length} {t('shifts.volunteers').toLowerCase()}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setEditingShift(shift)}
-                    className="text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    {t('common.edit')}
-                  </button>
-                  <button
-                    onClick={async () => {
-                      await deleteShift(shift.id)
-                      setShifts(prev => prev.filter(s => s.id !== shift.id))
-                    }}
-                    className="text-xs text-destructive-foreground hover:text-red-400"
-                  >
-                    {t('common.delete')}
-                  </button>
-                </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : shifts.length === 0 ? (
+          <Card>
+            <CardContent>
+              <div className="py-8 text-center text-muted-foreground">
+                <Clock className="mx-auto mb-2 h-8 w-8 opacity-40" />
+                {t('shifts.noShifts')}
               </div>
-            </div>
+            </CardContent>
+          </Card>
+        ) : (
+          shifts.map(shift => (
+            <Card key={shift.id}>
+              <CardContent>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="font-medium">{shift.name}</h3>
+                    <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <Clock className="h-3.5 w-3.5" />
+                      {shift.startTime} - {shift.endTime}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {shift.days.map(d => (
+                        <Badge key={d} variant="secondary">
+                          {t(`shifts.days.${DAY_KEYS[d]}`)}
+                        </Badge>
+                      ))}
+                    </div>
+                    <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Users className="h-3 w-3" />
+                      {shift.volunteerPubkeys.length} {t('shifts.volunteers').toLowerCase()}
+                    </p>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon-xs" onClick={() => setEditingShift(shift)}>
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      className="text-destructive hover:text-destructive"
+                      onClick={async () => {
+                        try {
+                          await deleteShift(shift.id)
+                          setShifts(prev => prev.filter(s => s.id !== shift.id))
+                        } catch {
+                          toast(t('common.error'), 'error')
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           ))
         )}
       </div>
 
       {/* Fallback group */}
-      <div className="rounded-lg border border-border p-4">
-        <h3 className="font-medium">{t('shifts.fallbackGroup')}</h3>
-        <p className="mt-1 text-sm text-muted-foreground">{t('shifts.fallbackDescription')}</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {volunteers.filter(v => v.active).map(vol => (
-            <label key={vol.pubkey} className="flex items-center gap-1.5 text-sm">
-              <input
-                type="checkbox"
-                checked={fallback.includes(vol.pubkey)}
-                onChange={(e) => {
-                  const next = e.target.checked
-                    ? [...fallback, vol.pubkey]
-                    : fallback.filter(p => p !== vol.pubkey)
-                  handleSaveFallback(next)
-                }}
-                className="rounded border-input"
-              />
-              {vol.name}
-            </label>
-          ))}
-        </div>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <LifeBuoy className="h-4 w-4 text-muted-foreground" />
+            {t('shifts.fallbackGroup')}
+          </CardTitle>
+          <CardDescription>{t('shifts.fallbackDescription')}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2">
+            {volunteers.filter(v => v.active).map(vol => (
+              <label key={vol.pubkey} className="flex items-center gap-1.5 text-sm">
+                <input
+                  type="checkbox"
+                  checked={fallback.includes(vol.pubkey)}
+                  onChange={(e) => {
+                    const next = e.target.checked
+                      ? [...fallback, vol.pubkey]
+                      : fallback.filter(p => p !== vol.pubkey)
+                    handleSaveFallback(next)
+                  }}
+                  className="rounded border-input"
+                />
+                {vol.name}
+              </label>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
@@ -179,88 +230,92 @@ function ShiftForm({ shift, volunteers, onSave, onCancel }: {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-lg border border-border p-4 space-y-4">
-      <div>
-        <label className="mb-1.5 block text-sm font-medium">{t('shifts.shiftName')}</label>
-        <input
-          value={name}
-          onChange={e => setName(e.target.value)}
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          required
-        />
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="mb-1.5 block text-sm font-medium">{t('shifts.startTime')}</label>
-          <input
-            type="time"
-            value={startTime}
-            onChange={e => setStartTime(e.target.value)}
-            className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          />
-        </div>
-        <div>
-          <label className="mb-1.5 block text-sm font-medium">{t('shifts.endTime')}</label>
-          <input
-            type="time"
-            value={endTime}
-            onChange={e => setEndTime(e.target.value)}
-            className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          />
-        </div>
-      </div>
-      <div>
-        <label className="mb-1.5 block text-sm font-medium">{t('shifts.recurring')}</label>
-        <div className="flex flex-wrap gap-2">
-          {DAY_KEYS.map((day, i) => (
-            <label key={i} className="flex items-center gap-1.5 text-sm">
-              <input
-                type="checkbox"
-                checked={days.includes(i)}
-                onChange={(e) => {
-                  setDays(e.target.checked ? [...days, i] : days.filter(d => d !== i))
-                }}
-                className="rounded border-input"
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <CalendarPlus className="h-4 w-4 text-muted-foreground" />
+          {shift ? t('shifts.editShift') : t('shifts.createShift')}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="shift-name">{t('shifts.shiftName')}</Label>
+            <Input
+              id="shift-name"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              required
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="start-time">{t('shifts.startTime')}</Label>
+              <Input
+                id="start-time"
+                type="time"
+                value={startTime}
+                onChange={e => setStartTime(e.target.value)}
               />
-              {t(`shifts.days.${day}`)}
-            </label>
-          ))}
-        </div>
-      </div>
-      <div>
-        <label className="mb-1.5 block text-sm font-medium">{t('shifts.assignVolunteers')}</label>
-        <div className="flex flex-wrap gap-2">
-          {volunteers.filter(v => v.active).map(vol => (
-            <label key={vol.pubkey} className="flex items-center gap-1.5 text-sm">
-              <input
-                type="checkbox"
-                checked={selectedVolunteers.includes(vol.pubkey)}
-                onChange={(e) => {
-                  setSelectedVolunteers(
-                    e.target.checked
-                      ? [...selectedVolunteers, vol.pubkey]
-                      : selectedVolunteers.filter(p => p !== vol.pubkey)
-                  )
-                }}
-                className="rounded border-input"
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="end-time">{t('shifts.endTime')}</Label>
+              <Input
+                id="end-time"
+                type="time"
+                value={endTime}
+                onChange={e => setEndTime(e.target.value)}
               />
-              {vol.name}
-            </label>
-          ))}
-        </div>
-      </div>
-      <div className="flex gap-2">
-        <button
-          type="submit"
-          disabled={saving}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-        >
-          {saving ? t('common.loading') : t('common.save')}
-        </button>
-        <button type="button" onClick={onCancel} className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent">
-          {t('common.cancel')}
-        </button>
-      </div>
-    </form>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>{t('shifts.recurring')}</Label>
+            <div className="flex flex-wrap gap-2">
+              {DAY_KEYS.map((day, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setDays(prev => prev.includes(i) ? prev.filter(d => d !== i) : [...prev, i])}
+                >
+                  <Badge variant={days.includes(i) ? 'default' : 'outline'}>
+                    {t(`shifts.days.${day}`)}
+                  </Badge>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>{t('shifts.assignVolunteers')}</Label>
+            <div className="flex flex-wrap gap-2">
+              {volunteers.filter(v => v.active).map(vol => (
+                <label key={vol.pubkey} className="flex items-center gap-1.5 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={selectedVolunteers.includes(vol.pubkey)}
+                    onChange={(e) => {
+                      setSelectedVolunteers(
+                        e.target.checked
+                          ? [...selectedVolunteers, vol.pubkey]
+                          : selectedVolunteers.filter(p => p !== vol.pubkey)
+                      )
+                    }}
+                    className="rounded border-input"
+                  />
+                  {vol.name}
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button type="submit" disabled={saving}>
+              {saving ? t('common.loading') : t('common.save')}
+            </Button>
+            <Button type="button" variant="outline" onClick={onCancel}>
+              {t('common.cancel')}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   )
 }

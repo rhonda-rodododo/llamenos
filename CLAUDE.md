@@ -79,3 +79,4 @@ bunx tsc --noEmit
 - Use context7 plugin to look up current docs for Twilio, Cloudflare Workers, TanStack, shadcn/ui, and other libraries before implementing.
 - Use the feature-dev plugin for guided development of complex features.
 - Use Playwright plugin for E2E test development and debugging.
+- Clean and DRY patterns!

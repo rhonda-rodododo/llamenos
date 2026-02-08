@@ -3,13 +3,19 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth'
 import { isValidNsec } from '@/lib/crypto'
+import { setLanguage } from '@/lib/i18n'
+import { Phone, KeyRound, LogIn, Globe, Lock } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 
 export const Route = createFileRoute('/login')({
   component: LoginPage,
 })
 
 function LoginPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { signIn, error, isLoading } = useAuth()
   const navigate = useNavigate()
   const [nsec, setNsec] = useState('')
@@ -34,43 +40,79 @@ function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <div className="w-full max-w-md space-y-6 rounded-lg border border-border bg-card p-8">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-foreground">{t('auth.loginTitle')}</h1>
-          <p className="mt-2 text-sm text-muted-foreground">{t('auth.loginDescription')}</p>
-        </div>
+    <div className="flex min-h-screen items-center justify-center bg-background">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+            <Phone className="h-7 w-7 text-primary" />
+          </div>
+          <CardTitle className="text-2xl">{t('auth.loginTitle')}</CardTitle>
+          <CardDescription>{t('auth.loginDescription')}</CardDescription>
+        </CardHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="nsec" className="mb-1.5 block text-sm font-medium">
-              {t('auth.secretKey')}
-            </label>
-            <input
-              id="nsec"
-              type="password"
-              value={nsec}
-              onChange={(e) => setNsec(e.target.value)}
-              placeholder={t('auth.secretKeyPlaceholder')}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              autoComplete="off"
-              autoFocus
-            />
+        <CardContent className="space-y-4">
+          {/* Language toggle */}
+          <div className="flex items-center justify-center gap-1.5">
+            <Globe className="h-3.5 w-3.5 text-muted-foreground" />
+            <Button
+              variant={i18n.language === 'en' ? 'secondary' : 'ghost'}
+              size="xs"
+              onClick={() => setLanguage('en')}
+            >
+              English
+            </Button>
+            <Button
+              variant={i18n.language === 'es' ? 'secondary' : 'ghost'}
+              size="xs"
+              onClick={() => setLanguage('es')}
+            >
+              Espanol
+            </Button>
           </div>
 
-          {(validationError || error) && (
-            <p className="text-sm text-destructive-foreground">{validationError || error}</p>
-          )}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="nsec">
+                <KeyRound className="h-3.5 w-3.5 text-muted-foreground" />
+                {t('auth.secretKey')}
+              </Label>
+              <Input
+                id="nsec"
+                type="password"
+                value={nsec}
+                onChange={(e) => setNsec(e.target.value)}
+                placeholder={t('auth.secretKeyPlaceholder')}
+                autoComplete="off"
+                autoFocus
+              />
+            </div>
 
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-          >
-            {isLoading ? t('common.loading') : t('auth.login')}
-          </button>
-        </form>
-      </div>
+            {(validationError || error) && (
+              <p className="flex items-center gap-1.5 text-sm text-destructive">
+                {validationError || error}
+              </p>
+            )}
+
+            <Button type="submit" disabled={isLoading} className="w-full">
+              {isLoading ? (
+                t('common.loading')
+              ) : (
+                <>
+                  <LogIn className="h-4 w-4" />
+                  {t('auth.login')}
+                </>
+              )}
+            </Button>
+          </form>
+        </CardContent>
+
+        <CardFooter className="justify-center">
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Lock className="h-3 w-3" />
+            {t('auth.securityNote', { defaultValue: 'Your key never leaves your device' })}
+          </p>
+        </CardFooter>
+      </Card>
     </div>
   )
 }

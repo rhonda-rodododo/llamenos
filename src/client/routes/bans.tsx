@@ -3,6 +3,13 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth'
 import { useEffect, useState } from 'react'
 import { listBans, addBan, removeBan, bulkAddBans, type BanEntry } from '@/lib/api'
+import { useToast } from '@/lib/toast'
+import { ShieldBan, Plus, Upload, Trash2 } from 'lucide-react'
+import { ConfirmDialog } from '@/components/confirm-dialog'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 export const Route = createFileRoute('/bans')({
   component: BansPage,
@@ -11,6 +18,7 @@ export const Route = createFileRoute('/bans')({
 function BansPage() {
   const { t } = useTranslation()
   const { isAdmin } = useAuth()
+  const { toast } = useToast()
   const [bans, setBans] = useState<BanEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
@@ -19,6 +27,7 @@ function BansPage() {
   useEffect(() => {
     listBans()
       .then(r => setBans(r.bans))
+      .catch(() => toast(t('common.error'), 'error'))
       .finally(() => setLoading(false))
   }, [])
 
@@ -31,18 +40,14 @@ function BansPage() {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">{t('banList.title')}</h2>
         <div className="flex gap-2">
-          <button
-            onClick={() => setShowBulk(!showBulk)}
-            className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent"
-          >
+          <Button variant="outline" onClick={() => setShowBulk(!showBulk)}>
+            <Upload className="h-4 w-4" />
             {t('banList.bulkImport')}
-          </button>
-          <button
-            onClick={() => setShowAdd(!showAdd)}
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          >
+          </Button>
+          <Button onClick={() => setShowAdd(!showAdd)}>
+            <Plus className="h-4 w-4" />
             {t('banList.addNumber')}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -58,7 +63,7 @@ function BansPage() {
 
       {showBulk && (
         <BulkImportForm
-          onImported={(count) => {
+          onImported={() => {
             listBans().then(r => setBans(r.bans))
             setShowBulk(false)
           }}
@@ -66,47 +71,37 @@ function BansPage() {
         />
       )}
 
-      <div className="rounded-lg border border-border">
-        {loading ? (
-          <div className="p-8 text-center text-muted-foreground">{t('common.loading')}</div>
-        ) : bans.length === 0 ? (
-          <div className="p-8 text-center text-muted-foreground">{t('banList.noEntries')}</div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left">
-                <th className="px-4 py-3 font-medium">{t('banList.phoneNumber')}</th>
-                <th className="px-4 py-3 font-medium">{t('banList.reason')}</th>
-                <th className="px-4 py-3 font-medium">{t('banList.bannedAt')}</th>
-                <th className="px-4 py-3 font-medium">{t('common.actions')}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {bans.map(ban => (
-                <tr key={ban.phone}>
-                  <td className="px-4 py-3 font-mono text-xs">{ban.phone}</td>
-                  <td className="px-4 py-3">{ban.reason}</td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground">
-                    {new Date(ban.bannedAt).toLocaleDateString()}
-                  </td>
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={async () => {
-                        if (!confirm(t('banList.confirmUnban'))) return
-                        await removeBan(ban.phone)
-                        setBans(prev => prev.filter(b => b.phone !== ban.phone))
-                      }}
-                      className="text-xs text-destructive-foreground hover:text-red-400"
-                    >
-                      {t('banList.removeNumber')}
-                    </button>
-                  </td>
-                </tr>
+      <Card>
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="divide-y divide-border">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-4 px-6 py-3">
+                  <div className="h-4 w-28 animate-pulse rounded bg-muted" />
+                  <div className="h-4 w-40 animate-pulse rounded bg-muted" />
+                  <div className="h-4 w-20 animate-pulse rounded bg-muted" />
+                  <div className="ml-auto h-6 w-6 animate-pulse rounded bg-muted" />
+                </div>
               ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+            </div>
+          ) : bans.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground">
+              <ShieldBan className="mx-auto mb-2 h-8 w-8 opacity-40" />
+              {t('banList.noEntries')}
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {bans.map(ban => (
+                <BanRow
+                  key={ban.phone}
+                  ban={ban}
+                  onRemoved={() => setBans(prev => prev.filter(b => b.phone !== ban.phone))}
+                />
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
@@ -116,53 +111,115 @@ function AddBanForm({ onAdded, onCancel }: {
   onCancel: () => void
 }) {
   const { t } = useTranslation()
+  const { toast } = useToast()
   const [phone, setPhone] = useState('')
   const [reason, setReason] = useState('')
   const [saving, setSaving] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!/^\+\d{7,15}$/.test(phone)) {
+      toast(t('volunteers.invalidPhone'), 'error')
+      return
+    }
     setSaving(true)
     try {
       const res = await addBan({ phone, reason })
       onAdded(res.ban)
+      toast(t('common.success'), 'success')
+    } catch {
+      toast(t('common.error'), 'error')
     } finally {
       setSaving(false)
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-lg border border-border p-4 space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="mb-1.5 block text-sm font-medium">{t('banList.phoneNumber')}</label>
-          <input
-            value={phone}
-            onChange={e => setPhone(e.target.value)}
-            type="tel"
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            required
-          />
-        </div>
-        <div>
-          <label className="mb-1.5 block text-sm font-medium">{t('banList.reason')}</label>
-          <input
-            value={reason}
-            onChange={e => setReason(e.target.value)}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            required
-          />
-        </div>
-      </div>
-      <div className="flex gap-2">
-        <button type="submit" disabled={saving} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
-          {saving ? t('common.loading') : t('common.save')}
-        </button>
-        <button type="button" onClick={onCancel} className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent">
-          {t('common.cancel')}
-        </button>
-      </div>
-    </form>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <ShieldBan className="h-4 w-4 text-muted-foreground" />
+          {t('banList.addNumber')}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="ban-phone">{t('banList.phoneNumber')}</Label>
+              <Input
+                id="ban-phone"
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+                type="tel"
+                placeholder="+12125551234"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ban-reason">{t('banList.reason')}</Label>
+              <Input
+                id="ban-reason"
+                value={reason}
+                onChange={e => setReason(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button type="submit" disabled={saving}>
+              {saving ? t('common.loading') : t('common.save')}
+            </Button>
+            <Button type="button" variant="outline" onClick={onCancel}>
+              {t('common.cancel')}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  )
+}
+
+function BanRow({ ban, onRemoved }: {
+  ban: BanEntry
+  onRemoved: () => void
+}) {
+  const { t } = useTranslation()
+  const { toast } = useToast()
+  const [showConfirm, setShowConfirm] = useState(false)
+
+  return (
+    <div className="flex items-center gap-4 px-6 py-3">
+      <code className="text-xs font-mono">{ban.phone}</code>
+      <span className="flex-1 text-sm text-muted-foreground">{ban.reason}</span>
+      <span className="text-xs text-muted-foreground">
+        {new Date(ban.bannedAt).toLocaleDateString()}
+      </span>
+      <Button
+        variant="ghost"
+        size="icon-xs"
+        className="text-destructive hover:text-destructive"
+        onClick={() => setShowConfirm(true)}
+      >
+        <Trash2 className="h-3 w-3" />
+      </Button>
+
+      <ConfirmDialog
+        open={showConfirm}
+        onOpenChange={setShowConfirm}
+        title={t('banList.confirmUnban')}
+        description={ban.phone}
+        confirmLabel={t('banList.removeNumber')}
+        onConfirm={async () => {
+          try {
+            await removeBan(ban.phone)
+            onRemoved()
+          } catch {
+            toast(t('common.error'), 'error')
+          }
+        }}
+      />
+    </div>
   )
 }
 
@@ -171,6 +228,7 @@ function BulkImportForm({ onImported, onCancel }: {
   onCancel: () => void
 }) {
   const { t } = useTranslation()
+  const { toast } = useToast()
   const [text, setText] = useState('')
   const [reason, setReason] = useState('')
   const [saving, setSaving] = useState(false)
@@ -180,42 +238,61 @@ function BulkImportForm({ onImported, onCancel }: {
     setSaving(true)
     try {
       const phones = text.split('\n').map(l => l.trim()).filter(Boolean)
+      const invalid = phones.filter(p => !/^\+\d{7,15}$/.test(p))
+      if (invalid.length > 0) {
+        toast(`${t('volunteers.invalidPhone')}: ${invalid[0]}`, 'error')
+        setSaving(false)
+        return
+      }
       const res = await bulkAddBans({ phones, reason })
       onImported(res.count)
+      toast(t('common.success'), 'success')
+    } catch {
+      toast(t('common.error'), 'error')
     } finally {
       setSaving(false)
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-lg border border-border p-4 space-y-4">
-      <div>
-        <label className="mb-1.5 block text-sm font-medium">{t('banList.bulkImportDescription')}</label>
-        <textarea
-          value={text}
-          onChange={e => setText(e.target.value)}
-          rows={6}
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring"
-          required
-        />
-      </div>
-      <div>
-        <label className="mb-1.5 block text-sm font-medium">{t('banList.reason')}</label>
-        <input
-          value={reason}
-          onChange={e => setReason(e.target.value)}
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          required
-        />
-      </div>
-      <div className="flex gap-2">
-        <button type="submit" disabled={saving} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
-          {saving ? t('common.loading') : t('common.submit')}
-        </button>
-        <button type="button" onClick={onCancel} className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent">
-          {t('common.cancel')}
-        </button>
-      </div>
-    </form>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Upload className="h-4 w-4 text-muted-foreground" />
+          {t('banList.bulkImport')}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label>{t('banList.bulkImportDescription')}</Label>
+            <textarea
+              value={text}
+              onChange={e => setText(e.target.value)}
+              rows={6}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="bulk-reason">{t('banList.reason')}</Label>
+            <Input
+              id="bulk-reason"
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+              required
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button type="submit" disabled={saving}>
+              {saving ? t('common.loading') : t('common.submit')}
+            </Button>
+            <Button type="button" variant="outline" onClick={onCancel}>
+              {t('common.cancel')}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   )
 }

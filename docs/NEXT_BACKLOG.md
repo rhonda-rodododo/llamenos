@@ -8,12 +8,11 @@
 - [ ] Set up wrangler deploy pipeline (manual for now)
 
 ## Medium Priority
-- [ ] Add call history page for admins with search/filter
-- [ ] Add volunteer phone number validation (E.164 format)
-- [ ] Add error toast notifications (replace silent catch blocks)
-- [ ] Add loading skeletons for all pages
-- [ ] Implement proper session expiry and refresh
-- [ ] Add volunteer availability toggle (go on-break without leaving shift)
+- [ ] Implement proper session expiry UX (warning before timeout, re-auth prompt)
+- [ ] Add confirmation dialogs for destructive actions (replace browser confirm())
+- [ ] Add search/filter to call history page
+- [ ] Add volunteer phone number editing with E.164 live validation feedback
+- [ ] Add WebSocket reconnection with backoff on connection loss
 
 ## Low Priority (Post-Launch)
 - [ ] Add dark/light theme toggle (currently dark only)

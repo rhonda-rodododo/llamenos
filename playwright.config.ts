@@ -18,7 +18,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "bun run dev:worker",
+    command: "bun run build && bun run dev:worker",
     url: "http://localhost:8787",
     reuseExistingServer: !process.env.CI,
   },

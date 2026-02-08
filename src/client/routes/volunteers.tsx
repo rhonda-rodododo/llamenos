@@ -10,6 +10,14 @@ import {
   type Volunteer,
 } from '@/lib/api'
 import { generateKeyPair } from '@/lib/crypto'
+import { useToast } from '@/lib/toast'
+import { UserPlus, Shield, ShieldCheck, Trash2, Key, AlertTriangle, Copy, Coffee } from 'lucide-react'
+import { ConfirmDialog } from '@/components/confirm-dialog'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 export const Route = createFileRoute('/volunteers')({
   component: VolunteersPage,
@@ -18,6 +26,7 @@ export const Route = createFileRoute('/volunteers')({
 function VolunteersPage() {
   const { t } = useTranslation()
   const { isAdmin } = useAuth()
+  const { toast } = useToast()
   const [volunteers, setVolunteers] = useState<Volunteer[]>([])
   const [showAddForm, setShowAddForm] = useState(false)
   const [generatedNsec, setGeneratedNsec] = useState<string | null>(null)
@@ -32,7 +41,7 @@ function VolunteersPage() {
       const res = await listVolunteers()
       setVolunteers(res.volunteers)
     } catch {
-      // handle error
+      toast(t('common.error'), 'error')
     } finally {
       setLoading(false)
     }
@@ -46,27 +55,38 @@ function VolunteersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">{t('volunteers.title')}</h2>
-        <button
-          onClick={() => { setShowAddForm(true); setGeneratedNsec(null) }}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-        >
+        <Button onClick={() => { setShowAddForm(true); setGeneratedNsec(null) }}>
+          <UserPlus className="h-4 w-4" />
           {t('volunteers.addVolunteer')}
-        </button>
+        </Button>
       </div>
 
       {/* Generated key warning */}
       {generatedNsec && (
-        <div className="rounded-lg border border-yellow-600/50 bg-yellow-900/20 p-4">
-          <p className="mb-2 text-sm font-medium text-yellow-300">{t('volunteers.inviteGenerated')}</p>
-          <p className="mb-2 text-xs text-yellow-400">{t('volunteers.secretKeyWarning')}</p>
-          <code className="block break-all rounded bg-background p-2 text-xs">{generatedNsec}</code>
-          <button
-            onClick={() => setGeneratedNsec(null)}
-            className="mt-2 text-xs text-muted-foreground hover:text-foreground"
-          >
-            {t('common.close')}
-          </button>
-        </div>
+        <Card className="border-yellow-600/50 bg-yellow-950/10">
+          <CardContent className="space-y-3">
+            <div className="flex items-start gap-2">
+              <Key className="mt-0.5 h-4 w-4 text-yellow-400" />
+              <div>
+                <p className="text-sm font-medium text-yellow-300">{t('volunteers.inviteGenerated')}</p>
+                <p className="mt-0.5 text-xs text-yellow-400/80">{t('volunteers.secretKeyWarning')}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 break-all rounded-md bg-background px-3 py-2 text-xs">{generatedNsec}</code>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => { navigator.clipboard.writeText(generatedNsec); toast(t('common.success'), 'success') }}
+              >
+                <Copy className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => setGeneratedNsec(null)}>
+              {t('common.close')}
+            </Button>
+          </CardContent>
+        </Card>
       )}
 
       {/* Add volunteer form */}
@@ -82,23 +102,25 @@ function VolunteersPage() {
       )}
 
       {/* Volunteers list */}
-      <div className="rounded-lg border border-border">
-        {loading ? (
-          <div className="p-8 text-center text-muted-foreground">{t('common.loading')}</div>
-        ) : volunteers.length === 0 ? (
-          <div className="p-8 text-center text-muted-foreground">{t('common.noData')}</div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left">
-                <th className="px-4 py-3 font-medium">{t('volunteers.name')}</th>
-                <th className="px-4 py-3 font-medium">{t('volunteers.phone')}</th>
-                <th className="px-4 py-3 font-medium">{t('volunteers.role')}</th>
-                <th className="px-4 py-3 font-medium">{t('common.status')}</th>
-                <th className="px-4 py-3 font-medium">{t('common.actions')}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
+      <Card>
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="divide-y divide-border">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-4 px-6 py-4">
+                  <div className="h-8 w-8 animate-pulse rounded-full bg-muted" />
+                  <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+                  <div className="h-4 w-28 animate-pulse rounded bg-muted" />
+                  <div className="h-5 w-16 animate-pulse rounded-full bg-muted" />
+                  <div className="h-5 w-14 animate-pulse rounded-full bg-muted" />
+                  <div className="ml-auto h-4 w-24 animate-pulse rounded bg-muted" />
+                </div>
+              ))}
+            </div>
+          ) : volunteers.length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground">{t('common.noData')}</div>
+          ) : (
+            <div className="divide-y divide-border">
               {volunteers.map(vol => (
                 <VolunteerRow
                   key={vol.pubkey}
@@ -111,10 +133,10 @@ function VolunteersPage() {
                   }}
                 />
               ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
@@ -124,6 +146,7 @@ function AddVolunteerForm({ onCreated, onCancel }: {
   onCancel: () => void
 }) {
   const { t } = useTranslation()
+  const { toast } = useToast()
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [role, setRole] = useState<'volunteer' | 'admin'>('volunteer')
@@ -131,70 +154,78 @@ function AddVolunteerForm({ onCreated, onCancel }: {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!/^\+\d{7,15}$/.test(phone)) {
+      toast(t('volunteers.invalidPhone'), 'error')
+      return
+    }
     setSaving(true)
     try {
-      // Generate keypair client-side — server never sees the private key
       const keyPair = generateKeyPair()
       const res = await createVolunteer({ name, phone, role, pubkey: keyPair.publicKey })
       onCreated(res.volunteer, keyPair.nsec)
+      toast(t('volunteers.volunteerAdded'), 'success')
     } catch {
-      // handle error
+      toast(t('common.error'), 'error')
     } finally {
       setSaving(false)
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-lg border border-border p-4 space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="mb-1.5 block text-sm font-medium">{t('volunteers.name')}</label>
-          <input
-            value={name}
-            onChange={e => setName(e.target.value)}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            required
-          />
-        </div>
-        <div>
-          <label className="mb-1.5 block text-sm font-medium">{t('volunteers.phone')}</label>
-          <input
-            value={phone}
-            onChange={e => setPhone(e.target.value)}
-            type="tel"
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            required
-          />
-        </div>
-      </div>
-      <div>
-        <label className="mb-1.5 block text-sm font-medium">{t('volunteers.role')}</label>
-        <select
-          value={role}
-          onChange={e => setRole(e.target.value as 'volunteer' | 'admin')}
-          className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="volunteer">{t('volunteers.roleVolunteer')}</option>
-          <option value="admin">{t('volunteers.roleAdmin')}</option>
-        </select>
-      </div>
-      <div className="flex gap-2">
-        <button
-          type="submit"
-          disabled={saving}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-        >
-          {saving ? t('common.loading') : t('common.save')}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent"
-        >
-          {t('common.cancel')}
-        </button>
-      </div>
-    </form>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <UserPlus className="h-4 w-4 text-muted-foreground" />
+          {t('volunteers.addVolunteer')}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="vol-name">{t('volunteers.name')}</Label>
+              <Input
+                id="vol-name"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="vol-phone">{t('volunteers.phone')}</Label>
+              <Input
+                id="vol-phone"
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+                type="tel"
+                placeholder="+12125551234"
+                required
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="vol-role">{t('volunteers.role')}</Label>
+            <select
+              id="vol-role"
+              value={role}
+              onChange={e => setRole(e.target.value as 'volunteer' | 'admin')}
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+            >
+              <option value="volunteer">{t('volunteers.roleVolunteer')}</option>
+              <option value="admin">{t('volunteers.roleAdmin')}</option>
+            </select>
+          </div>
+          <div className="flex gap-2">
+            <Button type="submit" disabled={saving}>
+              {saving ? t('common.loading') : t('common.save')}
+            </Button>
+            <Button type="button" variant="outline" onClick={onCancel}>
+              {t('common.cancel')}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -204,6 +235,8 @@ function VolunteerRow({ volunteer, onUpdate, onDelete }: {
   onDelete: () => void
 }) {
   const { t } = useTranslation()
+  const { toast } = useToast()
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   async function toggleRole() {
     const newRole = volunteer.role === 'admin' ? 'volunteer' : 'admin'
@@ -211,7 +244,7 @@ function VolunteerRow({ volunteer, onUpdate, onDelete }: {
       const res = await updateVolunteer(volunteer.pubkey, { role: newRole })
       onUpdate(res.volunteer)
     } catch {
-      // handle error
+      toast(t('common.error'), 'error')
     }
   }
 
@@ -220,54 +253,71 @@ function VolunteerRow({ volunteer, onUpdate, onDelete }: {
       const res = await updateVolunteer(volunteer.pubkey, { active: !volunteer.active })
       onUpdate(res.volunteer)
     } catch {
-      // handle error
+      toast(t('common.error'), 'error')
     }
   }
 
   async function handleDelete() {
-    if (!confirm(t('volunteers.removeVolunteer') + '?')) return
     try {
       await deleteVolunteer(volunteer.pubkey)
       onDelete()
     } catch {
-      // handle error
+      toast(t('common.error'), 'error')
     }
   }
 
   return (
-    <tr>
-      <td className="px-4 py-3">{volunteer.name}</td>
-      <td className="px-4 py-3 font-mono text-xs">{volunteer.phone}</td>
-      <td className="px-4 py-3">
-        <span className={`rounded-full px-2 py-0.5 text-xs ${
-          volunteer.role === 'admin'
-            ? 'bg-purple-900/50 text-purple-300'
-            : 'bg-blue-900/50 text-blue-300'
-        }`}>
-          {volunteer.role === 'admin' ? t('volunteers.roleAdmin') : t('volunteers.roleVolunteer')}
-        </span>
-      </td>
-      <td className="px-4 py-3">
-        <button onClick={toggleActive} className="text-xs">
-          <span className={`rounded-full px-2 py-0.5 ${
-            volunteer.active
-              ? 'bg-green-900/50 text-green-300'
-              : 'bg-red-900/50 text-red-300'
-          }`}>
-            {volunteer.active ? t('volunteers.active') : t('volunteers.inactive')}
-          </span>
-        </button>
-      </td>
-      <td className="px-4 py-3">
-        <div className="flex gap-2">
-          <button onClick={toggleRole} className="text-xs text-muted-foreground hover:text-foreground">
-            {volunteer.role === 'admin' ? t('volunteers.removeAdmin') : t('volunteers.makeAdmin')}
-          </button>
-          <button onClick={handleDelete} className="text-xs text-destructive-foreground hover:text-red-400">
-            {t('common.delete')}
-          </button>
-        </div>
-      </td>
-    </tr>
+    <div className="flex items-center gap-4 px-6 py-3">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
+        {volunteer.name.charAt(0).toUpperCase()}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium">{volunteer.name}</p>
+        <p className="font-mono text-xs text-muted-foreground">{volunteer.phone}</p>
+      </div>
+      <Badge variant={volunteer.role === 'admin' ? 'default' : 'secondary'}>
+        {volunteer.role === 'admin' ? (
+          <><ShieldCheck className="h-3 w-3" /> {t('volunteers.roleAdmin')}</>
+        ) : (
+          t('volunteers.roleVolunteer')
+        )}
+      </Badge>
+      <button onClick={toggleActive}>
+        <Badge variant="outline" className={
+          volunteer.active
+            ? 'border-green-500/50 text-green-400'
+            : 'border-red-500/50 text-red-400'
+        }>
+          {volunteer.active ? t('volunteers.active') : t('volunteers.inactive')}
+        </Badge>
+      </button>
+      {volunteer.onBreak && (
+        <Badge variant="outline" className="border-yellow-500/50 text-yellow-400">
+          <Coffee className="h-3 w-3" />
+          {t('dashboard.onBreak')}
+        </Badge>
+      )}
+      <div className="flex items-center gap-1">
+        <Button variant="ghost" size="xs" onClick={toggleRole}>
+          {volunteer.role === 'admin' ? (
+            <><Shield className="h-3 w-3" /> {t('volunteers.removeAdmin')}</>
+          ) : (
+            <><ShieldCheck className="h-3 w-3" /> {t('volunteers.makeAdmin')}</>
+          )}
+        </Button>
+        <Button variant="ghost" size="icon-xs" onClick={() => setShowDeleteConfirm(true)} className="text-destructive hover:text-destructive">
+          <Trash2 className="h-3 w-3" />
+        </Button>
+      </div>
+
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title={t('volunteers.removeVolunteer')}
+        description={`${volunteer.name} (${volunteer.phone})`}
+        confirmLabel={t('common.delete')}
+        onConfirm={handleDelete}
+      />
+    </div>
   )
 }

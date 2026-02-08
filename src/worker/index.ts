@@ -1,6 +1,6 @@
 import type { Env } from './types'
 import { authenticateRequest } from './lib/auth'
-import { TwilioAdapter } from './telephony/twilio'
+import { TwilioAdapter, detectLanguageFromPhone } from './telephony/twilio'
 
 // Re-export Durable Object classes
 export { SessionManagerDO } from './durable-objects/session-manager'
@@ -22,6 +22,12 @@ function getDOs(env: Env) {
 
 function getTwilio(env: Env): TwilioAdapter {
   return new TwilioAdapter(env.TWILIO_ACCOUNT_SID, env.TWILIO_AUTH_TOKEN, env.TWILIO_PHONE_NUMBER)
+}
+
+const E164_REGEX = /^\+\d{7,15}$/
+
+function isValidE164(phone: string): boolean {
+  return E164_REGEX.test(phone)
 }
 
 function json(data: unknown, status = 200): Response {
@@ -130,7 +136,28 @@ export default {
         role: volunteer.role,
         name: volunteer.name,
         transcriptionEnabled: volunteer.transcriptionEnabled,
+        spokenLanguages: volunteer.spokenLanguages || ['en'],
+        uiLanguage: volunteer.uiLanguage || 'en',
+        profileCompleted: volunteer.profileCompleted ?? true,
+        onBreak: volunteer.onBreak ?? false,
       })
+    }
+    if (path === '/auth/me/profile' && method === 'PATCH') {
+      const body = await request.json() as { spokenLanguages?: string[]; uiLanguage?: string; profileCompleted?: boolean }
+      await dos.session.fetch(new Request(`http://do/volunteers/${pubkey}`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }))
+      return json({ ok: true })
+    }
+    if (path === '/auth/me/availability' && method === 'PATCH') {
+      const body = await request.json() as { onBreak: boolean }
+      await dos.session.fetch(new Request(`http://do/volunteers/${pubkey}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ onBreak: body.onBreak }),
+      }))
+      await audit(dos.session, body.onBreak ? 'volunteerOnBreak' : 'volunteerAvailable', pubkey)
+      return json({ ok: true })
     }
     if (path === '/auth/me/transcription' && method === 'PATCH') {
       const body = await request.json() as { enabled: boolean }
@@ -224,6 +251,9 @@ export default {
     if (path === '/bans' && method === 'POST') {
       // Both admins and volunteers can report/ban
       const body = await request.json() as { phone: string; reason: string }
+      if (!isValidE164(body.phone)) {
+        return error('Invalid phone number. Use E.164 format (e.g. +12125551234)', 400)
+      }
       const res = await dos.session.fetch(new Request('http://do/bans', {
         method: 'POST',
         body: JSON.stringify({ ...body, bannedBy: pubkey }),
@@ -234,6 +264,10 @@ export default {
     if (path === '/bans/bulk' && method === 'POST') {
       if (!isAdmin) return error('Forbidden', 403)
       const body = await request.json() as { phones: string[]; reason: string }
+      const invalidPhones = body.phones.filter(p => !isValidE164(p))
+      if (invalidPhones.length > 0) {
+        return error(`Invalid phone number(s): ${invalidPhones[0]}. Use E.164 format (e.g. +12125551234)`, 400)
+      }
       const res = await dos.session.fetch(new Request('http://do/bans/bulk', {
         method: 'POST',
         body: JSON.stringify({ ...body, bannedBy: pubkey }),
@@ -345,6 +379,11 @@ async function handleLogin(request: Request, session: DurableObjectStub): Promis
 async function handleCreateVolunteer(request: Request, session: DurableObjectStub, adminPubkey: string): Promise<Response> {
   const body = await request.json() as { name: string; phone: string; role: 'volunteer' | 'admin' }
 
+  // Validate phone number
+  if (body.phone && !isValidE164(body.phone)) {
+    return error('Invalid phone number. Use E.164 format (e.g. +12125551234)', 400)
+  }
+
   // Generate keypair — use Web Crypto for randomness, then use nostr-tools-compatible format
   // We generate 32 random bytes as the secret key
   const secretKeyBytes = new Uint8Array(32)
@@ -413,12 +452,15 @@ async function handleTelephonyWebhook(
       rateLimited = await checkRateLimit(dos.session, callerNumber, spamSettings.maxCallsPerMinute)
     }
 
+    const callerLanguage = detectLanguageFromPhone(callerNumber)
+
     const response = await twilio.handleIncomingCall({
       callSid,
       callerNumber,
       isBanned: banned,
       voiceCaptchaEnabled: spamSettings.voiceCaptchaEnabled,
       rateLimited,
+      callerLanguage,
     })
 
     // If not banned and not rate limited, start ringing volunteers
@@ -438,8 +480,9 @@ async function handleTelephonyWebhook(
     const url = new URL(request.url)
     const expected = url.searchParams.get('expected') || ''
     const callSid = url.searchParams.get('callSid') || ''
+    const callerLang = (url.searchParams.get('lang') === 'es' ? 'es' : 'en') as 'en' | 'es'
 
-    const response = await twilio.handleCaptchaResponse({ callSid, digits, expectedDigits: expected })
+    const response = await twilio.handleCaptchaResponse({ callSid, digits, expectedDigits: expected, callerLanguage: callerLang })
 
     // If CAPTCHA passed, start ringing
     if (digits === expected) {
@@ -500,9 +543,15 @@ async function handleTelephonyWebhook(
 
   // Wait music for callers in queue
   if (path === '/telephony/wait-music') {
+    const url = new URL(request.url)
+    const lang = (url.searchParams.get('lang') === 'es' ? 'es' : 'en') as 'en' | 'es'
+    const tLang = lang === 'es' ? 'es-MX' : 'en-US'
+    const waitMsg = lang === 'es'
+      ? 'Su llamada es importante para nosotros. Por favor, espere mientras lo conectamos con un voluntario.'
+      : 'Your call is important to us. Please hold while we connect you with a volunteer.'
     return new Response(`
       <Response>
-        <Say language="en-US">Your call is important to us. Please hold while we connect you with a volunteer.</Say>
+        <Say language="${tLang}">${waitMsg}</Say>
         <Play>http://com.twilio.sounds.music.s3.amazonaws.com/MARKOVICHAMP-B4Da.mp3</Play>
       </Response>
     `.trim(), { headers: { 'Content-Type': 'text/xml' } })
@@ -534,10 +583,10 @@ async function startParallelRinging(
 
   // Get volunteer phone numbers
   const volRes = await dos.session.fetch(new Request('http://do/volunteers'))
-  const { volunteers: allVolunteers } = await volRes.json() as { volunteers: Array<{ pubkey: string; phone: string; active: boolean }> }
+  const { volunteers: allVolunteers } = await volRes.json() as { volunteers: Array<{ pubkey: string; phone: string; active: boolean; onBreak?: boolean }> }
 
   const toRing = allVolunteers
-    .filter(v => onShiftPubkeys.includes(v.pubkey) && v.active && v.phone)
+    .filter(v => onShiftPubkeys.includes(v.pubkey) && v.active && v.phone && !v.onBreak)
     .map(v => ({ pubkey: v.pubkey, phone: v.phone }))
 
   if (toRing.length === 0) return

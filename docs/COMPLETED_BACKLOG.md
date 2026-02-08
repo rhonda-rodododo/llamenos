@@ -44,3 +44,13 @@
 - [x] Volunteer toggle for per-user transcription preference
 - [x] Post-call transcript viewing in notes
 - [x] Post-call transcript editing by volunteers
+
+### Epic 6: UI Polish & Quality
+- [x] shadcn/ui component system (button, card, badge, dialog, input, label, select, switch, separator)
+- [x] Toast notification system (success, error, info)
+- [x] Loading skeletons on all data pages
+- [x] Call history page for admins with pagination
+- [x] Profile setup flow (language selection on first login)
+- [x] Volunteer on-break availability toggle (pause calls without leaving shift)
+- [x] Server-side E.164 phone number validation
+- [x] Session expiry with 5-minute token window (replay attack prevention)

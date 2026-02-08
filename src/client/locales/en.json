@@ -41,6 +41,7 @@
     "volunteers": "Volunteers",
     "banList": "Ban List",
     "auditLog": "Audit Log",
+    "callHistory": "Call History",
     "settings": "Settings"
   },
   "dashboard": {
@@ -53,7 +54,11 @@
     "noShift": "No shift scheduled",
     "ready": "Ready for calls",
     "onCall": "On a call",
-    "away": "Away"
+    "away": "Away",
+    "onBreak": "On Break",
+    "goOnBreak": "Take a Break",
+    "endBreak": "End Break",
+    "breakDescription": "You won't receive calls while on break"
   },
   "calls": {
     "incoming": "Incoming Call",
@@ -133,7 +138,9 @@
     "makeAdmin": "Make Admin",
     "removeAdmin": "Remove Admin",
     "active": "Active",
-    "inactive": "Inactive"
+    "inactive": "Inactive",
+    "volunteerAdded": "Volunteer added successfully",
+    "invalidPhone": "Invalid phone number. Use E.164 format (e.g. +12125551234)"
   },
   "banList": {
     "title": "Ban List",
@@ -171,7 +178,9 @@
       "spamMitigationToggled": "Spam Mitigation Toggled",
       "transcriptionToggled": "Transcription Setting Changed",
       "adminPromoted": "Admin Promoted",
-      "adminDemoted": "Admin Demoted"
+      "adminDemoted": "Admin Demoted",
+      "volunteerOnBreak": "Volunteer On Break",
+      "volunteerAvailable": "Volunteer Available"
     }
   },
   "spam": {
@@ -184,6 +193,27 @@
     "rateLimitingDescription": "Limit repeated calls from the same number",
     "maxCallsPerMinute": "Max calls per minute per number",
     "blockDuration": "Block duration (minutes)"
+  },
+  "callHistory": {
+    "title": "Call History",
+    "caller": "Caller",
+    "answeredBy": "Answered By",
+    "duration": "Duration",
+    "time": "Time",
+    "transcription": "Transcription",
+    "hasTranscription": "Transcribed",
+    "noCalls": "No call history"
+  },
+  "profile": {
+    "welcome": "Welcome!",
+    "setupDescription": "Hi {{name}}, let's get you set up.",
+    "uiLanguage": "Interface language",
+    "spokenLanguages": "Languages you can take calls in",
+    "spokenLanguagesHelp": "Select all languages you can comfortably handle calls in.",
+    "getStarted": "Get started",
+    "selectLanguage": "Please select at least one language",
+    "preferences": "My Preferences",
+    "updateProfile": "Update Profile"
   },
   "settings": {
     "title": "Settings",

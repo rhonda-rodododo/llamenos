@@ -32,6 +32,10 @@ export class SessionManagerDO extends DurableObject<Env> {
           createdAt: new Date().toISOString(),
           encryptedSecretKey: '',
           transcriptionEnabled: true,
+          spokenLanguages: ['en', 'es'],
+          uiLanguage: 'en',
+          profileCompleted: true,
+          onBreak: false,
         }
         await this.ctx.storage.put('volunteers', { [adminPubkey]: admin })
       }
@@ -181,6 +185,10 @@ export class SessionManagerDO extends DurableObject<Env> {
       createdAt: new Date().toISOString(),
       encryptedSecretKey: data.encryptedSecretKey,
       transcriptionEnabled: true,
+      spokenLanguages: ['en'],
+      uiLanguage: 'en',
+      profileCompleted: false,
+      onBreak: false,
     }
     volunteers[data.pubkey] = volunteer
     await this.ctx.storage.put('volunteers', volunteers)

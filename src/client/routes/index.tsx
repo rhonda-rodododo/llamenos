@@ -3,8 +3,25 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth'
 import { useEffect, useState } from 'react'
 import { useCalls, useCallTimer } from '@/lib/hooks'
-import { createNote, listActiveCalls, type ActiveCall } from '@/lib/api'
+import { createNote, type ActiveCall } from '@/lib/api'
 import { encryptNote } from '@/lib/crypto'
+import { useToast } from '@/lib/toast'
+import {
+  PhoneIncoming,
+  PhoneCall,
+  PhoneOff,
+  Activity,
+  Clock,
+  BarChart3,
+  Save,
+  ShieldBan,
+  Lock,
+  AlertTriangle,
+  Coffee,
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 
 export const Route = createFileRoute('/')({
   component: DashboardPage,
@@ -12,7 +29,8 @@ export const Route = createFileRoute('/')({
 
 function DashboardPage() {
   const { t } = useTranslation()
-  const { isAuthenticated, isAdmin, keyPair } = useAuth()
+  const { isAuthenticated, isAdmin, keyPair, onBreak, toggleBreak } = useAuth()
+  const { toast } = useToast()
   const navigate = useNavigate()
   const { calls, currentCall, answerCall, hangupCall, reportSpam, ringingCalls, activeCalls } = useCalls()
 
@@ -30,22 +48,73 @@ function DashboardPage() {
 
       {/* Status cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatusCard
-          title={t('dashboard.activeCalls')}
-          value={String(activeCalls.length)}
-        />
-        <StatusCard
-          title={t('dashboard.currentShift')}
-          value={currentCall ? t('dashboard.onCall') : t('dashboard.ready')}
-          highlight={!!currentCall}
-        />
-        <StatusCard
-          title={t('dashboard.callsToday')}
-          value="-"
-        />
+        <Card>
+          <CardContent className="flex items-center gap-4 py-0">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-green-500/10">
+              <Activity className="h-5 w-5 text-green-500" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">{t('dashboard.activeCalls')}</p>
+              <p className="text-2xl font-bold">{activeCalls.length}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className={onBreak ? 'border-yellow-600/30' : undefined}>
+          <CardContent className="flex items-center gap-4 py-0">
+            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+              onBreak ? 'bg-yellow-500/10' : 'bg-blue-500/10'
+            }`}>
+              {onBreak ? <Coffee className="h-5 w-5 text-yellow-500" /> : <Clock className="h-5 w-5 text-blue-500" />}
+            </div>
+            <div className="flex-1">
+              <p className="text-sm text-muted-foreground">{t('dashboard.currentShift')}</p>
+              <p className="text-2xl font-bold">
+                {currentCall ? t('dashboard.onCall') : onBreak ? t('dashboard.onBreak') : t('dashboard.ready')}
+              </p>
+            </div>
+            {!currentCall && (
+              <Button
+                variant={onBreak ? 'default' : 'outline'}
+                size="sm"
+                onClick={async () => {
+                  try {
+                    await toggleBreak()
+                  } catch {
+                    toast(t('common.error'), 'error')
+                  }
+                }}
+                className={onBreak ? 'bg-yellow-600 hover:bg-yellow-700' : ''}
+              >
+                <Coffee className="h-3.5 w-3.5" />
+                {onBreak ? t('dashboard.endBreak') : t('dashboard.goOnBreak')}
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4 py-0">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-500/10">
+              <BarChart3 className="h-5 w-5 text-purple-500" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">{t('dashboard.callsToday')}</p>
+              <p className="text-2xl font-bold">-</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Current active call — full call handling UI */}
+      {/* On break notice */}
+      {onBreak && !currentCall && (
+        <Card className="border-yellow-600/40 bg-yellow-950/10">
+          <CardContent className="flex items-center gap-3 py-4">
+            <Coffee className="h-5 w-5 text-yellow-500" />
+            <p className="text-sm text-yellow-300">{t('dashboard.breakDescription')}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Current active call */}
       {currentCall && keyPair && (
         <ActiveCallPanel
           call={currentCall}
@@ -55,63 +124,78 @@ function DashboardPage() {
         />
       )}
 
-      {/* Incoming calls (ringing) */}
-      {ringingCalls.length > 0 && !currentCall && (
-        <div className="rounded-lg border-2 border-green-600 bg-green-950/30 p-4">
-          <h3 className="mb-3 text-lg font-medium text-green-300">{t('calls.incoming')}</h3>
-          <div className="space-y-2">
+      {/* Incoming calls (ringing) — hidden when on break */}
+      {ringingCalls.length > 0 && !currentCall && !onBreak && (
+        <Card className="border-green-600 bg-green-950/20">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-green-400">
+              <PhoneIncoming className="h-5 w-5" />
+              {t('calls.incoming')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
             {ringingCalls.map(call => (
-              <div key={call.id} className="flex items-center justify-between rounded-md bg-green-950/50 px-4 py-3">
+              <div key={call.id} className="flex items-center justify-between rounded-lg bg-green-950/30 px-4 py-3">
                 <div>
                   <p className="font-medium">{call.callerNumber || t('calls.unknown')}</p>
                   <p className="text-xs text-muted-foreground">{t('calls.incoming')}</p>
                 </div>
-                <button
+                <Button
                   onClick={() => answerCall(call.id)}
-                  className="animate-pulse rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+                  className="animate-pulse bg-green-600 hover:bg-green-700"
                 >
+                  <PhoneCall className="h-4 w-4" />
                   {t('calls.answer')}
-                </button>
+                </Button>
               </div>
             ))}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* All active calls list (admin view) */}
       {isAdmin && (
-        <div className="rounded-lg border border-border">
-          <div className="border-b border-border px-4 py-3">
-            <h3 className="font-medium">{t('dashboard.activeCalls')}</h3>
-          </div>
-          {calls.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-              {t('dashboard.noActiveCalls')}
-            </div>
-          ) : (
-            <div className="divide-y divide-border">
-              {calls.map(call => (
-                <div key={call.id} className="flex items-center justify-between px-4 py-3">
-                  <div>
-                    <p className="text-sm font-medium">{call.callerNumber || t('calls.unknown')}</p>
-                    <p className="text-xs text-muted-foreground">
+        <Card>
+          <CardHeader className="border-b">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Activity className="h-4 w-4 text-muted-foreground" />
+              {t('dashboard.activeCalls')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {calls.length === 0 ? (
+              <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                {t('dashboard.noActiveCalls')}
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {calls.map(call => (
+                  <div key={call.id} className="flex items-center justify-between px-6 py-3">
+                    <div>
+                      <p className="text-sm font-medium">{call.callerNumber || t('calls.unknown')}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {call.status === 'ringing' ? t('calls.incoming') : t('calls.active')}
+                        {call.answeredBy && ` — ${call.answeredBy.slice(0, 8)}...`}
+                      </p>
+                    </div>
+                    <Badge
+                      variant={call.status === 'ringing' ? 'outline' : 'default'}
+                      className={call.status === 'ringing'
+                        ? 'border-yellow-500/50 text-yellow-400'
+                        : 'bg-green-600'
+                      }
+                    >
+                      <span className={`h-1.5 w-1.5 rounded-full animate-pulse ${
+                        call.status === 'ringing' ? 'bg-yellow-400' : 'bg-white'
+                      }`} />
                       {call.status === 'ringing' ? t('calls.incoming') : t('calls.active')}
-                      {call.answeredBy && ` — ${call.answeredBy.slice(0, 8)}...`}
-                    </p>
+                    </Badge>
                   </div>
-                  <span className={`inline-flex items-center gap-1.5 text-xs ${
-                    call.status === 'ringing' ? 'text-yellow-400' : 'text-green-400'
-                  }`}>
-                    <span className={`h-2 w-2 rounded-full ${
-                      call.status === 'ringing' ? 'animate-pulse bg-yellow-400' : 'animate-pulse bg-green-400'
-                    }`} />
-                    {call.status === 'ringing' ? t('calls.incoming') : t('calls.active')}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
     </div>
   )
@@ -124,6 +208,7 @@ function ActiveCallPanel({ call, onHangup, onReportSpam, secretKey }: {
   secretKey: Uint8Array
 }) {
   const { t } = useTranslation()
+  const { toast } = useToast()
   const { formatted } = useCallTimer(call.startedAt)
   const [noteText, setNoteText] = useState('')
   const [saving, setSaving] = useState(false)
@@ -138,72 +223,91 @@ function ActiveCallPanel({ call, onHangup, onReportSpam, secretKey }: {
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     } catch {
-      // handle error
+      toast(t('common.error'), 'error')
     } finally {
       setSaving(false)
     }
   }
 
   return (
-    <div className="rounded-lg border-2 border-blue-600 bg-blue-950/30 p-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-medium text-blue-300">{t('calls.active')}</h3>
-          <p className="text-sm">{call.callerNumber || t('calls.unknown')}</p>
+    <Card className="border-2 border-blue-600 bg-blue-950/20">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600/20">
+              <PhoneCall className="h-5 w-5 text-blue-400" />
+            </div>
+            <div>
+              <CardTitle className="text-blue-300">{t('calls.active')}</CardTitle>
+              <p className="text-sm text-muted-foreground">{call.callerNumber || t('calls.unknown')}</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="font-mono text-2xl font-bold text-blue-300">{formatted}</p>
+            <p className="text-xs text-muted-foreground">{t('calls.duration')}</p>
+          </div>
         </div>
-        <div className="text-right">
-          <p className="font-mono text-2xl font-bold text-blue-300">{formatted}</p>
-          <p className="text-xs text-muted-foreground">{t('calls.duration')}</p>
-        </div>
-      </div>
+      </CardHeader>
 
-      {/* Note-taking area */}
-      <div className="mt-4">
-        <label className="mb-1.5 block text-sm font-medium">{t('notes.newNote')}</label>
-        <textarea
-          value={noteText}
-          onChange={e => setNoteText(e.target.value)}
-          placeholder={t('notes.notePlaceholder')}
-          rows={4}
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-        />
-        <div className="mt-2 flex items-center gap-2">
-          <button
-            onClick={handleSaveNote}
-            disabled={saving || !noteText.trim()}
-            className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+      <CardContent className="space-y-4">
+        {/* Note-taking area */}
+        <div className="space-y-2">
+          <label className="flex items-center gap-1.5 text-sm font-medium">
+            <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+            {t('notes.newNote')}
+          </label>
+          <textarea
+            value={noteText}
+            onChange={e => setNoteText(e.target.value)}
+            placeholder={t('notes.notePlaceholder')}
+            rows={4}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={handleSaveNote}
+              disabled={saving || !noteText.trim()}
+              size="sm"
+            >
+              <Save className="h-3.5 w-3.5" />
+              {saving ? t('common.loading') : t('common.save')}
+            </Button>
+            {saved && (
+              <Badge variant="outline" className="border-green-500/50 text-green-400">
+                {t('common.success')}
+              </Badge>
+            )}
+            <p className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
+              <Lock className="h-3 w-3" />
+              {t('notes.encryptionNote')}
+            </p>
+          </div>
+        </div>
+
+        {/* Call actions */}
+        <div className="flex gap-2 border-t border-border pt-4">
+          <Button variant="destructive" onClick={onHangup}>
+            <PhoneOff className="h-4 w-4" />
+            {t('calls.hangUp')}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={onReportSpam}
+            className="border-yellow-600/50 text-yellow-400 hover:bg-yellow-900/20 hover:text-yellow-300"
           >
-            {saving ? t('common.loading') : t('common.save')}
-          </button>
-          {saved && <span className="text-xs text-green-400">{t('common.success')}</span>}
-          <p className="ml-auto text-xs text-muted-foreground">{t('notes.encryptionNote')}</p>
+            <AlertTriangle className="h-4 w-4" />
+            {t('calls.reportSpam')}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={onReportSpam}
+            className="border-red-600/50 text-red-400 hover:bg-red-900/20 hover:text-red-300"
+          >
+            <ShieldBan className="h-4 w-4" />
+            {t('banList.addNumber')}
+          </Button>
         </div>
-      </div>
-
-      {/* Call actions */}
-      <div className="mt-4 flex gap-2">
-        <button
-          onClick={onHangup}
-          className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
-        >
-          {t('calls.hangUp')}
-        </button>
-        <button
-          onClick={onReportSpam}
-          className="rounded-md border border-yellow-600/50 px-4 py-2 text-sm text-yellow-400 hover:bg-yellow-900/20"
-        >
-          {t('calls.reportSpam')}
-        </button>
-      </div>
-    </div>
-  )
-}
-
-function StatusCard({ title, value, highlight }: { title: string; value: string; highlight?: boolean }) {
-  return (
-    <div className={`rounded-lg border p-4 ${highlight ? 'border-blue-600 bg-blue-950/20' : 'border-border'}`}>
-      <p className="text-sm text-muted-foreground">{title}</p>
-      <p className="mt-1 text-2xl font-bold">{value}</p>
-    </div>
+      </CardContent>
+    </Card>
   )
 }

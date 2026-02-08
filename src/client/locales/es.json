@@ -41,6 +41,7 @@
     "volunteers": "Voluntarios",
     "banList": "Lista de Bloqueo",
     "auditLog": "Registro de Auditoría",
+    "callHistory": "Historial de Llamadas",
     "settings": "Configuración"
   },
   "dashboard": {
@@ -53,7 +54,11 @@
     "noShift": "No hay turno programado",
     "ready": "Listo para llamadas",
     "onCall": "En una llamada",
-    "away": "Ausente"
+    "away": "Ausente",
+    "onBreak": "En Descanso",
+    "goOnBreak": "Tomar un Descanso",
+    "endBreak": "Terminar Descanso",
+    "breakDescription": "No recibirás llamadas durante el descanso"
   },
   "calls": {
     "incoming": "Llamada Entrante",
@@ -133,7 +138,9 @@
     "makeAdmin": "Hacer Administrador",
     "removeAdmin": "Quitar Administrador",
     "active": "Activo",
-    "inactive": "Inactivo"
+    "inactive": "Inactivo",
+    "volunteerAdded": "Voluntario agregado exitosamente",
+    "invalidPhone": "Número de teléfono inválido. Use formato E.164 (ej. +12125551234)"
   },
   "banList": {
     "title": "Lista de Bloqueo",
@@ -171,7 +178,9 @@
       "spamMitigationToggled": "Mitigación de Spam Cambiada",
       "transcriptionToggled": "Configuración de Transcripción Cambiada",
       "adminPromoted": "Administrador Promovido",
-      "adminDemoted": "Administrador Degradado"
+      "adminDemoted": "Administrador Degradado",
+      "volunteerOnBreak": "Voluntario en Descanso",
+      "volunteerAvailable": "Voluntario Disponible"
     }
   },
   "spam": {
@@ -184,6 +193,27 @@
     "rateLimitingDescription": "Limitar llamadas repetidas del mismo número",
     "maxCallsPerMinute": "Máximo de llamadas por minuto por número",
     "blockDuration": "Duración del bloqueo (minutos)"
+  },
+  "callHistory": {
+    "title": "Historial de Llamadas",
+    "caller": "Llamante",
+    "answeredBy": "Contestada Por",
+    "duration": "Duración",
+    "time": "Hora",
+    "transcription": "Transcripción",
+    "hasTranscription": "Transcrita",
+    "noCalls": "No hay historial de llamadas"
+  },
+  "profile": {
+    "welcome": "Bienvenido!",
+    "setupDescription": "Hola {{name}}, vamos a configurar tu perfil.",
+    "uiLanguage": "Idioma de la interfaz",
+    "spokenLanguages": "Idiomas en los que puedes atender llamadas",
+    "spokenLanguagesHelp": "Selecciona todos los idiomas en los que puedes atender llamadas.",
+    "getStarted": "Comenzar",
+    "selectLanguage": "Por favor selecciona al menos un idioma",
+    "preferences": "Mis Preferencias",
+    "updateProfile": "Actualizar Perfil"
   },
   "settings": {
     "title": "Configuración",

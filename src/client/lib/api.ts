@@ -19,6 +19,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers })
   if (!res.ok) {
+    if (res.status === 401 && !path.startsWith('/auth/')) {
+      // Session expired or invalid — redirect to login
+      sessionStorage.removeItem('llamenos-session')
+      window.location.href = '/login'
+    }
     const body = await res.text()
     throw new ApiError(res.status, body)
   }
@@ -42,7 +47,7 @@ export async function login(pubkey: string, token: string) {
 }
 
 export async function getMe() {
-  return request<{ pubkey: string; role: 'volunteer' | 'admin'; name: string; transcriptionEnabled: boolean }>('/auth/me')
+  return request<{ pubkey: string; role: 'volunteer' | 'admin'; name: string; transcriptionEnabled: boolean; spokenLanguages: string[]; uiLanguage: string; profileCompleted: boolean; onBreak: boolean }>('/auth/me')
 }
 
 // --- Volunteers (admin only) ---
@@ -204,6 +209,20 @@ export async function updateMyTranscriptionPreference(enabled: boolean) {
   })
 }
 
+export async function updateMyProfile(data: { spokenLanguages?: string[]; uiLanguage?: string; profileCompleted?: boolean }) {
+  return request<{ ok: true }>('/auth/me/profile', {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function updateMyAvailability(onBreak: boolean) {
+  return request<{ ok: true }>('/auth/me/availability', {
+    method: 'PATCH',
+    body: JSON.stringify({ onBreak }),
+  })
+}
+
 // --- Types ---
 
 export interface Volunteer {
@@ -214,6 +233,7 @@ export interface Volunteer {
   active: boolean
   createdAt: string
   transcriptionEnabled: boolean
+  onBreak: boolean
 }
 
 export interface Shift {

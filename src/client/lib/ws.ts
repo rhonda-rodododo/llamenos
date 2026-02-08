@@ -4,7 +4,16 @@ type MessageHandler = (data: unknown) => void
 
 let socket: WebSocket | null = null
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+let reconnectAttempts = 0
+const MAX_RECONNECT_DELAY = 30_000 // 30 seconds
+const BASE_RECONNECT_DELAY = 1_000 // 1 second
 const handlers = new Map<string, Set<MessageHandler>>()
+
+function getReconnectDelay(): number {
+  // Exponential backoff: 1s, 2s, 4s, 8s, 16s, 30s, 30s...
+  const delay = Math.min(BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttempts), MAX_RECONNECT_DELAY)
+  return delay + Math.random() * 500 // Add jitter
+}
 
 export function connectWebSocket() {
   if (socket?.readyState === WebSocket.OPEN) return
@@ -22,6 +31,7 @@ export function connectWebSocket() {
   socket = new WebSocket(url)
 
   socket.onopen = () => {
+    reconnectAttempts = 0
     if (reconnectTimer) {
       clearTimeout(reconnectTimer)
       reconnectTimer = null
@@ -43,8 +53,9 @@ export function connectWebSocket() {
 
   socket.onclose = () => {
     socket = null
-    // Reconnect after 3 seconds
-    reconnectTimer = setTimeout(connectWebSocket, 3000)
+    const delay = getReconnectDelay()
+    reconnectAttempts++
+    reconnectTimer = setTimeout(connectWebSocket, delay)
   }
 
   socket.onerror = () => {
@@ -57,6 +68,7 @@ export function disconnectWebSocket() {
     clearTimeout(reconnectTimer)
     reconnectTimer = null
   }
+  reconnectAttempts = 0
   socket?.close()
   socket = null
 }

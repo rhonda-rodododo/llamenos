@@ -12,8 +12,10 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as VolunteersRouteImport } from './routes/volunteers'
 import { Route as ShiftsRouteImport } from './routes/shifts'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as ProfileSetupRouteImport } from './routes/profile-setup'
 import { Route as NotesRouteImport } from './routes/notes'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as CallsRouteImport } from './routes/calls'
 import { Route as BansRouteImport } from './routes/bans'
 import { Route as AuditRouteImport } from './routes/audit'
 import { Route as IndexRouteImport } from './routes/index'
@@ -33,6 +35,11 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProfileSetupRoute = ProfileSetupRouteImport.update({
+  id: '/profile-setup',
+  path: '/profile-setup',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const NotesRoute = NotesRouteImport.update({
   id: '/notes',
   path: '/notes',
@@ -41,6 +48,11 @@ const NotesRoute = NotesRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CallsRoute = CallsRouteImport.update({
+  id: '/calls',
+  path: '/calls',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BansRoute = BansRouteImport.update({
@@ -63,8 +75,10 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/audit': typeof AuditRoute
   '/bans': typeof BansRoute
+  '/calls': typeof CallsRoute
   '/login': typeof LoginRoute
   '/notes': typeof NotesRoute
+  '/profile-setup': typeof ProfileSetupRoute
   '/settings': typeof SettingsRoute
   '/shifts': typeof ShiftsRoute
   '/volunteers': typeof VolunteersRoute
@@ -73,8 +87,10 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/audit': typeof AuditRoute
   '/bans': typeof BansRoute
+  '/calls': typeof CallsRoute
   '/login': typeof LoginRoute
   '/notes': typeof NotesRoute
+  '/profile-setup': typeof ProfileSetupRoute
   '/settings': typeof SettingsRoute
   '/shifts': typeof ShiftsRoute
   '/volunteers': typeof VolunteersRoute
@@ -84,8 +100,10 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/audit': typeof AuditRoute
   '/bans': typeof BansRoute
+  '/calls': typeof CallsRoute
   '/login': typeof LoginRoute
   '/notes': typeof NotesRoute
+  '/profile-setup': typeof ProfileSetupRoute
   '/settings': typeof SettingsRoute
   '/shifts': typeof ShiftsRoute
   '/volunteers': typeof VolunteersRoute
@@ -96,8 +114,10 @@ export interface FileRouteTypes {
     | '/'
     | '/audit'
     | '/bans'
+    | '/calls'
     | '/login'
     | '/notes'
+    | '/profile-setup'
     | '/settings'
     | '/shifts'
     | '/volunteers'
@@ -106,8 +126,10 @@ export interface FileRouteTypes {
     | '/'
     | '/audit'
     | '/bans'
+    | '/calls'
     | '/login'
     | '/notes'
+    | '/profile-setup'
     | '/settings'
     | '/shifts'
     | '/volunteers'
@@ -116,8 +138,10 @@ export interface FileRouteTypes {
     | '/'
     | '/audit'
     | '/bans'
+    | '/calls'
     | '/login'
     | '/notes'
+    | '/profile-setup'
     | '/settings'
     | '/shifts'
     | '/volunteers'
@@ -127,8 +151,10 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuditRoute: typeof AuditRoute
   BansRoute: typeof BansRoute
+  CallsRoute: typeof CallsRoute
   LoginRoute: typeof LoginRoute
   NotesRoute: typeof NotesRoute
+  ProfileSetupRoute: typeof ProfileSetupRoute
   SettingsRoute: typeof SettingsRoute
   ShiftsRoute: typeof ShiftsRoute
   VolunteersRoute: typeof VolunteersRoute
@@ -157,6 +183,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/profile-setup': {
+      id: '/profile-setup'
+      path: '/profile-setup'
+      fullPath: '/profile-setup'
+      preLoaderRoute: typeof ProfileSetupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/notes': {
       id: '/notes'
       path: '/notes'
@@ -169,6 +202,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/calls': {
+      id: '/calls'
+      path: '/calls'
+      fullPath: '/calls'
+      preLoaderRoute: typeof CallsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/bans': {
@@ -199,8 +239,10 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuditRoute: AuditRoute,
   BansRoute: BansRoute,
+  CallsRoute: CallsRoute,
   LoginRoute: LoginRoute,
   NotesRoute: NotesRoute,
+  ProfileSetupRoute: ProfileSetupRoute,
   SettingsRoute: SettingsRoute,
   ShiftsRoute: ShiftsRoute,
   VolunteersRoute: VolunteersRoute,

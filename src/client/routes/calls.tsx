@@ -2,20 +2,22 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth'
 import { useEffect, useState } from 'react'
-import { listAuditLog, type AuditLogEntry } from '@/lib/api'
-import { ScrollText, ChevronLeft, ChevronRight } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { getCallHistory, type CallRecord } from '@/lib/api'
+import { useToast } from '@/lib/toast'
+import { PhoneIncoming, ChevronLeft, ChevronRight, Clock, Mic } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
-export const Route = createFileRoute('/audit')({
-  component: AuditPage,
+export const Route = createFileRoute('/calls')({
+  component: CallHistoryPage,
 })
 
-function AuditPage() {
+function CallHistoryPage() {
   const { t } = useTranslation()
   const { isAdmin } = useAuth()
-  const [entries, setEntries] = useState<AuditLogEntry[]>([])
+  const { toast } = useToast()
+  const [calls, setCalls] = useState<CallRecord[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
@@ -23,8 +25,9 @@ function AuditPage() {
 
   useEffect(() => {
     setLoading(true)
-    listAuditLog({ page, limit })
-      .then(r => { setEntries(r.entries); setTotal(r.total) })
+    getCallHistory({ page, limit })
+      .then(r => { setCalls(r.calls); setTotal(r.total) })
+      .catch(() => toast(t('common.error'), 'error'))
       .finally(() => setLoading(false))
   }, [page])
 
@@ -34,45 +37,58 @@ function AuditPage() {
 
   const totalPages = Math.ceil(total / limit)
 
+  function formatDuration(seconds: number) {
+    const m = Math.floor(seconds / 60)
+    const s = seconds % 60
+    return `${m}:${String(s).padStart(2, '0')}`
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
-        <ScrollText className="h-6 w-6 text-muted-foreground" />
-        <h2 className="text-2xl font-bold">{t('auditLog.title')}</h2>
+        <PhoneIncoming className="h-6 w-6 text-muted-foreground" />
+        <h2 className="text-2xl font-bold">{t('callHistory.title')}</h2>
       </div>
 
       <Card>
         <CardContent className="p-0">
           {loading ? (
             <div className="divide-y divide-border">
-              {Array.from({ length: 6 }).map((_, i) => (
+              {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-4 px-6 py-3">
-                  <div className="h-4 w-32 animate-pulse rounded bg-muted" />
-                  <div className="h-5 w-24 animate-pulse rounded-full bg-muted" />
+                  <div className="h-4 w-28 animate-pulse rounded bg-muted" />
                   <div className="h-4 w-20 animate-pulse rounded bg-muted" />
-                  <div className="h-4 w-40 animate-pulse rounded bg-muted" />
+                  <div className="h-4 w-16 animate-pulse rounded bg-muted" />
+                  <div className="ml-auto h-4 w-24 animate-pulse rounded bg-muted" />
                 </div>
               ))}
             </div>
-          ) : entries.length === 0 ? (
+          ) : calls.length === 0 ? (
             <div className="py-8 text-center text-muted-foreground">
-              <ScrollText className="mx-auto mb-2 h-8 w-8 opacity-40" />
-              {t('auditLog.noEntries')}
+              <PhoneIncoming className="mx-auto mb-2 h-8 w-8 opacity-40" />
+              {t('callHistory.noCalls')}
             </div>
           ) : (
             <div className="divide-y divide-border">
-              {entries.map(entry => (
-                <div key={entry.id} className="flex items-center gap-4 px-6 py-3">
-                  <span className="w-36 shrink-0 text-xs text-muted-foreground whitespace-nowrap">
-                    {new Date(entry.createdAt).toLocaleString()}
+              {calls.map(call => (
+                <div key={call.id} className="flex items-center gap-4 px-6 py-3">
+                  <code className="text-xs font-mono">{call.callerNumber}</code>
+                  <span className="text-xs text-muted-foreground">
+                    {call.answeredBy.slice(0, 12)}...
                   </span>
-                  <Badge variant="secondary">
-                    {t(`auditLog.events.${entry.event}` as any, { defaultValue: entry.event })}
+                  <Badge variant="outline" className="gap-1">
+                    <Clock className="h-3 w-3" />
+                    {formatDuration(call.duration)}
                   </Badge>
-                  <code className="text-xs text-muted-foreground">{entry.actorPubkey.slice(0, 12)}...</code>
-                  <span className="flex-1 truncate text-xs text-muted-foreground">
-                    {JSON.stringify(entry.details)}
+                  <span className="flex-1 text-right text-xs text-muted-foreground">
+                    {new Date(call.startedAt).toLocaleString()}
                   </span>
+                  {call.hasTranscription && (
+                    <Badge variant="secondary">
+                      <Mic className="h-3 w-3" />
+                      {t('callHistory.hasTranscription')}
+                    </Badge>
+                  )}
                 </div>
               ))}
             </div>

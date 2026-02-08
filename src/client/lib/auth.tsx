@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import { type KeyPair, keyPairFromNsec, getStoredSession, storeSession, clearSession, createAuthToken } from './crypto'
-import { getMe, login } from './api'
+import { getMe, login, updateMyAvailability } from './api'
 
 interface AuthState {
   keyPair: KeyPair | null
@@ -9,11 +9,17 @@ interface AuthState {
   isLoading: boolean
   error: string | null
   transcriptionEnabled: boolean
+  spokenLanguages: string[]
+  uiLanguage: string
+  profileCompleted: boolean
+  onBreak: boolean
 }
 
 interface AuthContextValue extends AuthState {
   signIn: (nsec: string) => Promise<void>
   signOut: () => void
+  refreshProfile: () => Promise<void>
+  toggleBreak: () => Promise<void>
   isAdmin: boolean
   isAuthenticated: boolean
 }
@@ -28,6 +34,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLoading: true,
     error: null,
     transcriptionEnabled: true,
+    spokenLanguages: ['en'],
+    uiLanguage: 'en',
+    profileCompleted: true,
+    onBreak: false,
   })
 
   // Restore session on mount
@@ -46,6 +56,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               isLoading: false,
               error: null,
               transcriptionEnabled: me.transcriptionEnabled,
+              spokenLanguages: me.spokenLanguages || ['en'],
+              uiLanguage: me.uiLanguage || 'en',
+              profileCompleted: me.profileCompleted ?? true,
+              onBreak: me.onBreak ?? false,
             })
           })
           .catch(() => {
@@ -78,6 +92,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading: false,
         error: null,
         transcriptionEnabled: me.transcriptionEnabled,
+        spokenLanguages: me.spokenLanguages || ['en'],
+        uiLanguage: me.uiLanguage || 'en',
+        profileCompleted: me.profileCompleted ?? true,
+        onBreak: me.onBreak ?? false,
       })
     } catch (err) {
       setState(s => ({
@@ -88,6 +106,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const refreshProfile = useCallback(async () => {
+    try {
+      const me = await getMe()
+      setState(s => ({
+        ...s,
+        name: me.name,
+        role: me.role,
+        transcriptionEnabled: me.transcriptionEnabled,
+        spokenLanguages: me.spokenLanguages || ['en'],
+        uiLanguage: me.uiLanguage || 'en',
+        profileCompleted: me.profileCompleted ?? true,
+        onBreak: me.onBreak ?? false,
+      }))
+    } catch {
+      // ignore — if the refresh fails the user stays on the current page
+    }
+  }, [])
+
+  const toggleBreak = useCallback(async () => {
+    const newValue = !state.onBreak
+    try {
+      await updateMyAvailability(newValue)
+      setState(s => ({ ...s, onBreak: newValue }))
+    } catch {
+      // ignore — toast handled by caller
+      throw new Error('Failed to update availability')
+    }
+  }, [state.onBreak])
+
   const signOut = useCallback(() => {
     clearSession()
     setState({
@@ -97,6 +144,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading: false,
       error: null,
       transcriptionEnabled: true,
+      spokenLanguages: ['en'],
+      uiLanguage: 'en',
+      profileCompleted: true,
+      onBreak: false,
     })
   }, [])
 
@@ -104,6 +155,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ...state,
     signIn,
     signOut,
+    refreshProfile,
+    toggleBreak,
     isAdmin: state.role === 'admin',
     isAuthenticated: state.keyPair !== null && state.role !== null,
   }

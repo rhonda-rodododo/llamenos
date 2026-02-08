@@ -52,12 +52,14 @@ export interface IncomingCallParams {
   isBanned: boolean
   voiceCaptchaEnabled: boolean
   rateLimited: boolean
+  callerLanguage: 'en' | 'es'
 }
 
 export interface CaptchaResponseParams {
   callSid: string
   digits: string
   expectedDigits: string
+  callerLanguage: 'en' | 'es'
 }
 
 export interface CallAnsweredParams {

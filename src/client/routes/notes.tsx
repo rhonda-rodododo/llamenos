@@ -4,6 +4,13 @@ import { useAuth } from '@/lib/auth'
 import { useEffect, useState } from 'react'
 import { listNotes, createNote, updateNote, type EncryptedNote } from '@/lib/api'
 import { encryptNote, decryptNote } from '@/lib/crypto'
+import { useToast } from '@/lib/toast'
+import { StickyNote, Plus, Pencil, Lock, Mic, Save, X } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 export const Route = createFileRoute('/notes')({
   component: NotesPage,
@@ -16,7 +23,8 @@ interface DecryptedNote extends EncryptedNote {
 
 function NotesPage() {
   const { t } = useTranslation()
-  const { keyPair, isAdmin } = useAuth()
+  const { keyPair } = useAuth()
+  const { toast } = useToast()
   const [notes, setNotes] = useState<DecryptedNote[]>([])
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -37,7 +45,6 @@ function NotesPage() {
         const isTranscription = note.authorPubkey === 'system:transcription'
         let decrypted: string
         if (isTranscription) {
-          // Transcriptions are stored as plaintext (server-side, for now)
           decrypted = note.encryptedContent
         } else if (keyPair) {
           decrypted = decryptNote(note.encryptedContent, keyPair.secretKey) || '[Decryption failed]'
@@ -50,7 +57,7 @@ function NotesPage() {
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       ))
     } catch {
-      // handle error
+      toast(t('common.error'), 'error')
     } finally {
       setLoading(false)
     }
@@ -62,7 +69,7 @@ function NotesPage() {
     try {
       const note = notes.find(n => n.id === noteId)
       const encrypted = note?.isTranscription
-        ? editText // Transcriptions stay as plaintext for now
+        ? editText
         : encryptNote(editText, keyPair.secretKey)
       const res = await updateNote(noteId, { encryptedContent: encrypted })
       setNotes(prev => prev.map(n =>
@@ -71,7 +78,7 @@ function NotesPage() {
       setEditingId(null)
       setEditText('')
     } catch {
-      // handle error
+      toast(t('common.error'), 'error')
     } finally {
       setSaving(false)
     }
@@ -91,7 +98,7 @@ function NotesPage() {
       setNewNoteCallId('')
       setShowNewNote(false)
     } catch {
-      // handle error
+      toast(t('common.error'), 'error')
     } finally {
       setSaving(false)
     }
@@ -110,70 +117,90 @@ function NotesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">{t('notes.title')}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{t('notes.encryptionNote')}</p>
+          <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
+            <Lock className="h-3 w-3" />
+            {t('notes.encryptionNote')}
+          </p>
         </div>
-        <button
-          onClick={() => setShowNewNote(!showNewNote)}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-        >
+        <Button onClick={() => setShowNewNote(!showNewNote)}>
+          <Plus className="h-4 w-4" />
           {t('notes.newNote')}
-        </button>
+        </Button>
       </div>
 
       {/* New note form */}
       {showNewNote && (
-        <div className="rounded-lg border border-border p-4 space-y-3">
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">Call ID</label>
-            <input
-              value={newNoteCallId}
-              onChange={e => setNewNoteCallId(e.target.value)}
-              placeholder="Call ID or reference"
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">{t('notes.newNote')}</label>
-            <textarea
-              value={newNoteText}
-              onChange={e => setNewNoteText(e.target.value)}
-              placeholder={t('notes.notePlaceholder')}
-              rows={4}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={handleCreateNote}
-              disabled={saving || !newNoteText.trim() || !newNoteCallId.trim()}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-            >
-              {saving ? t('common.loading') : t('common.save')}
-            </button>
-            <button
-              onClick={() => setShowNewNote(false)}
-              className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent"
-            >
-              {t('common.cancel')}
-            </button>
-          </div>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <StickyNote className="h-4 w-4 text-muted-foreground" />
+              {t('notes.newNote')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="call-id">Call ID</Label>
+              <Input
+                id="call-id"
+                value={newNoteCallId}
+                onChange={e => setNewNoteCallId(e.target.value)}
+                placeholder="Call ID or reference"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('notes.newNote')}</Label>
+              <textarea
+                value={newNoteText}
+                onChange={e => setNewNoteText(e.target.value)}
+                placeholder={t('notes.notePlaceholder')}
+                rows={4}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleCreateNote} disabled={saving || !newNoteText.trim() || !newNoteCallId.trim()}>
+                <Save className="h-4 w-4" />
+                {saving ? t('common.loading') : t('common.save')}
+              </Button>
+              <Button variant="outline" onClick={() => setShowNewNote(false)}>
+                {t('common.cancel')}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {loading ? (
-        <div className="rounded-lg border border-border p-8 text-center text-muted-foreground">{t('common.loading')}</div>
+        <Card>
+          <CardContent className="space-y-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="space-y-2">
+                <div className="h-4 w-40 animate-pulse rounded bg-muted" />
+                <div className="h-3 w-full animate-pulse rounded bg-muted" />
+                <div className="h-3 w-3/4 animate-pulse rounded bg-muted" />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
       ) : Object.keys(notesByCall).length === 0 ? (
-        <div className="rounded-lg border border-border p-8 text-center text-muted-foreground">{t('notes.noNotes')}</div>
+        <Card>
+          <CardContent>
+            <div className="py-8 text-center text-muted-foreground">
+              <StickyNote className="mx-auto mb-2 h-8 w-8 opacity-40" />
+              {t('notes.noNotes')}
+            </div>
+          </CardContent>
+        </Card>
       ) : (
         <div className="space-y-4">
           {Object.entries(notesByCall).map(([callId, callNotes]) => (
-            <div key={callId} className="rounded-lg border border-border">
-              <div className="border-b border-border px-4 py-3">
-                <h3 className="text-sm font-medium">{t('notes.callWith', { number: callId.slice(0, 20) })}</h3>
-              </div>
-              <div className="divide-y divide-border">
+            <Card key={callId}>
+              <CardHeader className="border-b py-3">
+                <CardTitle className="text-sm">{t('notes.callWith', { number: callId.slice(0, 20) })}</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 divide-y divide-border">
                 {callNotes.map(note => (
-                  <div key={note.id} className="p-4">
+                  <div key={note.id} className="px-6 py-4">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
@@ -181,33 +208,29 @@ function NotesPage() {
                             {new Date(note.createdAt).toLocaleString()}
                           </p>
                           {note.isTranscription && (
-                            <span className="rounded-full bg-purple-900/50 px-2 py-0.5 text-xs text-purple-300">
+                            <Badge variant="secondary">
+                              <Mic className="h-3 w-3" />
                               {t('transcription.title')}
-                            </span>
+                            </Badge>
                           )}
                         </div>
                         {editingId === note.id ? (
-                          <div className="mt-2">
+                          <div className="mt-2 space-y-2">
                             <textarea
                               value={editText}
                               onChange={e => setEditText(e.target.value)}
                               rows={6}
                               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                             />
-                            <div className="mt-2 flex gap-2">
-                              <button
-                                onClick={() => handleSaveEdit(note.id)}
-                                disabled={saving}
-                                className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-                              >
+                            <div className="flex gap-2">
+                              <Button size="sm" onClick={() => handleSaveEdit(note.id)} disabled={saving}>
+                                <Save className="h-3.5 w-3.5" />
                                 {saving ? t('common.loading') : t('common.save')}
-                              </button>
-                              <button
-                                onClick={() => { setEditingId(null); setEditText('') }}
-                                className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
-                              >
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => { setEditingId(null); setEditText('') }}>
+                                <X className="h-3.5 w-3.5" />
                                 {t('common.cancel')}
-                              </button>
+                              </Button>
                             </div>
                           </div>
                         ) : (
@@ -215,18 +238,19 @@ function NotesPage() {
                         )}
                       </div>
                       {editingId !== note.id && (
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
                           onClick={() => { setEditingId(note.id); setEditText(note.decrypted) }}
-                          className="ml-2 text-xs text-muted-foreground hover:text-foreground"
                         >
-                          {note.isTranscription ? t('transcription.edit') : t('common.edit')}
-                        </button>
+                          <Pencil className="h-3 w-3" />
+                        </Button>
                       )}
                     </div>
                   </div>
                 ))}
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}

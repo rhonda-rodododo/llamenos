@@ -20,6 +20,10 @@ export interface Volunteer {
   createdAt: string
   encryptedSecretKey: string // Admin-encrypted copy of the volunteer's nsec
   transcriptionEnabled: boolean
+  spokenLanguages: string[]  // Languages volunteer can take calls in (e.g. ['en', 'es'])
+  uiLanguage: string         // Preferred UI language
+  profileCompleted: boolean  // Whether first-login setup is done
+  onBreak: boolean           // Temporarily unavailable (still on shift)
 }
 
 export interface Shift {

@@ -7,6 +7,74 @@ import type {
   TelephonyResponse,
 } from './adapter'
 
+/** Twilio voice language codes */
+const TWILIO_LANG = { en: 'en-US', es: 'es-MX' } as const
+
+/** Voice prompts in English and Spanish */
+const VOICE_PROMPTS = {
+  rateLimited: {
+    en: 'We are currently experiencing high call volume. Please try again later.',
+    es: 'Estamos experimentando un alto volumen de llamadas. Por favor, intente más tarde.',
+  },
+  captchaPrompt: {
+    en: 'Please enter the following digits:',
+    es: 'Por favor, ingrese los siguientes dígitos:',
+  },
+  captchaTimeout: {
+    en: 'We did not receive your input. Goodbye.',
+    es: 'No recibimos su entrada. Adiós.',
+  },
+  pleaseHold: {
+    en: 'Please hold while we connect you.',
+    es: 'Por favor, espere mientras lo conectamos.',
+  },
+  captchaSuccess: {
+    en: 'Thank you. Please hold while we connect you.',
+    es: 'Gracias. Por favor, espere mientras lo conectamos.',
+  },
+  captchaFail: {
+    en: 'Invalid input. Goodbye.',
+    es: 'Entrada inválida. Adiós.',
+  },
+  waitMessage: {
+    en: 'Your call is important to us. Please hold while we connect you with a volunteer.',
+    es: 'Su llamada es importante para nosotros. Por favor, espere mientras lo conectamos con un voluntario.',
+  },
+} as const
+
+/**
+ * Detect caller language from phone number country code.
+ * Spanish-speaking country codes → 'es', everything else → 'en'.
+ */
+export function detectLanguageFromPhone(phone: string): 'en' | 'es' {
+  const spanishPrefixes = [
+    '+52',   // Mexico
+    '+34',   // Spain
+    '+54',   // Argentina
+    '+56',   // Chile
+    '+57',   // Colombia
+    '+58',   // Venezuela
+    '+51',   // Peru
+    '+53',   // Cuba
+    '+591',  // Bolivia
+    '+593',  // Ecuador
+    '+595',  // Paraguay
+    '+598',  // Uruguay
+    '+502',  // Guatemala
+    '+503',  // El Salvador
+    '+504',  // Honduras
+    '+505',  // Nicaragua
+    '+506',  // Costa Rica
+    '+507',  // Panama
+    '+809', '+829', '+849',  // Dominican Republic
+  ]
+  // Sort by length descending so longer prefixes match first
+  for (const prefix of spanishPrefixes.sort((a, b) => b.length - a.length)) {
+    if (phone.startsWith(prefix)) return 'es'
+  }
+  return 'en'
+}
+
 /**
  * TwilioAdapter — Twilio implementation of TelephonyAdapter.
  */
@@ -22,6 +90,9 @@ export class TwilioAdapter implements TelephonyAdapter {
   }
 
   async handleIncomingCall(params: IncomingCallParams): Promise<TelephonyResponse> {
+    const lang = params.callerLanguage
+    const tLang = TWILIO_LANG[lang]
+
     if (params.isBanned) {
       return this.twiml('<Response><Reject reason="rejected"/></Response>')
     }
@@ -29,49 +100,48 @@ export class TwilioAdapter implements TelephonyAdapter {
     if (params.rateLimited) {
       return this.twiml(`
         <Response>
-          <Say language="en-US">We are currently experiencing high call volume. Please try again later.</Say>
+          <Say language="${tLang}">${VOICE_PROMPTS.rateLimited[lang]}</Say>
           <Hangup/>
         </Response>
       `)
     }
 
     if (params.voiceCaptchaEnabled) {
-      // Generate a random 4-digit code
       const digits = String(Math.floor(1000 + Math.random() * 9000))
-      // Store expected digits in the callback URL
       return this.twiml(`
         <Response>
-          <Gather numDigits="4" action="/api/telephony/captcha?expected=${digits}&amp;callSid=${params.callSid}" method="POST" timeout="10">
-            <Say language="en-US">Please enter the following digits: ${digits.split('').join(', ')}.</Say>
+          <Gather numDigits="4" action="/api/telephony/captcha?expected=${digits}&amp;callSid=${params.callSid}&amp;lang=${lang}" method="POST" timeout="10">
+            <Say language="${tLang}">${VOICE_PROMPTS.captchaPrompt[lang]} ${digits.split('').join(', ')}.</Say>
           </Gather>
-          <Say language="en-US">We did not receive your input. Goodbye.</Say>
+          <Say language="${tLang}">${VOICE_PROMPTS.captchaTimeout[lang]}</Say>
           <Hangup/>
         </Response>
       `)
     }
 
-    // No CAPTCHA — proceed to ring volunteers
-    // This will be handled by the worker: return a <Dial> or enqueue
     return this.twiml(`
       <Response>
-        <Say language="en-US">Please hold while we connect you.</Say>
-        <Enqueue waitUrl="/api/telephony/wait-music">${params.callSid}</Enqueue>
+        <Say language="${tLang}">${VOICE_PROMPTS.pleaseHold[lang]}</Say>
+        <Enqueue waitUrl="/api/telephony/wait-music?lang=${lang}">${params.callSid}</Enqueue>
       </Response>
     `)
   }
 
   async handleCaptchaResponse(params: CaptchaResponseParams): Promise<TelephonyResponse> {
+    const lang = params.callerLanguage
+    const tLang = TWILIO_LANG[lang]
+
     if (params.digits === params.expectedDigits) {
       return this.twiml(`
         <Response>
-          <Say language="en-US">Thank you. Please hold while we connect you.</Say>
-          <Enqueue waitUrl="/api/telephony/wait-music">${params.callSid}</Enqueue>
+          <Say language="${tLang}">${VOICE_PROMPTS.captchaSuccess[lang]}</Say>
+          <Enqueue waitUrl="/api/telephony/wait-music?lang=${lang}">${params.callSid}</Enqueue>
         </Response>
       `)
     }
     return this.twiml(`
       <Response>
-        <Say language="en-US">Invalid input. Goodbye.</Say>
+        <Say language="${tLang}">${VOICE_PROMPTS.captchaFail[lang]}</Say>
         <Hangup/>
       </Response>
     `)
