@@ -45,10 +45,11 @@ test.describe("Admin flow", () => {
     await expect(page.getByText("Test Volunteer")).toBeVisible();
     await expect(page.getByText("+15551112222")).toBeVisible();
 
-    // Delete the volunteer
-    page.on("dialog", (dialog) => dialog.accept());
+    // Delete the volunteer — click delete, then confirm in the dialog
     const row = page.getByRole("row").filter({ hasText: "Test Volunteer" });
     await row.getByRole("button", { name: /delete/i }).click();
+    // ConfirmDialog shows — click Confirm
+    await page.getByRole("button", { name: /confirm/i }).click();
 
     // Volunteer should be removed
     await expect(page.getByText("Test Volunteer")).not.toBeVisible();

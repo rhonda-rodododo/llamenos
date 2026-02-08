@@ -202,7 +202,11 @@
     "time": "Hora",
     "transcription": "Transcripción",
     "hasTranscription": "Transcrita",
-    "noCalls": "No hay historial de llamadas"
+    "noCalls": "No hay historial de llamadas",
+    "noResults": "No hay llamadas que coincidan con tu búsqueda",
+    "searchPlaceholder": "Buscar por número de teléfono o voluntario...",
+    "from": "Desde",
+    "to": "Hasta"
   },
   "profile": {
     "welcome": "Bienvenido!",

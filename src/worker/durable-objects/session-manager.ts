@@ -277,7 +277,7 @@ export class SessionManagerDO extends DurableObject<Env> {
     return Response.json({ notes: filtered })
   }
 
-  private async createNoteEntry(data: { callId: string; authorPubkey: string; encryptedContent: string }): Promise<Response> {
+  private async createNoteEntry(data: { callId: string; authorPubkey: string; encryptedContent: string; ephemeralPubkey?: string }): Promise<Response> {
     const notes = await this.ctx.storage.get<EncryptedNote[]>('notes') || []
     const note: EncryptedNote = {
       id: crypto.randomUUID(),
@@ -286,6 +286,7 @@ export class SessionManagerDO extends DurableObject<Env> {
       encryptedContent: data.encryptedContent,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      ...(data.ephemeralPubkey ? { ephemeralPubkey: data.ephemeralPubkey } : {}),
     }
     notes.push(note)
     await this.ctx.storage.put('notes', notes)

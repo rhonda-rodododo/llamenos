@@ -1,15 +1,29 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { getCallHistory, type CallRecord } from '@/lib/api'
 import { useToast } from '@/lib/toast'
-import { PhoneIncoming, ChevronLeft, ChevronRight, Clock, Mic } from 'lucide-react'
+import { PhoneIncoming, ChevronLeft, ChevronRight, Clock, Mic, Search, X } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+
+type CallsSearch = {
+  page: number
+  q: string
+  dateFrom: string
+  dateTo: string
+}
 
 export const Route = createFileRoute('/calls')({
+  validateSearch: (search: Record<string, unknown>): CallsSearch => ({
+    page: Number(search?.page ?? 1),
+    q: (search?.q as string) || '',
+    dateFrom: (search?.dateFrom as string) || '',
+    dateTo: (search?.dateTo as string) || '',
+  }),
   component: CallHistoryPage,
 })
 
@@ -17,19 +31,54 @@ function CallHistoryPage() {
   const { t } = useTranslation()
   const { isAdmin } = useAuth()
   const { toast } = useToast()
+  const navigate = useNavigate({ from: '/calls' })
+  const { page, q, dateFrom, dateTo } = Route.useSearch()
   const [calls, setCalls] = useState<CallRecord[]>([])
   const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
+  // Local input state (synced to URL on submit)
+  const [searchInput, setSearchInput] = useState(q)
+  const [dateFromInput, setDateFromInput] = useState(dateFrom)
+  const [dateToInput, setDateToInput] = useState(dateTo)
   const limit = 50
 
-  useEffect(() => {
+  const fetchCalls = useCallback(() => {
     setLoading(true)
-    getCallHistory({ page, limit })
+    getCallHistory({
+      page,
+      limit,
+      search: q || undefined,
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
+    })
       .then(r => { setCalls(r.calls); setTotal(r.total) })
       .catch(() => toast(t('common.error'), 'error'))
       .finally(() => setLoading(false))
-  }, [page])
+  }, [page, q, dateFrom, dateTo])
+
+  useEffect(() => {
+    fetchCalls()
+  }, [fetchCalls])
+
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault()
+    navigate({
+      search: { page: 1, q: searchInput, dateFrom: dateFromInput, dateTo: dateToInput },
+    })
+  }
+
+  function clearFilters() {
+    setSearchInput('')
+    setDateFromInput('')
+    setDateToInput('')
+    navigate({ search: { page: 1, q: '', dateFrom: '', dateTo: '' } })
+  }
+
+  function setPage(newPage: number) {
+    navigate({ search: (prev) => ({ ...prev, page: newPage }) })
+  }
+
+  const hasFilters = q || dateFrom || dateTo
 
   if (!isAdmin) {
     return <div className="text-muted-foreground">Access denied</div>
@@ -50,6 +99,52 @@ function CallHistoryPage() {
         <h2 className="text-2xl font-bold">{t('callHistory.title')}</h2>
       </div>
 
+      {/* Search and filter bar */}
+      <Card>
+        <CardContent className="py-3">
+          <form onSubmit={handleSearch} className="flex items-end gap-3">
+            <div className="flex-1">
+              <label className="mb-1 block text-xs text-muted-foreground">{t('common.search')}</label>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={searchInput}
+                  onChange={e => setSearchInput(e.target.value)}
+                  placeholder={t('callHistory.searchPlaceholder')}
+                  className="pl-9"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-muted-foreground">{t('callHistory.from')}</label>
+              <Input
+                type="date"
+                value={dateFromInput}
+                onChange={e => setDateFromInput(e.target.value)}
+                className="w-36"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-muted-foreground">{t('callHistory.to')}</label>
+              <Input
+                type="date"
+                value={dateToInput}
+                onChange={e => setDateToInput(e.target.value)}
+                className="w-36"
+              />
+            </div>
+            <Button type="submit" size="sm">
+              <Search className="h-4 w-4" />
+            </Button>
+            {hasFilters && (
+              <Button type="button" variant="ghost" size="sm" onClick={clearFilters}>
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </form>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardContent className="p-0">
           {loading ? (
@@ -66,7 +161,7 @@ function CallHistoryPage() {
           ) : calls.length === 0 ? (
             <div className="py-8 text-center text-muted-foreground">
               <PhoneIncoming className="mx-auto mb-2 h-8 w-8 opacity-40" />
-              {t('callHistory.noCalls')}
+              {hasFilters ? t('callHistory.noResults') : t('callHistory.noCalls')}
             </div>
           ) : (
             <div className="divide-y divide-border">
@@ -74,7 +169,7 @@ function CallHistoryPage() {
                 <div key={call.id} className="flex items-center gap-4 px-6 py-3">
                   <code className="text-xs font-mono">{call.callerNumber}</code>
                   <span className="text-xs text-muted-foreground">
-                    {call.answeredBy.slice(0, 12)}...
+                    {call.answeredBy ? `${call.answeredBy.slice(0, 12)}...` : '-'}
                   </span>
                   <Badge variant="outline" className="gap-1">
                     <Clock className="h-3 w-3" />
@@ -96,12 +191,13 @@ function CallHistoryPage() {
         </CardContent>
       </Card>
 
+      {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2">
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setPage(p => Math.max(1, p - 1))}
+            onClick={() => setPage(Math.max(1, page - 1))}
             disabled={page === 1}
           >
             <ChevronLeft className="h-4 w-4" />
@@ -111,7 +207,7 @@ function CallHistoryPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            onClick={() => setPage(Math.min(totalPages, page + 1))}
             disabled={page === totalPages}
           >
             {t('common.next')}

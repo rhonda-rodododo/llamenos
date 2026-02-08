@@ -41,8 +41,8 @@
     "binding": "AI"
   },
 
-  // Environment variables (secrets go in .dev.vars)
+  // Environment variables (secrets go in .dev.vars for local dev)
   "vars": {
-    "ENVIRONMENT": "development"
+    "ENVIRONMENT": "production"
   }
 }

@@ -1,6 +1,7 @@
 import type { Env } from './types'
 import { authenticateRequest } from './lib/auth'
 import { TwilioAdapter, detectLanguageFromPhone } from './telephony/twilio'
+import { encryptForPublicKey } from './lib/crypto'
 
 // Re-export Durable Object classes
 export { SessionManagerDO } from './durable-objects/session-manager'
@@ -30,6 +31,12 @@ function isValidE164(phone: string): boolean {
   return E164_REGEX.test(phone)
 }
 
+function extractPathParam(path: string, prefix: string): string | null {
+  const param = path.split(prefix)[1]
+  if (!param || param.includes('/')) return null // Reject path traversal
+  return param
+}
+
 function json(data: unknown, status = 200): Response {
   return Response.json(data, { status })
 }
@@ -50,6 +57,7 @@ const SECURITY_HEADERS = {
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' wss:; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';",
 }
 
 function addSecurityHeaders(response: Response): Response {
@@ -78,11 +86,12 @@ export default {
     const method = request.method
     const dos = getDOs(env)
 
-    // --- CORS headers ---
+    // --- CORS headers (same-origin in production, permissive in dev for Vite proxy) ---
+    const allowedOrigin = env.ENVIRONMENT === 'development' ? 'http://localhost:5173' : url.origin
     if (method === 'OPTIONS') {
       return new Response(null, {
         headers: {
-          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Origin': allowedOrigin,
           'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
           'Access-Control-Allow-Headers': 'Content-Type, Authorization',
         },
@@ -96,6 +105,11 @@ export default {
 
     // --- Auth Routes ---
     if (path === '/auth/login' && method === 'POST') {
+      // Rate limit login attempts by IP
+      const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown'
+      if (checkRateLimit(null as never, `auth:${clientIp}`, 10)) {
+        return error('Too many login attempts. Try again later.', 429)
+      }
       return handleLogin(request, dos.session)
     }
 
@@ -180,7 +194,8 @@ export default {
     }
     if (path.startsWith('/volunteers/') && method === 'PATCH') {
       if (!isAdmin) return error('Forbidden', 403)
-      const targetPubkey = path.split('/volunteers/')[1]
+      const targetPubkey = extractPathParam(path, '/volunteers/')
+      if (!targetPubkey) return error('Invalid pubkey', 400)
       const body = await request.json()
       const res = await dos.session.fetch(new Request(`http://do/volunteers/${targetPubkey}`, {
         method: 'PATCH',
@@ -194,7 +209,8 @@ export default {
     }
     if (path.startsWith('/volunteers/') && method === 'DELETE') {
       if (!isAdmin) return error('Forbidden', 403)
-      const targetPubkey = path.split('/volunteers/')[1]
+      const targetPubkey = extractPathParam(path, '/volunteers/')
+      if (!targetPubkey) return error('Invalid pubkey', 400)
       const res = await dos.session.fetch(new Request(`http://do/volunteers/${targetPubkey}`, { method: 'DELETE' }))
       if (res.ok) await audit(dos.session, 'volunteerRemoved', pubkey, { target: targetPubkey })
       return res
@@ -216,7 +232,8 @@ export default {
     }
     if (path.startsWith('/shifts/') && path !== '/shifts/fallback' && method === 'PATCH') {
       if (!isAdmin) return error('Forbidden', 403)
-      const id = path.split('/shifts/')[1]
+      const id = extractPathParam(path, '/shifts/')
+      if (!id) return error('Invalid shift ID', 400)
       const res = await dos.shifts.fetch(new Request(`http://do/shifts/${id}`, {
         method: 'PATCH',
         body: JSON.stringify(await request.json()),
@@ -226,7 +243,8 @@ export default {
     }
     if (path.startsWith('/shifts/') && path !== '/shifts/fallback' && method === 'DELETE') {
       if (!isAdmin) return error('Forbidden', 403)
-      const id = path.split('/shifts/')[1]
+      const id = extractPathParam(path, '/shifts/')
+      if (!id) return error('Invalid shift ID', 400)
       const res = await dos.shifts.fetch(new Request(`http://do/shifts/${id}`, { method: 'DELETE' }))
       if (res.ok) await audit(dos.session, 'shiftDeleted', pubkey, { shiftId: id })
       return res
@@ -277,7 +295,9 @@ export default {
     }
     if (path.startsWith('/bans/') && method === 'DELETE') {
       if (!isAdmin) return error('Forbidden', 403)
-      const phone = decodeURIComponent(path.split('/bans/')[1])
+      const rawPhone = extractPathParam(path, '/bans/')
+      if (!rawPhone) return error('Invalid phone', 400)
+      const phone = decodeURIComponent(rawPhone)
       const res = await dos.session.fetch(new Request(`http://do/bans/${encodeURIComponent(phone)}`, { method: 'DELETE' }))
       if (res.ok) await audit(dos.session, 'numberUnbanned', pubkey, { phone })
       return res
@@ -301,7 +321,8 @@ export default {
       return res
     }
     if (path.startsWith('/notes/') && method === 'PATCH') {
-      const id = path.split('/notes/')[1]
+      const id = extractPathParam(path, '/notes/')
+      if (!id) return error('Invalid note ID', 400)
       const body = await request.json() as { encryptedContent: string }
       const res = await dos.session.fetch(new Request(`http://do/notes/${id}`, {
         method: 'PATCH',
@@ -313,13 +334,24 @@ export default {
 
     // --- Calls ---
     if (path === '/calls/active' && method === 'GET') {
-      return dos.calls.fetch(new Request('http://do/calls/active'))
+      const res = await dos.calls.fetch(new Request('http://do/calls/active'))
+      if (!isAdmin) {
+        // Redact caller phone numbers for non-admin users
+        const data = await res.json() as { calls: Array<{ callerNumber: string; [key: string]: unknown }> }
+        data.calls = data.calls.map(c => ({ ...c, callerNumber: '[redacted]' }))
+        return json(data)
+      }
+      return res
     }
     if (path === '/calls/history' && method === 'GET') {
       if (!isAdmin) return error('Forbidden', 403)
-      const page = url.searchParams.get('page') || '1'
-      const limit = url.searchParams.get('limit') || '50'
-      return dos.calls.fetch(new Request(`http://do/calls/history?page=${page}&limit=${limit}`))
+      const params = new URLSearchParams()
+      params.set('page', url.searchParams.get('page') || '1')
+      params.set('limit', url.searchParams.get('limit') || '50')
+      if (url.searchParams.get('search')) params.set('search', url.searchParams.get('search')!)
+      if (url.searchParams.get('dateFrom')) params.set('dateFrom', url.searchParams.get('dateFrom')!)
+      if (url.searchParams.get('dateTo')) params.set('dateTo', url.searchParams.get('dateTo')!)
+      return dos.calls.fetch(new Request(`http://do/calls/history?${params}`))
     }
 
     // --- Audit Log (admin only) ---
@@ -432,6 +464,14 @@ async function handleTelephonyWebhook(
 ): Promise<Response> {
   const twilio = getTwilio(env)
 
+  // Validate Twilio webhook signature (skip in development for testing)
+  if (env.ENVIRONMENT !== 'development') {
+    const isValid = await twilio.validateWebhook(request)
+    if (!isValid) {
+      return new Response('Forbidden', { status: 403 })
+    }
+  }
+
   // Incoming call from Twilio
   if (path === '/telephony/incoming' && request.method === 'POST') {
     const formData = await request.formData()
@@ -449,7 +489,7 @@ async function handleTelephonyWebhook(
     // Rate limiting check (simplified — uses DO storage)
     let rateLimited = false
     if (spamSettings.rateLimitEnabled) {
-      rateLimited = await checkRateLimit(dos.session, callerNumber, spamSettings.maxCallsPerMinute)
+      rateLimited = checkRateLimit(dos.session, callerNumber, spamSettings.maxCallsPerMinute)
     }
 
     const callerLanguage = detectLanguageFromPhone(callerNumber)
@@ -620,7 +660,7 @@ async function startParallelRinging(
 // Fine for a single-instance Worker + DO architecture.
 const rateLimitMap = new Map<string, number[]>()
 
-async function checkRateLimit(_session: DurableObjectStub, phone: string, maxPerMinute: number): Promise<boolean> {
+function checkRateLimit(_session: DurableObjectStub | null, phone: string, maxPerMinute: number): boolean {
   const now = Date.now()
   const windowMs = 60_000
   const timestamps = rateLimitMap.get(phone) || []
@@ -673,14 +713,27 @@ async function maybeTranscribe(
     })
 
     if (result.text) {
-      // Store transcription as an encrypted note (the client will handle encryption)
-      // For now, store as a server-side note with a special prefix
+      // ECIES: encrypt transcription for the volunteer's public key
+      const { encryptedContent, ephemeralPubkey } = encryptForPublicKey(result.text, volunteerPubkey)
       await dos.session.fetch(new Request('http://do/notes', {
         method: 'POST',
         body: JSON.stringify({
           callId: callSid,
           authorPubkey: 'system:transcription',
-          encryptedContent: result.text, // TODO: encrypt server-side with volunteer's public key
+          encryptedContent,
+          ephemeralPubkey,
+        }),
+      }))
+
+      // Also encrypt for admin so they can read transcriptions independently
+      const adminEncrypted = encryptForPublicKey(result.text, env.ADMIN_PUBKEY)
+      await dos.session.fetch(new Request('http://do/notes', {
+        method: 'POST',
+        body: JSON.stringify({
+          callId: callSid,
+          authorPubkey: 'system:transcription:admin',
+          encryptedContent: adminEncrypted.encryptedContent,
+          ephemeralPubkey: adminEncrypted.ephemeralPubkey,
         }),
       }))
     }

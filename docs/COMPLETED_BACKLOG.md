@@ -54,3 +54,32 @@
 - [x] Volunteer on-break availability toggle (pause calls without leaving shift)
 - [x] Server-side E.164 phone number validation
 - [x] Session expiry with 5-minute token window (replay attack prevention)
+
+### Epic 7: E2EE for Transcriptions
+- [x] ECIES encryption using ephemeral ECDH with secp256k1
+- [x] Server-side: encrypt transcription for volunteer's pubkey + admin's pubkey
+- [x] Client-side: decrypt transcription via ECDH shared secret
+- [x] XChaCha20-Poly1305 symmetric encryption with domain-separated key derivation
+- [x] Ephemeral private key discarded immediately (forward secrecy)
+- [x] Dual encryption: volunteer copy + admin copy for independent decryption
+- [x] Backward compatibility with legacy plaintext transcriptions
+
+### Epic 8: Call History Search/Filter
+- [x] TanStack Router validateSearch for URL-persisted search params
+- [x] Search by phone number or volunteer pubkey
+- [x] Date range filtering (from/to)
+- [x] Backend filtering in CallRouter DO
+
+### Epic 9: Security Audit & Hardening
+- [x] Twilio webhook signature validation (HMAC-SHA1)
+- [x] Auth rate limiting (10 attempts/min per IP)
+- [x] CORS restricted to same-origin (dev: localhost:5173)
+- [x] Content-Security-Policy header added
+- [x] Caller phone number redacted for non-admin users
+- [x] Path traversal protection via extractPathParam helper
+- [x] Confirmation dialogs replaced browser confirm() (ConfirmDialog component)
+
+### Epic 10: E2E Tests
+- [x] Smoke test: app loads, shows login, rejects invalid nsec
+- [x] Admin flow: login, nav, volunteer CRUD, shifts, bans, audit log, settings, call history, notes, i18n, logout
+- [x] Updated tests for ConfirmDialog (replaced window.confirm)

@@ -61,6 +61,7 @@ export interface EncryptedNote {
   encryptedContent: string
   createdAt: string
   updatedAt: string
+  ephemeralPubkey?: string // hex-encoded, present for server-encrypted transcriptions (ECIES)
 }
 
 export interface AuditLogEntry {

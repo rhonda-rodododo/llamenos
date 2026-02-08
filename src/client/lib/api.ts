@@ -160,11 +160,14 @@ export async function listActiveCalls() {
   return request<{ calls: ActiveCall[] }>('/calls/active')
 }
 
-export async function getCallHistory(params?: { page?: number; limit?: number }) {
-  const search = new URLSearchParams()
-  if (params?.page) search.set('page', String(params.page))
-  if (params?.limit) search.set('limit', String(params.limit))
-  return request<{ calls: CallRecord[]; total: number }>(`/calls/history?${search}`)
+export async function getCallHistory(params?: { page?: number; limit?: number; search?: string; dateFrom?: string; dateTo?: string }) {
+  const qs = new URLSearchParams()
+  if (params?.page) qs.set('page', String(params.page))
+  if (params?.limit) qs.set('limit', String(params.limit))
+  if (params?.search) qs.set('search', params.search)
+  if (params?.dateFrom) qs.set('dateFrom', params.dateFrom)
+  if (params?.dateTo) qs.set('dateTo', params.dateTo)
+  return request<{ calls: CallRecord[]; total: number }>(`/calls/history?${qs}`)
 }
 
 // --- Audit Log (admin only) ---
@@ -260,6 +263,7 @@ export interface EncryptedNote {
   encryptedContent: string
   createdAt: string
   updatedAt: string
+  ephemeralPubkey?: string
 }
 
 export interface ActiveCall {

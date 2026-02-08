@@ -202,7 +202,11 @@
     "time": "Time",
     "transcription": "Transcription",
     "hasTranscription": "Transcribed",
-    "noCalls": "No call history"
+    "noCalls": "No call history",
+    "noResults": "No calls match your search",
+    "searchPlaceholder": "Search by phone number or volunteer...",
+    "from": "From",
+    "to": "To"
   },
   "profile": {
     "welcome": "Welcome!",

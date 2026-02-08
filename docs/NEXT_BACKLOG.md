@@ -2,17 +2,14 @@
 
 ## High Priority (Pre-Launch)
 - [ ] Set up Cloudflare Tunnel for local dev with Twilio webhooks
+- [ ] Configure production wrangler secrets (TWILIO_*, ADMIN_PUBKEY)
+- [ ] Deploy to Cloudflare Workers (manual `bunx wrangler deploy`)
 - [ ] Test full call flow end-to-end: incoming call -> CAPTCHA -> parallel ring -> answer -> notes -> hang up
-- [ ] Implement proper E2EE for transcriptions (currently stored as plaintext by system)
-- [ ] Add Playwright E2E tests for login, volunteer management, call notes
-- [ ] Set up wrangler deploy pipeline (manual for now)
 
 ## Medium Priority
 - [ ] Implement proper session expiry UX (warning before timeout, re-auth prompt)
-- [ ] Add confirmation dialogs for destructive actions (replace browser confirm())
-- [ ] Add search/filter to call history page
 - [ ] Add volunteer phone number editing with E.164 live validation feedback
-- [ ] Add WebSocket reconnection with backoff on connection loss
+- [ ] Auth token nonce-based replay protection (currently mitigated by HTTPS + 5min window)
 
 ## Low Priority (Post-Launch)
 - [ ] Add dark/light theme toggle (currently dark only)

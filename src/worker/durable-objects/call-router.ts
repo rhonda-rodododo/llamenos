@@ -37,7 +37,10 @@ export class CallRouterDO extends DurableObject<Env> {
     if (path === '/calls/history' && method === 'GET') {
       const page = parseInt(url.searchParams.get('page') || '1')
       const limit = parseInt(url.searchParams.get('limit') || '50')
-      return this.getCallHistory(page, limit)
+      const search = url.searchParams.get('search') || undefined
+      const dateFrom = url.searchParams.get('dateFrom') || undefined
+      const dateTo = url.searchParams.get('dateTo') || undefined
+      return this.getCallHistory(page, limit, { search, dateFrom, dateTo })
     }
 
     // Incoming call (from telephony webhook)
@@ -258,8 +261,29 @@ export class CallRouterDO extends DurableObject<Env> {
     return await this.ctx.storage.get<CallRecord[]>('activeCalls') || []
   }
 
-  private async getCallHistory(page: number, limit: number): Promise<Response> {
-    const history = await this.ctx.storage.get<CallRecord[]>('callHistory') || []
+  private async getCallHistory(
+    page: number,
+    limit: number,
+    filters?: { search?: string; dateFrom?: string; dateTo?: string },
+  ): Promise<Response> {
+    let history = await this.ctx.storage.get<CallRecord[]>('callHistory') || []
+
+    if (filters?.search) {
+      const q = filters.search.toLowerCase()
+      history = history.filter(c =>
+        c.callerNumber.toLowerCase().includes(q) ||
+        (c.answeredBy && c.answeredBy.toLowerCase().includes(q))
+      )
+    }
+    if (filters?.dateFrom) {
+      const from = new Date(filters.dateFrom).getTime()
+      history = history.filter(c => new Date(c.startedAt).getTime() >= from)
+    }
+    if (filters?.dateTo) {
+      const to = new Date(filters.dateTo).getTime() + 86_400_000 // end of day
+      history = history.filter(c => new Date(c.startedAt).getTime() <= to)
+    }
+
     const start = (page - 1) * limit
     return Response.json({
       calls: history.slice(start, start + limit),

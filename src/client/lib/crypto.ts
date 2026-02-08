@@ -1,4 +1,5 @@
 import { generateSecretKey, getPublicKey, nip19 } from 'nostr-tools'
+import { secp256k1 } from '@noble/curves/secp256k1.js'
 import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
@@ -91,6 +92,43 @@ export function decryptNote(packed: string, secretKey: Uint8Array): string | nul
     const nonce = data.slice(0, 24)
     const ciphertext = data.slice(24)
     const cipher = xchacha20poly1305(key, nonce)
+    const plaintext = cipher.decrypt(ciphertext)
+    return new TextDecoder().decode(plaintext)
+  } catch {
+    return null
+  }
+}
+
+// --- ECIES Transcription Decryption ---
+// Decrypts server-encrypted transcriptions using ECDH with the volunteer's secret key
+// and the ephemeral public key stored alongside the ciphertext.
+
+export function decryptTranscription(
+  packed: string,
+  ephemeralPubkeyHex: string,
+  secretKey: Uint8Array,
+): string | null {
+  try {
+    // ephemeralPubkeyHex is already compressed (33 bytes / 66 hex chars)
+    const ephemeralPub = hexToBytes(ephemeralPubkeyHex)
+
+    // ECDH shared secret
+    const shared = secp256k1.getSharedSecret(secretKey, ephemeralPub)
+    const sharedX = shared.slice(1, 33)
+
+    // Derive symmetric key with same domain separation as server
+    const context = utf8ToBytes('llamenos:transcription')
+    const keyInput = new Uint8Array(context.length + sharedX.length)
+    keyInput.set(context)
+    keyInput.set(sharedX, context.length)
+    const symmetricKey = sha256(keyInput)
+
+    // Unpack: nonce (24) + ciphertext
+    const data = hexToBytes(packed)
+    const nonce = data.slice(0, 24)
+    const ciphertext = data.slice(24)
+
+    const cipher = xchacha20poly1305(symmetricKey, nonce)
     const plaintext = cipher.decrypt(ciphertext)
     return new TextDecoder().decode(plaintext)
   } catch {

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth'
 import { useEffect, useState } from 'react'
 import { listNotes, createNote, updateNote, type EncryptedNote } from '@/lib/api'
-import { encryptNote, decryptNote } from '@/lib/crypto'
+import { encryptNote, decryptNote, decryptTranscription } from '@/lib/crypto'
 import { useToast } from '@/lib/toast'
 import { StickyNote, Plus, Pencil, Lock, Mic, Save, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -23,7 +23,7 @@ interface DecryptedNote extends EncryptedNote {
 
 function NotesPage() {
   const { t } = useTranslation()
-  const { keyPair } = useAuth()
+  const { keyPair, isAdmin } = useAuth()
   const { toast } = useToast()
   const [notes, setNotes] = useState<DecryptedNote[]>([])
   const [loading, setLoading] = useState(true)
@@ -41,18 +41,33 @@ function NotesPage() {
   async function loadNotes() {
     try {
       const res = await listNotes()
-      const decryptedNotes: DecryptedNote[] = res.notes.map(note => {
-        const isTranscription = note.authorPubkey === 'system:transcription'
-        let decrypted: string
-        if (isTranscription) {
-          decrypted = note.encryptedContent
-        } else if (keyPair) {
-          decrypted = decryptNote(note.encryptedContent, keyPair.secretKey) || '[Decryption failed]'
-        } else {
-          decrypted = '[No key]'
-        }
-        return { ...note, decrypted, isTranscription }
-      })
+      const decryptedNotes: DecryptedNote[] = res.notes
+        .filter(note => {
+          // Admin copies of transcriptions (system:transcription:admin) are only shown to admin
+          if (note.authorPubkey === 'system:transcription:admin') {
+            return isAdmin
+          }
+          // Regular transcriptions are shown to the volunteer (not admin, who uses the :admin copy)
+          if (note.authorPubkey === 'system:transcription') {
+            return !isAdmin
+          }
+          return true
+        })
+        .map(note => {
+          const isTranscription = note.authorPubkey.startsWith('system:transcription')
+          let decrypted: string
+          if (isTranscription && note.ephemeralPubkey && keyPair) {
+            decrypted = decryptTranscription(note.encryptedContent, note.ephemeralPubkey, keyPair.secretKey) || '[Decryption failed]'
+          } else if (isTranscription && !note.ephemeralPubkey) {
+            // Legacy plaintext transcription (pre-E2EE)
+            decrypted = note.encryptedContent
+          } else if (keyPair) {
+            decrypted = decryptNote(note.encryptedContent, keyPair.secretKey) || '[Decryption failed]'
+          } else {
+            decrypted = '[No key]'
+          }
+          return { ...note, decrypted, isTranscription }
+        })
       setNotes(decryptedNotes.sort((a, b) =>
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       ))
@@ -67,10 +82,7 @@ function NotesPage() {
     if (!keyPair || !editText.trim()) return
     setSaving(true)
     try {
-      const note = notes.find(n => n.id === noteId)
-      const encrypted = note?.isTranscription
-        ? editText
-        : encryptNote(editText, keyPair.secretKey)
+      const encrypted = encryptNote(editText, keyPair.secretKey)
       const res = await updateNote(noteId, { encryptedContent: encrypted })
       setNotes(prev => prev.map(n =>
         n.id === noteId ? { ...res.note, decrypted: editText, isTranscription: n.isTranscription } : n
