@@ -149,6 +149,14 @@ export class SessionManagerDO extends DurableObject<Env> {
       return this.setFallbackGroup(await request.json())
     }
 
+    // --- Test Reset (development only) ---
+    if (path === '/reset' && method === 'POST') {
+      await this.ctx.storage.deleteAll()
+      this.initialized = false
+      await this.ensureInit()
+      return Response.json({ ok: true })
+    }
+
     return new Response('Not Found', { status: 404 })
   }
 

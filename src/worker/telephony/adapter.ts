@@ -53,6 +53,7 @@ export interface IncomingCallParams {
   voiceCaptchaEnabled: boolean
   rateLimited: boolean
   callerLanguage: string
+  hotlineName: string
 }
 
 export interface CaptchaResponseParams {

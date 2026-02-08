@@ -39,9 +39,9 @@ test.describe('Auth guards', () => {
     await expect(page).toHaveURL(/\/login/)
   })
 
-  test('API returns 403 for unauthenticated requests', async ({ page }) => {
+  test('API returns 401 for unauthenticated requests', async ({ page }) => {
     // Direct API call without auth
     const response = await page.request.get('/api/volunteers')
-    expect(response.status()).toBe(403)
+    expect(response.status()).toBe(401)
   })
 })

@@ -9,8 +9,8 @@ test('mobile viewport shows hamburger menu', async ({ page }) => {
   // Hamburger button should be visible on mobile
   await expect(page.getByRole('button', { name: /open menu/i })).toBeVisible()
 
-  // Sidebar links should be hidden (sidebar is off-screen)
-  await expect(page.getByRole('link', { name: 'Dashboard' })).not.toBeVisible()
+  // Sidebar links should be hidden (sidebar is invisible via CSS)
+  await expect(page.getByRole('link', { name: 'Dashboard' })).toBeHidden()
 
   // Open the menu
   await page.getByRole('button', { name: /open menu/i }).click()
@@ -24,7 +24,7 @@ test('mobile viewport shows hamburger menu', async ({ page }) => {
   await page.getByRole('button', { name: /close sidebar/i }).click()
 
   // Links should be hidden again
-  await expect(page.getByRole('link', { name: 'Dashboard' })).not.toBeVisible()
+  await expect(page.getByRole('link', { name: 'Dashboard' })).toBeHidden()
 })
 
 test('mobile page has no horizontal overflow', async ({ page }) => {

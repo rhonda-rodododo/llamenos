@@ -24,8 +24,8 @@ test.describe('Notes CRUD', () => {
     await page.locator('textarea').fill('Test note from E2E')
     await page.getByRole('button', { name: /save/i }).click()
 
-    // Note should appear
-    await expect(page.getByText('Test note from E2E')).toBeVisible()
+    // Note should appear as paragraph text (not in textarea)
+    await expect(page.locator('p').filter({ hasText: 'Test note from E2E' })).toBeVisible()
   })
 
   test('can cancel new note', async ({ page }) => {
@@ -43,16 +43,16 @@ test.describe('Notes CRUD', () => {
     await page.locator('#call-id').fill(callId)
     await page.locator('textarea').fill('First note')
     await page.getByRole('button', { name: /save/i }).click()
-    await expect(page.getByText('First note')).toBeVisible()
+    await expect(page.locator('p').filter({ hasText: 'First note' })).toBeVisible()
 
     await page.getByRole('button', { name: /new note/i }).click()
     await page.locator('#call-id').fill(callId)
     await page.locator('textarea').fill('Second note')
     await page.getByRole('button', { name: /save/i }).click()
-    await expect(page.getByText('Second note')).toBeVisible()
+    await expect(page.locator('p').filter({ hasText: 'Second note' })).toBeVisible()
 
     // Both notes should be under the same call heading
-    const callCard = page.locator('div').filter({ hasText: callId.slice(0, 20) })
+    const callCard = page.locator('div').filter({ hasText: callId.slice(0, 20) }).first()
     await expect(callCard).toBeVisible()
   })
 
@@ -62,7 +62,7 @@ test.describe('Notes CRUD', () => {
     await page.locator('#call-id').fill('edit-test-' + Date.now())
     await page.locator('textarea').fill('Original text')
     await page.getByRole('button', { name: /save/i }).click()
-    await expect(page.getByText('Original text')).toBeVisible()
+    await expect(page.locator('p').filter({ hasText: 'Original text' })).toBeVisible()
 
     // Click edit on the note
     const editBtn = page.locator('button[aria-label="Edit"]').first()

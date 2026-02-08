@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth'
 import { updateMyProfile } from '@/lib/api'
@@ -16,12 +16,19 @@ export const Route = createFileRoute('/profile-setup')({
 
 function ProfileSetupPage() {
   const { t, i18n } = useTranslation()
-  const { name, refreshProfile } = useAuth()
+  const { name, profileCompleted, refreshProfile } = useAuth()
   const { toast } = useToast()
   const navigate = useNavigate()
   const [uiLang, setUiLang] = useState(i18n.language || 'en')
   const [spokenLangs, setSpokenLangs] = useState<string[]>(['en'])
   const [saving, setSaving] = useState(false)
+
+  // Navigate to dashboard once profile is completed (avoids race with root layout guards)
+  useEffect(() => {
+    if (profileCompleted) {
+      navigate({ to: '/' })
+    }
+  }, [profileCompleted, navigate])
 
   function toggleSpokenLang(code: string) {
     setSpokenLangs(prev =>
@@ -45,7 +52,7 @@ function ProfileSetupPage() {
         profileCompleted: true,
       })
       await refreshProfile()
-      navigate({ to: '/' })
+      // Navigation is handled by the useEffect watching profileCompleted
     } catch {
       toast(t('common.error'), 'error')
     } finally {

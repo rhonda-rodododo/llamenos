@@ -49,7 +49,7 @@ test.describe('Volunteer flow', () => {
     const breakBtn = page.getByRole('button', { name: /take a break/i })
     if (await breakBtn.isVisible()) {
       await breakBtn.click()
-      await expect(page.getByText(/on break/i)).toBeVisible()
+      await expect(page.getByText('On Break', { exact: true })).toBeVisible()
     }
   })
 

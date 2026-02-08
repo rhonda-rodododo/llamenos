@@ -18,78 +18,88 @@ test.describe('Admin flow', () => {
 
   test('volunteer CRUD', async ({ page }) => {
     const phone = uniquePhone()
+    const volName = `Vol ${Date.now()}`
     await page.getByRole('link', { name: 'Volunteers' }).click()
     await expect(page.getByRole('heading', { name: 'Volunteers' })).toBeVisible()
 
     // Add volunteer
     await page.getByRole('button', { name: /add volunteer/i }).click()
     const form = page.locator('form')
-    await form.locator('input').first().fill('Test Volunteer')
+    await form.locator('input').first().fill(volName)
     await form.locator('input[type="tel"]').fill(phone)
     await page.getByRole('button', { name: /save/i }).click()
 
     // Should show the generated nsec
     await expect(page.getByText(/nsec1/)).toBeVisible()
 
-    // Volunteer should appear
-    await expect(page.getByText('Test Volunteer')).toBeVisible()
-    await expect(page.getByText(phone)).toBeVisible()
+    // Close the nsec card
+    await page.getByRole('button', { name: /close/i }).click()
 
-    // Delete the volunteer
-    const deleteBtn = page.locator('button[aria-label="Delete"]').first()
-    await deleteBtn.click()
-    await page.getByRole('button', { name: /confirm/i }).click()
+    // Volunteer should appear (phone is masked by default)
+    await expect(page.getByText(volName).first()).toBeVisible()
 
-    // Volunteer should be removed
-    await expect(page.getByText('Test Volunteer')).not.toBeVisible()
+    // Delete the volunteer — scope to the row containing the volunteer name
+    const volRow = page.locator('.divide-y > div').filter({ hasText: volName })
+    await volRow.getByRole('button', { name: 'Delete' }).click()
+    // Confirm dialog has a "Delete" button
+    await page.getByRole('dialog').getByRole('button', { name: /delete/i }).click()
+    // Wait for dialog to close
+    await expect(page.getByRole('dialog')).toBeHidden()
+
+    // Volunteer should be removed from the list
+    await expect(page.locator('main').getByText(volName)).not.toBeVisible()
   })
 
   test('shift creation', async ({ page }) => {
+    const shiftName = `Shift ${Date.now()}`
     await page.getByRole('link', { name: 'Shifts' }).click()
     await expect(page.getByRole('heading', { name: /shift schedule/i })).toBeVisible()
 
     await page.getByRole('button', { name: /create shift/i }).click()
     const form = page.locator('form')
-    await form.locator('input').first().fill('E2E Test Shift')
+    await form.locator('input').first().fill(shiftName)
     await page.getByRole('button', { name: /save/i }).click()
 
-    await expect(page.getByText('E2E Test Shift')).toBeVisible()
+    await expect(page.getByText(shiftName)).toBeVisible()
   })
 
   test('shift edit', async ({ page }) => {
+    const shiftName = `Edit ${Date.now()}`
+    const updatedName = `Updated ${Date.now()}`
     await page.getByRole('link', { name: 'Shifts' }).click()
 
     // Create a shift first
     await page.getByRole('button', { name: /create shift/i }).click()
     const form = page.locator('form')
-    await form.locator('input').first().fill('Editable Shift')
+    await form.locator('input').first().fill(shiftName)
     await page.getByRole('button', { name: /save/i }).click()
-    await expect(page.getByText('Editable Shift')).toBeVisible()
+    await expect(page.getByText(shiftName)).toBeVisible()
 
-    // Edit it
-    const editBtn = page.locator('button[aria-label="Edit"]').first()
-    await editBtn.click()
+    // Edit it — find the heading, go up to its container, click Edit
+    const shiftRow = page.locator('h3').filter({ hasText: shiftName }).locator('..').locator('..')
+    await shiftRow.getByRole('button', { name: 'Edit' }).click()
     const editForm = page.locator('form')
-    await editForm.locator('input').first().fill('Updated Shift')
+    await editForm.locator('input').first().fill(updatedName)
     await page.getByRole('button', { name: /save/i }).click()
-    await expect(page.getByText('Updated Shift')).toBeVisible()
+    await expect(page.getByText(updatedName)).toBeVisible()
   })
 
   test('shift delete', async ({ page }) => {
+    const shiftName = `Del ${Date.now()}`
     await page.getByRole('link', { name: 'Shifts' }).click()
 
     // Create a shift
     await page.getByRole('button', { name: /create shift/i }).click()
     const form = page.locator('form')
-    await form.locator('input').first().fill('Delete Me Shift')
+    await form.locator('input').first().fill(shiftName)
     await page.getByRole('button', { name: /save/i }).click()
-    await expect(page.getByText('Delete Me Shift')).toBeVisible()
+    await expect(page.getByText(shiftName)).toBeVisible()
 
-    // Delete it
-    const deleteBtn = page.locator('button[aria-label="Delete"]').first()
-    await deleteBtn.click()
+    // Delete it — find the heading, go up to its container, click Delete
+    const shiftRow = page.locator('h3').filter({ hasText: shiftName }).locator('..').locator('..')
+    await shiftRow.getByRole('button', { name: 'Delete' }).click()
     // The shift should eventually disappear (no confirm dialog on shifts)
-    await expect(page.getByText('Delete Me Shift')).not.toBeVisible()
+    await expect(page.getByText(shiftName)).not.toBeVisible()
   })
 
   test('ban list management', async ({ page }) => {
@@ -119,11 +129,14 @@ test.describe('Admin flow', () => {
     await page.getByRole('button', { name: /save/i }).click()
     await expect(page.getByText(phone)).toBeVisible()
 
-    // Remove it
-    const removeBtn = page.locator('button[aria-label="Remove"]').first()
-    await removeBtn.click()
-    await page.getByRole('button', { name: /confirm/i }).click()
-    await expect(page.getByText(phone)).not.toBeVisible()
+    // Remove it — scope to the row containing the phone number
+    const banRow = page.locator('.divide-y > div').filter({ hasText: phone })
+    await banRow.getByRole('button', { name: 'Remove' }).click()
+    // Confirm dialog has an "Unban Number" button
+    await page.getByRole('dialog').getByRole('button', { name: /unban/i }).click()
+    // Wait for dialog to close
+    await expect(page.getByRole('dialog')).toBeHidden()
+    await expect(page.locator('main').getByText(phone)).not.toBeVisible()
   })
 
   test('phone validation rejects bad numbers', async ({ page }) => {
@@ -190,13 +203,13 @@ test.describe('Admin flow', () => {
   })
 
   test('language switching works', async ({ page }) => {
-    // Language buttons have aria-label "Switch to Spanish" etc.
-    await page.getByRole('button', { name: /switch to spanish/i }).click()
+    // Use title attribute — always the native name regardless of UI language
+    await page.locator('button[title="Español"]').click()
     await expect(page.getByRole('heading', { name: 'Panel' })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Notas' })).toBeVisible()
 
-    // Switch back to English
-    await page.getByRole('button', { name: /switch to english/i }).click()
+    // Switch back to English (title stays the native name)
+    await page.locator('button[title="English"]').click()
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
   })
 

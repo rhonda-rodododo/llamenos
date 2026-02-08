@@ -29,6 +29,12 @@ export class ShiftManagerDO extends DurableObject<Env> {
       return this.getCurrentVolunteers()
     }
 
+    // --- Test Reset (development only) ---
+    if (path === '/reset' && method === 'POST') {
+      await this.ctx.storage.deleteAll()
+      return Response.json({ ok: true })
+    }
+
     return new Response('Not Found', { status: 404 })
   }
 

@@ -109,12 +109,23 @@ export default {
       return handleTelephonyWebhook(path, request, env, dos)
     }
 
+    // --- Test Reset (development only) ---
+    if (path === '/test-reset' && method === 'POST' && env.ENVIRONMENT === 'development') {
+      await dos.session.fetch(new Request('http://do/reset', { method: 'POST' }))
+      await dos.shifts.fetch(new Request('http://do/reset', { method: 'POST' }))
+      await dos.calls.fetch(new Request('http://do/reset', { method: 'POST' }))
+      rateLimitMap.clear()
+      return json({ ok: true })
+    }
+
     // --- Auth Routes ---
     if (path === '/auth/login' && method === 'POST') {
-      // Rate limit login attempts by IP
-      const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown'
-      if (checkRateLimit(null as never, `auth:${clientIp}`, 10)) {
-        return error('Too many login attempts. Try again later.', 429)
+      // Rate limit login attempts by IP (skip in development for testing)
+      if (env.ENVIRONMENT !== 'development') {
+        const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown'
+        if (checkRateLimit(null as never, `auth:${clientIp}`, 10)) {
+          return error('Too many login attempts. Try again later.', 429)
+        }
       }
       return handleLogin(request, dos.session)
     }
@@ -523,6 +534,7 @@ async function handleTelephonyWebhook(
       voiceCaptchaEnabled: spamSettings.voiceCaptchaEnabled,
       rateLimited,
       callerLanguage,
+      hotlineName: env.HOTLINE_NAME || 'Llámenos',
     })
 
     // If not banned and not rate limited, start ringing volunteers

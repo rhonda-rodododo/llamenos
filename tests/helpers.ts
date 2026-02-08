@@ -13,8 +13,10 @@ export async function loginAsVolunteer(page: Page, nsec: string) {
   await page.goto('/login')
   await page.getByRole('textbox', { name: /secret key/i }).fill(nsec)
   await page.getByRole('button', { name: /log in/i }).click()
-  // Volunteer may land on profile-setup or dashboard
-  await page.waitForURL(/\/(profile-setup)?$/, { timeout: 15000 })
+  // Wait for login redirect to complete (away from /login)
+  await page.waitForURL(url => !url.toString().includes('/login'), { timeout: 15000 })
+  // Give redirects time to settle (profile-setup guard may fire)
+  await page.waitForTimeout(500)
 }
 
 export async function logout(page: Page) {
@@ -43,10 +45,11 @@ export async function createVolunteerAndGetNsec(page: Page, name: string, phone:
 export async function completeProfileSetup(page: Page) {
   // If we're on profile-setup, complete it
   if (page.url().includes('profile-setup')) {
-    // Select English as spoken language (should already be selected)
     await page.getByRole('button', { name: /complete setup/i }).click()
-    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
+    await page.waitForURL(u => !u.toString().includes('profile-setup'), { timeout: 15000 })
   }
+  // Wait for authenticated layout to render
+  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible({ timeout: 10000 })
 }
 
 export function uniquePhone(): string {

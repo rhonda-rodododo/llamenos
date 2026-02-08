@@ -21,6 +21,21 @@ function getTwilioVoice(lang: string): string {
  * Each prompt has a key-per-language with fallback to English.
  */
 const VOICE_PROMPTS: Record<string, Record<string, string>> = {
+  greeting: {
+    en: 'Thank you for calling {name}.',
+    es: 'Gracias por llamar a {name}.',
+    zh: '感谢您致电{name}。',
+    tl: 'Salamat sa pagtawag sa {name}.',
+    vi: 'Cảm ơn bạn đã gọi đến {name}.',
+    ar: 'شكراً لاتصالك بـ {name}.',
+    fr: 'Merci d\'avoir appelé {name}.',
+    ht: 'Mèsi paske ou rele {name}.',
+    ko: '{name}에 전화해 주셔서 감사합니다.',
+    ru: 'Спасибо, что позвонили в {name}.',
+    hi: '{name} पर कॉल करने के लिए धन्यवाद।',
+    pt: 'Obrigado por ligar para {name}.',
+    de: 'Vielen Dank für Ihren Anruf bei {name}.',
+  },
   rateLimited: {
     en: 'We are currently experiencing high call volume. Please try again later.',
     es: 'Estamos experimentando un alto volumen de llamadas. Por favor, intente más tarde.',
@@ -150,6 +165,7 @@ export class TwilioAdapter implements TelephonyAdapter {
   async handleIncomingCall(params: IncomingCallParams): Promise<TelephonyResponse> {
     const lang = params.callerLanguage
     const tLang = getTwilioVoice(lang)
+    const greeting = getPrompt('greeting', lang).replace('{name}', params.hotlineName)
 
     if (params.isBanned) {
       return this.twiml('<Response><Reject reason="rejected"/></Response>')
@@ -158,7 +174,7 @@ export class TwilioAdapter implements TelephonyAdapter {
     if (params.rateLimited) {
       return this.twiml(`
         <Response>
-          <Say language="${tLang}">${getPrompt('rateLimited', lang)}</Say>
+          <Say language="${tLang}">${greeting} ${getPrompt('rateLimited', lang)}</Say>
           <Hangup/>
         </Response>
       `)
@@ -169,7 +185,7 @@ export class TwilioAdapter implements TelephonyAdapter {
       return this.twiml(`
         <Response>
           <Gather numDigits="4" action="/api/telephony/captcha?expected=${digits}&amp;callSid=${params.callSid}&amp;lang=${lang}" method="POST" timeout="10">
-            <Say language="${tLang}">${getPrompt('captchaPrompt', lang)} ${digits.split('').join(', ')}.</Say>
+            <Say language="${tLang}">${greeting} ${getPrompt('captchaPrompt', lang)} ${digits.split('').join(', ')}.</Say>
           </Gather>
           <Say language="${tLang}">${getPrompt('captchaTimeout', lang)}</Say>
           <Hangup/>
@@ -179,7 +195,7 @@ export class TwilioAdapter implements TelephonyAdapter {
 
     return this.twiml(`
       <Response>
-        <Say language="${tLang}">${getPrompt('pleaseHold', lang)}</Say>
+        <Say language="${tLang}">${greeting} ${getPrompt('pleaseHold', lang)}</Say>
         <Enqueue waitUrl="/api/telephony/wait-music?lang=${lang}">${params.callSid}</Enqueue>
       </Response>
     `)

@@ -5,22 +5,27 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
-  reporter: "html",
   workers: process.env.CI ? 1 : 4,
+  reporter: "html",
   use: {
     baseURL: "http://localhost:8787",
     trace: "on-first-retry",
   },
   projects: [
     {
+      name: "setup",
+      testMatch: /global-setup\.ts/,
+    },
+    {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
+      dependencies: ["setup"],
     },
     {
       name: "mobile-chromium",
       use: { ...devices["Pixel 7"] },
       testMatch: /responsive\.spec\.ts/,
+      dependencies: ["setup"],
     },
   ],
   webServer: {

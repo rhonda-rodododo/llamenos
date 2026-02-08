@@ -76,6 +76,17 @@ export class CallRouterDO extends DurableObject<Env> {
       return this.handleReportSpam(callId, await request.json())
     }
 
+    // --- Test Reset (development only) ---
+    if (path === '/reset' && method === 'POST') {
+      // Close all WebSocket connections
+      for (const conn of this.connections.values()) {
+        try { conn.ws.close() } catch {}
+      }
+      this.connections.clear()
+      await this.ctx.storage.deleteAll()
+      return Response.json({ ok: true })
+    }
+
     return new Response('Not Found', { status: 404 })
   }
 

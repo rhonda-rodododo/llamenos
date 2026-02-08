@@ -66,6 +66,13 @@ function RootLayout() {
     }
   }, [isLoading, isAuthenticated, profileCompleted, location.pathname, navigate])
 
+  // Redirect away from profile setup once completed
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && profileCompleted && location.pathname === '/profile-setup') {
+      navigate({ to: '/' })
+    }
+  }, [isLoading, isAuthenticated, profileCompleted, location.pathname, navigate])
+
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -114,7 +121,7 @@ function AuthenticatedLayout() {
       )}
 
       {/* Sidebar */}
-      <nav className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-border bg-sidebar transition-transform md:static md:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <nav className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-border bg-sidebar transition-transform md:static md:visible md:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full invisible'}`}>
         <div className="border-b border-border px-4 py-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
