@@ -225,7 +225,7 @@
 
 ## 2026-02-09: Security Hardening & Voicemail
 
-### Security Hardening (from deep audit)
+### Security Hardening (from deep audit — round 1)
 - [x] Constant-time comparison for auth tokens and Twilio webhook signatures
 - [x] WebSocket auth moved from URL query params to `Sec-WebSocket-Protocol` header
 - [x] CSP `wss:` restricted to same host only
@@ -250,3 +250,11 @@
 - [x] Frontend: unanswered badge + voicemail indicator in call history
 - [x] `voicemailReceived` audit event
 - [x] i18n: `unanswered`, `hasVoicemail`, `voicemailReceived`, `voicemailPrompt` keys in all 13 locales
+
+### Security Hardening (from deep audit — round 2)
+- [x] **CRITICAL**: Auth tokens replaced with BIP-340 Schnorr signatures (was SHA-256 hash — auth bypass)
+- [x] WebSocket subprotocol encoding fixed to base64url (no `=` / `/` chars that crash WS handshake)
+- [x] WebSocket server echoes `Sec-WebSocket-Protocol: llamenos-auth` header (WS spec compliance)
+- [x] Caller PII removed from notification function signature (defense in depth)
+- [x] Encrypted draft notes cleaned from localStorage on logout
+- [x] Profile settings backend accepts name + phone updates (admin can set phone to receive calls)
