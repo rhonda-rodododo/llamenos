@@ -30,7 +30,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { LANGUAGES } from '@shared/languages'
 
-export const Route = createFileRoute('/volunteers/$pubkey')({
+export const Route = createFileRoute('/volunteers_/$pubkey')({
   component: VolunteerProfilePage,
 })
 
