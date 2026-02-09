@@ -352,9 +352,8 @@ export class SessionManagerDO extends DurableObject<Env> {
 
   private async addBan(data: { phone: string; reason: string; bannedBy: string }): Promise<Response> {
     const bans = await this.ctx.storage.get<BanEntry[]>('bans') || []
-    const hashed = hashPhone(data.phone)
     const ban: BanEntry = {
-      phone: hashed,
+      phone: data.phone,
       reason: data.reason,
       bannedBy: data.bannedBy,
       bannedAt: new Date().toISOString(),
@@ -369,10 +368,9 @@ export class SessionManagerDO extends DurableObject<Env> {
     const existing = new Set(bans.map(b => b.phone))
     let count = 0
     for (const phone of data.phones) {
-      const hashed = hashPhone(phone)
-      if (!existing.has(hashed)) {
+      if (!existing.has(phone)) {
         bans.push({
-          phone: hashed,
+          phone,
           reason: data.reason,
           bannedBy: data.bannedBy,
           bannedAt: new Date().toISOString(),
@@ -386,15 +384,13 @@ export class SessionManagerDO extends DurableObject<Env> {
 
   private async removeBan(phone: string): Promise<Response> {
     const bans = await this.ctx.storage.get<BanEntry[]>('bans') || []
-    // Phone comes pre-hashed from the API layer
     await this.ctx.storage.put('bans', bans.filter(b => b.phone !== phone))
     return Response.json({ ok: true })
   }
 
   private async checkBan(phone: string): Promise<Response> {
     const bans = await this.ctx.storage.get<BanEntry[]>('bans') || []
-    const hashed = hashPhone(phone)
-    const banned = bans.some(b => b.phone === hashed)
+    const banned = bans.some(b => b.phone === phone)
     return Response.json({ banned })
   }
 

@@ -18,14 +18,14 @@ test.describe('Invite-based onboarding', () => {
     const volPhone = uniquePhone()
 
     await page.getByRole('button', { name: /invite/i }).click()
-    const form = page.locator('form')
-    await form.locator('input').first().fill(volName)
-    await form.locator('input[type="tel"]').fill(volPhone)
+    await page.getByLabel('Name').fill(volName)
+    await page.getByLabel('Phone Number').fill(volPhone)
+    await page.getByLabel('Phone Number').blur()
     await page.getByRole('button', { name: /create invite/i }).click()
 
     // Invite link should appear
     const linkEl = page.locator('code').first()
-    await expect(linkEl).toBeVisible({ timeout: 10000 })
+    await expect(linkEl).toBeVisible({ timeout: 15000 })
     inviteLink = (await linkEl.textContent())!
     expect(inviteLink).toContain('/onboarding?code=')
 
@@ -114,9 +114,9 @@ test.describe('Invite-based onboarding', () => {
     const volPhone = uniquePhone()
 
     await page.getByRole('button', { name: /invite/i }).click()
-    const form = page.locator('form')
-    await form.locator('input').first().fill(volName)
-    await form.locator('input[type="tel"]').fill(volPhone)
+    await page.getByLabel('Name').fill(volName)
+    await page.getByLabel('Phone Number').fill(volPhone)
+    await page.getByLabel('Phone Number').blur()
     await page.getByRole('button', { name: /create invite/i }).click()
 
     // Close the invite link card

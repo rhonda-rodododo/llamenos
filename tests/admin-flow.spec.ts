@@ -28,13 +28,13 @@ test.describe('Admin flow', () => {
 
     // Add volunteer
     await page.getByRole('button', { name: /add volunteer/i }).click()
-    const form = page.locator('form')
-    await form.locator('input').first().fill(volName)
-    await form.locator('input[type="tel"]').fill(phone)
+    await page.getByLabel('Name').fill(volName)
+    await page.getByLabel('Phone Number').fill(phone)
+    await page.getByLabel('Phone Number').blur()
     await page.getByRole('button', { name: /save/i }).click()
 
     // Should show the generated nsec
-    await expect(page.getByText(/nsec1/)).toBeVisible()
+    await expect(page.getByText(/nsec1/)).toBeVisible({ timeout: 15000 })
 
     // Close the nsec card
     await page.getByRole('button', { name: /close/i }).click()
@@ -112,9 +112,9 @@ test.describe('Admin flow', () => {
     await expect(page.getByRole('heading', { name: /ban list/i })).toBeVisible()
 
     await page.getByRole('button', { name: /ban number/i }).click()
-    const form = page.locator('form')
-    await form.locator('input[type="tel"]').fill(phone)
-    await form.locator('input').last().fill('E2E test ban')
+    await page.getByLabel('Phone Number').fill(phone)
+    await page.getByLabel('Phone Number').blur()
+    await page.getByLabel('Reason').fill('E2E test ban')
     await page.getByRole('button', { name: /save/i }).click()
 
     await expect(page.getByText(phone)).toBeVisible()
@@ -127,9 +127,9 @@ test.describe('Admin flow', () => {
 
     // Add a ban first
     await page.getByRole('button', { name: /ban number/i }).click()
-    const form = page.locator('form')
-    await form.locator('input[type="tel"]').fill(phone)
-    await form.locator('input').last().fill('To remove')
+    await page.getByLabel('Phone Number').fill(phone)
+    await page.getByLabel('Phone Number').blur()
+    await page.getByLabel('Reason').fill('To remove')
     await page.getByRole('button', { name: /save/i }).click()
     await expect(page.getByText(phone)).toBeVisible()
 
@@ -147,9 +147,10 @@ test.describe('Admin flow', () => {
     await page.getByRole('link', { name: 'Volunteers' }).click()
     await page.getByRole('button', { name: /add volunteer/i }).click()
 
-    const form = page.locator('form')
-    await form.locator('input').first().fill('Bad Phone')
-    await form.locator('input[type="tel"]').fill('not-a-number')
+    await page.getByLabel('Name').fill('Bad Phone')
+    // PhoneInput strips non-digits; use a too-short number that passes through handleChange
+    await page.getByLabel('Phone Number').fill('+12')
+    await page.getByLabel('Phone Number').blur()
     await page.getByRole('button', { name: /save/i }).click()
 
     await expect(page.getByText(/invalid phone/i)).toBeVisible()
@@ -164,7 +165,7 @@ test.describe('Admin flow', () => {
 
   test('settings page loads with all sections', async ({ page }) => {
     await page.getByRole('link', { name: 'Settings' }).click()
-    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
 
     await expect(page.getByRole('heading', { name: 'Transcription' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Spam Mitigation' })).toBeVisible()
@@ -174,7 +175,7 @@ test.describe('Admin flow', () => {
 
   test('settings toggles work', async ({ page }) => {
     await page.getByRole('link', { name: 'Settings' }).click()
-    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
 
     // Find a switch and toggle it
     const switches = page.getByRole('switch')

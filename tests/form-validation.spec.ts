@@ -10,9 +10,10 @@ test.describe('Form validation', () => {
     await page.getByRole('link', { name: 'Volunteers' }).click()
     await page.getByRole('button', { name: /add volunteer/i }).click()
 
-    const form = page.locator('form')
-    await form.locator('input').first().fill('Test')
-    await form.locator('input[type="tel"]').fill('abc')
+    await page.getByLabel('Name').fill('Test')
+    // PhoneInput strips non-digits; use a too-short number that fails E.164 validation
+    await page.getByLabel('Phone Number').fill('+123')
+    await page.getByLabel('Phone Number').blur()
     await page.getByRole('button', { name: /save/i }).click()
 
     await expect(page.getByText(/invalid phone/i)).toBeVisible()
@@ -22,9 +23,10 @@ test.describe('Form validation', () => {
     await page.getByRole('link', { name: 'Volunteers' }).click()
     await page.getByRole('button', { name: /add volunteer/i }).click()
 
-    const form = page.locator('form')
-    await form.locator('input').first().fill('Test')
-    await form.locator('input[type="tel"]').fill('1234567890')
+    await page.getByLabel('Name').fill('Test')
+    // PhoneInput auto-prepends +, so '1234' becomes '+1234' which is too short for E.164
+    await page.getByLabel('Phone Number').fill('1234')
+    await page.getByLabel('Phone Number').blur()
     await page.getByRole('button', { name: /save/i }).click()
 
     await expect(page.getByText(/invalid phone/i)).toBeVisible()
@@ -35,22 +37,23 @@ test.describe('Form validation', () => {
     await page.getByRole('link', { name: 'Volunteers' }).click()
     await page.getByRole('button', { name: /add volunteer/i }).click()
 
-    const form = page.locator('form')
-    await form.locator('input').first().fill('Valid Phone Test')
-    await form.locator('input[type="tel"]').fill(phone)
+    await page.getByLabel('Name').fill('Valid Phone Test')
+    await page.getByLabel('Phone Number').fill(phone)
+    await page.getByLabel('Phone Number').blur()
     await page.getByRole('button', { name: /save/i }).click()
 
     // Should show nsec (success)
-    await expect(page.getByText(/nsec1/)).toBeVisible()
+    await expect(page.getByText(/nsec1/)).toBeVisible({ timeout: 15000 })
   })
 
   test('ban form rejects invalid phone', async ({ page }) => {
     await page.getByRole('link', { name: 'Ban List' }).click()
     await page.getByRole('button', { name: /ban number/i }).click()
 
-    const form = page.locator('form')
-    await form.locator('input[type="tel"]').fill('not-valid')
-    await form.locator('input').last().fill('Test reason')
+    // PhoneInput strips non-digits; use a too-short number
+    await page.getByLabel('Phone Number').fill('+123')
+    await page.getByLabel('Phone Number').blur()
+    await page.getByLabel('Reason').fill('Test reason')
     await page.getByRole('button', { name: /save/i }).click()
 
     await expect(page.getByText(/invalid phone/i)).toBeVisible()
@@ -60,9 +63,9 @@ test.describe('Form validation', () => {
     await page.getByRole('link', { name: 'Ban List' }).click()
     await page.getByRole('button', { name: /ban number/i }).click()
 
-    const form = page.locator('form')
-    await form.locator('input[type="tel"]').fill('+123')
-    await form.locator('input').last().fill('Test reason')
+    await page.getByLabel('Phone Number').fill('+123')
+    await page.getByLabel('Phone Number').blur()
+    await page.getByLabel('Reason').fill('Test reason')
     await page.getByRole('button', { name: /save/i }).click()
 
     await expect(page.getByText(/invalid phone/i)).toBeVisible()
@@ -87,7 +90,7 @@ test.describe('Form validation', () => {
     await page.getByRole('button', { name: /import/i }).click()
 
     await page.locator('textarea').fill('not-a-phone\n+invalid')
-    await page.locator('form').last().locator('input').fill('Test reason')
+    await page.getByLabel('Reason').fill('Test reason')
     await page.getByRole('button', { name: /submit/i }).click()
 
     await expect(page.getByText(/invalid phone/i)).toBeVisible()

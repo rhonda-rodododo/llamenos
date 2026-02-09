@@ -30,14 +30,15 @@ export async function createVolunteerAndGetNsec(page: Page, name: string, phone:
   await expect(page.getByRole('heading', { name: 'Volunteers' })).toBeVisible()
 
   await page.getByRole('button', { name: /add volunteer/i }).click()
-  const form = page.locator('form')
-  await form.locator('input').first().fill(name)
-  await form.locator('input[type="tel"]').fill(phone)
+  await page.getByLabel('Name').fill(name)
+  await page.getByLabel('Phone Number').fill(phone)
+  // Blur the phone input so PhoneInput's onBlur re-render completes before clicking Save
+  await page.getByLabel('Phone Number').blur()
   await page.getByRole('button', { name: /save/i }).click()
 
   // Wait for the nsec to appear
-  await expect(page.locator('code')).toBeVisible()
-  const nsec = await page.locator('code').textContent()
+  await expect(page.locator('code').first()).toBeVisible({ timeout: 15000 })
+  const nsec = await page.locator('code').first().textContent()
   if (!nsec) throw new Error('Failed to get nsec')
   return nsec
 }

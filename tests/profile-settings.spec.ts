@@ -14,7 +14,7 @@ test.describe('Profile self-service', () => {
   test('admin can edit profile name and it persists', async ({ page }) => {
     await loginAsAdmin(page)
     await page.getByRole('link', { name: 'Settings' }).click()
-    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
 
     // Profile card should be visible
     await expect(page.getByRole('heading', { name: 'Profile' })).toBeVisible()
@@ -31,7 +31,7 @@ test.describe('Profile self-service', () => {
 
     // Reload and verify name persisted via /auth/me
     await page.reload()
-    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
     await expect(page.locator('#profile-name')).toHaveValue(newName)
 
     // Restore original name
@@ -43,11 +43,12 @@ test.describe('Profile self-service', () => {
   test('admin can save a valid phone number', async ({ page }) => {
     await loginAsAdmin(page)
     await page.getByRole('link', { name: 'Settings' }).click()
-    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
 
     // Enter a valid E.164 phone number
     const phoneInput = page.locator('#profile-phone')
     await phoneInput.fill('+12125559999')
+    await phoneInput.blur()
     await page.getByRole('button', { name: /update profile/i }).click()
 
     // Should succeed
@@ -57,11 +58,12 @@ test.describe('Profile self-service', () => {
   test('profile rejects invalid phone', async ({ page }) => {
     await loginAsAdmin(page)
     await page.getByRole('link', { name: 'Settings' }).click()
-    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
 
-    // Enter invalid phone
+    // Enter a too-short phone (PhoneInput strips non-digits)
     const phoneInput = page.locator('#profile-phone')
-    await phoneInput.fill('not-a-number')
+    await phoneInput.fill('+123')
+    await phoneInput.blur()
     await page.getByRole('button', { name: /update profile/i }).click()
 
     // Should show error
@@ -73,7 +75,7 @@ test.describe('Profile self-service', () => {
     await completeProfileSetup(page)
 
     await page.getByRole('link', { name: 'Settings' }).click()
-    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
 
     // Profile card should be visible for all users
     await expect(page.getByRole('heading', { name: 'Profile' })).toBeVisible()
@@ -87,13 +89,13 @@ test.describe('Profile self-service', () => {
   test('admin sees backup and security cards', async ({ page }) => {
     await loginAsAdmin(page)
     await page.getByRole('link', { name: 'Settings' }).click()
-    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
 
     // Key Backup card
     await expect(page.getByRole('heading', { name: /key backup/i })).toBeVisible()
 
-    // Security Keys (WebAuthn) card — admin only
-    await expect(page.getByRole('heading', { name: /security keys/i })).toBeVisible()
+    // Passkeys (WebAuthn) card
+    await expect(page.getByRole('heading', { name: /passkeys/i })).toBeVisible()
 
     // Spam Mitigation card — admin only
     await expect(page.getByRole('heading', { name: /spam mitigation/i })).toBeVisible()
@@ -104,10 +106,10 @@ test.describe('Profile self-service', () => {
     await completeProfileSetup(page)
 
     await page.getByRole('link', { name: 'Settings' }).click()
-    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
 
-    // Should NOT see WebAuthn or Spam Mitigation
-    await expect(page.getByRole('heading', { name: /security keys/i })).not.toBeVisible()
+    // Should NOT see Passkey Policy or Spam Mitigation (Passkeys card is visible for all users)
+    await expect(page.getByRole('heading', { name: /passkey policy/i })).not.toBeVisible()
     await expect(page.getByRole('heading', { name: /spam mitigation/i })).not.toBeVisible()
   })
 
@@ -116,7 +118,7 @@ test.describe('Profile self-service', () => {
     await completeProfileSetup(page)
 
     await page.getByRole('link', { name: 'Settings' }).click()
-    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
 
     // Update name
     const newName = `Vol ${Date.now()}`
@@ -124,20 +126,21 @@ test.describe('Profile self-service', () => {
 
     // Update phone
     await page.locator('#profile-phone').fill('+15551234567')
+    await page.locator('#profile-phone').blur()
 
     await page.getByRole('button', { name: /update profile/i }).click()
     await expect(page.getByText(/profile updated/i)).toBeVisible({ timeout: 5000 })
 
     // Verify name persists after reload
     await page.reload()
-    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
     await expect(page.locator('#profile-name')).toHaveValue(newName)
   })
 
   test('spoken language selection works', async ({ page }) => {
     await loginAsAdmin(page)
     await page.getByRole('link', { name: 'Settings' }).click()
-    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
 
     // Find the spoken languages section
     await expect(page.getByText(/languages you can take calls in/i)).toBeVisible()

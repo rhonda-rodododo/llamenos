@@ -70,13 +70,13 @@ test.describe('Epic 26: Custom IVR Audio Recording', () => {
 
   test('settings page shows voice prompts card', async ({ page }) => {
     await page.getByRole('link', { name: 'Settings' }).click()
-    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
     await expect(page.getByRole('heading', { name: /voice prompts/i })).toBeVisible()
   })
 
   test('voice prompts card shows prompt types', async ({ page }) => {
     await page.getByRole('link', { name: 'Settings' }).click()
-    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
 
     // Should show prompt type labels
     await expect(page.getByText('Greeting').first()).toBeVisible()
@@ -86,7 +86,7 @@ test.describe('Epic 26: Custom IVR Audio Recording', () => {
 
   test('settings page shows IVR language menu card', async ({ page }) => {
     await page.getByRole('link', { name: 'Settings' }).click()
-    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
     await expect(page.getByRole('heading', { name: /ivr language menu/i })).toBeVisible()
   })
 })
@@ -117,7 +117,7 @@ test.describe('Epic 27: Remaining Polish', () => {
 
   test('settings toggle shows confirmation dialog', async ({ page }) => {
     await page.getByRole('link', { name: 'Settings' }).click()
-    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
 
     // Find the voice CAPTCHA switch — use filter with both text and switch presence
     const captchaSection = page.locator('div').filter({ hasText: /voice captcha/i, has: page.getByRole('switch') }).last()
@@ -135,7 +135,7 @@ test.describe('Epic 27: Remaining Polish', () => {
 
   test('settings confirmation dialog applies change on confirm', async ({ page }) => {
     await page.getByRole('link', { name: 'Settings' }).click()
-    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
 
     // Toggle rate limiting — use filter with both text and switch presence
     const rlSection = page.locator('div').filter({ hasText: /rate limiting/i, has: page.getByRole('switch') }).last()
@@ -161,7 +161,7 @@ test.describe('Epic 27: Remaining Polish', () => {
   test('toast has dismiss button', async ({ page }) => {
     // Trigger a toast by saving profile
     await page.getByRole('link', { name: 'Settings' }).click()
-    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
 
     await page.getByRole('button', { name: /update profile/i }).click()
 

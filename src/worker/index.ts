@@ -561,9 +561,7 @@ export default {
       const rawPhone = extractPathParam(path, '/bans/')
       if (!rawPhone) return error('Invalid phone', 400)
       const phone = decodeURIComponent(rawPhone)
-      // Hash the phone to match stored hashed entries
-      const hashedPhone = hashPhone(phone)
-      const res = await dos.session.fetch(new Request(`http://do/bans/${encodeURIComponent(hashedPhone)}`, { method: 'DELETE' }))
+      const res = await dos.session.fetch(new Request(`http://do/bans/${encodeURIComponent(phone)}`, { method: 'DELETE' }))
       if (res.ok) await audit(dos.session, 'numberUnbanned', pubkey, {})
       return res
     }
