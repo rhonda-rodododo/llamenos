@@ -5,11 +5,10 @@ import { useConfig } from '@/lib/config'
 import { useTheme } from '@/lib/theme'
 import { useEffect, useState, useCallback, type ReactNode } from 'react'
 import { connectWebSocket, disconnectWebSocket } from '@/lib/ws'
-import { setLanguage } from '@/lib/i18n'
-import { LANGUAGES } from '@shared/languages'
 import { useCalls, useShiftStatus } from '@/lib/hooks'
 import { CommandPalette, triggerCommandPalette } from '@/components/command-palette'
 import { KeyboardShortcutsDialog } from '@/components/keyboard-shortcuts-dialog'
+import { LanguageSelect } from '@/components/language-select'
 import {
   LayoutDashboard,
   StickyNote,
@@ -20,7 +19,7 @@ import {
   ScrollText,
   Settings,
   LogOut,
-  Globe,
+
   Phone,
   PhoneCall,
   Sun,
@@ -36,7 +35,7 @@ export const Route = createRootRoute({
 })
 
 function RootLayout() {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const { isAuthenticated, isAdmin, signOut, name, role, isLoading, profileCompleted } = useAuth()
   const { hotlineName } = useConfig()
   const { theme, setTheme } = useTheme()
@@ -109,7 +108,7 @@ function RootLayout() {
 const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const
 
 function AuthenticatedLayout() {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const { isAdmin, signOut, name, role, sessionExpiring, sessionExpired, renewSession } = useAuth()
   const { hotlineName } = useConfig()
   const { theme, setTheme } = useTheme()
@@ -212,22 +211,7 @@ function AuthenticatedLayout() {
         </div>
 
         <div className="border-t border-border p-3 space-y-2">
-          <div className="flex items-center gap-1.5">
-            <Globe className="h-3.5 w-3.5 text-muted-foreground" />
-            <div className="flex flex-wrap gap-0.5">
-              {LANGUAGES.map(lang => (
-                <button
-                  key={lang.code}
-                  onClick={() => setLanguage(lang.code)}
-                  className={`rounded px-1.5 py-0.5 text-xs transition-colors ${i18n.language === lang.code ? 'bg-primary/20 text-primary font-medium' : 'text-muted-foreground hover:text-foreground'}`}
-                  title={lang.label}
-                  aria-label={t('a11y.switchToLanguage', { language: lang.label })}
-                >
-                  {lang.flag}
-                </button>
-              ))}
-            </div>
-          </div>
+          <LanguageSelect size="sm" />
           <div className="flex items-center gap-1.5">
             {theme === 'dark' ? <Moon className="h-3.5 w-3.5 text-muted-foreground" /> : theme === 'light' ? <Sun className="h-3.5 w-3.5 text-muted-foreground" /> : <Monitor className="h-3.5 w-3.5 text-muted-foreground" />}
             <div className="flex gap-0.5">
