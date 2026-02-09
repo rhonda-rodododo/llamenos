@@ -105,7 +105,8 @@
     "callIdPlaceholder": "Call ID or reference",
     "export": "Export",
     "viewNotes": "Notes",
-    "activeCallNote": "Note attached to your active call"
+    "activeCallNote": "Note attached to your active call",
+    "draftSaved": "Draft saved"
   },
   "transcription": {
     "title": "Transcription",
@@ -349,6 +350,24 @@
     "keyBackupDescription": "Download your encrypted key backup",
     "securityKeys": "Security Keys",
     "securityKeysDescription": "Manage WebAuthn credentials for step-up authentication"
+  },
+  "shortcuts": {
+    "title": "Keyboard Shortcuts",
+    "description": "Quick actions available from anywhere",
+    "commandPalette": "Open command palette",
+    "showHelp": "Show keyboard shortcuts",
+    "saveNote": "Save note"
+  },
+  "confirm": {
+    "transcriptionTitle": "Change Transcription Setting",
+    "transcriptionEnable": "Enable call transcription for all volunteers? This uses AI to transcribe calls in real-time.",
+    "transcriptionDisable": "Disable call transcription? Volunteers will no longer have calls transcribed automatically.",
+    "captchaTitle": "Change Voice CAPTCHA Setting",
+    "captchaEnable": "Enable voice CAPTCHA? Callers will be asked to enter a random number before connecting.",
+    "captchaDisable": "Disable voice CAPTCHA? Callers will be connected directly without verification.",
+    "rateLimitTitle": "Change Rate Limiting",
+    "rateLimitEnable": "Enable rate limiting? Repeated calls from the same number will be blocked temporarily.",
+    "rateLimitDisable": "Disable rate limiting? There will be no limit on repeated calls from the same number."
   },
   "a11y": {
     "skipToContent": "Skip to content",

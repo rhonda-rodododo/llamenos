@@ -25,6 +25,7 @@ import { Settings2, Mic, ShieldAlert, Bot, Timer, Bell, User, KeyRound, Shield, 
 import { AudioRecorder } from '@/components/audio-recorder'
 import { getNotificationPrefs, setNotificationPrefs } from '@/lib/notifications'
 import { LANGUAGES, IVR_LANGUAGES, LANGUAGE_MAP, ivrIndexToDigit } from '@shared/languages'
+import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
@@ -48,6 +49,7 @@ function SettingsPage() {
   const [ivrAudio, setIvrAudio] = useState<IvrAudioRecording[]>([])
   const [audioSaving, setAudioSaving] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [confirmToggle, setConfirmToggle] = useState<{ key: string; newValue: boolean } | null>(null)
 
   // Profile state
   const [profileName, setProfileName] = useState(authName || '')
@@ -99,6 +101,37 @@ function SettingsPage() {
     } catch {
       toast(t('common.error'), 'error')
     }
+  }
+
+  async function handleConfirmToggle() {
+    if (!confirmToggle) return
+    const { key, newValue } = confirmToggle
+    try {
+      if (key === 'transcription') {
+        const res = await updateTranscriptionSettings({ globalEnabled: newValue })
+        setGlobalTranscription(res.globalEnabled)
+      } else if (key === 'captcha') {
+        const res = await updateSpamSettings({ voiceCaptchaEnabled: newValue })
+        setSpam(res)
+      } else if (key === 'rateLimit') {
+        const res = await updateSpamSettings({ rateLimitEnabled: newValue })
+        setSpam(res)
+      }
+    } catch {
+      toast(t('common.error'), 'error')
+    }
+  }
+
+  const confirmTitles: Record<string, string> = {
+    transcription: t('confirm.transcriptionTitle'),
+    captcha: t('confirm.captchaTitle'),
+    rateLimit: t('confirm.rateLimitTitle'),
+  }
+
+  const confirmDescriptions: Record<string, string> = {
+    transcription: confirmToggle?.newValue ? t('confirm.transcriptionEnable') : t('confirm.transcriptionDisable'),
+    captcha: confirmToggle?.newValue ? t('confirm.captchaEnable') : t('confirm.captchaDisable'),
+    rateLimit: confirmToggle?.newValue ? t('confirm.rateLimitEnable') : t('confirm.rateLimitDisable'),
   }
 
   if (loading) {
@@ -264,14 +297,7 @@ function SettingsPage() {
               </div>
               <Switch
                 checked={globalTranscription}
-                onCheckedChange={async (checked) => {
-                  try {
-                    const res = await updateTranscriptionSettings({ globalEnabled: checked })
-                    setGlobalTranscription(res.globalEnabled)
-                  } catch {
-                    toast(t('common.error'), 'error')
-                  }
-                }}
+                onCheckedChange={(checked) => setConfirmToggle({ key: 'transcription', newValue: checked })}
               />
             </div>
           )}
@@ -474,14 +500,7 @@ function SettingsPage() {
               </div>
               <Switch
                 checked={spam.voiceCaptchaEnabled}
-                onCheckedChange={async (checked) => {
-                  try {
-                    const res = await updateSpamSettings({ voiceCaptchaEnabled: checked })
-                    setSpam(res)
-                  } catch {
-                    toast(t('common.error'), 'error')
-                  }
-                }}
+                onCheckedChange={(checked) => setConfirmToggle({ key: 'captcha', newValue: checked })}
               />
             </div>
 
@@ -495,14 +514,7 @@ function SettingsPage() {
               </div>
               <Switch
                 checked={spam.rateLimitEnabled}
-                onCheckedChange={async (checked) => {
-                  try {
-                    const res = await updateSpamSettings({ rateLimitEnabled: checked })
-                    setSpam(res)
-                  } catch {
-                    toast(t('common.error'), 'error')
-                  }
-                }}
+                onCheckedChange={(checked) => setConfirmToggle({ key: 'rateLimit', newValue: checked })}
               />
             </div>
 
@@ -551,6 +563,16 @@ function SettingsPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Confirmation dialog for settings toggles */}
+      <ConfirmDialog
+        open={!!confirmToggle}
+        onOpenChange={(open) => { if (!open) setConfirmToggle(null) }}
+        title={confirmToggle ? confirmTitles[confirmToggle.key] : ''}
+        description={confirmToggle ? confirmDescriptions[confirmToggle.key] : ''}
+        variant="default"
+        onConfirm={handleConfirmToggle}
+      />
     </div>
   )
 }

@@ -100,7 +100,8 @@
     "callIdPlaceholder": "ID ng tawag o reference",
     "export": "I-export",
     "viewNotes": "Mga Tala",
-    "activeCallNote": "Tala na nakakabit sa iyong aktibong tawag"
+    "activeCallNote": "Tala na nakakabit sa iyong aktibong tawag",
+    "draftSaved": "Na-save ang draft"
   },
   "transcription": {
     "title": "Transkripsyon",
@@ -289,6 +290,24 @@
     "theme": "Tema",
     "searchNotes": "Maghanap ng mga tala para sa \"{{query}}\"",
     "searchCalls": "Maghanap ng mga tawag para sa \"{{query}}\""
+  },
+  "shortcuts": {
+    "title": "Mga Shortcut sa Keyboard",
+    "description": "Mga mabilis na aksyon na available kahit saan",
+    "commandPalette": "Buksan ang command palette",
+    "showHelp": "Ipakita ang mga shortcut sa keyboard",
+    "saveNote": "I-save ang tala"
+  },
+  "confirm": {
+    "transcriptionTitle": "Baguhin ang Setting ng Transkripsyon",
+    "transcriptionEnable": "I-enable ang transkripsyon ng tawag para sa lahat ng boluntaryo? Gumagamit ito ng AI para ma-transcribe ang mga tawag sa real-time.",
+    "transcriptionDisable": "I-disable ang transkripsyon ng tawag? Hindi na awtomatikong ma-transcribe ang mga tawag ng mga boluntaryo.",
+    "captchaTitle": "Baguhin ang Setting ng Voice CAPTCHA",
+    "captchaEnable": "I-enable ang voice CAPTCHA? Hihilingin sa mga tumatawag na maglagay ng random na numero bago makakonekta.",
+    "captchaDisable": "I-disable ang voice CAPTCHA? Direktang makakakonekta ang mga tumatawag nang walang verification.",
+    "rateLimitTitle": "Baguhin ang Rate Limiting",
+    "rateLimitEnable": "I-enable ang rate limiting? Pansamantalang haharangin ang paulit-ulit na tawag mula sa parehong numero.",
+    "rateLimitDisable": "I-disable ang rate limiting? Walang limitasyon sa paulit-ulit na tawag mula sa parehong numero."
   },
   "a11y": {
     "skipToContent": "Pumunta sa nilalaman",

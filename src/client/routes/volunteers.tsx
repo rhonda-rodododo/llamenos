@@ -18,6 +18,7 @@ import { useToast } from '@/lib/toast'
 import { UserPlus, Shield, ShieldCheck, Trash2, Key, Copy, Coffee, Eye, EyeOff, Mail, X } from 'lucide-react'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Button } from '@/components/ui/button'
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -377,15 +378,15 @@ function AddVolunteerForm({ onCreated, onCancel }: {
           </div>
           <div className="space-y-2">
             <Label htmlFor="vol-role">{t('volunteers.role')}</Label>
-            <select
-              id="vol-role"
-              value={role}
-              onChange={e => setRole(e.target.value as 'volunteer' | 'admin')}
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
-            >
-              <option value="volunteer">{t('volunteers.roleVolunteer')}</option>
-              <option value="admin">{t('volunteers.roleAdmin')}</option>
-            </select>
+            <Select value={role} onValueChange={(v) => setRole(v as 'volunteer' | 'admin')}>
+              <SelectTrigger id="vol-role">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="volunteer">{t('volunteers.roleVolunteer')}</SelectItem>
+                <SelectItem value="admin">{t('volunteers.roleAdmin')}</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex gap-2">
             <Button type="submit" disabled={saving}>

@@ -39,8 +39,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           <div
             key={t.id}
             role={t.type === 'error' ? 'alert' : 'status'}
-            onClick={() => dismiss(t.id)}
-            className={`cursor-pointer rounded-lg px-4 py-3 text-sm shadow-lg transition-all animate-in slide-in-from-right ${
+            className={`flex items-center gap-2 rounded-lg px-4 py-3 text-sm shadow-lg transition-all animate-in slide-in-from-right ${
               t.type === 'error'
                 ? 'bg-red-900/90 text-red-100 border border-red-700'
                 : t.type === 'success'
@@ -48,7 +47,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   : 'bg-zinc-800/90 text-zinc-100 border border-zinc-700'
             }`}
           >
-            {t.message}
+            <span className="flex-1">{t.message}</span>
+            <button
+              onClick={() => dismiss(t.id)}
+              className="ml-2 rounded p-0.5 opacity-60 hover:opacity-100 transition-opacity"
+              aria-label="Dismiss"
+            >
+              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </button>
           </div>
         ))}
       </div>

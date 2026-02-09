@@ -100,7 +100,8 @@
     "callIdPlaceholder": "Anruf-ID oder Referenz",
     "export": "Exportieren",
     "viewNotes": "Notizen",
-    "activeCallNote": "Notiz zu Ihrem aktiven Anruf"
+    "activeCallNote": "Notiz zu Ihrem aktiven Anruf",
+    "draftSaved": "Entwurf gespeichert"
   },
   "transcription": {
     "title": "Transkription",
@@ -289,6 +290,24 @@
     "theme": "Thema",
     "searchNotes": "Notizen suchen nach \"{{query}}\"",
     "searchCalls": "Anrufe suchen nach \"{{query}}\""
+  },
+  "shortcuts": {
+    "title": "Tastaturkürzel",
+    "description": "Schnellaktionen, die überall verfügbar sind",
+    "commandPalette": "Befehlspalette öffnen",
+    "showHelp": "Tastaturkürzel anzeigen",
+    "saveNote": "Notiz speichern"
+  },
+  "confirm": {
+    "transcriptionTitle": "Transkriptionseinstellung ändern",
+    "transcriptionEnable": "Anruftranskription für alle Freiwilligen aktivieren? Dabei wird KI verwendet, um Anrufe in Echtzeit zu transkribieren.",
+    "transcriptionDisable": "Anruftranskription deaktivieren? Die Anrufe der Freiwilligen werden nicht mehr automatisch transkribiert.",
+    "captchaTitle": "Sprach-CAPTCHA-Einstellung ändern",
+    "captchaEnable": "Sprach-CAPTCHA aktivieren? Anrufer müssen vor der Verbindung eine zufällige Nummer eingeben.",
+    "captchaDisable": "Sprach-CAPTCHA deaktivieren? Anrufer werden direkt ohne Überprüfung verbunden.",
+    "rateLimitTitle": "Ratenbegrenzung ändern",
+    "rateLimitEnable": "Ratenbegrenzung aktivieren? Wiederholte Anrufe von derselben Nummer werden vorübergehend blockiert.",
+    "rateLimitDisable": "Ratenbegrenzung deaktivieren? Es gibt keine Begrenzung für wiederholte Anrufe von derselben Nummer."
   },
   "a11y": {
     "skipToContent": "Zum Inhalt springen",

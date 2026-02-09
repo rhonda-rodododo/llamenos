@@ -100,7 +100,8 @@
     "callIdPlaceholder": "Mã cuộc gọi hoặc tham chiếu",
     "export": "Xuất",
     "viewNotes": "Ghi chú",
-    "activeCallNote": "Ghi chú đính kèm cuộc gọi đang hoạt động của bạn"
+    "activeCallNote": "Ghi chú đính kèm cuộc gọi đang hoạt động của bạn",
+    "draftSaved": "Đã lưu bản nháp"
   },
   "transcription": {
     "title": "Phiên âm",
@@ -289,6 +290,24 @@
     "theme": "Giao diện",
     "searchNotes": "Tìm ghi chú cho \"{{query}}\"",
     "searchCalls": "Tìm cuộc gọi cho \"{{query}}\""
+  },
+  "shortcuts": {
+    "title": "Phím tắt",
+    "description": "Các thao tác nhanh có thể sử dụng ở bất kỳ đâu",
+    "commandPalette": "Mở bảng lệnh",
+    "showHelp": "Hiển thị phím tắt",
+    "saveNote": "Lưu ghi chú"
+  },
+  "confirm": {
+    "transcriptionTitle": "Thay đổi cài đặt phiên âm",
+    "transcriptionEnable": "Bật phiên âm cuộc gọi cho tất cả tình nguyện viên? Tính năng này sử dụng AI để phiên âm cuộc gọi theo thời gian thực.",
+    "transcriptionDisable": "Tắt phiên âm cuộc gọi? Tình nguyện viên sẽ không còn được phiên âm cuộc gọi tự động.",
+    "captchaTitle": "Thay đổi cài đặt CAPTCHA giọng nói",
+    "captchaEnable": "Bật CAPTCHA giọng nói? Người gọi sẽ được yêu cầu nhập một số ngẫu nhiên trước khi kết nối.",
+    "captchaDisable": "Tắt CAPTCHA giọng nói? Người gọi sẽ được kết nối trực tiếp mà không cần xác minh.",
+    "rateLimitTitle": "Thay đổi giới hạn tần suất",
+    "rateLimitEnable": "Bật giới hạn tần suất? Các cuộc gọi lặp lại từ cùng một số sẽ bị chặn tạm thời.",
+    "rateLimitDisable": "Tắt giới hạn tần suất? Sẽ không có giới hạn đối với các cuộc gọi lặp lại từ cùng một số."
   },
   "a11y": {
     "skipToContent": "Chuyển đến nội dung",

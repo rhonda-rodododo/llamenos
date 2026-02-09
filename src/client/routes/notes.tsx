@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 
 type NotesSearch = {
   page: number
@@ -259,20 +260,22 @@ function NotesPage() {
             <div className="space-y-2">
               <Label htmlFor="call-id">{t('notes.callId')}</Label>
               {recentCalls.length > 0 ? (
-                <select
-                  id="call-id"
-                  value={newNoteCallId}
-                  onChange={e => setNewNoteCallId(e.target.value)}
-                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+                <Select
+                  value={newNoteCallId || undefined}
+                  onValueChange={(v) => setNewNoteCallId(v)}
                 >
-                  <option value="">{t('notes.selectCall')}</option>
-                  {recentCalls.map(call => (
-                    <option key={call.id} value={call.id}>
-                      {call.callerNumber} — {new Date(call.startedAt).toLocaleString()}
-                    </option>
-                  ))}
-                  <option value="__manual">{t('notes.enterManually')}</option>
-                </select>
+                  <SelectTrigger id="call-id">
+                    <SelectValue placeholder={t('notes.selectCall')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {recentCalls.map(call => (
+                      <SelectItem key={call.id} value={call.id}>
+                        {call.callerNumber} — {new Date(call.startedAt).toLocaleString()}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="__manual">{t('notes.enterManually')}</SelectItem>
+                  </SelectContent>
+                </Select>
               ) : (
                 <Input
                   id="call-id"

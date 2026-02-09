@@ -9,6 +9,7 @@ import { setLanguage } from '@/lib/i18n'
 import { LANGUAGES } from '@shared/languages'
 import { useCalls, useShiftStatus } from '@/lib/hooks'
 import { CommandPalette, triggerCommandPalette } from '@/components/command-palette'
+import { KeyboardShortcutsDialog } from '@/components/keyboard-shortcuts-dialog'
 import {
   LayoutDashboard,
   StickyNote,
@@ -284,6 +285,7 @@ function AuthenticatedLayout() {
       </div>
 
       <CommandPalette />
+      <KeyboardShortcutsDialog />
     </div>
   )
 }

@@ -100,7 +100,8 @@
     "callIdPlaceholder": "ID apèl oswa referans",
     "export": "Ekspòte",
     "viewNotes": "Nòt",
-    "activeCallNote": "Nòt ki tache ak apèl aktif ou a"
+    "activeCallNote": "Nòt ki tache ak apèl aktif ou a",
+    "draftSaved": "Bouyon anrejistre"
   },
   "transcription": {
     "title": "Transkripsyon",
@@ -289,6 +290,24 @@
     "theme": "Tèm",
     "searchNotes": "Chèche nòt pou \"{{query}}\"",
     "searchCalls": "Chèche apèl pou \"{{query}}\""
+  },
+  "shortcuts": {
+    "title": "Rakousi Klavye",
+    "description": "Aksyon rapid disponib toupatou",
+    "commandPalette": "Louvri palèt kòmand",
+    "showHelp": "Montre rakousi klavye",
+    "saveNote": "Anrejistre nòt"
+  },
+  "confirm": {
+    "transcriptionTitle": "Chanje Paramèt Transkripsyon",
+    "transcriptionEnable": "Aktive transkripsyon apèl pou tout volontè? Sa a itilize IA pou transkri apèl an tan reyèl.",
+    "transcriptionDisable": "Dezaktive transkripsyon apèl? Volontè yo pa p gen apèl yo transkri otomatikman ankò.",
+    "captchaTitle": "Chanje Paramèt CAPTCHA Vwa",
+    "captchaEnable": "Aktive CAPTCHA vwa? Moun ki rele yo ap dwe antre yon nimewo owaza avan yo konekte.",
+    "captchaDisable": "Dezaktive CAPTCHA vwa? Moun ki rele yo ap konekte dirèkteman san verifikasyon.",
+    "rateLimitTitle": "Chanje Limitasyon Frekans",
+    "rateLimitEnable": "Aktive limitasyon frekans? Apèl repete nan menm nimewo a ap bloke tanporèman.",
+    "rateLimitDisable": "Dezaktive limitasyon frekans? Pa p gen limit sou apèl repete nan menm nimewo a."
   },
   "a11y": {
     "skipToContent": "Ale nan kontni",

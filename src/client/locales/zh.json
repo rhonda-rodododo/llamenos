@@ -100,7 +100,8 @@
     "callIdPlaceholder": "通话ID或参考号",
     "export": "导出",
     "viewNotes": "笔记",
-    "activeCallNote": "附在当前通话上的笔记"
+    "activeCallNote": "附在当前通话上的笔记",
+    "draftSaved": "草稿已保存"
   },
   "transcription": {
     "title": "转录",
@@ -289,6 +290,24 @@
     "theme": "主题",
     "searchNotes": "搜索笔记\"{{query}}\"",
     "searchCalls": "搜索通话\"{{query}}\""
+  },
+  "shortcuts": {
+    "title": "键盘快捷键",
+    "description": "随处可用的快捷操作",
+    "commandPalette": "打开命令面板",
+    "showHelp": "显示键盘快捷键",
+    "saveNote": "保存笔记"
+  },
+  "confirm": {
+    "transcriptionTitle": "更改转录设置",
+    "transcriptionEnable": "为所有志愿者启用通话转录？这将使用AI实时转录通话。",
+    "transcriptionDisable": "禁用通话转录？志愿者的通话将不再自动转录。",
+    "captchaTitle": "更改语音验证码设置",
+    "captchaEnable": "启用语音验证码？来电者在接通前需要输入一个随机数字。",
+    "captchaDisable": "禁用语音验证码？来电者将直接接通，无需验证。",
+    "rateLimitTitle": "更改频率限制",
+    "rateLimitEnable": "启用频率限制？来自同一号码的重复来电将被临时阻止。",
+    "rateLimitDisable": "禁用频率限制？来自同一号码的重复来电将不受限制。"
   },
   "a11y": {
     "skipToContent": "跳到内容",

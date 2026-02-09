@@ -100,7 +100,8 @@
     "callIdPlaceholder": "통화 ID 또는 참조",
     "export": "내보내기",
     "viewNotes": "메모",
-    "activeCallNote": "활성 통화에 첨부된 메모"
+    "activeCallNote": "활성 통화에 첨부된 메모",
+    "draftSaved": "임시 저장됨"
   },
   "transcription": {
     "title": "전사",
@@ -289,6 +290,24 @@
     "theme": "테마",
     "searchNotes": "\"{{query}}\" 메모 검색",
     "searchCalls": "\"{{query}}\" 통화 검색"
+  },
+  "shortcuts": {
+    "title": "키보드 단축키",
+    "description": "어디서나 사용할 수 있는 빠른 작업",
+    "commandPalette": "명령 팔레트 열기",
+    "showHelp": "키보드 단축키 보기",
+    "saveNote": "메모 저장"
+  },
+  "confirm": {
+    "transcriptionTitle": "전사 설정 변경",
+    "transcriptionEnable": "모든 자원봉사자에 대해 통화 전사를 활성화하시겠습니까? 이 기능은 AI를 사용하여 실시간으로 통화를 전사합니다.",
+    "transcriptionDisable": "통화 전사를 비활성화하시겠습니까? 자원봉사자의 통화가 더 이상 자동으로 전사되지 않습니다.",
+    "captchaTitle": "음성 CAPTCHA 설정 변경",
+    "captchaEnable": "음성 CAPTCHA를 활성화하시겠습니까? 발신자는 연결 전에 임의의 숫자를 입력해야 합니다.",
+    "captchaDisable": "음성 CAPTCHA를 비활성화하시겠습니까? 발신자는 확인 없이 바로 연결됩니다.",
+    "rateLimitTitle": "속도 제한 변경",
+    "rateLimitEnable": "속도 제한을 활성화하시겠습니까? 같은 번호에서 반복되는 통화가 일시적으로 차단됩니다.",
+    "rateLimitDisable": "속도 제한을 비활성화하시겠습니까? 같은 번호에서의 반복 통화에 제한이 없어집니다."
   },
   "a11y": {
     "skipToContent": "콘텐츠로 건너뛰기",

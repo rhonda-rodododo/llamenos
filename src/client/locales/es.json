@@ -100,7 +100,8 @@
     "callIdPlaceholder": "ID de llamada o referencia",
     "export": "Exportar",
     "viewNotes": "Notas",
-    "activeCallNote": "Nota adjunta a tu llamada activa"
+    "activeCallNote": "Nota adjunta a tu llamada activa",
+    "draftSaved": "Borrador guardado"
   },
   "transcription": {
     "title": "Transcripción",
@@ -289,6 +290,24 @@
     "theme": "Tema",
     "searchNotes": "Buscar notas de \"{{query}}\"",
     "searchCalls": "Buscar llamadas de \"{{query}}\""
+  },
+  "shortcuts": {
+    "title": "Atajos de Teclado",
+    "description": "Acciones rápidas disponibles desde cualquier lugar",
+    "commandPalette": "Abrir paleta de comandos",
+    "showHelp": "Mostrar atajos de teclado",
+    "saveNote": "Guardar nota"
+  },
+  "confirm": {
+    "transcriptionTitle": "Cambiar Configuración de Transcripción",
+    "transcriptionEnable": "¿Habilitar la transcripción de llamadas para todos los voluntarios? Esto usa IA para transcribir llamadas en tiempo real.",
+    "transcriptionDisable": "¿Deshabilitar la transcripción de llamadas? Los voluntarios ya no tendrán las llamadas transcritas automáticamente.",
+    "captchaTitle": "Cambiar Configuración de CAPTCHA de Voz",
+    "captchaEnable": "¿Habilitar CAPTCHA de voz? Se pedirá a los llamantes que ingresen un número aleatorio antes de conectarse.",
+    "captchaDisable": "¿Deshabilitar CAPTCHA de voz? Los llamantes se conectarán directamente sin verificación.",
+    "rateLimitTitle": "Cambiar Límite de Frecuencia",
+    "rateLimitEnable": "¿Habilitar el límite de frecuencia? Las llamadas repetidas del mismo número serán bloqueadas temporalmente.",
+    "rateLimitDisable": "¿Deshabilitar el límite de frecuencia? No habrá límite en las llamadas repetidas del mismo número."
   },
   "a11y": {
     "skipToContent": "Ir al contenido",

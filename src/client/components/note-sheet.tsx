@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import { Lock, Save, Clock } from 'lucide-react'
 
 export function NoteSheet() {
@@ -100,27 +101,28 @@ export function NoteSheet() {
             {initialCallId && mode === 'new' ? (
               <Badge variant="secondary" className="text-sm">{initialCallId.slice(0, 24)}</Badge>
             ) : recentCalls.length > 0 ? (
-              <select
-                id="sheet-call-id"
-                value={draft.callId}
-                onChange={e => {
-                  const v = e.target.value
+              <Select
+                value={draft.callId || undefined}
+                onValueChange={(v) => {
                   if (v === '__manual') {
                     draft.setCallId('')
                   } else {
                     draft.setCallId(v)
                   }
                 }}
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
               >
-                <option value="">{t('notes.selectCall')}</option>
-                {recentCalls.map(call => (
-                  <option key={call.id} value={call.id}>
-                    {call.callerNumber} — {new Date(call.startedAt).toLocaleString()}
-                  </option>
-                ))}
-                <option value="__manual">{t('notes.enterManually')}</option>
-              </select>
+                <SelectTrigger id="sheet-call-id">
+                  <SelectValue placeholder={t('notes.selectCall')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {recentCalls.map(call => (
+                    <SelectItem key={call.id} value={call.id}>
+                      {call.callerNumber} — {new Date(call.startedAt).toLocaleString()}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="__manual">{t('notes.enterManually')}</SelectItem>
+                </SelectContent>
+              </Select>
             ) : (
               <Input
                 id="sheet-call-id"

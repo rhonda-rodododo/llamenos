@@ -15,6 +15,7 @@ import {
   CommandGroup,
   CommandItem,
 } from '@/components/ui/command'
+import { triggerShortcutsDialog } from '@/components/keyboard-shortcuts-dialog'
 import {
   LayoutDashboard,
   StickyNote,
@@ -33,6 +34,7 @@ import {
   Search,
   Lock,
   Save,
+  Keyboard,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -185,6 +187,10 @@ export function CommandPalette() {
             <CommandItem onSelect={() => runCommand(() => toggleBreak())}>
               <Coffee className="h-4 w-4" />
               {onBreak ? t('dashboard.endBreak') : t('dashboard.goOnBreak')}
+            </CommandItem>
+            <CommandItem onSelect={() => runCommand(() => triggerShortcutsDialog())}>
+              <Keyboard className="h-4 w-4" />
+              {t('shortcuts.title')}
             </CommandItem>
             <CommandItem onSelect={() => runCommand(() => { signOut(); navigate({ to: '/login' }) })}>
               <LogOut className="h-4 w-4" />

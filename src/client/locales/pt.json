@@ -100,7 +100,8 @@
     "callIdPlaceholder": "ID da chamada ou referência",
     "export": "Exportar",
     "viewNotes": "Notas",
-    "activeCallNote": "Nota anexada à sua chamada ativa"
+    "activeCallNote": "Nota anexada à sua chamada ativa",
+    "draftSaved": "Rascunho salvo"
   },
   "transcription": {
     "title": "Transcrição",
@@ -289,6 +290,24 @@
     "theme": "Tema",
     "searchNotes": "Pesquisar notas por \"{{query}}\"",
     "searchCalls": "Pesquisar chamadas por \"{{query}}\""
+  },
+  "shortcuts": {
+    "title": "Atalhos de Teclado",
+    "description": "Ações rápidas disponíveis de qualquer lugar",
+    "commandPalette": "Abrir paleta de comandos",
+    "showHelp": "Mostrar atalhos de teclado",
+    "saveNote": "Salvar nota"
+  },
+  "confirm": {
+    "transcriptionTitle": "Alterar Configuração de Transcrição",
+    "transcriptionEnable": "Ativar transcrição de chamadas para todos os voluntários? Isso usa IA para transcrever chamadas em tempo real.",
+    "transcriptionDisable": "Desativar transcrição de chamadas? As chamadas dos voluntários não serão mais transcritas automaticamente.",
+    "captchaTitle": "Alterar Configuração de CAPTCHA de Voz",
+    "captchaEnable": "Ativar CAPTCHA de voz? Os chamadores deverão digitar um número aleatório antes de serem conectados.",
+    "captchaDisable": "Desativar CAPTCHA de voz? Os chamadores serão conectados diretamente sem verificação.",
+    "rateLimitTitle": "Alterar Limitação de Frequência",
+    "rateLimitEnable": "Ativar limitação de frequência? Chamadas repetidas do mesmo número serão bloqueadas temporariamente.",
+    "rateLimitDisable": "Desativar limitação de frequência? Não haverá limite para chamadas repetidas do mesmo número."
   },
   "a11y": {
     "skipToContent": "Pular para o conteúdo",
