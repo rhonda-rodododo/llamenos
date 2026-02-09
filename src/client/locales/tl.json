@@ -99,7 +99,8 @@
     "enterManually": "Manu-manong ilagay ang ID ng tawag",
     "callIdPlaceholder": "ID ng tawag o reference",
     "export": "I-export",
-    "viewNotes": "Mga Tala"
+    "viewNotes": "Mga Tala",
+    "activeCallNote": "Tala na nakakabit sa iyong aktibong tawag"
   },
   "transcription": {
     "title": "Transkripsyon",
@@ -126,6 +127,11 @@
     "noShifts": "Walang naka-schedule na shift",
     "fallbackGroup": "Fallback Group",
     "fallbackDescription": "Ang mga boluntaryong ito ang tumatanggap ng mga tawag kapag walang naka-schedule na shift",
+    "until": "hanggang",
+    "nextShift": "Susunod na shift",
+    "offShift": "Wala sa Shift",
+    "noShiftsAssigned": "Walang itinalagang shift",
+    "startsAt": "magsisimula sa",
     "days": {
       "monday": "Lunes",
       "tuesday": "Martes",

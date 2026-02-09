@@ -99,7 +99,8 @@
     "enterManually": "手动输入通话ID",
     "callIdPlaceholder": "通话ID或参考号",
     "export": "导出",
-    "viewNotes": "笔记"
+    "viewNotes": "笔记",
+    "activeCallNote": "附在当前通话上的笔记"
   },
   "transcription": {
     "title": "转录",
@@ -126,6 +127,11 @@
     "noShifts": "暂无排班",
     "fallbackGroup": "备用组",
     "fallbackDescription": "当没有排班时，这些志愿者接听电话",
+    "until": "直到",
+    "nextShift": "下一班次",
+    "offShift": "不在班",
+    "noShiftsAssigned": "未分配班次",
+    "startsAt": "开始于",
     "days": {
       "monday": "星期一",
       "tuesday": "星期二",

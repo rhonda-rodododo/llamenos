@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { onMessage, sendMessage } from './ws'
 import { startRinging, stopRinging } from './notifications'
-import type { ActiveCall } from './api'
+import { getMyShiftStatus, type ActiveCall, type ShiftStatus } from './api'
 
 /**
  * Hook to manage real-time call state via WebSocket.
@@ -92,6 +92,30 @@ export function useCalls() {
     ringingCalls: calls.filter(c => c.status === 'ringing'),
     activeCalls: calls.filter(c => c.status === 'in-progress'),
   }
+}
+
+/**
+ * Hook to fetch and periodically refresh the current user's shift status.
+ */
+export function useShiftStatus() {
+  const [status, setStatus] = useState<ShiftStatus>({ onShift: false, currentShift: null, nextShift: null })
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let mounted = true
+
+    function fetch() {
+      getMyShiftStatus()
+        .then(s => { if (mounted) { setStatus(s); setLoading(false) } })
+        .catch(() => { if (mounted) setLoading(false) })
+    }
+
+    fetch()
+    const interval = setInterval(fetch, 60_000) // Refresh every 60s
+    return () => { mounted = false; clearInterval(interval) }
+  }, [])
+
+  return { ...status, loading }
 }
 
 /**

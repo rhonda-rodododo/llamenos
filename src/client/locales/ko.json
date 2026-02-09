@@ -99,7 +99,8 @@
     "enterManually": "통화 ID 직접 입력",
     "callIdPlaceholder": "통화 ID 또는 참조",
     "export": "내보내기",
-    "viewNotes": "메모"
+    "viewNotes": "메모",
+    "activeCallNote": "활성 통화에 첨부된 메모"
   },
   "transcription": {
     "title": "전사",
@@ -126,6 +127,11 @@
     "noShifts": "예정된 교대 없음",
     "fallbackGroup": "대체 그룹",
     "fallbackDescription": "교대가 없을 때 이 자원봉사자들이 전화를 받습니다",
+    "until": "까지",
+    "nextShift": "다음 교대",
+    "offShift": "교대 외",
+    "noShiftsAssigned": "배정된 교대 없음",
+    "startsAt": "시작 시각",
     "days": {
       "monday": "월요일",
       "tuesday": "화요일",

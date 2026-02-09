@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth'
 import { useEffect, useState } from 'react'
-import { useCalls, useCallTimer } from '@/lib/hooks'
+import { useCalls, useCallTimer, useShiftStatus } from '@/lib/hooks'
 import { createNote, addBan, getCallsTodayCount, getVolunteerPresence, listVolunteers, type ActiveCall, type VolunteerPresence, type Volunteer } from '@/lib/api'
 import { onMessage } from '@/lib/ws'
 import { encryptNote } from '@/lib/crypto'
@@ -35,6 +35,7 @@ function DashboardPage() {
   const { toast } = useToast()
   const navigate = useNavigate()
   const { calls, currentCall, answerCall, hangupCall, reportSpam, ringingCalls, activeCalls } = useCalls()
+  const { onShift, currentShift, nextShift } = useShiftStatus()
   const [callsToday, setCallsToday] = useState<number | null>(null)
   const [presence, setPresence] = useState<VolunteerPresence[]>([])
   const [volunteers, setVolunteers] = useState<Volunteer[]>([])
@@ -86,18 +87,28 @@ function DashboardPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className={onBreak ? 'border-yellow-400/30 dark:border-yellow-600/30' : undefined}>
+        <Card className={onBreak ? 'border-yellow-400/30 dark:border-yellow-600/30' : onShift ? 'border-green-400/30 dark:border-green-600/30' : undefined}>
           <CardContent className="flex items-center gap-4 py-0">
             <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
-              onBreak ? 'bg-yellow-500/10' : 'bg-blue-500/10'
+              onBreak ? 'bg-yellow-500/10' : onShift ? 'bg-green-500/10' : 'bg-blue-500/10'
             }`}>
-              {onBreak ? <Coffee className="h-5 w-5 text-yellow-500" /> : <Clock className="h-5 w-5 text-blue-500" />}
+              {onBreak ? <Coffee className="h-5 w-5 text-yellow-500" /> : <Clock className={`h-5 w-5 ${onShift ? 'text-green-500' : 'text-blue-500'}`} />}
             </div>
             <div className="flex-1">
               <p className="text-sm text-muted-foreground">{t('dashboard.currentShift')}</p>
               <p className="text-lg font-bold sm:text-2xl">
-                {currentCall ? t('dashboard.onCall') : onBreak ? t('dashboard.onBreak') : t('dashboard.ready')}
+                {currentCall ? t('dashboard.onCall') : onBreak ? t('dashboard.onBreak') : onShift ? t('dashboard.ready') : t('shifts.offShift')}
               </p>
+              {onShift && currentShift && !currentCall && (
+                <p className="text-xs text-muted-foreground">
+                  {currentShift.name} — {currentShift.startTime}–{currentShift.endTime}
+                </p>
+              )}
+              {!onShift && nextShift && !currentCall && (
+                <p className="text-xs text-muted-foreground">
+                  {t('shifts.nextShift')}: {nextShift.name} {t('shifts.startsAt')} {nextShift.startTime}
+                </p>
+              )}
             </div>
             {!currentCall && (
               <Button

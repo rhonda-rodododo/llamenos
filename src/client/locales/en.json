@@ -104,7 +104,8 @@
     "enterManually": "Enter call ID manually",
     "callIdPlaceholder": "Call ID or reference",
     "export": "Export",
-    "viewNotes": "Notes"
+    "viewNotes": "Notes",
+    "activeCallNote": "Note attached to your active call"
   },
   "transcription": {
     "title": "Transcription",
@@ -131,6 +132,11 @@
     "noShifts": "No shifts scheduled. Create a shift to start routing calls.",
     "fallbackGroup": "Fallback Group",
     "fallbackDescription": "These volunteers receive calls when no shift is scheduled",
+    "until": "until",
+    "nextShift": "Next shift",
+    "offShift": "Off Shift",
+    "noShiftsAssigned": "No shifts assigned",
+    "startsAt": "starts at",
     "days": {
       "monday": "Monday",
       "tuesday": "Tuesday",

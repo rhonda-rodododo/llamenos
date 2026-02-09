@@ -99,7 +99,8 @@
     "enterManually": "Anruf-ID manuell eingeben",
     "callIdPlaceholder": "Anruf-ID oder Referenz",
     "export": "Exportieren",
-    "viewNotes": "Notizen"
+    "viewNotes": "Notizen",
+    "activeCallNote": "Notiz zu Ihrem aktiven Anruf"
   },
   "transcription": {
     "title": "Transkription",
@@ -126,6 +127,11 @@
     "noShifts": "Keine Schichten geplant",
     "fallbackGroup": "Bereitschaftsgruppe",
     "fallbackDescription": "Diese Freiwilligen erhalten Anrufe, wenn keine Schicht geplant ist",
+    "until": "bis",
+    "nextShift": "Nächste Schicht",
+    "offShift": "Außer Dienst",
+    "noShiftsAssigned": "Keine Schichten zugewiesen",
+    "startsAt": "beginnt um",
     "days": {
       "monday": "Montag",
       "tuesday": "Dienstag",

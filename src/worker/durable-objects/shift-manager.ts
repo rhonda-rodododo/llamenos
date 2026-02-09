@@ -28,6 +28,10 @@ export class ShiftManagerDO extends DurableObject<Env> {
     if (path === '/current-volunteers' && method === 'GET') {
       return this.getCurrentVolunteers()
     }
+    if (path === '/my-status' && method === 'GET') {
+      const pubkey = url.searchParams.get('pubkey') || ''
+      return this.getMyStatus(pubkey)
+    }
 
     // --- Test Reset (development only) ---
     if (path === '/reset' && method === 'POST') {
@@ -104,5 +108,71 @@ export class ShiftManagerDO extends DurableObject<Env> {
     }
 
     return Response.json({ volunteers: Array.from(activeVolunteers) })
+  }
+
+  /**
+   * Returns the shift status for a specific volunteer:
+   * - Whether they're currently on shift
+   * - Their current shift details (if on shift)
+   * - Their next upcoming shift (if any)
+   */
+  private async getMyStatus(pubkey: string): Promise<Response> {
+    const shifts = await this.ctx.storage.get<Shift[]>('shifts') || []
+    const now = new Date()
+    const currentDay = now.getUTCDay()
+    const currentTime = `${String(now.getUTCHours()).padStart(2, '0')}:${String(now.getUTCMinutes()).padStart(2, '0')}`
+
+    // Find shifts that include this volunteer
+    const myShifts = shifts.filter(s => s.volunteerPubkeys.includes(pubkey))
+
+    // Find current active shift
+    let currentShift: { name: string; startTime: string; endTime: string } | null = null
+    for (const shift of myShifts) {
+      if (!shift.days.includes(currentDay)) continue
+      const startsBeforeEnds = shift.startTime <= shift.endTime
+      let isActive: boolean
+      if (startsBeforeEnds) {
+        isActive = currentTime >= shift.startTime && currentTime < shift.endTime
+      } else {
+        isActive = currentTime >= shift.startTime || currentTime < shift.endTime
+      }
+      if (isActive) {
+        currentShift = { name: shift.name, startTime: shift.startTime, endTime: shift.endTime }
+        break
+      }
+    }
+
+    // Find next upcoming shift
+    let nextShift: { name: string; startTime: string; endTime: string; day: number } | null = null
+    if (myShifts.length > 0) {
+      let bestMinutesAway = Infinity
+      const currentMinutes = now.getUTCHours() * 60 + now.getUTCMinutes()
+
+      for (const shift of myShifts) {
+        for (const day of shift.days) {
+          const shiftHours = parseInt(shift.startTime.split(':')[0])
+          const shiftMins = parseInt(shift.startTime.split(':')[1])
+          const shiftMinutes = shiftHours * 60 + shiftMins
+
+          let daysAway = day - currentDay
+          if (daysAway < 0) daysAway += 7
+          if (daysAway === 0 && shiftMinutes <= currentMinutes) daysAway = 7
+
+          const minutesAway = daysAway * 24 * 60 + (shiftMinutes - currentMinutes)
+          if (minutesAway > 0 && minutesAway < bestMinutesAway) {
+            // Skip if this is the currently active shift
+            if (currentShift && shift.name === currentShift.name && daysAway === 0) continue
+            bestMinutesAway = minutesAway
+            nextShift = { name: shift.name, startTime: shift.startTime, endTime: shift.endTime, day }
+          }
+        }
+      }
+    }
+
+    return Response.json({
+      onShift: currentShift !== null,
+      currentShift,
+      nextShift,
+    })
   }
 }

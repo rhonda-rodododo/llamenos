@@ -99,7 +99,8 @@
     "enterManually": "Antre ID apèl manyèlman",
     "callIdPlaceholder": "ID apèl oswa referans",
     "export": "Ekspòte",
-    "viewNotes": "Nòt"
+    "viewNotes": "Nòt",
+    "activeCallNote": "Nòt ki tache ak apèl aktif ou a"
   },
   "transcription": {
     "title": "Transkripsyon",
@@ -126,6 +127,11 @@
     "noShifts": "Pa gen ouvèti planifye",
     "fallbackGroup": "Gwoup Sekou",
     "fallbackDescription": "Volontè sa yo resevwa apèl lè pa gen ouvèti planifye",
+    "until": "jiska",
+    "nextShift": "Pwochen ouvèti",
+    "offShift": "Pa an Sèvis",
+    "noShiftsAssigned": "Pa gen ouvèti asiyen",
+    "startsAt": "kòmanse a",
     "days": {
       "monday": "Lendi",
       "tuesday": "Madi",

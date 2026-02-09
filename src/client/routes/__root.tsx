@@ -7,6 +7,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { connectWebSocket, disconnectWebSocket } from '@/lib/ws'
 import { setLanguage } from '@/lib/i18n'
 import { LANGUAGES } from '@shared/languages'
+import { useCalls, useShiftStatus } from '@/lib/hooks'
 import { CommandPalette, triggerCommandPalette } from '@/components/command-palette'
 import {
   LayoutDashboard,
@@ -20,6 +21,7 @@ import {
   LogOut,
   Globe,
   Phone,
+  PhoneCall,
   Sun,
   Moon,
   Monitor,
@@ -103,6 +105,8 @@ function RootLayout() {
   return <AuthenticatedLayout />
 }
 
+const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const
+
 function AuthenticatedLayout() {
   const { t, i18n } = useTranslation()
   const { isAdmin, signOut, name, role } = useAuth()
@@ -111,6 +115,8 @@ function AuthenticatedLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { currentCall } = useCalls()
+  const { onShift, currentShift, nextShift } = useShiftStatus()
 
   // Close sidebar on navigation
   useEffect(() => {
@@ -145,14 +151,38 @@ function AuthenticatedLayout() {
             </button>
           </div>
           {name && (
-            <div className="mt-2 flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 text-xs font-medium text-primary">
-                {name.charAt(0).toUpperCase()}
+            <div className="mt-2 space-y-1.5">
+              <div className="flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 text-xs font-medium text-primary">
+                  {name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-sidebar-foreground">{name}</p>
+                  <p className="text-xs text-muted-foreground capitalize">{role}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-medium text-sidebar-foreground">{name}</p>
-                <p className="text-xs text-muted-foreground capitalize">{role}</p>
-              </div>
+              {/* In-call indicator */}
+              {currentCall && (
+                <div className="flex items-center gap-1.5 rounded-md bg-blue-500/10 px-2 py-1">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
+                  <PhoneCall className="h-3 w-3 text-blue-500" />
+                  <span className="text-xs font-medium text-blue-700 dark:text-blue-300">{t('dashboard.onCall')}</span>
+                </div>
+              )}
+              {/* Shift status indicator */}
+              {!currentCall && (
+                <div className="flex items-center gap-1.5 px-2">
+                  <span className={`h-2 w-2 rounded-full ${onShift ? 'bg-green-500' : 'bg-gray-400'}`} />
+                  <span className="text-xs text-muted-foreground">
+                    {onShift && currentShift
+                      ? `${currentShift.name} — ${t('shifts.until')} ${currentShift.endTime}`
+                      : nextShift
+                        ? `${t('shifts.nextShift')}: ${nextShift.name} ${t('shifts.days.' + DAY_NAMES[nextShift.day])} ${nextShift.startTime}`
+                        : t('shifts.noShiftsAssigned')
+                    }
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </div>

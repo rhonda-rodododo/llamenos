@@ -99,7 +99,8 @@
     "enterManually": "Ввести ID звонка вручную",
     "callIdPlaceholder": "ID звонка или ссылка",
     "export": "Экспорт",
-    "viewNotes": "Заметки"
+    "viewNotes": "Заметки",
+    "activeCallNote": "Заметка, прикреплённая к вашему активному звонку"
   },
   "transcription": {
     "title": "Транскрипция",
@@ -126,6 +127,11 @@
     "noShifts": "Нет запланированных смен",
     "fallbackGroup": "Резервная группа",
     "fallbackDescription": "Эти волонтёры принимают звонки, когда нет запланированных смен",
+    "until": "до",
+    "nextShift": "Следующая смена",
+    "offShift": "Не на смене",
+    "noShiftsAssigned": "Смены не назначены",
+    "startsAt": "начинается в",
     "days": {
       "monday": "Понедельник",
       "tuesday": "Вторник",

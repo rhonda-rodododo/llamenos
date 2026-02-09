@@ -99,7 +99,8 @@
     "enterManually": "Nhập mã cuộc gọi thủ công",
     "callIdPlaceholder": "Mã cuộc gọi hoặc tham chiếu",
     "export": "Xuất",
-    "viewNotes": "Ghi chú"
+    "viewNotes": "Ghi chú",
+    "activeCallNote": "Ghi chú đính kèm cuộc gọi đang hoạt động của bạn"
   },
   "transcription": {
     "title": "Phiên âm",
@@ -126,6 +127,11 @@
     "noShifts": "Không có ca trực nào",
     "fallbackGroup": "Nhóm dự phòng",
     "fallbackDescription": "Những tình nguyện viên này nhận cuộc gọi khi không có ca trực nào",
+    "until": "đến",
+    "nextShift": "Ca trực tiếp theo",
+    "offShift": "Ngoài Ca Trực",
+    "noShiftsAssigned": "Chưa được phân ca trực",
+    "startsAt": "bắt đầu lúc",
     "days": {
       "monday": "Thứ Hai",
       "tuesday": "Thứ Ba",

@@ -217,6 +217,11 @@ export default {
       return json({ ok: true })
     }
 
+    // --- Shift Status (all authenticated users) ---
+    if (path === '/shifts/my-status' && method === 'GET') {
+      return dos.shifts.fetch(new Request(`http://do/my-status?pubkey=${pubkey}`))
+    }
+
     // --- Volunteers (admin only) ---
     if (path === '/volunteers' && method === 'GET') {
       if (!isAdmin) return error('Forbidden', 403)

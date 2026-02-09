@@ -99,7 +99,8 @@
     "enterManually": "Saisir l'ID d'appel manuellement",
     "callIdPlaceholder": "ID d'appel ou référence",
     "export": "Exporter",
-    "viewNotes": "Notes"
+    "viewNotes": "Notes",
+    "activeCallNote": "Note attachée à votre appel actif"
   },
   "transcription": {
     "title": "Transcription",
@@ -126,6 +127,11 @@
     "noShifts": "Aucun quart prévu",
     "fallbackGroup": "Groupe de secours",
     "fallbackDescription": "Ces bénévoles reçoivent les appels quand aucun quart n'est prévu",
+    "until": "jusqu'à",
+    "nextShift": "Prochain quart",
+    "offShift": "Hors Service",
+    "noShiftsAssigned": "Aucun quart attribué",
+    "startsAt": "commence à",
     "days": {
       "monday": "Lundi",
       "tuesday": "Mardi",

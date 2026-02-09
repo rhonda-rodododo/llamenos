@@ -99,7 +99,8 @@
     "enterManually": "Ingresar ID de llamada manualmente",
     "callIdPlaceholder": "ID de llamada o referencia",
     "export": "Exportar",
-    "viewNotes": "Notas"
+    "viewNotes": "Notas",
+    "activeCallNote": "Nota adjunta a tu llamada activa"
   },
   "transcription": {
     "title": "Transcripción",
@@ -126,6 +127,11 @@
     "noShifts": "No hay turnos programados",
     "fallbackGroup": "Grupo de Respaldo",
     "fallbackDescription": "Estos voluntarios reciben llamadas cuando no hay turno programado",
+    "until": "hasta",
+    "nextShift": "Próximo turno",
+    "offShift": "Fuera de Turno",
+    "noShiftsAssigned": "No hay turnos asignados",
+    "startsAt": "comienza a las",
     "days": {
       "monday": "Lunes",
       "tuesday": "Martes",

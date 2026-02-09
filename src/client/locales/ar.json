@@ -99,7 +99,8 @@
     "enterManually": "إدخال معرف المكالمة يدوياً",
     "callIdPlaceholder": "معرف المكالمة أو المرجع",
     "export": "تصدير",
-    "viewNotes": "ملاحظات"
+    "viewNotes": "ملاحظات",
+    "activeCallNote": "ملاحظة مرفقة بمكالمتك النشطة"
   },
   "transcription": {
     "title": "النسخ",
@@ -126,6 +127,11 @@
     "noShifts": "لا توجد مناوبات مجدولة",
     "fallbackGroup": "المجموعة الاحتياطية",
     "fallbackDescription": "يتلقى هؤلاء المتطوعون المكالمات عندما لا تكون هناك مناوبة مجدولة",
+    "until": "حتى",
+    "nextShift": "المناوبة التالية",
+    "offShift": "خارج المناوبة",
+    "noShiftsAssigned": "لا توجد مناوبات مُعيّنة",
+    "startsAt": "تبدأ في",
     "days": {
       "monday": "الاثنين",
       "tuesday": "الثلاثاء",

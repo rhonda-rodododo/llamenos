@@ -99,7 +99,8 @@
     "enterManually": "कॉल ID मैन्युअल रूप से दर्ज करें",
     "callIdPlaceholder": "कॉल ID या संदर्भ",
     "export": "निर्यात करें",
-    "viewNotes": "नोट्स"
+    "viewNotes": "नोट्स",
+    "activeCallNote": "आपकी सक्रिय कॉल से जुड़ा नोट"
   },
   "transcription": {
     "title": "ट्रांसक्रिप्शन",
@@ -126,6 +127,11 @@
     "noShifts": "कोई शिफ्ट निर्धारित नहीं",
     "fallbackGroup": "बैकअप ग्रुप",
     "fallbackDescription": "जब कोई शिफ्ट निर्धारित नहीं होती तो ये स्वयंसेवक कॉल प्राप्त करते हैं",
+    "until": "तक",
+    "nextShift": "अगली शिफ्ट",
+    "offShift": "शिफ्ट से बाहर",
+    "noShiftsAssigned": "कोई शिफ्ट नियुक्त नहीं",
+    "startsAt": "शुरू होती है",
     "days": {
       "monday": "सोमवार",
       "tuesday": "मंगलवार",

@@ -86,6 +86,18 @@ export async function deleteVolunteer(pubkey: string) {
   return request<{ ok: true }>(`/volunteers/${pubkey}`, { method: 'DELETE' })
 }
 
+// --- Shift Status (all users) ---
+
+export interface ShiftStatus {
+  onShift: boolean
+  currentShift: { name: string; startTime: string; endTime: string } | null
+  nextShift: { name: string; startTime: string; endTime: string; day: number } | null
+}
+
+export async function getMyShiftStatus() {
+  return request<ShiftStatus>('/shifts/my-status')
+}
+
 // --- Shifts (admin only) ---
 
 export async function listShifts() {

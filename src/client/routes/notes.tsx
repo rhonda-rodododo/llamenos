@@ -3,9 +3,10 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth'
 import { useEffect, useState, useCallback } from 'react'
 import { listNotes, createNote, updateNote, getCallHistory, type EncryptedNote, type CallRecord } from '@/lib/api'
+import { useCalls } from '@/lib/hooks'
 import { encryptNote, decryptNote, decryptTranscription } from '@/lib/crypto'
 import { useToast } from '@/lib/toast'
-import { StickyNote, Plus, Pencil, Lock, Mic, Save, X, Search, ChevronLeft, ChevronRight, Download } from 'lucide-react'
+import { StickyNote, Plus, Pencil, Lock, Mic, Save, X, Search, ChevronLeft, ChevronRight, Download, PhoneCall } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -38,6 +39,7 @@ function NotesPage() {
   const { toast } = useToast()
   const navigate = useNavigate({ from: '/notes' })
   const { page, callId, search } = Route.useSearch()
+  const { currentCall } = useCalls()
   const [notes, setNotes] = useState<DecryptedNote[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -50,6 +52,13 @@ function NotesPage() {
   const [recentCalls, setRecentCalls] = useState<CallRecord[]>([])
   const [searchInput, setSearchInput] = useState(search)
   const limit = 50
+
+  // Auto-fill call ID from active call
+  useEffect(() => {
+    if (currentCall && !newNoteCallId) {
+      setNewNoteCallId(currentCall.id)
+    }
+  }, [currentCall])
 
   // Load recent calls for the dropdown
   useEffect(() => {
@@ -278,6 +287,12 @@ function NotesPage() {
                   onChange={e => setNewNoteCallId(e.target.value)}
                   placeholder={t('notes.callIdPlaceholder')}
                 />
+              )}
+              {currentCall && newNoteCallId === currentCall.id && (
+                <p className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
+                  <PhoneCall className="h-3 w-3" />
+                  {t('notes.activeCallNote')}
+                </p>
               )}
             </div>
             <div className="space-y-2">
