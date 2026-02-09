@@ -18,20 +18,28 @@ function getReconnectDelay(): number {
 export function connectWebSocket() {
   if (socket?.readyState === WebSocket.OPEN) return
 
-  const nsec = getStoredSession()
-  if (!nsec) return
-
-  const keyPair = keyPairFromNsec(nsec)
-  if (!keyPair) return
-
-  const token = createAuthToken(keyPair.secretKey, Date.now())
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   const url = `${protocol}//${window.location.host}/api/ws`
 
-  // Pass auth via Sec-WebSocket-Protocol header (not URL params which get logged)
-  // Use base64url encoding (no padding, URL-safe chars) — valid as HTTP token / subprotocol
-  const authB64 = btoa(token).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-  socket = new WebSocket(url, ['llamenos-auth', authB64])
+  // Check for session token first (WebAuthn sessions)
+  const sessionToken = sessionStorage.getItem('llamenos-session-token')
+  let authProtocol: string
+
+  if (sessionToken) {
+    // Use session token auth (prefixed for server to distinguish)
+    authProtocol = `session-${sessionToken}`
+  } else {
+    // Fall back to Schnorr signature auth
+    const nsec = getStoredSession()
+    if (!nsec) return
+    const keyPair = keyPairFromNsec(nsec)
+    if (!keyPair) return
+    const token = createAuthToken(keyPair.secretKey, Date.now())
+    // Use base64url encoding (no padding, URL-safe chars) — valid as HTTP token / subprotocol
+    authProtocol = btoa(token).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  }
+
+  socket = new WebSocket(url, ['llamenos-auth', authProtocol])
 
   socket.onopen = () => {
     reconnectAttempts = 0

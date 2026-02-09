@@ -23,6 +23,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { PhoneInput, isValidE164 } from '@/components/phone-input'
 
 export const Route = createFileRoute('/volunteers')({
   component: VolunteersPage,
@@ -252,7 +253,7 @@ function InviteForm({ onCreated, onCancel }: {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!/^\+\d{7,15}$/.test(phone)) {
+    if (!isValidE164(phone)) {
       toast(t('volunteers.invalidPhone'), 'error')
       return
     }
@@ -290,12 +291,10 @@ function InviteForm({ onCreated, onCancel }: {
             </div>
             <div className="space-y-2">
               <Label htmlFor="invite-phone">{t('volunteers.phone')}</Label>
-              <Input
+              <PhoneInput
                 id="invite-phone"
                 value={phone}
-                onChange={e => setPhone(e.target.value)}
-                type="tel"
-                placeholder="+12125551234"
+                onChange={setPhone}
                 required
               />
             </div>
@@ -327,7 +326,7 @@ function AddVolunteerForm({ onCreated, onCancel }: {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!/^\+\d{7,15}$/.test(phone)) {
+    if (!isValidE164(phone)) {
       toast(t('volunteers.invalidPhone'), 'error')
       return
     }
@@ -366,12 +365,10 @@ function AddVolunteerForm({ onCreated, onCancel }: {
             </div>
             <div className="space-y-2">
               <Label htmlFor="vol-phone">{t('volunteers.phone')}</Label>
-              <Input
+              <PhoneInput
                 id="vol-phone"
                 value={phone}
-                onChange={e => setPhone(e.target.value)}
-                type="tel"
-                placeholder="+12125551234"
+                onChange={setPhone}
                 required
               />
             </div>

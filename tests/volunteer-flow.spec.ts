@@ -1,9 +1,13 @@
 import { test, expect } from '@playwright/test'
-import { loginAsAdmin, loginAsVolunteer, createVolunteerAndGetNsec, completeProfileSetup, uniquePhone } from './helpers'
+import { loginAsAdmin, loginAsVolunteer, createVolunteerAndGetNsec, completeProfileSetup, uniquePhone, resetTestState } from './helpers'
 
 test.describe('Volunteer flow', () => {
   let volunteerNsec: string
   let volunteerPhone: string
+
+  test.beforeAll(async ({ request }) => {
+    await resetTestState(request)
+  })
 
   test.beforeAll(async ({ browser }) => {
     // Create a volunteer via admin

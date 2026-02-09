@@ -81,6 +81,11 @@ export interface SpamSettings {
   blockDurationMinutes: number
 }
 
+export interface CallSettings {
+  queueTimeoutSeconds: number   // 30-300, default 90
+  voicemailMaxSeconds: number   // 30-300, default 120
+}
+
 export interface InviteCode {
   code: string
   name: string
@@ -91,6 +96,29 @@ export interface InviteCode {
   expiresAt: string
   usedAt?: string
   usedBy?: string
+}
+
+export interface WebAuthnCredential {
+  id: string              // Base64URL credential ID
+  publicKey: string       // Base64URL public key bytes
+  counter: number         // Signature counter (clone detection)
+  transports: string[]    // ['internal', 'hybrid', etc.]
+  backedUp: boolean       // Cloud-synced passkey
+  label: string           // User-assigned name ("My Phone")
+  createdAt: string
+  lastUsedAt: string
+}
+
+export interface WebAuthnSettings {
+  requireForAdmins: boolean
+  requireForVolunteers: boolean
+}
+
+export interface ServerSession {
+  token: string           // Random 256-bit hex
+  pubkey: string          // Which user
+  createdAt: string
+  expiresAt: string       // 8-hour expiry
 }
 
 export interface AuthPayload {

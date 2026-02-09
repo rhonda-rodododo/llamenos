@@ -1,4 +1,4 @@
-import type { AuthPayload, Env, Volunteer } from '../types'
+import type { AuthPayload, Env, Volunteer, ServerSession } from '../types'
 import { schnorr } from '@noble/curves/secp256k1.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { hexToBytes } from '@noble/hashes/utils.js'
@@ -13,6 +13,11 @@ export function parseAuthHeader(header: string | null): AuthPayload | null {
   } catch {
     return null
   }
+}
+
+export function parseSessionHeader(header: string | null): string | null {
+  if (!header?.startsWith('Session ')) return null
+  return header.slice(8).trim()
 }
 
 export function validateToken(auth: AuthPayload): boolean {
@@ -41,6 +46,21 @@ export async function authenticateRequest(
   sessionManager: DurableObjectStub
 ): Promise<{ pubkey: string; volunteer: Volunteer } | null> {
   const authHeader = request.headers.get('Authorization')
+
+  // Try session token auth first (WebAuthn-based sessions)
+  const sessionToken = parseSessionHeader(authHeader)
+  if (sessionToken) {
+    const sessionRes = await sessionManager.fetch(new Request(`http://do/sessions/validate/${sessionToken}`))
+    if (!sessionRes.ok) return null
+    const session = await sessionRes.json() as ServerSession
+    // Look up volunteer
+    const volRes = await sessionManager.fetch(new Request('http://do/volunteer/' + session.pubkey))
+    if (!volRes.ok) return null
+    const volunteer = await volRes.json() as Volunteer
+    return { pubkey: session.pubkey, volunteer }
+  }
+
+  // Fall back to Schnorr signature auth
   const auth = parseAuthHeader(authHeader)
   if (!auth) return null
   if (!(await verifyAuthToken(auth))) return null

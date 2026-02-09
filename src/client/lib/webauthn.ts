@@ -1,107 +1,121 @@
 /**
- * WebAuthn client-side helpers for admin step-up authentication.
- *
- * Uses @simplewebauthn/browser for registration and authentication flows.
+ * WebAuthn client-side helpers for passkey registration, login, and credential management.
+ * Uses @simplewebauthn/browser for browser API interaction.
  */
 
-import { startRegistration, startAuthentication } from '@simplewebauthn/browser'
+import { startRegistration, startAuthentication, type PublicKeyCredentialCreationOptionsJSON, type PublicKeyCredentialRequestOptionsJSON } from '@simplewebauthn/browser'
+import { getStoredSession, keyPairFromNsec, createAuthToken } from './crypto'
 
 const API_BASE = '/api'
 
-async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
-  // Import auth header dynamically to avoid circular deps
-  const { getInMemoryKeyPair } = await import('./key-memory')
-  const { createAuthToken } = await import('./crypto')
-  const keyPair = getInMemoryKeyPair()
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (keyPair) {
-    headers['Authorization'] = `Bearer ${createAuthToken(keyPair.secretKey, Date.now())}`
+function getAuthHeaders(): Record<string, string> {
+  // Prefer session token if available
+  const sessionToken = sessionStorage.getItem('llamenos-session-token')
+  if (sessionToken) {
+    return { 'Authorization': `Session ${sessionToken}` }
   }
-  const res = await fetch(`${API_BASE}${url}`, {
-    ...options,
-    headers: { ...headers, ...options?.headers },
-  })
-  if (!res.ok) {
-    const errBody = await res.json().catch(() => ({ error: 'Request failed' })) as { error?: string }
-    throw new Error(errBody.error || `HTTP ${res.status}`)
-  }
-  return res.json() as Promise<T>
-}
-
-export interface StoredCredential {
-  id: string
-  label: string
-  deviceType: string
-  backedUp: boolean
-  createdAt: string
-  transports?: string[]
-}
-
-/**
- * Register a new WebAuthn credential (security key or biometric).
- */
-export async function registerCredential(label: string): Promise<StoredCredential> {
-  // 1. Get registration options from server
-  const options = await fetchJson<Record<string, unknown>>('/webauthn/register/options', {
-    method: 'POST',
-    body: JSON.stringify({ label }),
-  })
-
-  // 2. Start registration in browser (triggers biometric/security key dialog)
-  const attResp = await startRegistration({ optionsJSON: options as unknown as Parameters<typeof startRegistration>[0]['optionsJSON'] })
-
-  // 3. Send attestation response to server for verification
-  const result = await fetchJson<{ verified: boolean; credential: StoredCredential }>('/webauthn/register/verify', {
-    method: 'POST',
-    body: JSON.stringify({ response: attResp, label }),
-  })
-
-  return result.credential
-}
-
-/**
- * Authenticate with an existing WebAuthn credential (step-up auth).
- */
-export async function authenticateWithCredential(): Promise<boolean> {
-  // 1. Get authentication options from server
-  const options = await fetchJson<Record<string, unknown>>('/webauthn/authenticate/options', {
-    method: 'POST',
-    body: JSON.stringify({}),
-  })
-
-  // 2. Start authentication in browser
-  const asseResp = await startAuthentication({ optionsJSON: options as unknown as Parameters<typeof startAuthentication>[0]['optionsJSON'] })
-
-  // 3. Send assertion response to server for verification
-  const result = await fetchJson<{ verified: boolean }>('/webauthn/authenticate/verify', {
-    method: 'POST',
-    body: JSON.stringify({ response: asseResp }),
-  })
-
-  return result.verified
-}
-
-/**
- * List registered credentials for the current user.
- */
-export async function listCredentials(): Promise<StoredCredential[]> {
-  const result = await fetchJson<{ credentials: StoredCredential[] }>('/webauthn/credentials')
-  return result.credentials
-}
-
-/**
- * Delete a registered credential.
- */
-export async function deleteCredential(credentialId: string): Promise<void> {
-  await fetchJson(`/webauthn/credentials/${encodeURIComponent(credentialId)}`, {
-    method: 'DELETE',
-  })
+  const nsec = getStoredSession()
+  if (!nsec) return {}
+  const keyPair = keyPairFromNsec(nsec)
+  if (!keyPair) return {}
+  const token = createAuthToken(keyPair.secretKey, Date.now())
+  return { 'Authorization': `Bearer ${token}` }
 }
 
 /**
  * Check if WebAuthn is supported in this browser.
  */
-export function isWebAuthnSupported(): boolean {
+export function isWebAuthnAvailable(): boolean {
   return typeof window !== 'undefined' &&
-    typeof window.PublicKeyCredential !== 'undefined'
+    !!window.PublicKeyCredential &&
+    typeof window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function'
+}
+
+/**
+ * Register a new WebAuthn credential (passkey).
+ * Requires existing auth (nsec or session token).
+ */
+export async function registerCredential(label: string): Promise<void> {
+  const headers = getAuthHeaders()
+
+  // 1. Get registration options from server
+  const optionsRes = await fetch(`${API_BASE}/webauthn/register/options`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...headers },
+    body: JSON.stringify({ label }),
+  })
+  if (!optionsRes.ok) throw new Error('Failed to get registration options')
+  const options = await optionsRes.json() as Record<string, unknown>
+  const challengeId = options.challengeId as string
+  delete options.challengeId
+
+  // 2. Create credential via browser WebAuthn API
+  const attestation = await startRegistration({ optionsJSON: options as unknown as PublicKeyCredentialCreationOptionsJSON })
+
+  // 3. Verify with server
+  const verifyRes = await fetch(`${API_BASE}/webauthn/register/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...headers },
+    body: JSON.stringify({ attestation, label, challengeId }),
+  })
+  if (!verifyRes.ok) throw new Error('Failed to verify registration')
+}
+
+/**
+ * Login with a passkey. Returns session token + pubkey.
+ * No auth required — uses discoverable credentials.
+ */
+export async function loginWithPasskey(): Promise<{ token: string; pubkey: string }> {
+  // 1. Get authentication options from server (no auth needed)
+  const optionsRes = await fetch(`${API_BASE}/webauthn/login/options`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  })
+  if (!optionsRes.ok) throw new Error('Failed to get authentication options')
+  const options = await optionsRes.json() as Record<string, unknown>
+  const challengeId = options.challengeId as string
+  delete options.challengeId
+
+  // 2. Authenticate via browser WebAuthn API
+  const assertion = await startAuthentication({ optionsJSON: options as unknown as PublicKeyCredentialRequestOptionsJSON })
+
+  // 3. Verify with server — returns session token
+  const verifyRes = await fetch(`${API_BASE}/webauthn/login/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ assertion, challengeId }),
+  })
+  if (!verifyRes.ok) throw new Error('Failed to verify authentication')
+  return verifyRes.json() as Promise<{ token: string; pubkey: string }>
+}
+
+export interface WebAuthnCredentialInfo {
+  id: string
+  label: string
+  backedUp: boolean
+  createdAt: string
+  lastUsedAt: string
+}
+
+/**
+ * List registered credentials for the current user.
+ */
+export async function listCredentials(): Promise<WebAuthnCredentialInfo[]> {
+  const headers = getAuthHeaders()
+  const res = await fetch(`${API_BASE}/webauthn/credentials`, { headers })
+  if (!res.ok) throw new Error('Failed to list credentials')
+  const data = await res.json() as { credentials: WebAuthnCredentialInfo[] }
+  return data.credentials
+}
+
+/**
+ * Delete a registered credential.
+ */
+export async function deleteCredential(id: string): Promise<void> {
+  const headers = getAuthHeaders()
+  const res = await fetch(`${API_BASE}/webauthn/credentials/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers,
+  })
+  if (!res.ok) throw new Error('Failed to delete credential')
 }

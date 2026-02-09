@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test'
+import { expect, type Page, type APIRequestContext } from '@playwright/test'
 
 export const ADMIN_NSEC = 'nsec174zsa94n3e7t0ugfldh9tgkkzmaxhalr78uxt9phjq3mmn6d6xas5jdffh'
 
@@ -55,4 +55,8 @@ export async function completeProfileSetup(page: Page) {
 export function uniquePhone(): string {
   const suffix = Date.now().toString().slice(-7)
   return `+1555${suffix}`
+}
+
+export async function resetTestState(request: APIRequestContext) {
+  await request.post('/api/test-reset')
 }

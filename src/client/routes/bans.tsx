@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { PhoneInput, isValidE164 } from '@/components/phone-input'
 
 export const Route = createFileRoute('/bans')({
   component: BansPage,
@@ -118,7 +119,7 @@ function AddBanForm({ onAdded, onCancel }: {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!/^\+\d{7,15}$/.test(phone)) {
+    if (!isValidE164(phone)) {
       toast(t('volunteers.invalidPhone'), 'error')
       return
     }
@@ -147,12 +148,10 @@ function AddBanForm({ onAdded, onCancel }: {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="ban-phone">{t('banList.phoneNumber')}</Label>
-              <Input
+              <PhoneInput
                 id="ban-phone"
                 value={phone}
-                onChange={e => setPhone(e.target.value)}
-                type="tel"
-                placeholder="+12125551234"
+                onChange={setPhone}
                 required
               />
             </div>

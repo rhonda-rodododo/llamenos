@@ -6,7 +6,8 @@ import { useConfig } from '@/lib/config'
 import { useTheme } from '@/lib/theme'
 import { isValidNsec } from '@/lib/crypto'
 import { readBackupFile } from '@/lib/backup'
-import { Phone, KeyRound, LogIn, Lock, Sun, Moon, Monitor, Upload, ChevronDown, ChevronUp } from 'lucide-react'
+import { isWebAuthnAvailable, loginWithPasskey } from '@/lib/webauthn'
+import { Phone, KeyRound, LogIn, Lock, Sun, Moon, Monitor, Upload, ChevronDown, ChevronUp, Fingerprint } from 'lucide-react'
 import { LanguageSelect } from '@/components/language-select'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -19,14 +20,16 @@ export const Route = createFileRoute('/login')({
 
 function LoginPage() {
   const { t } = useTranslation()
-  const { signIn, error, isLoading } = useAuth()
+  const { signIn, signInWithPasskey, error, isLoading } = useAuth()
   const { hotlineName } = useConfig()
   const { theme, setTheme } = useTheme()
   const navigate = useNavigate()
   const [nsec, setNsec] = useState('')
   const [validationError, setValidationError] = useState('')
   const [showRestore, setShowRestore] = useState(false)
+  const [passkeyLoading, setPasskeyLoading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const webauthnAvailable = isWebAuthnAvailable()
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -44,6 +47,19 @@ function LoginPage() {
 
     await signIn(nsec.trim())
     navigate({ to: '/' })
+  }
+
+  async function handlePasskeyLogin() {
+    setValidationError('')
+    setPasskeyLoading(true)
+    try {
+      await signInWithPasskey()
+      navigate({ to: '/' })
+    } catch (err) {
+      setValidationError(err instanceof Error ? err.message : t('webauthn.signInError'))
+    } finally {
+      setPasskeyLoading(false)
+    }
   }
 
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -123,6 +139,36 @@ function LoginPage() {
               )}
             </Button>
           </form>
+
+          {/* Passkey login */}
+          {webauthnAvailable && (
+            <>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-border" />
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="bg-card px-2 text-muted-foreground">{t('common.or', { defaultValue: 'or' })}</span>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="lg"
+                className="w-full"
+                onClick={handlePasskeyLogin}
+                disabled={isLoading || passkeyLoading}
+              >
+                {passkeyLoading ? (
+                  t('webauthn.signingIn', { defaultValue: 'Signing in...' })
+                ) : (
+                  <>
+                    <Fingerprint className="h-5 w-5" />
+                    {t('webauthn.signInWithPasskey', { defaultValue: 'Sign in with passkey' })}
+                  </>
+                )}
+              </Button>
+            </>
+          )}
 
           {/* Restore from backup */}
           <div className="space-y-2">

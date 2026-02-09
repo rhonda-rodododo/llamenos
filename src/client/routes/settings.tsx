@@ -5,6 +5,8 @@ import { useEffect, useState } from 'react'
 import {
   getSpamSettings,
   updateSpamSettings,
+  getCallSettings,
+  updateCallSettings,
   getTranscriptionSettings,
   updateTranscriptionSettings,
   updateMyTranscriptionPreference,
@@ -16,13 +18,17 @@ import {
   deleteIvrAudio,
   getIvrAudioUrl,
   type SpamSettings,
+  type CallSettings,
   type IvrAudioRecording,
 } from '@/lib/api'
 import { getStoredSession, keyPairFromNsec } from '@/lib/crypto'
 import { nip19 } from 'nostr-tools'
 import { useToast } from '@/lib/toast'
-import { Settings2, Mic, ShieldAlert, Bot, Timer, Bell, User, KeyRound, Shield, Globe, Phone, Volume2 } from 'lucide-react'
+import { Settings2, Mic, ShieldAlert, Bot, Timer, Bell, User, KeyRound, Shield, Globe, Phone, Volume2, PhoneForwarded, Fingerprint, Trash2, Plus } from 'lucide-react'
+import { isWebAuthnAvailable, registerCredential, listCredentials, deleteCredential, type WebAuthnCredentialInfo } from '@/lib/webauthn'
+import { getWebAuthnSettings, updateWebAuthnSettings, type WebAuthnSettings } from '@/lib/api'
 import { AudioRecorder } from '@/components/audio-recorder'
+import { PhoneInput } from '@/components/phone-input'
 import { getNotificationPrefs, setNotificationPrefs } from '@/lib/notifications'
 import { LANGUAGES, IVR_LANGUAGES, LANGUAGE_MAP, ivrIndexToDigit } from '@shared/languages'
 import { ConfirmDialog } from '@/components/confirm-dialog'
@@ -42,6 +48,7 @@ function SettingsPage() {
   const { isAdmin, transcriptionEnabled, name: authName, spokenLanguages, refreshProfile } = useAuth()
   const { toast } = useToast()
   const [spam, setSpam] = useState<SpamSettings | null>(null)
+  const [callSet, setCallSet] = useState<CallSettings | null>(null)
   const [globalTranscription, setGlobalTranscription] = useState(false)
   const [myTranscription, setMyTranscription] = useState(transcriptionEnabled)
   const [notifPrefs, setNotifPrefs] = useState(getNotificationPrefs)
@@ -50,6 +57,11 @@ function SettingsPage() {
   const [audioSaving, setAudioSaving] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [confirmToggle, setConfirmToggle] = useState<{ key: string; newValue: boolean } | null>(null)
+  const [webauthnCreds, setWebauthnCreds] = useState<WebAuthnCredentialInfo[]>([])
+  const [webauthnLabel, setWebauthnLabel] = useState('')
+  const [webauthnRegistering, setWebauthnRegistering] = useState(false)
+  const [webauthnSettings, setWebauthnSettings] = useState<WebAuthnSettings | null>(null)
+  const webauthnAvailable = isWebAuthnAvailable()
 
   // Profile state
   const [profileName, setProfileName] = useState(authName || '')
@@ -63,13 +75,24 @@ function SettingsPage() {
   const npub = keyPair ? nip19.npubEncode(keyPair.publicKey) : ''
 
   useEffect(() => {
+    const promises: Promise<void>[] = []
+    // Load WebAuthn credentials for all users
+    if (webauthnAvailable) {
+      promises.push(listCredentials().then(setWebauthnCreds).catch(() => {}))
+    }
     if (isAdmin) {
-      Promise.all([
+      promises.push(
         getSpamSettings().then(setSpam),
+        getCallSettings().then(setCallSet),
         getTranscriptionSettings().then(r => setGlobalTranscription(r.globalEnabled)),
         getIvrLanguages().then(r => setIvrEnabled(r.enabledLanguages)),
         listIvrAudio().then(r => setIvrAudio(r.recordings)),
-      ]).catch(() => toast(t('common.error'), 'error'))
+        getWebAuthnSettings().then(setWebauthnSettings).catch(() => {}),
+      )
+    }
+    if (promises.length > 0) {
+      Promise.all(promises)
+        .catch(() => toast(t('common.error'), 'error'))
         .finally(() => setLoading(false))
     } else {
       setLoading(false)
@@ -166,12 +189,10 @@ function SettingsPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="profile-phone">{t('profileSettings.phoneNumber')}</Label>
-              <Input
+              <PhoneInput
                 id="profile-phone"
                 value={profilePhone}
-                onChange={e => setProfilePhone(e.target.value)}
-                type="tel"
-                placeholder="+12125551234"
+                onChange={setProfilePhone}
               />
             </div>
           </div>
@@ -261,20 +282,131 @@ function SettingsPage() {
         </Card>
       )}
 
-      {/* Security Keys (WebAuthn) — admin only */}
-      {isAdmin && (
+      {/* Passkeys (WebAuthn) — all users */}
+      {webauthnAvailable && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Fingerprint className="h-5 w-5 text-muted-foreground" />
+              {t('webauthn.title', { defaultValue: 'Passkeys' })}
+            </CardTitle>
+            <CardDescription>{t('webauthn.description', { defaultValue: 'Use your device biometrics or PIN to sign in without your secret key.' })}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {webauthnCreds.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t('webauthn.noKeys', { defaultValue: 'No passkeys registered yet.' })}</p>
+            ) : (
+              <div className="space-y-2">
+                {webauthnCreds.map(cred => (
+                  <div key={cred.id} className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
+                    <div className="space-y-0.5">
+                      <p className="text-sm font-medium">{cred.label}</p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Badge variant="outline" className="text-[10px]">
+                          {cred.backedUp
+                            ? t('webauthn.syncedPasskey', { defaultValue: 'Synced' })
+                            : t('webauthn.singleDevice', { defaultValue: 'This device' })
+                          }
+                        </Badge>
+                        <span>{t('webauthn.lastUsed', { defaultValue: 'Last used' })}: {new Date(cred.lastUsedAt).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          await deleteCredential(cred.id)
+                          setWebauthnCreds(prev => prev.filter(c => c.id !== cred.id))
+                          toast(t('common.success'), 'success')
+                        } catch {
+                          toast(t('common.error'), 'error')
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <Input
+                value={webauthnLabel}
+                onChange={e => setWebauthnLabel(e.target.value)}
+                placeholder={t('webauthn.label', { defaultValue: 'Passkey name (e.g. "My Phone")' })}
+                className="flex-1"
+              />
+              <Button
+                onClick={async () => {
+                  if (!webauthnLabel.trim()) return
+                  setWebauthnRegistering(true)
+                  try {
+                    await registerCredential(webauthnLabel.trim())
+                    const updated = await listCredentials()
+                    setWebauthnCreds(updated)
+                    setWebauthnLabel('')
+                    toast(t('webauthn.registerSuccess', { defaultValue: 'Passkey registered!' }), 'success')
+                  } catch {
+                    toast(t('common.error'), 'error')
+                  } finally {
+                    setWebauthnRegistering(false)
+                  }
+                }}
+                disabled={webauthnRegistering || !webauthnLabel.trim()}
+              >
+                <Plus className="h-4 w-4" />
+                {t('webauthn.registerKey', { defaultValue: 'Add passkey' })}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* WebAuthn Policy (admin only) */}
+      {isAdmin && webauthnSettings && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-muted-foreground" />
-              {t('profileSettings.securityKeys')}
+              {t('webauthn.policy', { defaultValue: 'Passkey Policy' })}
             </CardTitle>
-            <CardDescription>{t('profileSettings.securityKeysDescription')}</CardDescription>
+            <CardDescription>{t('webauthn.policyDescription', { defaultValue: 'Require passkeys for user groups. Users without passkeys will be prompted to set one up.' })}</CardDescription>
           </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              WebAuthn support coming soon.
-            </p>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between rounded-lg border border-border p-4">
+              <div className="space-y-0.5">
+                <Label>{t('webauthn.requireForAdmins', { defaultValue: 'Require for admins' })}</Label>
+              </div>
+              <Switch
+                checked={webauthnSettings.requireForAdmins}
+                onCheckedChange={async (checked) => {
+                  try {
+                    const res = await updateWebAuthnSettings({ requireForAdmins: checked })
+                    setWebauthnSettings(res)
+                  } catch {
+                    toast(t('common.error'), 'error')
+                  }
+                }}
+              />
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-border p-4">
+              <div className="space-y-0.5">
+                <Label>{t('webauthn.requireForVolunteers', { defaultValue: 'Require for volunteers' })}</Label>
+              </div>
+              <Switch
+                checked={webauthnSettings.requireForVolunteers}
+                onCheckedChange={async (checked) => {
+                  try {
+                    const res = await updateWebAuthnSettings({ requireForVolunteers: checked })
+                    setWebauthnSettings(res)
+                  } catch {
+                    toast(t('common.error'), 'error')
+                  }
+                }}
+              />
+            </div>
           </CardContent>
         </Card>
       )}
@@ -407,6 +539,63 @@ function SettingsPage() {
             {ivrEnabled.length === 1 && (
               <p className="text-xs text-muted-foreground">{t('ivr.atLeastOne')}</p>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Call Settings */}
+      {isAdmin && callSet && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <PhoneForwarded className="h-5 w-5 text-muted-foreground" />
+              {t('callSettings.title')}
+            </CardTitle>
+            <CardDescription>{t('callSettings.description')}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="queue-timeout">{t('callSettings.queueTimeout')}</Label>
+                <p className="text-xs text-muted-foreground">{t('callSettings.queueTimeoutDescription')}</p>
+                <Input
+                  id="queue-timeout"
+                  type="number"
+                  value={callSet.queueTimeoutSeconds}
+                  onChange={async (e) => {
+                    try {
+                      const val = parseInt(e.target.value) || 90
+                      const res = await updateCallSettings({ queueTimeoutSeconds: val })
+                      setCallSet(res)
+                    } catch {
+                      toast(t('common.error'), 'error')
+                    }
+                  }}
+                  min={30}
+                  max={300}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="voicemail-max">{t('callSettings.voicemailMax')}</Label>
+                <p className="text-xs text-muted-foreground">{t('callSettings.voicemailMaxDescription')}</p>
+                <Input
+                  id="voicemail-max"
+                  type="number"
+                  value={callSet.voicemailMaxSeconds}
+                  onChange={async (e) => {
+                    try {
+                      const val = parseInt(e.target.value) || 120
+                      const res = await updateCallSettings({ voicemailMaxSeconds: val })
+                      setCallSet(res)
+                    } catch {
+                      toast(t('common.error'), 'error')
+                    }
+                  }}
+                  min={30}
+                  max={300}
+                />
+              </div>
+            </div>
           </CardContent>
         </Card>
       )}

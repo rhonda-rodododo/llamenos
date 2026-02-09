@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth'
 import { useConfig } from '@/lib/config'
 import { useTheme } from '@/lib/theme'
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, useCallback, type ReactNode } from 'react'
 import { connectWebSocket, disconnectWebSocket } from '@/lib/ws'
 import { setLanguage } from '@/lib/i18n'
 import { LANGUAGES } from '@shared/languages'
@@ -110,7 +110,7 @@ const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'frid
 
 function AuthenticatedLayout() {
   const { t, i18n } = useTranslation()
-  const { isAdmin, signOut, name, role } = useAuth()
+  const { isAdmin, signOut, name, role, sessionExpiring, sessionExpired, renewSession } = useAuth()
   const { hotlineName } = useConfig()
   const { theme, setTheme } = useTheme()
   const navigate = useNavigate()
@@ -286,6 +286,50 @@ function AuthenticatedLayout() {
 
       <CommandPalette />
       <KeyboardShortcutsDialog />
+
+      {/* Session expiring warning */}
+      {sessionExpiring && !sessionExpired && (
+        <div className="fixed bottom-4 right-4 z-50 flex items-center gap-3 rounded-lg border border-yellow-500/50 bg-yellow-50 px-4 py-3 shadow-lg dark:bg-yellow-950/90">
+          <span className="text-sm font-medium text-yellow-800 dark:text-yellow-200">{t('session.expiringWarning')}</span>
+          <button
+            onClick={() => renewSession()}
+            className="rounded-md bg-yellow-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-yellow-700"
+          >
+            {t('session.stayLoggedIn')}
+          </button>
+        </div>
+      )}
+
+      {/* Session expired modal */}
+      {sessionExpired && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="mx-4 w-full max-w-sm rounded-lg border bg-background p-6 shadow-xl">
+            <h2 className="text-lg font-semibold">{t('session.expired')}</h2>
+            <p className="mt-2 text-sm text-muted-foreground">{t('session.expiredDescription')}</p>
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={async () => {
+                  try {
+                    await renewSession()
+                  } catch {
+                    // If renewal fails, redirect to login
+                    signOut()
+                  }
+                }}
+                className="flex-1 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              >
+                {t('session.reconnect')}
+              </button>
+              <button
+                onClick={() => signOut()}
+                className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent"
+              >
+                {t('common.logout')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

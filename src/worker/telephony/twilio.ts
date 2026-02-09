@@ -324,9 +324,9 @@ export class TwilioAdapter implements TelephonyAdapter {
     `)
   }
 
-  async handleWaitMusic(lang: string, audioUrls?: AudioUrlMap, queueTime?: number): Promise<TelephonyResponse> {
-    // After 90 seconds in queue with no answer, leave queue → triggers voicemail
-    if (queueTime !== undefined && queueTime >= 90) {
+  async handleWaitMusic(lang: string, audioUrls?: AudioUrlMap, queueTime?: number, queueTimeout?: number): Promise<TelephonyResponse> {
+    // After timeout in queue with no answer, leave queue → triggers voicemail
+    if (queueTime !== undefined && queueTime >= (queueTimeout ?? 90)) {
       return this.twiml(`<Response><Leave/></Response>`)
     }
 
@@ -345,7 +345,7 @@ export class TwilioAdapter implements TelephonyAdapter {
     return this.twiml(`
       <Response>
         ${voicemailTwiml}
-        <Record maxLength="120" action="/api/telephony/voicemail-complete?callSid=${params.callSid}&amp;lang=${lang}" recordingStatusCallback="${params.callbackUrl}/api/telephony/voicemail-recording?callSid=${params.callSid}" recordingStatusCallbackEvent="completed" />
+        <Record maxLength="${params.maxRecordingSeconds ?? 120}" action="/api/telephony/voicemail-complete?callSid=${params.callSid}&amp;lang=${lang}" recordingStatusCallback="${params.callbackUrl}/api/telephony/voicemail-recording?callSid=${params.callSid}" recordingStatusCallbackEvent="completed" />
         <Hangup/>
       </Response>
     `)

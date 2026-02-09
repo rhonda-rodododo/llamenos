@@ -1,8 +1,9 @@
-import type { Env } from './types'
-import { authenticateRequest } from './lib/auth'
+import type { Env, WebAuthnCredential } from './types'
+import { authenticateRequest, parseSessionHeader } from './lib/auth'
 import { TwilioAdapter } from './telephony/twilio'
 import { LANGUAGE_MAP, detectLanguageFromPhone, languageFromDigit, DEFAULT_LANGUAGE } from '../shared/languages'
 import { encryptForPublicKey } from './lib/crypto'
+import { generateRegOptions, verifyRegResponse, generateAuthOptions, verifyAuthResponse } from './lib/webauthn'
 
 // Re-export Durable Object classes
 export { SessionManagerDO } from './durable-objects/session-manager'
@@ -159,6 +160,60 @@ export default {
       }))
     }
 
+    // --- WebAuthn Login (no auth required — discoverable credentials) ---
+    if (path === '/webauthn/login/options' && method === 'POST') {
+      const rpID = new URL(request.url).hostname
+      // Get all credentials across all users for discoverable login
+      const allCredsRes = await dos.session.fetch(new Request('http://do/webauthn/all-credentials'))
+      const { credentials } = await allCredsRes.json() as { credentials: Array<WebAuthnCredential & { ownerPubkey: string }> }
+      const options = await generateAuthOptions(credentials, rpID)
+      // Store challenge
+      const challengeId = crypto.randomUUID()
+      await dos.session.fetch(new Request('http://do/webauthn/challenge', {
+        method: 'POST',
+        body: JSON.stringify({ id: challengeId, challenge: options.challenge }),
+      }))
+      return json({ ...options, challengeId })
+    }
+    if (path === '/webauthn/login/verify' && method === 'POST') {
+      const body = await request.json() as { assertion: any; challengeId: string }
+      const origin = new URL(request.url).origin
+      const rpID = new URL(request.url).hostname
+      // Retrieve challenge
+      const challengeRes = await dos.session.fetch(new Request(`http://do/webauthn/challenge/${body.challengeId}`))
+      if (!challengeRes.ok) return error('Invalid or expired challenge', 400)
+      const { challenge } = await challengeRes.json() as { challenge: string }
+      // Find credential by ID from assertion
+      const allCredsRes = await dos.session.fetch(new Request('http://do/webauthn/all-credentials'))
+      const { credentials } = await allCredsRes.json() as { credentials: Array<WebAuthnCredential & { ownerPubkey: string }> }
+      const matched = credentials.find(c => c.id === body.assertion.id)
+      if (!matched) return error('Unknown credential', 401)
+      try {
+        const verification = await verifyAuthResponse(body.assertion, matched, challenge, origin, rpID)
+        if (!verification.verified) return error('Verification failed', 401)
+        // Update counter
+        await dos.session.fetch(new Request('http://do/webauthn/credentials/update-counter', {
+          method: 'POST',
+          body: JSON.stringify({
+            pubkey: matched.ownerPubkey,
+            credId: matched.id,
+            counter: verification.authenticationInfo.newCounter,
+            lastUsedAt: new Date().toISOString(),
+          }),
+        }))
+        // Create server session
+        const sessionRes = await dos.session.fetch(new Request('http://do/sessions/create', {
+          method: 'POST',
+          body: JSON.stringify({ pubkey: matched.ownerPubkey }),
+        }))
+        const session = await sessionRes.json() as { token: string; pubkey: string }
+        await audit(dos.session, 'webauthnLogin', matched.ownerPubkey, { credId: matched.id }, request)
+        return json({ token: session.token, pubkey: session.pubkey })
+      } catch {
+        return error('Verification failed', 401)
+      }
+    }
+
     // --- Auth Routes ---
     if (path === '/auth/login' && method === 'POST') {
       // Rate limit login attempts by IP (skip in development for testing)
@@ -177,23 +232,41 @@ export default {
       const parts = protocols.split(',').map(p => p.trim())
       const authB64 = parts.find(p => p !== 'llamenos-auth' && p !== '')
       if (!authB64) return error('Unauthorized', 401)
-      let auth: { pubkey: string; timestamp: number; token: string }
-      try {
-        // Decode base64url (reverse: '-' → '+', '_' → '/', restore padding)
-        const b64 = authB64.replace(/-/g, '+').replace(/_/g, '/') + '=='.slice(0, (4 - authB64.length % 4) % 4)
-        auth = JSON.parse(atob(b64))
-      } catch {
-        return error('Invalid auth', 401)
+
+      let wsPubkey: string | null = null
+
+      // Try session token first (for WebAuthn sessions)
+      if (authB64.startsWith('session-')) {
+        const sessionToken = authB64.slice(8) // Remove 'session-' prefix
+        const sessionRes = await dos.session.fetch(new Request(`http://do/sessions/validate/${sessionToken}`))
+        if (sessionRes.ok) {
+          const session = await sessionRes.json() as { pubkey: string }
+          wsPubkey = session.pubkey
+        }
       }
-      const { verifyAuthToken } = await import('./lib/auth')
-      if (!(await verifyAuthToken(auth))) return error('Unauthorized', 401)
-      const volRes = await dos.session.fetch(new Request(`http://do/volunteer/${auth.pubkey}`))
+
+      // Fall back to Schnorr auth
+      if (!wsPubkey) {
+        try {
+          const b64 = authB64.replace(/-/g, '+').replace(/_/g, '/') + '=='.slice(0, (4 - authB64.length % 4) % 4)
+          const auth = JSON.parse(atob(b64)) as { pubkey: string; timestamp: number; token: string }
+          const { verifyAuthToken } = await import('./lib/auth')
+          if (await verifyAuthToken(auth)) {
+            wsPubkey = auth.pubkey
+          }
+        } catch {
+          // Invalid auth format
+        }
+      }
+
+      if (!wsPubkey) return error('Unauthorized', 401)
+      const volRes = await dos.session.fetch(new Request(`http://do/volunteer/${wsPubkey}`))
       if (!volRes.ok) return error('Unknown user', 401)
       // Forward to CallRouter DO with pubkey (clean URL, no auth in query)
       const wsUrl = new URL(request.url)
       wsUrl.pathname = '/ws'
       wsUrl.search = ''
-      wsUrl.searchParams.set('pubkey', auth.pubkey)
+      wsUrl.searchParams.set('pubkey', wsPubkey)
       return dos.calls.fetch(new Request(wsUrl.toString(), request))
     }
 
@@ -208,6 +281,12 @@ export default {
 
     // --- Auth: me ---
     if (path === '/auth/me' && method === 'GET') {
+      // Check WebAuthn status
+      const credsRes = await dos.session.fetch(new Request(`http://do/webauthn/credentials?pubkey=${pubkey}`))
+      const { credentials: webauthnCreds } = await credsRes.json() as { credentials: WebAuthnCredential[] }
+      const settingsRes = await dos.session.fetch(new Request('http://do/settings/webauthn'))
+      const webauthnSettings = await settingsRes.json() as { requireForAdmins: boolean; requireForVolunteers: boolean }
+      const webauthnRequired = volunteer.role === 'admin' ? webauthnSettings.requireForAdmins : webauthnSettings.requireForVolunteers
       return json({
         pubkey: volunteer.pubkey,
         role: volunteer.role,
@@ -217,6 +296,8 @@ export default {
         uiLanguage: volunteer.uiLanguage || 'en',
         profileCompleted: volunteer.profileCompleted ?? true,
         onBreak: volunteer.onBreak ?? false,
+        webauthnRequired,
+        webauthnRegistered: webauthnCreds.length > 0,
       })
     }
     if (path === '/auth/me/profile' && method === 'PATCH') {
@@ -247,6 +328,77 @@ export default {
       }))
       await audit(dos.session, 'transcriptionToggled', pubkey, { enabled: body.enabled })
       return json({ ok: true })
+    }
+
+    // --- WebAuthn Registration (requires auth) ---
+    if (path === '/webauthn/register/options' && method === 'POST') {
+      const body = await request.json() as { label: string }
+      const rpID = new URL(request.url).hostname
+      const rpName = env.HOTLINE_NAME || 'Hotline'
+      const credsRes = await dos.session.fetch(new Request(`http://do/webauthn/credentials?pubkey=${pubkey}`))
+      const { credentials: existing } = await credsRes.json() as { credentials: WebAuthnCredential[] }
+      const options = await generateRegOptions({ pubkey, name: volunteer.name }, existing, rpID, rpName)
+      // Store challenge
+      const challengeId = crypto.randomUUID()
+      await dos.session.fetch(new Request('http://do/webauthn/challenge', {
+        method: 'POST',
+        body: JSON.stringify({ id: challengeId, challenge: options.challenge }),
+      }))
+      return json({ ...options, challengeId })
+    }
+    if (path === '/webauthn/register/verify' && method === 'POST') {
+      const body = await request.json() as { attestation: any; label: string; challengeId: string }
+      const origin = new URL(request.url).origin
+      const rpID = new URL(request.url).hostname
+      // Retrieve challenge
+      const challengeRes = await dos.session.fetch(new Request(`http://do/webauthn/challenge/${body.challengeId}`))
+      if (!challengeRes.ok) return error('Invalid or expired challenge', 400)
+      const { challenge } = await challengeRes.json() as { challenge: string }
+      try {
+        const verification = await verifyRegResponse(body.attestation, challenge, origin, rpID)
+        if (!verification.verified || !verification.registrationInfo) return error('Verification failed', 400)
+        const { credential: regCred, credentialBackedUp } = verification.registrationInfo
+        const newCred: WebAuthnCredential = {
+          id: regCred.id,
+          publicKey: uint8ArrayToBase64URL(regCred.publicKey),
+          counter: regCred.counter,
+          transports: body.attestation.response?.transports || [],
+          backedUp: credentialBackedUp,
+          label: body.label || 'Passkey',
+          createdAt: new Date().toISOString(),
+          lastUsedAt: new Date().toISOString(),
+        }
+        await dos.session.fetch(new Request('http://do/webauthn/credentials', {
+          method: 'POST',
+          body: JSON.stringify({ pubkey, credential: newCred }),
+        }))
+        await audit(dos.session, 'webauthnRegistered', pubkey, { credId: newCred.id, label: body.label }, request)
+        return json({ ok: true })
+      } catch {
+        return error('Verification failed', 400)
+      }
+    }
+
+    // --- WebAuthn Credentials Management ---
+    if (path === '/webauthn/credentials' && method === 'GET') {
+      const credsRes = await dos.session.fetch(new Request(`http://do/webauthn/credentials?pubkey=${pubkey}`))
+      const { credentials } = await credsRes.json() as { credentials: WebAuthnCredential[] }
+      return json({
+        credentials: credentials.map(c => ({
+          id: c.id,
+          label: c.label,
+          backedUp: c.backedUp,
+          createdAt: c.createdAt,
+          lastUsedAt: c.lastUsedAt,
+        })),
+      })
+    }
+    if (path.startsWith('/webauthn/credentials/') && method === 'DELETE') {
+      const credId = decodeURIComponent(extractPathParam(path, '/webauthn/credentials/') || '')
+      if (!credId) return error('Invalid credential ID', 400)
+      const res = await dos.session.fetch(new Request(`http://do/webauthn/credentials/${encodeURIComponent(credId)}?pubkey=${pubkey}`, { method: 'DELETE' }))
+      if (res.ok) await audit(dos.session, 'webauthnDeleted', pubkey, { credId }, request)
+      return res
     }
 
     // --- Shift Status (all authenticated users) ---
@@ -505,6 +657,20 @@ export default {
       if (res.ok) await audit(dos.session, 'transcriptionToggled', pubkey, body as Record<string, unknown>)
       return res
     }
+    if (path === '/settings/call' && method === 'GET') {
+      if (!isAdmin) return error('Forbidden', 403)
+      return dos.session.fetch(new Request('http://do/settings/call'))
+    }
+    if (path === '/settings/call' && method === 'PATCH') {
+      if (!isAdmin) return error('Forbidden', 403)
+      const body = await request.json()
+      const res = await dos.session.fetch(new Request('http://do/settings/call', {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }))
+      if (res.ok) await audit(dos.session, 'callSettingsUpdated', pubkey, body as Record<string, unknown>)
+      return res
+    }
     if (path === '/settings/ivr-languages' && method === 'GET') {
       if (!isAdmin) return error('Forbidden', 403)
       return dos.session.fetch(new Request('http://do/settings/ivr-languages'))
@@ -517,6 +683,22 @@ export default {
         body: JSON.stringify(body),
       }))
       if (res.ok) await audit(dos.session, 'ivrLanguagesUpdated', pubkey, body as Record<string, unknown>)
+      return res
+    }
+
+    // --- WebAuthn Settings (admin only) ---
+    if (path === '/settings/webauthn' && method === 'GET') {
+      if (!isAdmin) return error('Forbidden', 403)
+      return dos.session.fetch(new Request('http://do/settings/webauthn'))
+    }
+    if (path === '/settings/webauthn' && method === 'PATCH') {
+      if (!isAdmin) return error('Forbidden', 403)
+      const body = await request.json()
+      const res = await dos.session.fetch(new Request('http://do/settings/webauthn', {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }))
+      if (res.ok) await audit(dos.session, 'webauthnSettingsUpdated', pubkey, body as Record<string, unknown>)
       return res
     }
 
@@ -551,6 +733,13 @@ export default {
     return error('Not Found', 404)
   },
 } satisfies ExportedHandler<Env>
+
+// --- Helpers ---
+
+function uint8ArrayToBase64URL(bytes: Uint8Array): string {
+  const binary = String.fromCharCode(...bytes)
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
 
 // --- Auth Handler ---
 
@@ -784,7 +973,9 @@ async function handleTelephonyWebhook(
     const formData = request.method === 'POST' ? await request.formData() : null
     const queueTime = formData ? parseInt(formData.get('QueueTime') as string || '0', 10) : 0
     const audioUrls = await buildAudioUrlMap(dos.session, new URL(request.url).origin)
-    const response = await twilio.handleWaitMusic(lang, audioUrls, queueTime)
+    const callSettingsRes = await dos.session.fetch(new Request('http://do/settings/call'))
+    const callSettings = await callSettingsRes.json() as { queueTimeoutSeconds: number; voicemailMaxSeconds: number }
+    const response = await twilio.handleWaitMusic(lang, audioUrls, queueTime, callSettings.queueTimeoutSeconds)
     return twimlResponse(response)
   }
 
@@ -800,11 +991,14 @@ async function handleTelephonyWebhook(
     if (queueResult === 'leave' || queueResult === 'queue-full' || queueResult === 'error') {
       const audioUrls = await buildAudioUrlMap(dos.session, new URL(request.url).origin)
       const origin = new URL(request.url).origin
+      const callSettingsRes = await dos.session.fetch(new Request('http://do/settings/call'))
+      const callSettings = await callSettingsRes.json() as { queueTimeoutSeconds: number; voicemailMaxSeconds: number }
       const response = await twilio.handleVoicemail({
         callSid,
         callerLanguage: lang,
         callbackUrl: origin,
         audioUrls,
+        maxRecordingSeconds: callSettings.voicemailMaxSeconds,
       })
       return twimlResponse(response)
     }

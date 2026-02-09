@@ -7,6 +7,11 @@ let onAuthExpired: (() => void) | null = null
 export function setOnAuthExpired(cb: (() => void) | null) { onAuthExpired = cb }
 
 function getAuthHeaders(): Record<string, string> {
+  // Prefer session token if available (WebAuthn-based sessions)
+  const sessionToken = sessionStorage.getItem('llamenos-session-token')
+  if (sessionToken) {
+    return { 'Authorization': `Session ${sessionToken}` }
+  }
   const nsec = getStoredSession()
   if (!nsec) return {}
   const keyPair = keyPairFromNsec(nsec)
@@ -14,6 +19,10 @@ function getAuthHeaders(): Record<string, string> {
   const token = createAuthToken(keyPair.secretKey, Date.now())
   return { 'Authorization': `Bearer ${token}` }
 }
+
+// Activity tracking callback — set by AuthProvider
+let onApiActivity: (() => void) | null = null
+export function setOnApiActivity(cb: (() => void) | null) { onApiActivity = cb }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = {
@@ -24,13 +33,14 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers })
   if (!res.ok) {
     if (res.status === 401 && !path.startsWith('/auth/')) {
-      // Session expired — notify auth provider reactively (no hard redirect)
-      clearSession()
+      // Session expired — notify auth provider (don't clear nsec for reconnect)
       onAuthExpired?.()
     }
     const body = await res.text()
     throw new ApiError(res.status, body)
   }
+  // Track successful API activity for session expiry warning
+  onApiActivity?.()
   return res.json()
 }
 
@@ -59,7 +69,7 @@ export async function login(pubkey: string, token: string) {
 }
 
 export async function getMe() {
-  return request<{ pubkey: string; role: 'volunteer' | 'admin'; name: string; transcriptionEnabled: boolean; spokenLanguages: string[]; uiLanguage: string; profileCompleted: boolean; onBreak: boolean }>('/auth/me')
+  return request<{ pubkey: string; role: 'volunteer' | 'admin'; name: string; transcriptionEnabled: boolean; spokenLanguages: string[]; uiLanguage: string; profileCompleted: boolean; onBreak: boolean; webauthnRequired: boolean; webauthnRegistered: boolean }>('/auth/me')
 }
 
 // --- Volunteers (admin only) ---
@@ -231,6 +241,24 @@ export async function updateSpamSettings(data: Partial<SpamSettings>) {
   })
 }
 
+// --- Call Settings ---
+
+export interface CallSettings {
+  queueTimeoutSeconds: number
+  voicemailMaxSeconds: number
+}
+
+export async function getCallSettings() {
+  return request<CallSettings>('/settings/call')
+}
+
+export async function updateCallSettings(data: Partial<CallSettings>) {
+  return request<CallSettings>('/settings/call', {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  })
+}
+
 // --- IVR Language Settings ---
 
 export async function getIvrLanguages() {
@@ -352,6 +380,24 @@ export async function deleteIvrAudio(promptType: string, language: string) {
 
 export function getIvrAudioUrl(promptType: string, language: string) {
   return `${API_BASE}/ivr-audio/${promptType}/${language}`
+}
+
+// --- WebAuthn Settings ---
+
+export interface WebAuthnSettings {
+  requireForAdmins: boolean
+  requireForVolunteers: boolean
+}
+
+export async function getWebAuthnSettings() {
+  return request<WebAuthnSettings>('/settings/webauthn')
+}
+
+export async function updateWebAuthnSettings(data: Partial<WebAuthnSettings>) {
+  return request<WebAuthnSettings>('/settings/webauthn', {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  })
 }
 
 // --- Types ---

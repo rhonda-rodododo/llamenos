@@ -1,5 +1,5 @@
 import { DurableObject } from 'cloudflare:workers'
-import type { Env, Volunteer, BanEntry, EncryptedNote, AuditLogEntry, SpamSettings, InviteCode } from '../types'
+import type { Env, Volunteer, BanEntry, EncryptedNote, AuditLogEntry, SpamSettings, CallSettings, InviteCode, WebAuthnCredential, WebAuthnSettings, ServerSession } from '../types'
 import { IVR_LANGUAGES } from '../../shared/languages'
 
 /**
@@ -57,6 +57,18 @@ export class SessionManagerDO extends DurableObject<Env> {
     }
     if (!(await this.ctx.storage.get('ivrLanguages'))) {
       await this.ctx.storage.put('ivrLanguages', [...IVR_LANGUAGES])
+    }
+    if (!(await this.ctx.storage.get('callSettings'))) {
+      await this.ctx.storage.put<CallSettings>('callSettings', {
+        queueTimeoutSeconds: 90,
+        voicemailMaxSeconds: 120,
+      })
+    }
+    if (!(await this.ctx.storage.get('webauthnSettings'))) {
+      await this.ctx.storage.put<WebAuthnSettings>('webauthnSettings', {
+        requireForAdmins: false,
+        requireForVolunteers: false,
+      })
     }
   }
 
@@ -144,6 +156,12 @@ export class SessionManagerDO extends DurableObject<Env> {
     if (path === '/settings/transcription' && method === 'PATCH') {
       return this.updateTranscriptionSettings(await request.json())
     }
+    if (path === '/settings/call' && method === 'GET') {
+      return this.getCallSettings()
+    }
+    if (path === '/settings/call' && method === 'PATCH') {
+      return this.updateCallSettings(await request.json())
+    }
     if (path === '/settings/ivr-languages' && method === 'GET') {
       return this.getIvrLanguages()
     }
@@ -196,6 +214,56 @@ export class SessionManagerDO extends DurableObject<Env> {
     }
     if (path === '/fallback' && method === 'PUT') {
       return this.setFallbackGroup(await request.json())
+    }
+
+    // --- WebAuthn Credentials ---
+    if (path === '/webauthn/credentials' && method === 'GET') {
+      const pubkey = url.searchParams.get('pubkey')
+      if (!pubkey) return new Response('Missing pubkey', { status: 400 })
+      return this.getWebAuthnCredentials(pubkey)
+    }
+    if (path === '/webauthn/credentials' && method === 'POST') {
+      return this.addWebAuthnCredential(await request.json())
+    }
+    if (path.startsWith('/webauthn/credentials/') && method === 'DELETE') {
+      const credId = decodeURIComponent(path.split('/webauthn/credentials/')[1])
+      const pubkey = url.searchParams.get('pubkey')
+      if (!pubkey) return new Response('Missing pubkey', { status: 400 })
+      return this.deleteWebAuthnCredential(pubkey, credId)
+    }
+    if (path === '/webauthn/credentials/update-counter' && method === 'POST') {
+      return this.updateWebAuthnCounter(await request.json())
+    }
+
+    // --- WebAuthn Challenges ---
+    if (path === '/webauthn/challenge' && method === 'POST') {
+      return this.storeWebAuthnChallenge(await request.json())
+    }
+    if (path.startsWith('/webauthn/challenge/') && method === 'GET') {
+      const challengeId = path.split('/webauthn/challenge/')[1]
+      return this.getWebAuthnChallenge(challengeId)
+    }
+
+    // --- WebAuthn All Credentials (for login — find by credential ID) ---
+    if (path === '/webauthn/all-credentials' && method === 'GET') {
+      return this.getAllWebAuthnCredentials()
+    }
+
+    // --- WebAuthn Settings ---
+    if (path === '/settings/webauthn' && method === 'GET') {
+      return this.getWebAuthnSettings()
+    }
+    if (path === '/settings/webauthn' && method === 'PATCH') {
+      return this.updateWebAuthnSettings(await request.json())
+    }
+
+    // --- Server Sessions ---
+    if (path === '/sessions/create' && method === 'POST') {
+      return this.createSession(await request.json())
+    }
+    if (path.startsWith('/sessions/validate/') && method === 'GET') {
+      const token = path.split('/sessions/validate/')[1]
+      return this.validateSession(token)
     }
 
     // --- Test Reset (development only) ---
@@ -508,6 +576,28 @@ export class SessionManagerDO extends DurableObject<Env> {
     return Response.json({ globalEnabled: data.globalEnabled })
   }
 
+  private async getCallSettings(): Promise<Response> {
+    const settings = await this.ctx.storage.get<CallSettings>('callSettings') || {
+      queueTimeoutSeconds: 90,
+      voicemailMaxSeconds: 120,
+    }
+    return Response.json(settings)
+  }
+
+  private async updateCallSettings(data: Partial<CallSettings>): Promise<Response> {
+    const current = await this.ctx.storage.get<CallSettings>('callSettings') || {
+      queueTimeoutSeconds: 90,
+      voicemailMaxSeconds: 120,
+    }
+    const clamp = (v: number) => Math.max(30, Math.min(300, v))
+    const updated: CallSettings = {
+      queueTimeoutSeconds: data.queueTimeoutSeconds !== undefined ? clamp(data.queueTimeoutSeconds) : current.queueTimeoutSeconds,
+      voicemailMaxSeconds: data.voicemailMaxSeconds !== undefined ? clamp(data.voicemailMaxSeconds) : current.voicemailMaxSeconds,
+    }
+    await this.ctx.storage.put('callSettings', updated)
+    return Response.json(updated)
+  }
+
   // --- Fallback Group ---
 
   private async getFallbackGroup(): Promise<Response> {
@@ -518,6 +608,139 @@ export class SessionManagerDO extends DurableObject<Env> {
   private async setFallbackGroup(data: { volunteers: string[] }): Promise<Response> {
     await this.ctx.storage.put('fallbackGroup', data.volunteers)
     return Response.json({ ok: true })
+  }
+
+  // --- WebAuthn Credential Methods ---
+
+  private async getWebAuthnCredentials(pubkey: string): Promise<Response> {
+    const creds = await this.ctx.storage.get<WebAuthnCredential[]>(`webauthn:creds:${pubkey}`) || []
+    return Response.json({ credentials: creds })
+  }
+
+  private async addWebAuthnCredential(data: { pubkey: string; credential: WebAuthnCredential }): Promise<Response> {
+    const key = `webauthn:creds:${data.pubkey}`
+    const creds = await this.ctx.storage.get<WebAuthnCredential[]>(key) || []
+    creds.push(data.credential)
+    await this.ctx.storage.put(key, creds)
+    return Response.json({ ok: true })
+  }
+
+  private async deleteWebAuthnCredential(pubkey: string, credId: string): Promise<Response> {
+    const key = `webauthn:creds:${pubkey}`
+    const creds = await this.ctx.storage.get<WebAuthnCredential[]>(key) || []
+    const filtered = creds.filter(c => c.id !== credId)
+    if (filtered.length === creds.length) return new Response('Credential not found', { status: 404 })
+    await this.ctx.storage.put(key, filtered)
+    return Response.json({ ok: true })
+  }
+
+  private async updateWebAuthnCounter(data: { pubkey: string; credId: string; counter: number; lastUsedAt: string }): Promise<Response> {
+    const key = `webauthn:creds:${data.pubkey}`
+    const creds = await this.ctx.storage.get<WebAuthnCredential[]>(key) || []
+    const cred = creds.find(c => c.id === data.credId)
+    if (!cred) return new Response('Credential not found', { status: 404 })
+    cred.counter = data.counter
+    cred.lastUsedAt = data.lastUsedAt
+    await this.ctx.storage.put(key, creds)
+    return Response.json({ ok: true })
+  }
+
+  private async getAllWebAuthnCredentials(): Promise<Response> {
+    // Iterate all volunteers and collect credentials
+    const volunteers = await this.ctx.storage.get<Record<string, Volunteer>>('volunteers') || {}
+    const allCreds: Array<WebAuthnCredential & { ownerPubkey: string }> = []
+    for (const pubkey of Object.keys(volunteers)) {
+      const creds = await this.ctx.storage.get<WebAuthnCredential[]>(`webauthn:creds:${pubkey}`) || []
+      for (const c of creds) {
+        allCreds.push({ ...c, ownerPubkey: pubkey })
+      }
+    }
+    return Response.json({ credentials: allCreds })
+  }
+
+  // --- WebAuthn Challenge Methods ---
+
+  private async storeWebAuthnChallenge(data: { id: string; challenge: string }): Promise<Response> {
+    const key = `webauthn:challenge:${data.id}`
+    await this.ctx.storage.put(key, { challenge: data.challenge, createdAt: Date.now() })
+    // Auto-delete after 5 minutes
+    this.ctx.storage.setAlarm(Date.now() + 5 * 60 * 1000)
+    return Response.json({ ok: true })
+  }
+
+  private async getWebAuthnChallenge(id: string): Promise<Response> {
+    const key = `webauthn:challenge:${id}`
+    const data = await this.ctx.storage.get<{ challenge: string; createdAt: number }>(key)
+    if (!data) return new Response('Challenge not found', { status: 404 })
+    // Delete after retrieval (single-use)
+    await this.ctx.storage.delete(key)
+    // Verify not expired (5 minutes)
+    if (Date.now() - data.createdAt > 5 * 60 * 1000) {
+      return new Response('Challenge expired', { status: 410 })
+    }
+    return Response.json({ challenge: data.challenge })
+  }
+
+  // --- WebAuthn Settings Methods ---
+
+  private async getWebAuthnSettings(): Promise<Response> {
+    const settings = await this.ctx.storage.get<WebAuthnSettings>('webauthnSettings') || {
+      requireForAdmins: false,
+      requireForVolunteers: false,
+    }
+    return Response.json(settings)
+  }
+
+  private async updateWebAuthnSettings(data: Partial<WebAuthnSettings>): Promise<Response> {
+    const current = await this.ctx.storage.get<WebAuthnSettings>('webauthnSettings') || {
+      requireForAdmins: false,
+      requireForVolunteers: false,
+    }
+    const updated = { ...current, ...data }
+    await this.ctx.storage.put('webauthnSettings', updated)
+    return Response.json(updated)
+  }
+
+  // --- Server Session Methods (for WebAuthn-authenticated sessions) ---
+
+  private async createSession(data: { pubkey: string }): Promise<Response> {
+    // Generate 256-bit random token
+    const tokenBytes = new Uint8Array(32)
+    crypto.getRandomValues(tokenBytes)
+    const token = Array.from(tokenBytes).map(b => b.toString(16).padStart(2, '0')).join('')
+
+    const session: ServerSession = {
+      token,
+      pubkey: data.pubkey,
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(), // 8 hours
+    }
+    await this.ctx.storage.put(`session:${token}`, session)
+    return Response.json(session)
+  }
+
+  private async validateSession(token: string): Promise<Response> {
+    const session = await this.ctx.storage.get<ServerSession>(`session:${token}`)
+    if (!session) return new Response('Invalid session', { status: 401 })
+    if (new Date(session.expiresAt) < new Date()) {
+      await this.ctx.storage.delete(`session:${token}`)
+      return new Response('Session expired', { status: 401 })
+    }
+    return Response.json(session)
+  }
+
+  // --- Alarm handler for cleaning up expired challenges ---
+
+  override async alarm() {
+    // Clean up expired WebAuthn challenges
+    const allKeys = await this.ctx.storage.list({ prefix: 'webauthn:challenge:' })
+    const now = Date.now()
+    for (const [key, value] of allKeys) {
+      const data = value as { challenge: string; createdAt: number }
+      if (now - data.createdAt > 5 * 60 * 1000) {
+        await this.ctx.storage.delete(key)
+      }
+    }
   }
 
   // --- IVR Audio Methods ---
