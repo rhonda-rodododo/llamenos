@@ -22,7 +22,8 @@
     "status": "상태",
     "settings": "설정",
     "logout": "로그아웃",
-    "language": "언어"
+    "language": "언어",
+    "or": "또는"
   },
   "auth": {
     "login": "로그인",
@@ -82,6 +83,14 @@
     "reportSpam": "스팸으로 신고",
     "banned": "이 번호는 차단되었습니다"
   },
+  "callSettings": {
+    "title": "통화 설정",
+    "description": "통화 대기열 동작 및 음성 사서함 설정을 구성합니다.",
+    "queueTimeout": "대기열 시간 초과",
+    "queueTimeoutDescription": "발신자가 음성 사서함으로 전환되기 전까지 대기하는 시간(초).",
+    "voicemailMax": "최대 음성 사서함 길이",
+    "voicemailMaxDescription": "음성 사서함 메시지의 최대 녹음 길이(초)."
+  },
   "notes": {
     "title": "통화 메모",
     "newNote": "새 메모",
@@ -99,6 +108,7 @@
     "enterManually": "통화 ID 직접 입력",
     "callIdPlaceholder": "통화 ID 또는 참조",
     "export": "내보내기",
+    "exportEncrypted": "암호화된 내보내기 — nsec 키로 복호화",
     "viewNotes": "메모",
     "activeCallNote": "활성 통화에 첨부된 메모",
     "draftSaved": "임시 저장됨"
@@ -162,6 +172,26 @@
     "inactive": "비활성",
     "volunteerAdded": "자원봉사자가 성공적으로 추가되었습니다",
     "invalidPhone": "전화번호가 유효하지 않습니다. E.164 형식을 사용하세요 (예: +821012345678)"
+  },
+  "webauthn": {
+    "title": "패스키",
+    "description": "비밀 키 없이 기기 생체 인식 또는 PIN으로 로그인하세요.",
+    "registerKey": "패스키 추가",
+    "registerSuccess": "패스키가 등록되었습니다!",
+    "deleteKey": "삭제",
+    "noKeys": "등록된 패스키가 없습니다.",
+    "label": "패스키 이름 (예: \"내 휴대폰\")",
+    "lastUsed": "마지막 사용",
+    "syncedPasskey": "동기화됨",
+    "singleDevice": "이 기기",
+    "signInWithPasskey": "패스키로 로그인",
+    "signingIn": "로그인 중...",
+    "signInError": "패스키 로그인 실패",
+    "policy": "패스키 정책",
+    "policyDescription": "사용자 그룹에 패스키를 요구합니다. 패스키가 없는 사용자는 설정하라는 메시지가 표시됩니다.",
+    "requireForAdmins": "관리자에게 필수",
+    "requireForVolunteers": "자원봉사자에게 필수",
+    "browserNotSupported": "브라우저가 패스키를 지원하지 않습니다."
   },
   "banList": {
     "title": "차단 목록",
@@ -267,6 +297,11 @@
     "preferences": "내 설정",
     "updateProfile": "프로필 업데이트"
   },
+  "phone": {
+    "hint": "형식: +1234567890",
+    "valid": "유효한 전화번호",
+    "invalid": "유효하지 않은 전화번호"
+  },
   "settings": {
     "title": "설정",
     "general": "일반",
@@ -283,6 +318,13 @@
     "playRingtoneDescription": "전화가 올 때 알림 소리를 재생합니다",
     "browserNotifications": "브라우저 알림",
     "browserNotificationsDescription": "수신 전화 시 시스템 알림을 표시합니다"
+  },
+  "session": {
+    "expiringWarning": "세션이 곧 만료됩니다.",
+    "stayLoggedIn": "로그인 유지",
+    "expired": "세션 만료됨",
+    "expiredDescription": "세션이 만료되었습니다. 다시 연결하거나 로그인할 수 있습니다.",
+    "reconnect": "다시 연결"
   },
   "commandPalette": {
     "label": "명령 팔레트",

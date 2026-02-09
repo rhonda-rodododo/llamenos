@@ -19,7 +19,7 @@ export interface EncryptedKeyData {
   iterations: number
   nonce: string      // hex, 24 bytes (XChaCha20)
   ciphertext: string // hex
-  pubkey: string     // hex, for identification without decrypting
+  pubkey: string     // truncated SHA-256 hash of pubkey (not plaintext) for identification
 }
 
 /**
@@ -62,12 +62,18 @@ export async function storeEncryptedKey(nsec: string, pin: string, pubkey: strin
   const plaintext = utf8ToBytes(nsec)
   const ciphertext = cipher.encrypt(plaintext)
 
+  // Hash pubkey for identification — never store plaintext pubkey alongside encrypted key
+  const hashInput = utf8ToBytes(`llamenos:keyid:${pubkey}`)
+  const pubkeyHash = bytesToHex(new Uint8Array(
+    await crypto.subtle.digest('SHA-256', hashInput.buffer as ArrayBuffer)
+  )).slice(0, 16)
+
   const data: EncryptedKeyData = {
     salt: bytesToHex(salt),
     iterations: PBKDF2_ITERATIONS,
     nonce: bytesToHex(nonce),
     ciphertext: bytesToHex(ciphertext),
-    pubkey,
+    pubkey: pubkeyHash,
   }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
 }
@@ -109,9 +115,10 @@ export function hasStoredKey(): boolean {
 }
 
 /**
- * Get the pubkey from the stored encrypted key (without decrypting).
+ * Get the hashed pubkey identifier from the stored encrypted key.
+ * Returns a truncated SHA-256 hash (not the actual pubkey) for identification.
  */
-export function getStoredPubkey(): string | null {
+export function getStoredKeyId(): string | null {
   const raw = localStorage.getItem(STORAGE_KEY)
   if (!raw) return null
   try {

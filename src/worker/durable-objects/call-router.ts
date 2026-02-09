@@ -1,5 +1,6 @@
 import { DurableObject } from 'cloudflare:workers'
 import type { Env, CallRecord } from '../types'
+import { hashPhone } from '../lib/crypto'
 
 interface ConnectedVolunteer {
   pubkey: string
@@ -196,7 +197,7 @@ export class CallRouterDO extends DurableObject<Env> {
   }): Promise<Response> {
     const call: CallRecord = {
       id: data.callSid,
-      callerNumber: data.callerNumber,
+      callerNumber: hashPhone(data.callerNumber),
       answeredBy: null,
       startedAt: new Date().toISOString(),
       status: 'ringing',
@@ -431,13 +432,13 @@ export class CallRouterDO extends DurableObject<Env> {
   }
 
   private broadcastPresenceUpdate() {
-    const statuses: Array<{ pubkey: string; status: string }> = []
+    // Broadcast anonymous counts only (not pubkeys) to prevent tracking
+    let available = 0
+    let onCall = 0
     for (const conn of this.connections.values()) {
-      statuses.push({
-        pubkey: conn.pubkey,
-        status: conn.onCall ? 'on-call' : 'available',
-      })
+      if (conn.onCall) onCall++
+      else available++
     }
-    this.broadcastAll({ type: 'presence:update', volunteers: statuses })
+    this.broadcastAll({ type: 'presence:update', counts: { available, onCall, total: this.connections.size } })
   }
 }

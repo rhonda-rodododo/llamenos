@@ -22,7 +22,8 @@
     "status": "Status",
     "settings": "Configurações",
     "logout": "Sair",
-    "language": "Idioma"
+    "language": "Idioma",
+    "or": "ou"
   },
   "auth": {
     "login": "Entrar",
@@ -82,6 +83,14 @@
     "reportSpam": "Reportar como Spam",
     "banned": "Este número está bloqueado"
   },
+  "callSettings": {
+    "title": "Configurações de Chamada",
+    "description": "Configure o comportamento da fila de chamadas e as configurações de correio de voz.",
+    "queueTimeout": "Tempo limite da fila",
+    "queueTimeoutDescription": "Quanto tempo os chamadores aguardam antes de serem encaminhados ao correio de voz (segundos).",
+    "voicemailMax": "Duração máxima do correio de voz",
+    "voicemailMaxDescription": "Duração máxima de gravação para mensagens de correio de voz (segundos)."
+  },
   "notes": {
     "title": "Notas de Chamada",
     "newNote": "Nova Nota",
@@ -99,6 +108,7 @@
     "enterManually": "Inserir ID da chamada manualmente",
     "callIdPlaceholder": "ID da chamada ou referência",
     "export": "Exportar",
+    "exportEncrypted": "Exportação encriptada — desencriptar com a sua chave nsec",
     "viewNotes": "Notas",
     "activeCallNote": "Nota anexada à sua chamada ativa",
     "draftSaved": "Rascunho salvo"
@@ -162,6 +172,26 @@
     "inactive": "Inativo",
     "volunteerAdded": "Voluntário adicionado com sucesso",
     "invalidPhone": "Número de telefone inválido. Use o formato E.164 (ex. +5511912345678)"
+  },
+  "webauthn": {
+    "title": "Chaves de acesso",
+    "description": "Use a biometria ou PIN do seu dispositivo para entrar sem sua chave secreta.",
+    "registerKey": "Adicionar chave de acesso",
+    "registerSuccess": "Chave de acesso registrada!",
+    "deleteKey": "Excluir",
+    "noKeys": "Nenhuma chave de acesso registrada.",
+    "label": "Nome da chave de acesso (ex. \"Meu Celular\")",
+    "lastUsed": "Último uso",
+    "syncedPasskey": "Sincronizada",
+    "singleDevice": "Este dispositivo",
+    "signInWithPasskey": "Entrar com chave de acesso",
+    "signingIn": "Entrando...",
+    "signInError": "Falha ao entrar com chave de acesso",
+    "policy": "Política de chaves de acesso",
+    "policyDescription": "Exigir chaves de acesso para grupos de usuários. Usuários sem chaves serão solicitados a configurar uma.",
+    "requireForAdmins": "Exigir para administradores",
+    "requireForVolunteers": "Exigir para voluntários",
+    "browserNotSupported": "Seu navegador não suporta chaves de acesso."
   },
   "banList": {
     "title": "Lista de Bloqueio",
@@ -267,6 +297,11 @@
     "preferences": "Minhas Preferências",
     "updateProfile": "Atualizar Perfil"
   },
+  "phone": {
+    "hint": "Formato: +1234567890",
+    "valid": "Número de telefone válido",
+    "invalid": "Número de telefone inválido"
+  },
   "settings": {
     "title": "Configurações",
     "general": "Geral",
@@ -283,6 +318,13 @@
     "playRingtoneDescription": "Toca um tom de áudio quando uma chamada está tocando",
     "browserNotifications": "Notificações do navegador",
     "browserNotificationsDescription": "Exibir uma notificação do sistema para chamadas recebidas"
+  },
+  "session": {
+    "expiringWarning": "Sua sessão está prestes a expirar.",
+    "stayLoggedIn": "Permanecer conectado",
+    "expired": "Sessão Expirada",
+    "expiredDescription": "Sua sessão expirou. Você pode reconectar ou fazer login novamente.",
+    "reconnect": "Reconectar"
   },
   "commandPalette": {
     "label": "Paleta de comandos",

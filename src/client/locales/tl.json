@@ -22,7 +22,8 @@
     "status": "Status",
     "settings": "Mga Setting",
     "logout": "Mag-log out",
-    "language": "Wika"
+    "language": "Wika",
+    "or": "o"
   },
   "auth": {
     "login": "Mag-log in",
@@ -82,6 +83,14 @@
     "reportSpam": "I-report bilang Spam",
     "banned": "Naka-ban ang numerong ito"
   },
+  "callSettings": {
+    "title": "Mga Setting ng Tawag",
+    "description": "I-configure ang gawi ng pila ng tawag at mga setting ng voicemail.",
+    "queueTimeout": "Timeout ng Pila",
+    "queueTimeoutDescription": "Gaano katagal naghihintay ang mga tumatawag bago maipadala sa voicemail (segundo).",
+    "voicemailMax": "Max na Haba ng Voicemail",
+    "voicemailMaxDescription": "Pinakamataas na haba ng recording para sa mga mensahe ng voicemail (segundo)."
+  },
   "notes": {
     "title": "Mga Tala ng Tawag",
     "newNote": "Bagong Tala",
@@ -99,6 +108,7 @@
     "enterManually": "Manu-manong ilagay ang ID ng tawag",
     "callIdPlaceholder": "ID ng tawag o reference",
     "export": "I-export",
+    "exportEncrypted": "Na-encrypt na export — i-decrypt gamit ang iyong nsec key",
     "viewNotes": "Mga Tala",
     "activeCallNote": "Tala na nakakabit sa iyong aktibong tawag",
     "draftSaved": "Na-save ang draft"
@@ -162,6 +172,26 @@
     "inactive": "Hindi Aktibo",
     "volunteerAdded": "Matagumpay na naidagdag ang boluntaryo",
     "invalidPhone": "Hindi valid ang numero ng telepono. Gamitin ang E.164 format (hal. +639123456789)"
+  },
+  "webauthn": {
+    "title": "Mga Passkey",
+    "description": "Gamitin ang biometrics o PIN ng iyong device para mag-sign in nang walang secret key.",
+    "registerKey": "Magdagdag ng passkey",
+    "registerSuccess": "Nakarehistro na ang passkey!",
+    "deleteKey": "Tanggalin",
+    "noKeys": "Wala pang nakarehistrong passkey.",
+    "label": "Pangalan ng passkey (hal. \"Aking Telepono\")",
+    "lastUsed": "Huling ginamit",
+    "syncedPasskey": "Naka-sync",
+    "singleDevice": "Itong device",
+    "signInWithPasskey": "Mag-sign in gamit ang passkey",
+    "signingIn": "Nagsa-sign in...",
+    "signInError": "Nabigo ang pag-login gamit ang passkey",
+    "policy": "Patakaran sa Passkey",
+    "policyDescription": "Kailanganin ang mga passkey para sa mga grupo ng user. Ang mga user na walang passkey ay hihilingang mag-set up ng isa.",
+    "requireForAdmins": "Kailangan para sa mga admin",
+    "requireForVolunteers": "Kailangan para sa mga boluntaryo",
+    "browserNotSupported": "Hindi sinusuportahan ng iyong browser ang mga passkey."
   },
   "banList": {
     "title": "Listahan ng Ban",
@@ -267,6 +297,11 @@
     "preferences": "Mga Kagustuhan Ko",
     "updateProfile": "I-update ang Profile"
   },
+  "phone": {
+    "hint": "Format: +1234567890",
+    "valid": "Valid na numero ng telepono",
+    "invalid": "Hindi valid na numero ng telepono"
+  },
   "settings": {
     "title": "Mga Setting",
     "general": "General",
@@ -283,6 +318,13 @@
     "playRingtoneDescription": "Nagpe-play ng tunog kapag may tumatawag",
     "browserNotifications": "Mga notipikasyon ng browser",
     "browserNotificationsDescription": "Magpakita ng notipikasyon ng system para sa papasok na tawag"
+  },
+  "session": {
+    "expiringWarning": "Malapit nang mag-expire ang iyong session.",
+    "stayLoggedIn": "Manatiling naka-log in",
+    "expired": "Nag-expire na ang Session",
+    "expiredDescription": "Nag-expire na ang iyong session. Puwede kang mag-reconnect o mag-log in muli.",
+    "reconnect": "Mag-reconnect"
   },
   "commandPalette": {
     "label": "Command Palette",

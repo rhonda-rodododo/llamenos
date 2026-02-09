@@ -93,7 +93,7 @@ function VolunteersPage() {
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() => { navigator.clipboard.writeText(generatedNsec); toast(t('common.success'), 'success') }}
+                onClick={() => { navigator.clipboard.writeText(generatedNsec); toast(t('common.success'), 'success'); setTimeout(() => navigator.clipboard.writeText('').catch(() => {}), 30000) }}
                 aria-label={t('a11y.copyToClipboard')}
               >
                 <Copy className="h-3.5 w-3.5" />
@@ -122,7 +122,7 @@ function VolunteersPage() {
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() => { navigator.clipboard.writeText(inviteLink); toast(t('common.success'), 'success') }}
+                onClick={() => { navigator.clipboard.writeText(inviteLink); toast(t('common.success'), 'success'); setTimeout(() => navigator.clipboard.writeText('').catch(() => {}), 30000) }}
                 aria-label={t('a11y.copyToClipboard')}
               >
                 <Copy className="h-3.5 w-3.5" />

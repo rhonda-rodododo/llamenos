@@ -2,7 +2,7 @@ import type { Env, WebAuthnCredential } from './types'
 import { authenticateRequest, parseSessionHeader } from './lib/auth'
 import { TwilioAdapter } from './telephony/twilio'
 import { LANGUAGE_MAP, detectLanguageFromPhone, languageFromDigit, DEFAULT_LANGUAGE } from '../shared/languages'
-import { encryptForPublicKey } from './lib/crypto'
+import { encryptForPublicKey, hashPhone, hashIP } from './lib/crypto'
 import { generateRegOptions, verifyRegResponse, generateAuthOptions, verifyAuthResponse } from './lib/webauthn'
 
 // Re-export Durable Object classes
@@ -50,7 +50,8 @@ function error(message: string, status = 400): Response {
 async function audit(session: DurableObjectStub, event: string, actorPubkey: string, details: Record<string, unknown> = {}, request?: Request) {
   const meta: Record<string, unknown> = {}
   if (request) {
-    meta.ip = request.headers.get('CF-Connecting-IP')
+    const rawIp = request.headers.get('CF-Connecting-IP')
+    meta.ip = rawIp ? hashIP(rawIp) : null
     meta.country = request.headers.get('CF-IPCountry')
     meta.ua = request.headers.get('User-Agent')
   }
@@ -142,7 +143,6 @@ export default {
       await dos.session.fetch(new Request('http://do/reset', { method: 'POST' }))
       await dos.shifts.fetch(new Request('http://do/reset', { method: 'POST' }))
       await dos.calls.fetch(new Request('http://do/reset', { method: 'POST' }))
-      rateLimitMap.clear()
       return json({ ok: true })
     }
 
@@ -150,6 +150,14 @@ export default {
     if (path.startsWith('/invites/validate/') && method === 'GET') {
       const code = extractPathParam(path, '/invites/validate/')
       if (!code) return error('Invalid code', 400)
+      // Rate limit invite validation to prevent enumeration
+      const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown'
+      const rlRes = await dos.session.fetch(new Request('http://do/rate-limit/check', {
+        method: 'POST',
+        body: JSON.stringify({ key: `invite-validate:${hashIP(clientIp)}`, maxPerMinute: 10 }),
+      }))
+      const rlData = await rlRes.json() as { limited: boolean }
+      if (rlData.limited) return error('Too many requests', 429)
       return dos.session.fetch(new Request(`http://do/invites/validate/${code}`))
     }
     if (path === '/invites/redeem' && method === 'POST') {
@@ -219,7 +227,12 @@ export default {
       // Rate limit login attempts by IP (skip in development for testing)
       if (env.ENVIRONMENT !== 'development') {
         const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown'
-        if (checkRateLimit(null as never, `auth:${clientIp}`, 10)) {
+        const rlRes = await dos.session.fetch(new Request('http://do/rate-limit/check', {
+          method: 'POST',
+          body: JSON.stringify({ key: `auth:${hashIP(clientIp)}`, maxPerMinute: 10 }),
+        }))
+        const rlData = await rlRes.json() as { limited: boolean }
+        if (rlData.limited) {
           return error('Too many login attempts. Try again later.', 429)
         }
       }
@@ -548,8 +561,10 @@ export default {
       const rawPhone = extractPathParam(path, '/bans/')
       if (!rawPhone) return error('Invalid phone', 400)
       const phone = decodeURIComponent(rawPhone)
-      const res = await dos.session.fetch(new Request(`http://do/bans/${encodeURIComponent(phone)}`, { method: 'DELETE' }))
-      if (res.ok) await audit(dos.session, 'numberUnbanned', pubkey, { phone })
+      // Hash the phone to match stored hashed entries
+      const hashedPhone = hashPhone(phone)
+      const res = await dos.session.fetch(new Request(`http://do/bans/${encodeURIComponent(hashedPhone)}`, { method: 'DELETE' }))
+      if (res.ok) await audit(dos.session, 'numberUnbanned', pubkey, {})
       return res
     }
 
@@ -822,8 +837,11 @@ async function handleTelephonyWebhook(
 ): Promise<Response> {
   const twilio = getTwilio(env)
 
-  // Validate Twilio webhook signature (skip in development for testing)
-  if (env.ENVIRONMENT !== 'development') {
+  // Validate Twilio webhook signature
+  // Only skip in development if the request comes from localhost
+  const isDev = env.ENVIRONMENT === 'development'
+  const isLocal = isDev && (request.headers.get('CF-Connecting-IP') === '127.0.0.1' || new URL(request.url).hostname === 'localhost')
+  if (!isLocal) {
     const isValid = await twilio.validateWebhook(request)
     if (!isValid) {
       return new Response('Forbidden', { status: 403 })
@@ -883,7 +901,12 @@ async function handleTelephonyWebhook(
 
     let rateLimited = false
     if (spamSettings.rateLimitEnabled) {
-      rateLimited = checkRateLimit(dos.session, callerNumber, spamSettings.maxCallsPerMinute)
+      const rlRes = await dos.session.fetch(new Request('http://do/rate-limit/check', {
+        method: 'POST',
+        body: JSON.stringify({ key: `phone:${hashPhone(callerNumber)}`, maxPerMinute: spamSettings.maxCallsPerMinute }),
+      }))
+      const rlData = await rlRes.json() as { limited: boolean }
+      rateLimited = rlData.limited
     }
 
     const audioUrls = await buildAudioUrlMap(dos.session, new URL(request.url).origin)
@@ -1104,34 +1127,6 @@ async function startParallelRinging(
   } catch {
     // Ringing failed — logged in audit trail, not console
   }
-}
-
-// --- Rate Limiting ---
-
-// Simple sliding-window rate limiter using in-memory Map (resets on worker restart).
-// Fine for a single-instance Worker + DO architecture.
-const rateLimitMap = new Map<string, number[]>()
-
-function checkRateLimit(_session: DurableObjectStub | null, phone: string, maxPerMinute: number): boolean {
-  const now = Date.now()
-  const windowMs = 60_000
-  const timestamps = rateLimitMap.get(phone) || []
-
-  // Remove timestamps outside the window
-  const recent = timestamps.filter(t => now - t < windowMs)
-  recent.push(now)
-  rateLimitMap.set(phone, recent)
-
-  // Clean up old entries periodically (keep map from growing unbounded)
-  if (rateLimitMap.size > 10000) {
-    for (const [key, val] of rateLimitMap) {
-      if (val.every(t => now - t > windowMs)) {
-        rateLimitMap.delete(key)
-      }
-    }
-  }
-
-  return recent.length > maxPerMinute
 }
 
 // --- Transcription ---

@@ -4,7 +4,7 @@ import { useAuth } from '@/lib/auth'
 import { useEffect, useState, useCallback } from 'react'
 import { listNotes, createNote, updateNote, getCallHistory, type EncryptedNote, type CallRecord } from '@/lib/api'
 import { useCalls } from '@/lib/hooks'
-import { encryptNote, decryptNote, decryptTranscription } from '@/lib/crypto'
+import { encryptNote, decryptNote, decryptTranscription, encryptExport } from '@/lib/crypto'
 import { useToast } from '@/lib/toast'
 import { StickyNote, Plus, Pencil, Lock, Mic, Save, X, Search, ChevronLeft, ChevronRight, Download, PhoneCall } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -167,6 +167,7 @@ function NotesPage() {
   const totalPages = Math.ceil(total / limit)
 
   async function handleExport() {
+    if (!keyPair) return
     const rows = filteredNotes.map(n => ({
       id: n.id,
       callId: n.callId,
@@ -175,13 +176,17 @@ function NotesPage() {
       createdAt: n.createdAt,
       updatedAt: n.updatedAt,
     }))
-    const blob = new Blob([JSON.stringify(rows, null, 2)], { type: 'application/json' })
+    // Encrypt the export — can only be decrypted with the user's nsec
+    const jsonString = JSON.stringify(rows, null, 2)
+    const encrypted = encryptExport(jsonString, keyPair.secretKey)
+    const blob = new Blob([encrypted.buffer as ArrayBuffer], { type: 'application/octet-stream' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `notes-export-${new Date().toISOString().slice(0, 10)}.json`
+    a.download = `notes-export-${new Date().toISOString().slice(0, 10)}.enc`
     a.click()
     URL.revokeObjectURL(url)
+    toast(t('notes.exportEncrypted'), 'success')
   }
 
   return (

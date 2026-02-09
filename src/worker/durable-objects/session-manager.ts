@@ -1,6 +1,7 @@
 import { DurableObject } from 'cloudflare:workers'
 import type { Env, Volunteer, BanEntry, EncryptedNote, AuditLogEntry, SpamSettings, CallSettings, InviteCode, WebAuthnCredential, WebAuthnSettings, ServerSession } from '../types'
 import { IVR_LANGUAGES } from '../../shared/languages'
+import { hashPhone } from '../lib/crypto'
 
 /**
  * SessionManagerDO — manages all persistent data:
@@ -208,6 +209,11 @@ export class SessionManagerDO extends DurableObject<Env> {
       return this.deleteIvrAudio(parts[0], parts[1])
     }
 
+    // --- Rate Limiting ---
+    if (path === '/rate-limit/check' && method === 'POST') {
+      return this.checkRateLimit(await request.json())
+    }
+
     // --- Shifts / Fallback ---
     if (path === '/fallback' && method === 'GET') {
       return this.getFallbackGroup()
@@ -346,8 +352,9 @@ export class SessionManagerDO extends DurableObject<Env> {
 
   private async addBan(data: { phone: string; reason: string; bannedBy: string }): Promise<Response> {
     const bans = await this.ctx.storage.get<BanEntry[]>('bans') || []
+    const hashed = hashPhone(data.phone)
     const ban: BanEntry = {
-      phone: data.phone,
+      phone: hashed,
       reason: data.reason,
       bannedBy: data.bannedBy,
       bannedAt: new Date().toISOString(),
@@ -362,9 +369,10 @@ export class SessionManagerDO extends DurableObject<Env> {
     const existing = new Set(bans.map(b => b.phone))
     let count = 0
     for (const phone of data.phones) {
-      if (!existing.has(phone)) {
+      const hashed = hashPhone(phone)
+      if (!existing.has(hashed)) {
         bans.push({
-          phone,
+          phone: hashed,
           reason: data.reason,
           bannedBy: data.bannedBy,
           bannedAt: new Date().toISOString(),
@@ -378,13 +386,15 @@ export class SessionManagerDO extends DurableObject<Env> {
 
   private async removeBan(phone: string): Promise<Response> {
     const bans = await this.ctx.storage.get<BanEntry[]>('bans') || []
+    // Phone comes pre-hashed from the API layer
     await this.ctx.storage.put('bans', bans.filter(b => b.phone !== phone))
     return Response.json({ ok: true })
   }
 
   private async checkBan(phone: string): Promise<Response> {
     const bans = await this.ctx.storage.get<BanEntry[]>('bans') || []
-    const banned = bans.some(b => b.phone === phone)
+    const hashed = hashPhone(phone)
+    const banned = bans.some(b => b.phone === hashed)
     return Response.json({ banned })
   }
 
@@ -610,6 +620,24 @@ export class SessionManagerDO extends DurableObject<Env> {
     return Response.json({ ok: true })
   }
 
+  // --- Rate Limit Methods (persistent, survives restarts) ---
+
+  private async checkRateLimit(data: { key: string; maxPerMinute: number }): Promise<Response> {
+    const storageKey = `ratelimit:${data.key}`
+    const now = Date.now()
+    const windowMs = 60_000
+    const timestamps = await this.ctx.storage.get<number[]>(storageKey) || []
+    const recent = timestamps.filter(t => now - t < windowMs)
+    recent.push(now)
+    await this.ctx.storage.put(storageKey, recent)
+
+    // Schedule cleanup alarm (1 minute from now)
+    try { await this.ctx.storage.setAlarm(now + windowMs + 1000) } catch { /* alarm already set */ }
+
+    const limited = recent.length > data.maxPerMinute
+    return Response.json({ limited })
+  }
+
   // --- WebAuthn Credential Methods ---
 
   private async getWebAuthnCredentials(pubkey: string): Promise<Response> {
@@ -729,15 +757,37 @@ export class SessionManagerDO extends DurableObject<Env> {
     return Response.json(session)
   }
 
-  // --- Alarm handler for cleaning up expired challenges ---
+  // --- Alarm handler for cleaning up expired data ---
 
   override async alarm() {
-    // Clean up expired WebAuthn challenges
-    const allKeys = await this.ctx.storage.list({ prefix: 'webauthn:challenge:' })
     const now = Date.now()
-    for (const [key, value] of allKeys) {
+
+    // Clean up expired WebAuthn challenges
+    const challengeKeys = await this.ctx.storage.list({ prefix: 'webauthn:challenge:' })
+    for (const [key, value] of challengeKeys) {
       const data = value as { challenge: string; createdAt: number }
       if (now - data.createdAt > 5 * 60 * 1000) {
+        await this.ctx.storage.delete(key)
+      }
+    }
+
+    // Clean up expired rate limit entries
+    const rlKeys = await this.ctx.storage.list({ prefix: 'ratelimit:' })
+    for (const [key, value] of rlKeys) {
+      const timestamps = value as number[]
+      const recent = timestamps.filter(t => now - t < 60_000)
+      if (recent.length === 0) {
+        await this.ctx.storage.delete(key)
+      } else {
+        await this.ctx.storage.put(key, recent)
+      }
+    }
+
+    // Clean up expired sessions
+    const sessionKeys = await this.ctx.storage.list({ prefix: 'session:' })
+    for (const [key, value] of sessionKeys) {
+      const session = value as ServerSession
+      if (new Date(session.expiresAt) < new Date()) {
         await this.ctx.storage.delete(key)
       }
     }

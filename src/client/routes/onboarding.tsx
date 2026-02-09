@@ -320,7 +320,7 @@ function OnboardingPage() {
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={() => { navigator.clipboard.writeText(nsec); toast(t('common.success'), 'success') }}
+                    onClick={() => { navigator.clipboard.writeText(nsec); toast(t('common.success'), 'success'); setTimeout(() => navigator.clipboard.writeText('').catch(() => {}), 30000) }}
                     aria-label={t('a11y.copyToClipboard')}
                   >
                     <Copy className="h-3.5 w-3.5" />

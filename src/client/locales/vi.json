@@ -22,7 +22,8 @@
     "status": "Trạng thái",
     "settings": "Cài đặt",
     "logout": "Đăng xuất",
-    "language": "Ngôn ngữ"
+    "language": "Ngôn ngữ",
+    "or": "hoặc"
   },
   "auth": {
     "login": "Đăng nhập",
@@ -82,6 +83,14 @@
     "reportSpam": "Báo cáo spam",
     "banned": "Số này đã bị chặn"
   },
+  "callSettings": {
+    "title": "Cài đặt cuộc gọi",
+    "description": "Cấu hình hành vi hàng đợi cuộc gọi và cài đặt hộp thư thoại.",
+    "queueTimeout": "Thời gian chờ hàng đợi",
+    "queueTimeoutDescription": "Thời gian người gọi chờ trước khi được chuyển đến hộp thư thoại (giây).",
+    "voicemailMax": "Thời lượng thư thoại tối đa",
+    "voicemailMaxDescription": "Thời lượng ghi âm tối đa cho tin nhắn thư thoại (giây)."
+  },
   "notes": {
     "title": "Ghi chú cuộc gọi",
     "newNote": "Ghi chú mới",
@@ -99,6 +108,7 @@
     "enterManually": "Nhập mã cuộc gọi thủ công",
     "callIdPlaceholder": "Mã cuộc gọi hoặc tham chiếu",
     "export": "Xuất",
+    "exportEncrypted": "Xuất đã mã hóa — giải mã bằng khóa nsec của bạn",
     "viewNotes": "Ghi chú",
     "activeCallNote": "Ghi chú đính kèm cuộc gọi đang hoạt động của bạn",
     "draftSaved": "Đã lưu bản nháp"
@@ -162,6 +172,26 @@
     "inactive": "Không hoạt động",
     "volunteerAdded": "Đã thêm tình nguyện viên thành công",
     "invalidPhone": "Số điện thoại không hợp lệ. Sử dụng định dạng E.164 (vd: +84912345678)"
+  },
+  "webauthn": {
+    "title": "Khóa truy cập",
+    "description": "Sử dụng sinh trắc học hoặc PIN của thiết bị để đăng nhập mà không cần khóa bí mật.",
+    "registerKey": "Thêm khóa truy cập",
+    "registerSuccess": "Đã đăng ký khóa truy cập!",
+    "deleteKey": "Xóa",
+    "noKeys": "Chưa đăng ký khóa truy cập nào.",
+    "label": "Tên khóa truy cập (vd: \"Điện thoại của tôi\")",
+    "lastUsed": "Sử dụng lần cuối",
+    "syncedPasskey": "Đã đồng bộ",
+    "singleDevice": "Thiết bị này",
+    "signInWithPasskey": "Đăng nhập bằng khóa truy cập",
+    "signingIn": "Đang đăng nhập...",
+    "signInError": "Đăng nhập bằng khóa truy cập thất bại",
+    "policy": "Chính sách khóa truy cập",
+    "policyDescription": "Yêu cầu khóa truy cập cho các nhóm người dùng. Người dùng chưa có khóa truy cập sẽ được nhắc thiết lập.",
+    "requireForAdmins": "Yêu cầu cho quản trị viên",
+    "requireForVolunteers": "Yêu cầu cho tình nguyện viên",
+    "browserNotSupported": "Trình duyệt của bạn không hỗ trợ khóa truy cập."
   },
   "banList": {
     "title": "Danh sách chặn",
@@ -267,6 +297,11 @@
     "preferences": "Tùy chọn của tôi",
     "updateProfile": "Cập nhật hồ sơ"
   },
+  "phone": {
+    "hint": "Định dạng: +1234567890",
+    "valid": "Số điện thoại hợp lệ",
+    "invalid": "Số điện thoại không hợp lệ"
+  },
   "settings": {
     "title": "Cài đặt",
     "general": "Chung",
@@ -283,6 +318,13 @@
     "playRingtoneDescription": "Phát âm thanh khi có cuộc gọi đến",
     "browserNotifications": "Thông báo trình duyệt",
     "browserNotificationsDescription": "Hiển thị thông báo hệ thống cho cuộc gọi đến"
+  },
+  "session": {
+    "expiringWarning": "Phiên của bạn sắp hết hạn.",
+    "stayLoggedIn": "Duy trì đăng nhập",
+    "expired": "Phiên đã hết hạn",
+    "expiredDescription": "Phiên của bạn đã hết hạn. Bạn có thể kết nối lại hoặc đăng nhập lại.",
+    "reconnect": "Kết nối lại"
   },
   "commandPalette": {
     "label": "Bảng lệnh",

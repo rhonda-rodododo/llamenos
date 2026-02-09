@@ -258,3 +258,56 @@
 - [x] Caller PII removed from notification function signature (defense in depth)
 - [x] Encrypted draft notes cleaned from localStorage on logout
 - [x] Profile settings backend accepts name + phone updates (admin can set phone to receive calls)
+
+## 2026-02-09: Epic 29 — Configurable Settings, WebAuthn & Backlog Completion
+
+### Feature 1: Configurable Call Settings
+- [x] Queue timeout configurable (30-300s, default 90s) — admin settings UI + backend
+- [x] Voicemail max duration configurable (30-300s, default 120s)
+- [x] CallSettings type + DO storage + PATCH/GET API routes
+- [x] TwilioAdapter uses configurable values for queue timeout & voicemail recording
+- [x] i18n: `callSettings.*` keys in all 13 locales
+
+### Feature 2: WebAuthn Passkeys
+- [x] `@simplewebauthn/server` + `@simplewebauthn/browser` integration
+- [x] Server-side WebAuthn lib (registration + authentication flows)
+- [x] Dual auth: `Authorization: Bearer {schnorr}` and `Authorization: Session {token}`
+- [x] WebAuthn credential CRUD in SessionManager DO
+- [x] Server session management (256-bit random tokens, 8-hour expiry)
+- [x] Single-use challenges with 5-minute TTL
+- [x] Login page "Sign in with passkey" button
+- [x] Settings page credential management (list, register, delete)
+- [x] Admin "Passkey Policy" card (require for admins/volunteers)
+- [x] WebSocket auth extended for session tokens
+- [x] `/auth/me` returns `webauthnRequired` + `webauthnRegistered`
+- [x] i18n: `webauthn.*` keys (18 keys) in all 13 locales
+
+### Feature 3: Session Expiry UX
+- [x] Idle tracking (30s interval checks for 4-minute idle)
+- [x] Warning toast "Session expiring soon" with "Stay logged in" button
+- [x] Non-dismissible expired dialog with reconnect option
+- [x] Session token auto-renewal via `getMe()` call
+- [x] i18n: `session.*` keys in all 13 locales
+
+### Feature 4: Phone Input with Live E.164 Validation
+- [x] `PhoneInput` component with auto-prepend `+`, live validation, color-coded borders
+- [x] Replaced in settings, volunteers (add + invite), and bans pages
+- [x] i18n: `phone.*` keys in all 13 locales
+
+### Feature 5: E2E Test Isolation
+- [x] `resetTestState()` helper in `tests/helpers.ts`
+- [x] `test.beforeEach` reset in all mutating test files
+- [x] `workers: 1` in playwright.config.ts for serial execution
+- [x] Test reset endpoints in all 3 DOs (Session, Shift, CallRouter)
+
+### Security Hardening (Audit Round 3)
+- [x] Hash caller phone numbers before DO storage (SHA-256 with domain separator)
+- [x] Hash phone numbers in ban list (compare by re-hashing)
+- [x] Move rate limiting from in-memory Map to DO storage (persists across Worker restarts)
+- [x] Guard Twilio webhook validation — only skip when BOTH dev mode AND localhost
+- [x] Rate-limit invite validation endpoint (10 req/min per IP)
+- [x] Hash IP addresses in audit log entries (truncated SHA-256)
+- [x] Stop broadcasting volunteer pubkeys in presence updates (anonymous counts only)
+- [x] Remove plaintext pubkey from encrypted key-store localStorage (hashed with domain separator)
+- [x] Add notes export encryption (XChaCha20-Poly1305 with user's key, .enc format)
+- [x] Auto-clear clipboard after 30s for nsec/invite link copy

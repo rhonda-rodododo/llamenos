@@ -59,14 +59,14 @@ function DashboardPage() {
     listVolunteers().then(r => setVolunteers(r.volunteers)).catch(() => {})
   }, [isAuthenticated, isAdmin])
 
-  // Listen for real-time presence updates
+  // Listen for real-time presence updates — refresh from API on change
   useEffect(() => {
-    const unsub = onMessage('presence:update', (data) => {
-      const { volunteers: vols } = data as { volunteers: VolunteerPresence[] }
-      setPresence(vols)
+    if (!isAdmin) return
+    const unsub = onMessage('presence:update', () => {
+      getVolunteerPresence().then(r => setPresence(r.volunteers)).catch(() => {})
     })
     return unsub
-  }, [])
+  }, [isAdmin])
 
   if (!isAuthenticated) return null
 

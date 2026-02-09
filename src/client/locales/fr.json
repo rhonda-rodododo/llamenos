@@ -22,7 +22,8 @@
     "status": "Statut",
     "settings": "Paramètres",
     "logout": "Déconnexion",
-    "language": "Langue"
+    "language": "Langue",
+    "or": "ou"
   },
   "auth": {
     "login": "Se connecter",
@@ -82,6 +83,14 @@
     "reportSpam": "Signaler comme spam",
     "banned": "Ce numéro est bloqué"
   },
+  "callSettings": {
+    "title": "Paramètres d'appel",
+    "description": "Configurez le comportement de la file d'attente des appels et les paramètres de la messagerie vocale.",
+    "queueTimeout": "Délai d'attente",
+    "queueTimeoutDescription": "Durée d'attente des appelants avant d'être redirigés vers la messagerie vocale (secondes).",
+    "voicemailMax": "Durée maximale de la messagerie",
+    "voicemailMaxDescription": "Durée maximale d'enregistrement pour les messages vocaux (secondes)."
+  },
   "notes": {
     "title": "Notes d'appel",
     "newNote": "Nouvelle note",
@@ -99,6 +108,7 @@
     "enterManually": "Saisir l'ID d'appel manuellement",
     "callIdPlaceholder": "ID d'appel ou référence",
     "export": "Exporter",
+    "exportEncrypted": "Export chiffré — déchiffrer avec votre clé nsec",
     "viewNotes": "Notes",
     "activeCallNote": "Note attachée à votre appel actif",
     "draftSaved": "Brouillon enregistré"
@@ -162,6 +172,26 @@
     "inactive": "Inactif",
     "volunteerAdded": "Bénévole ajouté avec succès",
     "invalidPhone": "Numéro de téléphone invalide. Utilisez le format E.164 (ex. +33612345678)"
+  },
+  "webauthn": {
+    "title": "Clés d'accès",
+    "description": "Utilisez la biométrie ou le code PIN de votre appareil pour vous connecter sans votre clé secrète.",
+    "registerKey": "Ajouter une clé d'accès",
+    "registerSuccess": "Clé d'accès enregistrée !",
+    "deleteKey": "Supprimer",
+    "noKeys": "Aucune clé d'accès enregistrée.",
+    "label": "Nom de la clé d'accès (ex. \"Mon Téléphone\")",
+    "lastUsed": "Dernière utilisation",
+    "syncedPasskey": "Synchronisée",
+    "singleDevice": "Cet appareil",
+    "signInWithPasskey": "Se connecter avec une clé d'accès",
+    "signingIn": "Connexion en cours...",
+    "signInError": "Échec de la connexion par clé d'accès",
+    "policy": "Politique des clés d'accès",
+    "policyDescription": "Exiger des clés d'accès pour les groupes d'utilisateurs. Les utilisateurs sans clé seront invités à en configurer une.",
+    "requireForAdmins": "Exiger pour les administrateurs",
+    "requireForVolunteers": "Exiger pour les bénévoles",
+    "browserNotSupported": "Votre navigateur ne prend pas en charge les clés d'accès."
   },
   "banList": {
     "title": "Liste noire",
@@ -267,6 +297,11 @@
     "preferences": "Mes préférences",
     "updateProfile": "Mettre à jour le profil"
   },
+  "phone": {
+    "hint": "Format : +1234567890",
+    "valid": "Numéro de téléphone valide",
+    "invalid": "Numéro de téléphone invalide"
+  },
   "settings": {
     "title": "Paramètres",
     "general": "Général",
@@ -283,6 +318,13 @@
     "playRingtoneDescription": "Joue un son lorsqu'un appel est en cours de sonnerie",
     "browserNotifications": "Notifications du navigateur",
     "browserNotificationsDescription": "Afficher une notification système pour les appels entrants"
+  },
+  "session": {
+    "expiringWarning": "Votre session est sur le point d'expirer.",
+    "stayLoggedIn": "Rester connecté",
+    "expired": "Session expirée",
+    "expiredDescription": "Votre session a expiré. Vous pouvez vous reconnecter ou vous connecter à nouveau.",
+    "reconnect": "Se reconnecter"
   },
   "commandPalette": {
     "label": "Palette de commandes",

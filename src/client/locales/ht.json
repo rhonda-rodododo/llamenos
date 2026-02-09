@@ -22,7 +22,8 @@
     "status": "Eta",
     "settings": "Paramèt",
     "logout": "Dekonekte",
-    "language": "Lang"
+    "language": "Lang",
+    "or": "oswa"
   },
   "auth": {
     "login": "Konekte",
@@ -82,6 +83,14 @@
     "reportSpam": "Rapòte kòm Spam",
     "banned": "Nimewo sa a bloke"
   },
+  "callSettings": {
+    "title": "Paramèt Apèl",
+    "description": "Konfigure konpòtman liy atant apèl ak paramèt mesaj vokal.",
+    "queueTimeout": "Delè Atant",
+    "queueTimeoutDescription": "Konbyen tan moun ki rele yo tann anvan yo voye nan mesaj vokal (segonn).",
+    "voicemailMax": "Longè Maksimòm Mesaj Vokal",
+    "voicemailMaxDescription": "Longè maksimòm anrejistreman pou mesaj vokal (segonn)."
+  },
   "notes": {
     "title": "Nòt Apèl",
     "newNote": "Nouvo Nòt",
@@ -99,6 +108,7 @@
     "enterManually": "Antre ID apèl manyèlman",
     "callIdPlaceholder": "ID apèl oswa referans",
     "export": "Ekspòte",
+    "exportEncrypted": "Ekspò chifre — dechifre ak kle nsec ou",
     "viewNotes": "Nòt",
     "activeCallNote": "Nòt ki tache ak apèl aktif ou a",
     "draftSaved": "Bouyon anrejistre"
@@ -162,6 +172,26 @@
     "inactive": "Inaktif",
     "volunteerAdded": "Volontè ajoute avèk siksè",
     "invalidPhone": "Nimewo telefòn envalid. Itilize fòma E.164 (egz. +50937123456)"
+  },
+  "webauthn": {
+    "title": "Kle aksè",
+    "description": "Sèvi ak biyometri oswa PIN aparèy ou pou konekte san kle sekrè ou.",
+    "registerKey": "Ajoute kle aksè",
+    "registerSuccess": "Kle aksè anrejistre!",
+    "deleteKey": "Efase",
+    "noKeys": "Pa gen kle aksè anrejistre ankò.",
+    "label": "Non kle aksè (egz. \"Telefòn Mwen\")",
+    "lastUsed": "Dènye itilizasyon",
+    "syncedPasskey": "Senkronize",
+    "singleDevice": "Aparèy sa a",
+    "signInWithPasskey": "Konekte ak kle aksè",
+    "signingIn": "Ap konekte...",
+    "signInError": "Echèk koneksyon ak kle aksè",
+    "policy": "Politik Kle Aksè",
+    "policyDescription": "Egzije kle aksè pou gwoup itilizatè. Itilizatè ki pa gen kle aksè ap resevwa demann pou konfigire youn.",
+    "requireForAdmins": "Egzije pou administratè",
+    "requireForVolunteers": "Egzije pou volontè",
+    "browserNotSupported": "Navigatè ou pa sipòte kle aksè."
   },
   "banList": {
     "title": "Lis Blokaj",
@@ -267,6 +297,11 @@
     "preferences": "Preferans Mwen",
     "updateProfile": "Mete Pwofil Ajou"
   },
+  "phone": {
+    "hint": "Fòma: +1234567890",
+    "valid": "Nimewo telefòn valid",
+    "invalid": "Nimewo telefòn envalid"
+  },
   "settings": {
     "title": "Paramèt",
     "general": "Jeneral",
@@ -283,6 +318,13 @@
     "playRingtoneDescription": "Jwe yon son lè yon apèl ap sonnen",
     "browserNotifications": "Notifikasyon navigatè",
     "browserNotificationsDescription": "Montre yon notifikasyon sistèm pou apèl ki antre"
+  },
+  "session": {
+    "expiringWarning": "Sesyon ou prèske expire.",
+    "stayLoggedIn": "Rete konekte",
+    "expired": "Sesyon Expire",
+    "expiredDescription": "Sesyon ou expire. Ou ka rekonekte oswa konekte ankò.",
+    "reconnect": "Rekonekte"
   },
   "commandPalette": {
     "label": "Palèt kòmand",

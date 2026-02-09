@@ -22,7 +22,8 @@
     "status": "Status",
     "settings": "Einstellungen",
     "logout": "Abmelden",
-    "language": "Sprache"
+    "language": "Sprache",
+    "or": "oder"
   },
   "auth": {
     "login": "Anmelden",
@@ -82,6 +83,14 @@
     "reportSpam": "Als Spam melden",
     "banned": "Diese Nummer ist gesperrt"
   },
+  "callSettings": {
+    "title": "Anrufeinstellungen",
+    "description": "Konfigurieren Sie das Verhalten der Anrufwarteschlange und die Mailbox-Einstellungen.",
+    "queueTimeout": "Warteschlangen-Timeout",
+    "queueTimeoutDescription": "Wie lange Anrufer warten, bevor sie an die Mailbox weitergeleitet werden (Sekunden).",
+    "voicemailMax": "Maximale Mailbox-Länge",
+    "voicemailMaxDescription": "Maximale Aufnahmelänge für Mailbox-Nachrichten (Sekunden)."
+  },
   "notes": {
     "title": "Anrufnotizen",
     "newNote": "Neue Notiz",
@@ -99,6 +108,7 @@
     "enterManually": "Anruf-ID manuell eingeben",
     "callIdPlaceholder": "Anruf-ID oder Referenz",
     "export": "Exportieren",
+    "exportEncrypted": "Verschlüsselter Export — mit Ihrem nsec-Schlüssel entschlüsseln",
     "viewNotes": "Notizen",
     "activeCallNote": "Notiz zu Ihrem aktiven Anruf",
     "draftSaved": "Entwurf gespeichert"
@@ -162,6 +172,26 @@
     "inactive": "Inaktiv",
     "volunteerAdded": "Freiwilliger erfolgreich hinzugefügt",
     "invalidPhone": "Ungültige Telefonnummer. Verwenden Sie das E.164-Format (z.B. +4915123456789)"
+  },
+  "webauthn": {
+    "title": "Passkeys",
+    "description": "Verwenden Sie die Biometrie oder PIN Ihres Geräts, um sich ohne Ihren geheimen Schlüssel anzumelden.",
+    "registerKey": "Passkey hinzufügen",
+    "registerSuccess": "Passkey registriert!",
+    "deleteKey": "Löschen",
+    "noKeys": "Noch keine Passkeys registriert.",
+    "label": "Passkey-Name (z.B. \"Mein Telefon\")",
+    "lastUsed": "Zuletzt verwendet",
+    "syncedPasskey": "Synchronisiert",
+    "singleDevice": "Dieses Gerät",
+    "signInWithPasskey": "Mit Passkey anmelden",
+    "signingIn": "Anmeldung läuft...",
+    "signInError": "Passkey-Anmeldung fehlgeschlagen",
+    "policy": "Passkey-Richtlinie",
+    "policyDescription": "Passkeys für Benutzergruppen verlangen. Benutzer ohne Passkeys werden aufgefordert, einen einzurichten.",
+    "requireForAdmins": "Für Administratoren erforderlich",
+    "requireForVolunteers": "Für Freiwillige erforderlich",
+    "browserNotSupported": "Ihr Browser unterstützt keine Passkeys."
   },
   "banList": {
     "title": "Sperrliste",
@@ -267,6 +297,11 @@
     "preferences": "Meine Einstellungen",
     "updateProfile": "Profil aktualisieren"
   },
+  "phone": {
+    "hint": "Format: +1234567890",
+    "valid": "Gültige Telefonnummer",
+    "invalid": "Ungültige Telefonnummer"
+  },
   "settings": {
     "title": "Einstellungen",
     "general": "Allgemein",
@@ -283,6 +318,13 @@
     "playRingtoneDescription": "Spielt einen Ton ab, wenn ein Anruf klingelt",
     "browserNotifications": "Browser-Benachrichtigungen",
     "browserNotificationsDescription": "Systembenachrichtigung bei eingehenden Anrufen anzeigen"
+  },
+  "session": {
+    "expiringWarning": "Ihre Sitzung läuft gleich ab.",
+    "stayLoggedIn": "Angemeldet bleiben",
+    "expired": "Sitzung abgelaufen",
+    "expiredDescription": "Ihre Sitzung ist abgelaufen. Sie können sich erneut verbinden oder neu anmelden.",
+    "reconnect": "Erneut verbinden"
   },
   "commandPalette": {
     "label": "Befehlspalette",

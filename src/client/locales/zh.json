@@ -22,7 +22,8 @@
     "status": "状态",
     "settings": "设置",
     "logout": "退出登录",
-    "language": "语言"
+    "language": "语言",
+    "or": "或"
   },
   "auth": {
     "login": "登录",
@@ -82,6 +83,14 @@
     "reportSpam": "举报为垃圾电话",
     "banned": "此号码已被封禁"
   },
+  "callSettings": {
+    "title": "通话设置",
+    "description": "配置通话队列行为和语音信箱设置。",
+    "queueTimeout": "排队超时",
+    "queueTimeoutDescription": "来电者在被转至语音信箱前的等待时间（秒）。",
+    "voicemailMax": "语音留言最大时长",
+    "voicemailMaxDescription": "语音留言的最大录制时长（秒）。"
+  },
   "notes": {
     "title": "通话笔记",
     "newNote": "新建笔记",
@@ -99,6 +108,7 @@
     "enterManually": "手动输入通话ID",
     "callIdPlaceholder": "通话ID或参考号",
     "export": "导出",
+    "exportEncrypted": "加密导出 — 使用您的nsec密钥解密",
     "viewNotes": "笔记",
     "activeCallNote": "附在当前通话上的笔记",
     "draftSaved": "草稿已保存"
@@ -162,6 +172,26 @@
     "inactive": "未活跃",
     "volunteerAdded": "志愿者添加成功",
     "invalidPhone": "电话号码无效。请使用E.164格式（如 +8613812345678）"
+  },
+  "webauthn": {
+    "title": "通行密钥",
+    "description": "使用设备生物识别或PIN码登录，无需密钥。",
+    "registerKey": "添加通行密钥",
+    "registerSuccess": "通行密钥已注册！",
+    "deleteKey": "删除",
+    "noKeys": "尚未注册通行密钥。",
+    "label": "通行密钥名称（例如\"我的手机\"）",
+    "lastUsed": "最后使用",
+    "syncedPasskey": "已同步",
+    "singleDevice": "此设备",
+    "signInWithPasskey": "使用通行密钥登录",
+    "signingIn": "正在登录...",
+    "signInError": "通行密钥登录失败",
+    "policy": "通行密钥策略",
+    "policyDescription": "要求用户组使用通行密钥。没有通行密钥的用户将被提示设置一个。",
+    "requireForAdmins": "要求管理员使用",
+    "requireForVolunteers": "要求志愿者使用",
+    "browserNotSupported": "您的浏览器不支持通行密钥。"
   },
   "banList": {
     "title": "黑名单",
@@ -267,6 +297,11 @@
     "preferences": "我的偏好",
     "updateProfile": "更新个人资料"
   },
+  "phone": {
+    "hint": "格式：+1234567890",
+    "valid": "有效的电话号码",
+    "invalid": "无效的电话号码"
+  },
   "settings": {
     "title": "设置",
     "general": "常规",
@@ -283,6 +318,13 @@
     "playRingtoneDescription": "来电响铃时播放提示音",
     "browserNotifications": "浏览器通知",
     "browserNotificationsDescription": "来电时显示系统通知"
+  },
+  "session": {
+    "expiringWarning": "您的会话即将过期。",
+    "stayLoggedIn": "保持登录",
+    "expired": "会话已过期",
+    "expiredDescription": "您的会话已过期。您可以重新连接或重新登录。",
+    "reconnect": "重新连接"
   },
   "commandPalette": {
     "label": "命令面板",

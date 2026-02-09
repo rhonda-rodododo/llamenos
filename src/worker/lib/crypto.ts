@@ -52,3 +52,20 @@ export function encryptForPublicKey(
   }
   // ephemeralSecret goes out of scope here — never stored
 }
+
+/**
+ * Hash a phone number for storage (one-way — compare by re-hashing).
+ * Uses SHA-256 with a domain separator to prevent rainbow table attacks.
+ */
+export function hashPhone(phone: string): string {
+  const input = utf8ToBytes(`llamenos:phone:${phone}`)
+  return bytesToHex(sha256(input))
+}
+
+/**
+ * Hash an IP address for storage in audit logs.
+ */
+export function hashIP(ip: string): string {
+  const input = utf8ToBytes(`llamenos:ip:${ip}`)
+  return bytesToHex(sha256(input)).slice(0, 16) // Truncate to 16 hex chars (64-bit)
+}

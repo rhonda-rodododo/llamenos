@@ -22,7 +22,8 @@
     "status": "Estado",
     "settings": "Configuración",
     "logout": "Cerrar sesión",
-    "language": "Idioma"
+    "language": "Idioma",
+    "or": "o"
   },
   "auth": {
     "login": "Iniciar sesión",
@@ -82,6 +83,14 @@
     "reportSpam": "Reportar como Spam",
     "banned": "Este número está bloqueado"
   },
+  "callSettings": {
+    "title": "Configuración de Llamadas",
+    "description": "Configure el comportamiento de la cola de llamadas y los ajustes de buzón de voz.",
+    "queueTimeout": "Tiempo de espera en cola",
+    "queueTimeoutDescription": "Cuánto tiempo esperan los llamantes antes de ser enviados al buzón de voz (segundos).",
+    "voicemailMax": "Duración máxima del buzón de voz",
+    "voicemailMaxDescription": "Duración máxima de grabación para mensajes de buzón de voz (segundos)."
+  },
   "notes": {
     "title": "Notas de Llamada",
     "newNote": "Nueva Nota",
@@ -99,6 +108,7 @@
     "enterManually": "Ingresar ID de llamada manualmente",
     "callIdPlaceholder": "ID de llamada o referencia",
     "export": "Exportar",
+    "exportEncrypted": "Exportación cifrada — descifrar con tu clave nsec",
     "viewNotes": "Notas",
     "activeCallNote": "Nota adjunta a tu llamada activa",
     "draftSaved": "Borrador guardado"
@@ -162,6 +172,26 @@
     "inactive": "Inactivo",
     "volunteerAdded": "Voluntario agregado exitosamente",
     "invalidPhone": "Número de teléfono inválido. Use formato E.164 (ej. +12125551234)"
+  },
+  "webauthn": {
+    "title": "Claves de acceso",
+    "description": "Usa la biometría o PIN de tu dispositivo para iniciar sesión sin tu clave secreta.",
+    "registerKey": "Agregar clave de acceso",
+    "registerSuccess": "¡Clave de acceso registrada!",
+    "deleteKey": "Eliminar",
+    "noKeys": "No hay claves de acceso registradas.",
+    "label": "Nombre de la clave de acceso (ej. \"Mi Teléfono\")",
+    "lastUsed": "Último uso",
+    "syncedPasskey": "Sincronizada",
+    "singleDevice": "Este dispositivo",
+    "signInWithPasskey": "Iniciar sesión con clave de acceso",
+    "signingIn": "Iniciando sesión...",
+    "signInError": "Error al iniciar sesión con clave de acceso",
+    "policy": "Política de claves de acceso",
+    "policyDescription": "Requerir claves de acceso para grupos de usuarios. Los usuarios sin claves serán solicitados a configurar una.",
+    "requireForAdmins": "Requerir para administradores",
+    "requireForVolunteers": "Requerir para voluntarios",
+    "browserNotSupported": "Tu navegador no soporta claves de acceso."
   },
   "banList": {
     "title": "Lista de Bloqueo",
@@ -267,6 +297,11 @@
     "preferences": "Mis Preferencias",
     "updateProfile": "Actualizar Perfil"
   },
+  "phone": {
+    "hint": "Formato: +1234567890",
+    "valid": "Número de teléfono válido",
+    "invalid": "Número de teléfono inválido"
+  },
   "settings": {
     "title": "Configuración",
     "general": "General",
@@ -283,6 +318,13 @@
     "playRingtoneDescription": "Reproduce un tono de audio cuando suena una llamada",
     "browserNotifications": "Notificaciones del navegador",
     "browserNotificationsDescription": "Mostrar una notificación del sistema para llamadas entrantes"
+  },
+  "session": {
+    "expiringWarning": "Tu sesión está a punto de expirar.",
+    "stayLoggedIn": "Mantener sesión",
+    "expired": "Sesión Expirada",
+    "expiredDescription": "Tu sesión ha expirado. Puedes reconectarte o iniciar sesión de nuevo.",
+    "reconnect": "Reconectar"
   },
   "commandPalette": {
     "label": "Paleta de comandos",

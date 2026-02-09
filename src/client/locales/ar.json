@@ -22,7 +22,8 @@
     "status": "الحالة",
     "settings": "الإعدادات",
     "logout": "تسجيل الخروج",
-    "language": "اللغة"
+    "language": "اللغة",
+    "or": "أو"
   },
   "auth": {
     "login": "تسجيل الدخول",
@@ -82,6 +83,14 @@
     "reportSpam": "الإبلاغ كرسالة مزعجة",
     "banned": "هذا الرقم محظور"
   },
+  "callSettings": {
+    "title": "إعدادات المكالمات",
+    "description": "تكوين سلوك قائمة انتظار المكالمات وإعدادات البريد الصوتي.",
+    "queueTimeout": "مهلة الانتظار",
+    "queueTimeoutDescription": "المدة التي ينتظرها المتصلون قبل تحويلهم إلى البريد الصوتي (بالثواني).",
+    "voicemailMax": "الحد الأقصى لمدة البريد الصوتي",
+    "voicemailMaxDescription": "أقصى مدة تسجيل لرسائل البريد الصوتي (بالثواني)."
+  },
   "notes": {
     "title": "ملاحظات المكالمة",
     "newNote": "ملاحظة جديدة",
@@ -99,6 +108,7 @@
     "enterManually": "إدخال معرف المكالمة يدوياً",
     "callIdPlaceholder": "معرف المكالمة أو المرجع",
     "export": "تصدير",
+    "exportEncrypted": "تصدير مشفر — فك التشفير باستخدام مفتاح nsec",
     "viewNotes": "ملاحظات",
     "activeCallNote": "ملاحظة مرفقة بمكالمتك النشطة",
     "draftSaved": "تم حفظ المسودة"
@@ -162,6 +172,26 @@
     "inactive": "غير نشط",
     "volunteerAdded": "تمت إضافة المتطوع بنجاح",
     "invalidPhone": "رقم هاتف غير صالح. استخدم تنسيق E.164 (مثال: +201234567890)"
+  },
+  "webauthn": {
+    "title": "مفاتيح المرور",
+    "description": "استخدم القياسات الحيوية أو رمز PIN لجهازك لتسجيل الدخول بدون مفتاحك السري.",
+    "registerKey": "إضافة مفتاح مرور",
+    "registerSuccess": "تم تسجيل مفتاح المرور!",
+    "deleteKey": "حذف",
+    "noKeys": "لم يتم تسجيل أي مفاتيح مرور بعد.",
+    "label": "اسم مفتاح المرور (مثال: \"هاتفي\")",
+    "lastUsed": "آخر استخدام",
+    "syncedPasskey": "متزامن",
+    "singleDevice": "هذا الجهاز",
+    "signInWithPasskey": "تسجيل الدخول بمفتاح المرور",
+    "signingIn": "جاري تسجيل الدخول...",
+    "signInError": "فشل تسجيل الدخول بمفتاح المرور",
+    "policy": "سياسة مفاتيح المرور",
+    "policyDescription": "اشتراط مفاتيح المرور لمجموعات المستخدمين. سيُطلب من المستخدمين بدون مفاتيح إعداد واحد.",
+    "requireForAdmins": "مطلوب للمسؤولين",
+    "requireForVolunteers": "مطلوب للمتطوعين",
+    "browserNotSupported": "متصفحك لا يدعم مفاتيح المرور."
   },
   "banList": {
     "title": "قائمة الحظر",
@@ -267,6 +297,11 @@
     "preferences": "تفضيلاتي",
     "updateProfile": "تحديث الملف الشخصي"
   },
+  "phone": {
+    "hint": "الصيغة: +1234567890",
+    "valid": "رقم هاتف صالح",
+    "invalid": "رقم هاتف غير صالح"
+  },
   "settings": {
     "title": "الإعدادات",
     "general": "عام",
@@ -283,6 +318,13 @@
     "playRingtoneDescription": "تشغيل صوت عند ورود مكالمة",
     "browserNotifications": "إشعارات المتصفح",
     "browserNotificationsDescription": "عرض إشعار النظام للمكالمات الواردة"
+  },
+  "session": {
+    "expiringWarning": "جلستك على وشك الانتهاء.",
+    "stayLoggedIn": "البقاء متصلاً",
+    "expired": "انتهت الجلسة",
+    "expiredDescription": "انتهت جلستك. يمكنك إعادة الاتصال أو تسجيل الدخول مرة أخرى.",
+    "reconnect": "إعادة الاتصال"
   },
   "commandPalette": {
     "label": "لوحة الأوامر",

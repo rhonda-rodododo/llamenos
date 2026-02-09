@@ -22,7 +22,8 @@
     "status": "Status",
     "settings": "Settings",
     "logout": "Log out",
-    "language": "Language"
+    "language": "Language",
+    "or": "or"
   },
   "auth": {
     "login": "Log in",
@@ -87,6 +88,14 @@
     "reportSpam": "Report as Spam",
     "banned": "This number is banned"
   },
+  "callSettings": {
+    "title": "Call Settings",
+    "description": "Configure call queue behavior and voicemail settings.",
+    "queueTimeout": "Queue Timeout",
+    "queueTimeoutDescription": "How long callers wait before being sent to voicemail (seconds).",
+    "voicemailMax": "Max Voicemail Length",
+    "voicemailMaxDescription": "Maximum recording length for voicemail messages (seconds)."
+  },
   "notes": {
     "title": "Call Notes",
     "newNote": "New Note",
@@ -104,6 +113,7 @@
     "enterManually": "Enter call ID manually",
     "callIdPlaceholder": "Call ID or reference",
     "export": "Export",
+    "exportEncrypted": "Export encrypted — decrypt with your nsec key",
     "viewNotes": "Notes",
     "activeCallNote": "Note attached to your active call",
     "draftSaved": "Draft saved"
@@ -175,6 +185,26 @@
     "inviteRevoked": "Invite revoked",
     "inviteExpires": "Expires {{date}}",
     "inviteLinkLabel": "Invite link"
+  },
+  "webauthn": {
+    "title": "Passkeys",
+    "description": "Use your device biometrics or PIN to sign in without your secret key.",
+    "registerKey": "Add passkey",
+    "registerSuccess": "Passkey registered!",
+    "deleteKey": "Delete",
+    "noKeys": "No passkeys registered yet.",
+    "label": "Passkey name (e.g. \"My Phone\")",
+    "lastUsed": "Last used",
+    "syncedPasskey": "Synced",
+    "singleDevice": "This device",
+    "signInWithPasskey": "Sign in with passkey",
+    "signingIn": "Signing in...",
+    "signInError": "Passkey login failed",
+    "policy": "Passkey Policy",
+    "policyDescription": "Require passkeys for user groups. Users without passkeys will be prompted to set one up.",
+    "requireForAdmins": "Require for admins",
+    "requireForVolunteers": "Require for volunteers",
+    "browserNotSupported": "Your browser doesn't support passkeys."
   },
   "banList": {
     "title": "Ban List",
@@ -280,6 +310,11 @@
     "preferences": "My Preferences",
     "updateProfile": "Update Profile"
   },
+  "phone": {
+    "hint": "Format: +1234567890",
+    "valid": "Valid phone number",
+    "invalid": "Invalid phone number"
+  },
   "settings": {
     "title": "Settings",
     "general": "General",
@@ -296,6 +331,13 @@
     "playRingtoneDescription": "Plays an audio tone when a call is ringing",
     "browserNotifications": "Browser notifications",
     "browserNotificationsDescription": "Show a system notification for incoming calls"
+  },
+  "session": {
+    "expiringWarning": "Your session is about to expire.",
+    "stayLoggedIn": "Stay logged in",
+    "expired": "Session Expired",
+    "expiredDescription": "Your session has expired. You can reconnect or log in again.",
+    "reconnect": "Reconnect"
   },
   "commandPalette": {
     "label": "Command Palette",

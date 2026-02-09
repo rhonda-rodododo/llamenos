@@ -166,6 +166,23 @@ export function decryptDraft(packed: string, secretKey: Uint8Array): string | nu
   }
 }
 
+// --- Export Encryption ---
+// Encrypts a JSON export blob so it can only be read with the user's key
+
+export function encryptExport(jsonString: string, secretKey: Uint8Array): Uint8Array {
+  const key = deriveEncryptionKey(secretKey, 'export')
+  const nonce = randomBytes(24)
+  const data = utf8ToBytes(jsonString)
+  const cipher = xchacha20poly1305(key, nonce)
+  const ciphertext = cipher.encrypt(data)
+
+  // Pack as: nonce (24) + ciphertext
+  const packed = new Uint8Array(nonce.length + ciphertext.length)
+  packed.set(nonce)
+  packed.set(ciphertext, nonce.length)
+  return packed
+}
+
 // --- Session Token ---
 // Create a signed challenge for API authentication
 
