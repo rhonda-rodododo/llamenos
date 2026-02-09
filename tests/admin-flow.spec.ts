@@ -167,8 +167,12 @@ test.describe('Admin flow', () => {
     await page.getByRole('link', { name: 'Settings' }).click()
     await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
 
+    // Section headers are always visible (in collapsible trigger)
     await expect(page.getByRole('heading', { name: 'Transcription' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Spam Mitigation' })).toBeVisible()
+
+    // Expand Spam section to see content
+    await page.getByRole('heading', { name: 'Spam Mitigation' }).click()
     await expect(page.getByText('Voice CAPTCHA')).toBeVisible()
     await expect(page.getByText('Rate Limiting')).toBeVisible()
   })
@@ -177,7 +181,9 @@ test.describe('Admin flow', () => {
     await page.getByRole('link', { name: 'Settings' }).click()
     await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
 
-    // Find a switch and toggle it
+    // Profile is expanded by default — switches should be visible there
+    // Expand transcription section to see its switches
+    await page.getByRole('heading', { name: 'Transcription' }).click()
     const switches = page.getByRole('switch')
     const count = await switches.count()
     expect(count).toBeGreaterThan(0)

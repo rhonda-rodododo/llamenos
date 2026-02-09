@@ -1,5 +1,22 @@
 # Completed Backlog
 
+## 2026-02-09: Epic 30 — Collapsible Settings Sections
+
+### Epic 30: Collapsible Settings with Deep Links
+- [x] Installed shadcn/ui Collapsible component (Radix)
+- [x] Created reusable `<SettingsSection>` wrapper with collapsible Card, copy-link button, chevron animation
+- [x] Refactored all 10 settings sections to use `<SettingsSection>`
+- [x] Profile section expanded by default, all others collapsed
+- [x] Multiple sections can be open simultaneously (not single-accordion)
+- [x] URL search param `?section=id` deep-links to any section (auto-expand + scroll)
+- [x] TanStack Router `validateSearch` for type-safe section param
+- [x] Copy link button on each section header (copies shareable URL, auto-clears clipboard after 30s)
+- [x] Smooth height animation via Radix Collapsible + tw-animate-css
+- [x] All strings translated in 13 locales
+- [x] 4 new E2E tests: deep linking, collapse/expand, multi-open, copy-link button
+- [x] Updated existing E2E tests to expand sections before interacting with content
+- [x] 96 total E2E tests passing
+
 ## 2026-02-07: Initial MVP Build
 
 ### Epic 1: Project Foundation
@@ -302,7 +319,7 @@
 
 ### Security Hardening (Audit Round 3)
 - [x] Hash caller phone numbers before DO storage (SHA-256 with domain separator)
-- [x] Hash phone numbers in ban list (compare by re-hashing)
+- [x] ~~Hash phone numbers in ban list~~ (reverted — admin needs original numbers for ban management)
 - [x] Move rate limiting from in-memory Map to DO storage (persists across Worker restarts)
 - [x] Guard Twilio webhook validation — only skip when BOTH dev mode AND localhost
 - [x] Rate-limit invite validation endpoint (10 req/min per IP)

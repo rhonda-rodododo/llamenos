@@ -317,7 +317,9 @@
     "playRingtone": "Jouer une sonnerie pour les appels entrants",
     "playRingtoneDescription": "Joue un son lorsqu'un appel est en cours de sonnerie",
     "browserNotifications": "Notifications du navigateur",
-    "browserNotificationsDescription": "Afficher une notification système pour les appels entrants"
+    "browserNotificationsDescription": "Afficher une notification système pour les appels entrants",
+    "copyLink": "Copier le lien vers cette section",
+    "linkCopied": "Lien copié"
   },
   "session": {
     "expiringWarning": "Votre session est sur le point d'expirer.",

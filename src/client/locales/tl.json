@@ -317,7 +317,9 @@
     "playRingtone": "Mag-play ng ringtone para sa papasok na tawag",
     "playRingtoneDescription": "Nagpe-play ng tunog kapag may tumatawag",
     "browserNotifications": "Mga notipikasyon ng browser",
-    "browserNotificationsDescription": "Magpakita ng notipikasyon ng system para sa papasok na tawag"
+    "browserNotificationsDescription": "Magpakita ng notipikasyon ng system para sa papasok na tawag",
+    "copyLink": "Kopyahin ang link sa seksyong ito",
+    "linkCopied": "Nakopya ang link"
   },
   "session": {
     "expiringWarning": "Malapit nang mag-expire ang iyong session.",

@@ -317,7 +317,9 @@
     "playRingtone": "Phát nhạc chuông cho cuộc gọi đến",
     "playRingtoneDescription": "Phát âm thanh khi có cuộc gọi đến",
     "browserNotifications": "Thông báo trình duyệt",
-    "browserNotificationsDescription": "Hiển thị thông báo hệ thống cho cuộc gọi đến"
+    "browserNotificationsDescription": "Hiển thị thông báo hệ thống cho cuộc gọi đến",
+    "copyLink": "Sao chép liên kết đến phần này",
+    "linkCopied": "Đã sao chép liên kết"
   },
   "session": {
     "expiringWarning": "Phiên của bạn sắp hết hạn.",

@@ -317,7 +317,9 @@
     "playRingtone": "आने वाली कॉल के लिए रिंगटोन बजाएं",
     "playRingtoneDescription": "कॉल आने पर एक ऑडियो टोन बजाता है",
     "browserNotifications": "ब्राउज़र सूचनाएं",
-    "browserNotificationsDescription": "आने वाली कॉल के लिए सिस्टम सूचना दिखाएं"
+    "browserNotificationsDescription": "आने वाली कॉल के लिए सिस्टम सूचना दिखाएं",
+    "copyLink": "इस अनुभाग का लिंक कॉपी करें",
+    "linkCopied": "लिंक कॉपी किया गया"
   },
   "session": {
     "expiringWarning": "आपका सत्र समाप्त होने वाला है।",

@@ -317,7 +317,9 @@
     "playRingtone": "Воспроизводить рингтон для входящих звонков",
     "playRingtoneDescription": "Воспроизводит звуковой сигнал при входящем звонке",
     "browserNotifications": "Уведомления браузера",
-    "browserNotificationsDescription": "Показывать системное уведомление для входящих звонков"
+    "browserNotificationsDescription": "Показывать системное уведомление для входящих звонков",
+    "copyLink": "Скопировать ссылку на этот раздел",
+    "linkCopied": "Ссылка скопирована"
   },
   "session": {
     "expiringWarning": "Ваша сессия скоро истечёт.",

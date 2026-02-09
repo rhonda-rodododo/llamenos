@@ -317,7 +317,9 @@
     "playRingtone": "تشغيل نغمة رنين للمكالمات الواردة",
     "playRingtoneDescription": "تشغيل صوت عند ورود مكالمة",
     "browserNotifications": "إشعارات المتصفح",
-    "browserNotificationsDescription": "عرض إشعار النظام للمكالمات الواردة"
+    "browserNotificationsDescription": "عرض إشعار النظام للمكالمات الواردة",
+    "copyLink": "نسخ رابط هذا القسم",
+    "linkCopied": "تم نسخ الرابط"
   },
   "session": {
     "expiringWarning": "جلستك على وشك الانتهاء.",

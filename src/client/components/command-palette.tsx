@@ -148,7 +148,7 @@ export function CommandPalette() {
               <StickyNote className="h-4 w-4" />
               {t('nav.notes')}
             </CommandItem>
-            <CommandItem onSelect={() => runCommand(() => navigate({ to: '/settings' }))}>
+            <CommandItem onSelect={() => runCommand(() => navigate({ to: '/settings', search: { section: '' } }))}>
               <Settings className="h-4 w-4" />
               {t('nav.settings')}
             </CommandItem>

@@ -156,4 +156,57 @@ test.describe('Profile self-service', () => {
       await expect(page.getByText(/profile updated/i)).toBeVisible({ timeout: 5000 })
     }
   })
+
+  test('deep link expands and scrolls to section', async ({ page }) => {
+    await loginAsAdmin(page)
+    await page.goto('/settings?section=transcription')
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
+
+    // Transcription section should be expanded — content should be visible
+    await expect(page.getByText(/enable transcription for my calls/i)).toBeVisible()
+  })
+
+  test('sections collapse and expand on click', async ({ page }) => {
+    await loginAsAdmin(page)
+    await page.getByRole('link', { name: 'Settings' }).click()
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
+
+    // Profile is expanded by default — its content should be visible
+    await expect(page.locator('#profile-name')).toBeVisible()
+
+    // Collapse profile by clicking its header
+    await page.getByRole('heading', { name: 'Profile' }).click()
+    await expect(page.locator('#profile-name')).not.toBeVisible()
+
+    // Expand again
+    await page.getByRole('heading', { name: 'Profile' }).click()
+    await expect(page.locator('#profile-name')).toBeVisible()
+  })
+
+  test('multiple sections can be open simultaneously', async ({ page }) => {
+    await loginAsAdmin(page)
+    await page.getByRole('link', { name: 'Settings' }).click()
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
+
+    // Profile is already expanded
+    await expect(page.locator('#profile-name')).toBeVisible()
+
+    // Expand Transcription too
+    await page.getByRole('heading', { name: 'Transcription' }).click()
+    await expect(page.getByText(/enable transcription for my calls/i)).toBeVisible()
+
+    // Profile should still be expanded
+    await expect(page.locator('#profile-name')).toBeVisible()
+  })
+
+  test('copy link button is present on each section', async ({ page }) => {
+    await loginAsAdmin(page)
+    await page.getByRole('link', { name: 'Settings' }).click()
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
+
+    // Each section header should have a copy link button
+    const copyButtons = page.getByRole('button', { name: /copy link/i })
+    const count = await copyButtons.count()
+    expect(count).toBeGreaterThanOrEqual(5) // at least profile, passkeys, transcription, notifications + admin sections
+  })
 })

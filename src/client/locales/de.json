@@ -317,7 +317,9 @@
     "playRingtone": "Klingelton bei eingehenden Anrufen abspielen",
     "playRingtoneDescription": "Spielt einen Ton ab, wenn ein Anruf klingelt",
     "browserNotifications": "Browser-Benachrichtigungen",
-    "browserNotificationsDescription": "Systembenachrichtigung bei eingehenden Anrufen anzeigen"
+    "browserNotificationsDescription": "Systembenachrichtigung bei eingehenden Anrufen anzeigen",
+    "copyLink": "Link zu diesem Abschnitt kopieren",
+    "linkCopied": "Link kopiert"
   },
   "session": {
     "expiringWarning": "Ihre Sitzung läuft gleich ab.",

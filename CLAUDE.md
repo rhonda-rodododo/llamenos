@@ -79,7 +79,7 @@ bunx tsc --noEmit
 - Use context7 plugin to look up current docs for Twilio, Cloudflare Workers, TanStack, shadcn/ui, and other libraries before implementing.
 - Use the feature-dev plugin for guided development of complex features.
 - Use Playwright plugin for E2E test development and debugging.
-- Clean, modular and DRY patterns!
+- Clean, modular and DRY patterns! Clean up after yourself when pivoting or changing things, removing unused files and configurations
 - When Requirements, Architecture, Design, and Technical changes occur, always update related documentation
 - you MUST NOT delete or regress functionality to fix type issues or get tests passing, only delete functionality or new features or improvements if asked to or if they need to be replaced as part of new features/changes
 - use parallel execution via agents where it makes sense to to keep things moving along

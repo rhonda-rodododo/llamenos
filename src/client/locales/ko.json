@@ -317,7 +317,9 @@
     "playRingtone": "수신 전화 시 벨소리 재생",
     "playRingtoneDescription": "전화가 올 때 알림 소리를 재생합니다",
     "browserNotifications": "브라우저 알림",
-    "browserNotificationsDescription": "수신 전화 시 시스템 알림을 표시합니다"
+    "browserNotificationsDescription": "수신 전화 시 시스템 알림을 표시합니다",
+    "copyLink": "이 섹션 링크 복사",
+    "linkCopied": "링크 복사됨"
   },
   "session": {
     "expiringWarning": "세션이 곧 만료됩니다.",

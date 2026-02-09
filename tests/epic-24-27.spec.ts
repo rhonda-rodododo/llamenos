@@ -78,6 +78,9 @@ test.describe('Epic 26: Custom IVR Audio Recording', () => {
     await page.getByRole('link', { name: 'Settings' }).click()
     await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
 
+    // Expand Voice Prompts section
+    await page.getByRole('heading', { name: /voice prompts/i }).click()
+
     // Should show prompt type labels
     await expect(page.getByText('Greeting').first()).toBeVisible()
     await expect(page.getByText('Please Hold').first()).toBeVisible()
@@ -119,6 +122,9 @@ test.describe('Epic 27: Remaining Polish', () => {
     await page.getByRole('link', { name: 'Settings' }).click()
     await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
 
+    // Expand Spam Mitigation section
+    await page.getByRole('heading', { name: 'Spam Mitigation' }).click()
+
     // Find the voice CAPTCHA switch — use filter with both text and switch presence
     const captchaSection = page.locator('div').filter({ hasText: /voice captcha/i, has: page.getByRole('switch') }).last()
     const captchaSwitch = captchaSection.getByRole('switch')
@@ -136,6 +142,9 @@ test.describe('Epic 27: Remaining Polish', () => {
   test('settings confirmation dialog applies change on confirm', async ({ page }) => {
     await page.getByRole('link', { name: 'Settings' }).click()
     await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
+
+    // Expand Spam Mitigation section
+    await page.getByRole('heading', { name: 'Spam Mitigation' }).click()
 
     // Toggle rate limiting — use filter with both text and switch presence
     const rlSection = page.locator('div').filter({ hasText: /rate limiting/i, has: page.getByRole('switch') }).last()

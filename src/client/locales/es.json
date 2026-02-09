@@ -317,7 +317,9 @@
     "playRingtone": "Reproducir tono para llamadas entrantes",
     "playRingtoneDescription": "Reproduce un tono de audio cuando suena una llamada",
     "browserNotifications": "Notificaciones del navegador",
-    "browserNotificationsDescription": "Mostrar una notificación del sistema para llamadas entrantes"
+    "browserNotificationsDescription": "Mostrar una notificación del sistema para llamadas entrantes",
+    "copyLink": "Copiar enlace a esta sección",
+    "linkCopied": "Enlace copiado"
   },
   "session": {
     "expiringWarning": "Tu sesión está a punto de expirar.",

@@ -317,7 +317,9 @@
     "playRingtone": "Jwe sonnri pou apèl ki antre",
     "playRingtoneDescription": "Jwe yon son lè yon apèl ap sonnen",
     "browserNotifications": "Notifikasyon navigatè",
-    "browserNotificationsDescription": "Montre yon notifikasyon sistèm pou apèl ki antre"
+    "browserNotificationsDescription": "Montre yon notifikasyon sistèm pou apèl ki antre",
+    "copyLink": "Kopye lyen seksyon sa a",
+    "linkCopied": "Lyen kopye"
   },
   "session": {
     "expiringWarning": "Sesyon ou prèske expire.",

@@ -1,7 +1,7 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useSearch } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   getSpamSettings,
   updateSpamSettings,
@@ -32,7 +32,7 @@ import { PhoneInput } from '@/components/phone-input'
 import { getNotificationPrefs, setNotificationPrefs } from '@/lib/notifications'
 import { LANGUAGES, IVR_LANGUAGES, LANGUAGE_MAP, ivrIndexToDigit } from '@shared/languages'
 import { ConfirmDialog } from '@/components/confirm-dialog'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { SettingsSection } from '@/components/settings-section'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -41,10 +41,14 @@ import { Badge } from '@/components/ui/badge'
 
 export const Route = createFileRoute('/settings')({
   component: SettingsPage,
+  validateSearch: (search: Record<string, unknown>) => ({
+    section: (search.section as string) || '',
+  }),
 })
 
 function SettingsPage() {
   const { t } = useTranslation()
+  const { section } = useSearch({ from: '/settings' })
   const { isAdmin, transcriptionEnabled, name: authName, spokenLanguages, refreshProfile } = useAuth()
   const { toast } = useToast()
   const [spam, setSpam] = useState<SpamSettings | null>(null)
@@ -62,6 +66,26 @@ function SettingsPage() {
   const [webauthnRegistering, setWebauthnRegistering] = useState(false)
   const [webauthnSettings, setWebauthnSettings] = useState<WebAuthnSettings | null>(null)
   const webauthnAvailable = isWebAuthnAvailable()
+
+  // Collapsible state — profile expanded by default, plus any deep-linked section
+  const [expanded, setExpanded] = useState<Set<string>>(() => {
+    const initial = new Set(['profile'])
+    if (section) initial.add(section)
+    return initial
+  })
+  const scrolledRef = useRef(false)
+
+  const toggleSection = useCallback((id: string, open: boolean) => {
+    setExpanded(prev => {
+      const next = new Set(prev)
+      if (open) {
+        next.add(id)
+      } else {
+        next.delete(id)
+      }
+      return next
+    })
+  }, [])
 
   // Profile state
   const [profileName, setProfileName] = useState(authName || '')
@@ -98,6 +122,16 @@ function SettingsPage() {
       setLoading(false)
     }
   }, [isAdmin])
+
+  // Scroll to deep-linked section after loading
+  useEffect(() => {
+    if (!loading && section && !scrolledRef.current) {
+      scrolledRef.current = true
+      requestAnimationFrame(() => {
+        document.getElementById(section)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      })
+    }
+  }, [loading, section])
 
   useEffect(() => {
     setProfileName(authName || '')
@@ -162,595 +196,575 @@ function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center gap-2">
         <Settings2 className="h-6 w-6 text-muted-foreground" />
         <h1 className="text-xl font-bold sm:text-2xl">{t('settings.title')}</h1>
       </div>
 
       {/* Profile */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <User className="h-5 w-5 text-muted-foreground" />
-            {t('profileSettings.profile')}
-          </CardTitle>
-          <CardDescription>{t('profileSettings.profileDescription')}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="profile-name">{t('profileSettings.displayName')}</Label>
-              <Input
-                id="profile-name"
-                value={profileName}
-                onChange={e => setProfileName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="profile-phone">{t('profileSettings.phoneNumber')}</Label>
-              <PhoneInput
-                id="profile-phone"
-                value={profilePhone}
-                onChange={setProfilePhone}
-              />
-            </div>
-          </div>
-
-          {npub && (
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">{t('profileSettings.yourPublicKey')}</p>
-              <code className="block break-all rounded-md bg-muted px-3 py-2 text-xs">{npub}</code>
-            </div>
-          )}
-
-          {profileError && (
-            <p className="text-sm text-destructive">{profileError}</p>
-          )}
-
-          {/* Spoken languages */}
+      <SettingsSection
+        id="profile"
+        title={t('profileSettings.profile')}
+        description={t('profileSettings.profileDescription')}
+        icon={<User className="h-5 w-5 text-muted-foreground" />}
+        expanded={expanded.has('profile')}
+        onToggle={(open) => toggleSection('profile', open)}
+      >
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Globe className="h-4 w-4 text-muted-foreground" />
-              <Label>{t('profile.spokenLanguages')}</Label>
-            </div>
-            <p className="text-xs text-muted-foreground">{t('profile.spokenLanguagesHelp')}</p>
-            <div className="flex flex-wrap gap-2">
-              {LANGUAGES.map(lang => {
-                const selected = selectedLanguages.includes(lang.code)
-                return (
-                  <button
-                    key={lang.code}
-                    onClick={() => {
-                      setSelectedLanguages(prev =>
-                        selected
-                          ? prev.filter(c => c !== lang.code)
-                          : [...prev, lang.code]
-                      )
-                    }}
-                    className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs transition-colors ${
-                      selected
-                        ? 'border-primary bg-primary/10 text-primary font-medium'
-                        : 'border-border hover:border-primary/50'
-                    }`}
-                  >
-                    <span>{lang.flag}</span>
-                    {lang.label}
-                  </button>
-                )
-              })}
-            </div>
+            <Label htmlFor="profile-name">{t('profileSettings.displayName')}</Label>
+            <Input
+              id="profile-name"
+              value={profileName}
+              onChange={e => setProfileName(e.target.value)}
+            />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="profile-phone">{t('profileSettings.phoneNumber')}</Label>
+            <PhoneInput
+              id="profile-phone"
+              value={profilePhone}
+              onChange={setProfilePhone}
+            />
+          </div>
+        </div>
 
-          <Button onClick={handleUpdateProfile}>
-            {t('profileSettings.updateProfile')}
-          </Button>
-        </CardContent>
-      </Card>
+        {npub && (
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground">{t('profileSettings.yourPublicKey')}</p>
+            <code className="block break-all rounded-md bg-muted px-3 py-2 text-xs">{npub}</code>
+          </div>
+        )}
+
+        {profileError && (
+          <p className="text-sm text-destructive">{profileError}</p>
+        )}
+
+        {/* Spoken languages */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Globe className="h-4 w-4 text-muted-foreground" />
+            <Label>{t('profile.spokenLanguages')}</Label>
+          </div>
+          <p className="text-xs text-muted-foreground">{t('profile.spokenLanguagesHelp')}</p>
+          <div className="flex flex-wrap gap-2">
+            {LANGUAGES.map(lang => {
+              const selected = selectedLanguages.includes(lang.code)
+              return (
+                <button
+                  key={lang.code}
+                  onClick={() => {
+                    setSelectedLanguages(prev =>
+                      selected
+                        ? prev.filter(c => c !== lang.code)
+                        : [...prev, lang.code]
+                    )
+                  }}
+                  className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs transition-colors ${
+                    selected
+                      ? 'border-primary bg-primary/10 text-primary font-medium'
+                      : 'border-border hover:border-primary/50'
+                  }`}
+                >
+                  <span>{lang.flag}</span>
+                  {lang.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        <Button onClick={handleUpdateProfile}>
+          {t('profileSettings.updateProfile')}
+        </Button>
+      </SettingsSection>
 
       {/* Key Backup — admin only */}
       {isAdmin && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <KeyRound className="h-5 w-5 text-muted-foreground" />
-              {t('profileSettings.keyBackup')}
-            </CardTitle>
-            <CardDescription>{t('profileSettings.keyBackupDescription')}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button variant="outline" onClick={() => {
-              if (!nsec || !keyPair) return
-              const backup = JSON.stringify({
-                version: 1,
-                format: 'llamenos-key-backup',
-                pubkey: keyPair.publicKey,
-                nsec,
-                createdAt: new Date().toISOString(),
-              }, null, 2)
-              const blob = new Blob([backup], { type: 'application/json' })
-              const url = URL.createObjectURL(blob)
-              const a = document.createElement('a')
-              a.href = url
-              a.download = `llamenos-backup-${keyPair.publicKey.slice(0, 8)}.json`
-              a.click()
-              URL.revokeObjectURL(url)
-            }}>
-              {t('onboarding.downloadBackup')}
-            </Button>
-          </CardContent>
-        </Card>
+        <SettingsSection
+          id="key-backup"
+          title={t('profileSettings.keyBackup')}
+          description={t('profileSettings.keyBackupDescription')}
+          icon={<KeyRound className="h-5 w-5 text-muted-foreground" />}
+          expanded={expanded.has('key-backup')}
+          onToggle={(open) => toggleSection('key-backup', open)}
+        >
+          <Button variant="outline" onClick={() => {
+            if (!nsec || !keyPair) return
+            const backup = JSON.stringify({
+              version: 1,
+              format: 'llamenos-key-backup',
+              pubkey: keyPair.publicKey,
+              nsec,
+              createdAt: new Date().toISOString(),
+            }, null, 2)
+            const blob = new Blob([backup], { type: 'application/json' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = `llamenos-backup-${keyPair.publicKey.slice(0, 8)}.json`
+            a.click()
+            URL.revokeObjectURL(url)
+          }}>
+            {t('onboarding.downloadBackup')}
+          </Button>
+        </SettingsSection>
       )}
 
       {/* Passkeys (WebAuthn) — all users */}
       {webauthnAvailable && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Fingerprint className="h-5 w-5 text-muted-foreground" />
-              {t('webauthn.title', { defaultValue: 'Passkeys' })}
-            </CardTitle>
-            <CardDescription>{t('webauthn.description', { defaultValue: 'Use your device biometrics or PIN to sign in without your secret key.' })}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {webauthnCreds.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t('webauthn.noKeys', { defaultValue: 'No passkeys registered yet.' })}</p>
-            ) : (
-              <div className="space-y-2">
-                {webauthnCreds.map(cred => (
-                  <div key={cred.id} className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
-                    <div className="space-y-0.5">
-                      <p className="text-sm font-medium">{cred.label}</p>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Badge variant="outline" className="text-[10px]">
-                          {cred.backedUp
-                            ? t('webauthn.syncedPasskey', { defaultValue: 'Synced' })
-                            : t('webauthn.singleDevice', { defaultValue: 'This device' })
-                          }
-                        </Badge>
-                        <span>{t('webauthn.lastUsed', { defaultValue: 'Last used' })}: {new Date(cred.lastUsedAt).toLocaleDateString()}</span>
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={async () => {
-                        try {
-                          await deleteCredential(cred.id)
-                          setWebauthnCreds(prev => prev.filter(c => c.id !== cred.id))
-                          toast(t('common.success'), 'success')
-                        } catch {
-                          toast(t('common.error'), 'error')
+        <SettingsSection
+          id="passkeys"
+          title={t('webauthn.title')}
+          description={t('webauthn.description')}
+          icon={<Fingerprint className="h-5 w-5 text-muted-foreground" />}
+          expanded={expanded.has('passkeys')}
+          onToggle={(open) => toggleSection('passkeys', open)}
+        >
+          {webauthnCreds.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t('webauthn.noKeys')}</p>
+          ) : (
+            <div className="space-y-2">
+              {webauthnCreds.map(cred => (
+                <div key={cred.id} className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-medium">{cred.label}</p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Badge variant="outline" className="text-[10px]">
+                        {cred.backedUp
+                          ? t('webauthn.syncedPasskey')
+                          : t('webauthn.singleDevice')
                         }
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                      </Badge>
+                      <span>{t('webauthn.lastUsed')}: {new Date(cred.lastUsedAt).toLocaleDateString()}</span>
+                    </div>
                   </div>
-                ))}
-              </div>
-            )}
-
-            <div className="flex gap-2">
-              <Input
-                value={webauthnLabel}
-                onChange={e => setWebauthnLabel(e.target.value)}
-                placeholder={t('webauthn.label', { defaultValue: 'Passkey name (e.g. "My Phone")' })}
-                className="flex-1"
-              />
-              <Button
-                onClick={async () => {
-                  if (!webauthnLabel.trim()) return
-                  setWebauthnRegistering(true)
-                  try {
-                    await registerCredential(webauthnLabel.trim())
-                    const updated = await listCredentials()
-                    setWebauthnCreds(updated)
-                    setWebauthnLabel('')
-                    toast(t('webauthn.registerSuccess', { defaultValue: 'Passkey registered!' }), 'success')
-                  } catch {
-                    toast(t('common.error'), 'error')
-                  } finally {
-                    setWebauthnRegistering(false)
-                  }
-                }}
-                disabled={webauthnRegistering || !webauthnLabel.trim()}
-              >
-                <Plus className="h-4 w-4" />
-                {t('webauthn.registerKey', { defaultValue: 'Add passkey' })}
-              </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        await deleteCredential(cred.id)
+                        setWebauthnCreds(prev => prev.filter(c => c.id !== cred.id))
+                        toast(t('common.success'), 'success')
+                      } catch {
+                        toast(t('common.error'), 'error')
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              ))}
             </div>
-          </CardContent>
-        </Card>
+          )}
+
+          <div className="flex gap-2">
+            <Input
+              value={webauthnLabel}
+              onChange={e => setWebauthnLabel(e.target.value)}
+              placeholder={t('webauthn.label')}
+              className="flex-1"
+            />
+            <Button
+              onClick={async () => {
+                if (!webauthnLabel.trim()) return
+                setWebauthnRegistering(true)
+                try {
+                  await registerCredential(webauthnLabel.trim())
+                  const updated = await listCredentials()
+                  setWebauthnCreds(updated)
+                  setWebauthnLabel('')
+                  toast(t('webauthn.registerSuccess'), 'success')
+                } catch {
+                  toast(t('common.error'), 'error')
+                } finally {
+                  setWebauthnRegistering(false)
+                }
+              }}
+              disabled={webauthnRegistering || !webauthnLabel.trim()}
+            >
+              <Plus className="h-4 w-4" />
+              {t('webauthn.registerKey')}
+            </Button>
+          </div>
+        </SettingsSection>
       )}
 
       {/* WebAuthn Policy (admin only) */}
       {isAdmin && webauthnSettings && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-muted-foreground" />
-              {t('webauthn.policy', { defaultValue: 'Passkey Policy' })}
-            </CardTitle>
-            <CardDescription>{t('webauthn.policyDescription', { defaultValue: 'Require passkeys for user groups. Users without passkeys will be prompted to set one up.' })}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between rounded-lg border border-border p-4">
-              <div className="space-y-0.5">
-                <Label>{t('webauthn.requireForAdmins', { defaultValue: 'Require for admins' })}</Label>
-              </div>
-              <Switch
-                checked={webauthnSettings.requireForAdmins}
-                onCheckedChange={async (checked) => {
-                  try {
-                    const res = await updateWebAuthnSettings({ requireForAdmins: checked })
-                    setWebauthnSettings(res)
-                  } catch {
-                    toast(t('common.error'), 'error')
-                  }
-                }}
-              />
-            </div>
-            <div className="flex items-center justify-between rounded-lg border border-border p-4">
-              <div className="space-y-0.5">
-                <Label>{t('webauthn.requireForVolunteers', { defaultValue: 'Require for volunteers' })}</Label>
-              </div>
-              <Switch
-                checked={webauthnSettings.requireForVolunteers}
-                onCheckedChange={async (checked) => {
-                  try {
-                    const res = await updateWebAuthnSettings({ requireForVolunteers: checked })
-                    setWebauthnSettings(res)
-                  } catch {
-                    toast(t('common.error'), 'error')
-                  }
-                }}
-              />
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Transcription */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Mic className="h-5 w-5 text-muted-foreground" />
-            {t('settings.transcriptionSettings')}
-          </CardTitle>
-          <CardDescription>{t('settings.transcriptionDescription')}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {isAdmin && (
-            <div className="flex items-center justify-between rounded-lg border border-border p-4">
-              <div className="space-y-0.5">
-                <Label>{t('settings.enableTranscription')}</Label>
-                <p className="text-xs text-muted-foreground">{t('transcription.enabledGlobal')}</p>
-              </div>
-              <Switch
-                checked={globalTranscription}
-                onCheckedChange={(checked) => setConfirmToggle({ key: 'transcription', newValue: checked })}
-              />
-            </div>
-          )}
-
+        <SettingsSection
+          id="passkey-policy"
+          title={t('webauthn.policy')}
+          description={t('webauthn.policyDescription')}
+          icon={<Shield className="h-5 w-5 text-muted-foreground" />}
+          expanded={expanded.has('passkey-policy')}
+          onToggle={(open) => toggleSection('passkey-policy', open)}
+        >
           <div className="flex items-center justify-between rounded-lg border border-border p-4">
             <div className="space-y-0.5">
-              <Label>{t('transcription.enableForCalls')}</Label>
+              <Label>{t('webauthn.requireForAdmins')}</Label>
             </div>
             <Switch
-              checked={myTranscription}
+              checked={webauthnSettings.requireForAdmins}
               onCheckedChange={async (checked) => {
                 try {
-                  await updateMyTranscriptionPreference(checked)
-                  setMyTranscription(checked)
+                  const res = await updateWebAuthnSettings({ requireForAdmins: checked })
+                  setWebauthnSettings(res)
                 } catch {
                   toast(t('common.error'), 'error')
                 }
               }}
             />
           </div>
-        </CardContent>
-      </Card>
+          <div className="flex items-center justify-between rounded-lg border border-border p-4">
+            <div className="space-y-0.5">
+              <Label>{t('webauthn.requireForVolunteers')}</Label>
+            </div>
+            <Switch
+              checked={webauthnSettings.requireForVolunteers}
+              onCheckedChange={async (checked) => {
+                try {
+                  const res = await updateWebAuthnSettings({ requireForVolunteers: checked })
+                  setWebauthnSettings(res)
+                } catch {
+                  toast(t('common.error'), 'error')
+                }
+              }}
+            />
+          </div>
+        </SettingsSection>
+      )}
+
+      {/* Transcription */}
+      <SettingsSection
+        id="transcription"
+        title={t('settings.transcriptionSettings')}
+        description={t('settings.transcriptionDescription')}
+        icon={<Mic className="h-5 w-5 text-muted-foreground" />}
+        expanded={expanded.has('transcription')}
+        onToggle={(open) => toggleSection('transcription', open)}
+      >
+        {isAdmin && (
+          <div className="flex items-center justify-between rounded-lg border border-border p-4">
+            <div className="space-y-0.5">
+              <Label>{t('settings.enableTranscription')}</Label>
+              <p className="text-xs text-muted-foreground">{t('transcription.enabledGlobal')}</p>
+            </div>
+            <Switch
+              checked={globalTranscription}
+              onCheckedChange={(checked) => setConfirmToggle({ key: 'transcription', newValue: checked })}
+            />
+          </div>
+        )}
+
+        <div className="flex items-center justify-between rounded-lg border border-border p-4">
+          <div className="space-y-0.5">
+            <Label>{t('transcription.enableForCalls')}</Label>
+          </div>
+          <Switch
+            checked={myTranscription}
+            onCheckedChange={async (checked) => {
+              try {
+                await updateMyTranscriptionPreference(checked)
+                setMyTranscription(checked)
+              } catch {
+                toast(t('common.error'), 'error')
+              }
+            }}
+          />
+        </div>
+      </SettingsSection>
 
       {/* Call Notifications */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Bell className="h-5 w-5 text-muted-foreground" />
-            {t('settings.notifications')}
-          </CardTitle>
-          <CardDescription>{t('settings.notificationsDescription')}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between rounded-lg border border-border p-4">
-            <div className="space-y-0.5">
-              <Label>{t('settings.playRingtone')}</Label>
-              <p className="text-xs text-muted-foreground">{t('settings.playRingtoneDescription')}</p>
-            </div>
-            <Switch
-              checked={notifPrefs.ringtoneEnabled}
-              onCheckedChange={(checked) => {
-                const updated = setNotificationPrefs({ ringtoneEnabled: checked })
-                setNotifPrefs(updated)
-              }}
-            />
+      <SettingsSection
+        id="notifications"
+        title={t('settings.notifications')}
+        description={t('settings.notificationsDescription')}
+        icon={<Bell className="h-5 w-5 text-muted-foreground" />}
+        expanded={expanded.has('notifications')}
+        onToggle={(open) => toggleSection('notifications', open)}
+      >
+        <div className="flex items-center justify-between rounded-lg border border-border p-4">
+          <div className="space-y-0.5">
+            <Label>{t('settings.playRingtone')}</Label>
+            <p className="text-xs text-muted-foreground">{t('settings.playRingtoneDescription')}</p>
           </div>
-          <div className="flex items-center justify-between rounded-lg border border-border p-4">
-            <div className="space-y-0.5">
-              <Label>{t('settings.browserNotifications')}</Label>
-              <p className="text-xs text-muted-foreground">{t('settings.browserNotificationsDescription')}</p>
-            </div>
-            <Switch
-              checked={notifPrefs.browserNotificationsEnabled}
-              onCheckedChange={(checked) => {
-                const updated = setNotificationPrefs({ browserNotificationsEnabled: checked })
-                setNotifPrefs(updated)
-              }}
-            />
+          <Switch
+            checked={notifPrefs.ringtoneEnabled}
+            onCheckedChange={(checked) => {
+              const updated = setNotificationPrefs({ ringtoneEnabled: checked })
+              setNotifPrefs(updated)
+            }}
+          />
+        </div>
+        <div className="flex items-center justify-between rounded-lg border border-border p-4">
+          <div className="space-y-0.5">
+            <Label>{t('settings.browserNotifications')}</Label>
+            <p className="text-xs text-muted-foreground">{t('settings.browserNotificationsDescription')}</p>
           </div>
-        </CardContent>
-      </Card>
+          <Switch
+            checked={notifPrefs.browserNotificationsEnabled}
+            onCheckedChange={(checked) => {
+              const updated = setNotificationPrefs({ browserNotificationsEnabled: checked })
+              setNotifPrefs(updated)
+            }}
+          />
+        </div>
+      </SettingsSection>
 
       {/* IVR Language Menu */}
       {isAdmin && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Phone className="h-5 w-5 text-muted-foreground" />
-              {t('ivr.title')}
-            </CardTitle>
-            <CardDescription>{t('ivr.description')}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {IVR_LANGUAGES.map((code, index) => {
-                const lang = LANGUAGE_MAP[code]
-                if (!lang) return null
-                const enabled = ivrEnabled.includes(code)
-                const isLastEnabled = enabled && ivrEnabled.length === 1
-                return (
-                  <div key={code} className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs font-mono">
-                        {ivrIndexToDigit(index)}
-                      </Badge>
-                      <span className="text-sm">{lang.label}</span>
-                    </div>
-                    <Switch
-                      checked={enabled}
-                      disabled={isLastEnabled}
-                      onCheckedChange={async (checked) => {
-                        const next = checked
-                          ? [...ivrEnabled, code]
-                          : ivrEnabled.filter(c => c !== code)
-                        try {
-                          const res = await updateIvrLanguages({ enabledLanguages: next })
-                          setIvrEnabled(res.enabledLanguages)
-                        } catch {
-                          toast(t('common.error'), 'error')
-                        }
-                      }}
-                    />
+        <SettingsSection
+          id="ivr-languages"
+          title={t('ivr.title')}
+          description={t('ivr.description')}
+          icon={<Phone className="h-5 w-5 text-muted-foreground" />}
+          expanded={expanded.has('ivr-languages')}
+          onToggle={(open) => toggleSection('ivr-languages', open)}
+        >
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {IVR_LANGUAGES.map((code, index) => {
+              const lang = LANGUAGE_MAP[code]
+              if (!lang) return null
+              const enabled = ivrEnabled.includes(code)
+              const isLastEnabled = enabled && ivrEnabled.length === 1
+              return (
+                <div key={code} className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs font-mono">
+                      {ivrIndexToDigit(index)}
+                    </Badge>
+                    <span className="text-sm">{lang.label}</span>
                   </div>
-                )
-              })}
-            </div>
-            {ivrEnabled.length === 1 && (
-              <p className="text-xs text-muted-foreground">{t('ivr.atLeastOne')}</p>
-            )}
-          </CardContent>
-        </Card>
+                  <Switch
+                    checked={enabled}
+                    disabled={isLastEnabled}
+                    onCheckedChange={async (checked) => {
+                      const next = checked
+                        ? [...ivrEnabled, code]
+                        : ivrEnabled.filter(c => c !== code)
+                      try {
+                        const res = await updateIvrLanguages({ enabledLanguages: next })
+                        setIvrEnabled(res.enabledLanguages)
+                      } catch {
+                        toast(t('common.error'), 'error')
+                      }
+                    }}
+                  />
+                </div>
+              )
+            })}
+          </div>
+          {ivrEnabled.length === 1 && (
+            <p className="text-xs text-muted-foreground">{t('ivr.atLeastOne')}</p>
+          )}
+        </SettingsSection>
       )}
 
       {/* Call Settings */}
       {isAdmin && callSet && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <PhoneForwarded className="h-5 w-5 text-muted-foreground" />
-              {t('callSettings.title')}
-            </CardTitle>
-            <CardDescription>{t('callSettings.description')}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="queue-timeout">{t('callSettings.queueTimeout')}</Label>
-                <p className="text-xs text-muted-foreground">{t('callSettings.queueTimeoutDescription')}</p>
-                <Input
-                  id="queue-timeout"
-                  type="number"
-                  value={callSet.queueTimeoutSeconds}
-                  onChange={async (e) => {
-                    try {
-                      const val = parseInt(e.target.value) || 90
-                      const res = await updateCallSettings({ queueTimeoutSeconds: val })
-                      setCallSet(res)
-                    } catch {
-                      toast(t('common.error'), 'error')
-                    }
-                  }}
-                  min={30}
-                  max={300}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="voicemail-max">{t('callSettings.voicemailMax')}</Label>
-                <p className="text-xs text-muted-foreground">{t('callSettings.voicemailMaxDescription')}</p>
-                <Input
-                  id="voicemail-max"
-                  type="number"
-                  value={callSet.voicemailMaxSeconds}
-                  onChange={async (e) => {
-                    try {
-                      const val = parseInt(e.target.value) || 120
-                      const res = await updateCallSettings({ voicemailMaxSeconds: val })
-                      setCallSet(res)
-                    } catch {
-                      toast(t('common.error'), 'error')
-                    }
-                  }}
-                  min={30}
-                  max={300}
-                />
-              </div>
+        <SettingsSection
+          id="call-settings"
+          title={t('callSettings.title')}
+          description={t('callSettings.description')}
+          icon={<PhoneForwarded className="h-5 w-5 text-muted-foreground" />}
+          expanded={expanded.has('call-settings')}
+          onToggle={(open) => toggleSection('call-settings', open)}
+        >
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="queue-timeout">{t('callSettings.queueTimeout')}</Label>
+              <p className="text-xs text-muted-foreground">{t('callSettings.queueTimeoutDescription')}</p>
+              <Input
+                id="queue-timeout"
+                type="number"
+                value={callSet.queueTimeoutSeconds}
+                onChange={async (e) => {
+                  try {
+                    const val = parseInt(e.target.value) || 90
+                    const res = await updateCallSettings({ queueTimeoutSeconds: val })
+                    setCallSet(res)
+                  } catch {
+                    toast(t('common.error'), 'error')
+                  }
+                }}
+                min={30}
+                max={300}
+              />
             </div>
-          </CardContent>
-        </Card>
+            <div className="space-y-2">
+              <Label htmlFor="voicemail-max">{t('callSettings.voicemailMax')}</Label>
+              <p className="text-xs text-muted-foreground">{t('callSettings.voicemailMaxDescription')}</p>
+              <Input
+                id="voicemail-max"
+                type="number"
+                value={callSet.voicemailMaxSeconds}
+                onChange={async (e) => {
+                  try {
+                    const val = parseInt(e.target.value) || 120
+                    const res = await updateCallSettings({ voicemailMaxSeconds: val })
+                    setCallSet(res)
+                  } catch {
+                    toast(t('common.error'), 'error')
+                  }
+                }}
+                min={30}
+                max={300}
+              />
+            </div>
+          </div>
+        </SettingsSection>
       )}
 
       {/* Voice Prompts (IVR Audio) */}
       {isAdmin && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Volume2 className="h-5 w-5 text-muted-foreground" />
-              {t('ivrAudio.title')}
-            </CardTitle>
-            <CardDescription>{t('ivrAudio.description')}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {(['greeting', 'pleaseHold', 'waitMessage', 'rateLimited', 'captchaPrompt'] as const).map(promptType => (
-              <div key={promptType} className="space-y-2">
-                <h4 className="text-sm font-medium">{t(`ivrAudio.prompt.${promptType}`)}</h4>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {ivrEnabled.map(langCode => {
-                    const lang = LANGUAGE_MAP[langCode]
-                    if (!lang) return null
-                    const existing = ivrAudio.find(r => r.promptType === promptType && r.language === langCode)
-                    const key = `${promptType}:${langCode}`
-                    return (
-                      <div key={key} className="rounded-lg border border-border p-3 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-medium">{lang.flag} {lang.label}</span>
-                          {existing && (
-                            <Badge variant="secondary" className="text-[10px]">{t('ivrAudio.uploaded')}</Badge>
-                          )}
-                        </div>
-                        <AudioRecorder
-                          existingUrl={existing ? getIvrAudioUrl(promptType, langCode) : undefined}
-                          onRecorded={async (blob) => {
-                            setAudioSaving(key)
-                            try {
-                              await uploadIvrAudio(promptType, langCode, blob)
-                              const res = await listIvrAudio()
-                              setIvrAudio(res.recordings)
-                              toast(t('common.success'), 'success')
-                            } catch {
-                              toast(t('common.error'), 'error')
-                            } finally {
-                              setAudioSaving(null)
-                            }
-                          }}
-                          onDelete={existing ? async () => {
-                            setAudioSaving(key)
-                            try {
-                              await deleteIvrAudio(promptType, langCode)
-                              setIvrAudio(prev => prev.filter(r => !(r.promptType === promptType && r.language === langCode)))
-                              toast(t('common.success'), 'success')
-                            } catch {
-                              toast(t('common.error'), 'error')
-                            } finally {
-                              setAudioSaving(null)
-                            }
-                          } : undefined}
-                        />
-                        {audioSaving === key && (
-                          <p className="text-xs text-muted-foreground">{t('common.loading')}</p>
+        <SettingsSection
+          id="voice-prompts"
+          title={t('ivrAudio.title')}
+          description={t('ivrAudio.description')}
+          icon={<Volume2 className="h-5 w-5 text-muted-foreground" />}
+          expanded={expanded.has('voice-prompts')}
+          onToggle={(open) => toggleSection('voice-prompts', open)}
+        >
+          {(['greeting', 'pleaseHold', 'waitMessage', 'rateLimited', 'captchaPrompt'] as const).map(promptType => (
+            <div key={promptType} className="space-y-2">
+              <h4 className="text-sm font-medium">{t(`ivrAudio.prompt.${promptType}`)}</h4>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {ivrEnabled.map(langCode => {
+                  const lang = LANGUAGE_MAP[langCode]
+                  if (!lang) return null
+                  const existing = ivrAudio.find(r => r.promptType === promptType && r.language === langCode)
+                  const key = `${promptType}:${langCode}`
+                  return (
+                    <div key={key} className="rounded-lg border border-border p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium">{lang.flag} {lang.label}</span>
+                        {existing && (
+                          <Badge variant="secondary" className="text-[10px]">{t('ivrAudio.uploaded')}</Badge>
                         )}
                       </div>
-                    )
-                  })}
-                </div>
+                      <AudioRecorder
+                        existingUrl={existing ? getIvrAudioUrl(promptType, langCode) : undefined}
+                        onRecorded={async (blob) => {
+                          setAudioSaving(key)
+                          try {
+                            await uploadIvrAudio(promptType, langCode, blob)
+                            const res = await listIvrAudio()
+                            setIvrAudio(res.recordings)
+                            toast(t('common.success'), 'success')
+                          } catch {
+                            toast(t('common.error'), 'error')
+                          } finally {
+                            setAudioSaving(null)
+                          }
+                        }}
+                        onDelete={existing ? async () => {
+                          setAudioSaving(key)
+                          try {
+                            await deleteIvrAudio(promptType, langCode)
+                            setIvrAudio(prev => prev.filter(r => !(r.promptType === promptType && r.language === langCode)))
+                            toast(t('common.success'), 'success')
+                          } catch {
+                            toast(t('common.error'), 'error')
+                          } finally {
+                            setAudioSaving(null)
+                          }
+                        } : undefined}
+                      />
+                      {audioSaving === key && (
+                        <p className="text-xs text-muted-foreground">{t('common.loading')}</p>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
-            ))}
-          </CardContent>
-        </Card>
+            </div>
+          ))}
+        </SettingsSection>
       )}
 
       {/* Spam mitigation */}
       {isAdmin && spam && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ShieldAlert className="h-5 w-5 text-muted-foreground" />
-              {t('spam.title')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between rounded-lg border border-border p-4">
-              <div className="flex items-start gap-3">
-                <Bot className="mt-0.5 h-4 w-4 text-muted-foreground" />
-                <div className="space-y-0.5">
-                  <Label>{t('spam.voiceCaptcha')}</Label>
-                  <p className="text-xs text-muted-foreground">{t('spam.voiceCaptchaDescription')}</p>
-                </div>
+        <SettingsSection
+          id="spam"
+          title={t('spam.title')}
+          icon={<ShieldAlert className="h-5 w-5 text-muted-foreground" />}
+          expanded={expanded.has('spam')}
+          onToggle={(open) => toggleSection('spam', open)}
+        >
+          <div className="flex items-center justify-between rounded-lg border border-border p-4">
+            <div className="flex items-start gap-3">
+              <Bot className="mt-0.5 h-4 w-4 text-muted-foreground" />
+              <div className="space-y-0.5">
+                <Label>{t('spam.voiceCaptcha')}</Label>
+                <p className="text-xs text-muted-foreground">{t('spam.voiceCaptchaDescription')}</p>
               </div>
-              <Switch
-                checked={spam.voiceCaptchaEnabled}
-                onCheckedChange={(checked) => setConfirmToggle({ key: 'captcha', newValue: checked })}
-              />
             </div>
+            <Switch
+              checked={spam.voiceCaptchaEnabled}
+              onCheckedChange={(checked) => setConfirmToggle({ key: 'captcha', newValue: checked })}
+            />
+          </div>
 
-            <div className="flex items-center justify-between rounded-lg border border-border p-4">
-              <div className="flex items-start gap-3">
-                <Timer className="mt-0.5 h-4 w-4 text-muted-foreground" />
-                <div className="space-y-0.5">
-                  <Label>{t('spam.rateLimiting')}</Label>
-                  <p className="text-xs text-muted-foreground">{t('spam.rateLimitingDescription')}</p>
-                </div>
+          <div className="flex items-center justify-between rounded-lg border border-border p-4">
+            <div className="flex items-start gap-3">
+              <Timer className="mt-0.5 h-4 w-4 text-muted-foreground" />
+              <div className="space-y-0.5">
+                <Label>{t('spam.rateLimiting')}</Label>
+                <p className="text-xs text-muted-foreground">{t('spam.rateLimitingDescription')}</p>
               </div>
-              <Switch
-                checked={spam.rateLimitEnabled}
-                onCheckedChange={(checked) => setConfirmToggle({ key: 'rateLimit', newValue: checked })}
-              />
             </div>
+            <Switch
+              checked={spam.rateLimitEnabled}
+              onCheckedChange={(checked) => setConfirmToggle({ key: 'rateLimit', newValue: checked })}
+            />
+          </div>
 
-            {spam.rateLimitEnabled && (
-              <div className="grid grid-cols-1 gap-4 rounded-lg border border-border p-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="max-calls">{t('spam.maxCallsPerMinute')}</Label>
-                  <Input
-                    id="max-calls"
-                    type="number"
-                    value={spam.maxCallsPerMinute}
-                    onChange={async (e) => {
-                      try {
-                        const val = parseInt(e.target.value) || 3
-                        const res = await updateSpamSettings({ maxCallsPerMinute: val })
-                        setSpam(res)
-                      } catch {
-                        toast(t('common.error'), 'error')
-                      }
-                    }}
-                    min={1}
-                    max={60}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="block-duration">{t('spam.blockDuration')}</Label>
-                  <Input
-                    id="block-duration"
-                    type="number"
-                    value={spam.blockDurationMinutes}
-                    onChange={async (e) => {
-                      try {
-                        const val = parseInt(e.target.value) || 30
-                        const res = await updateSpamSettings({ blockDurationMinutes: val })
-                        setSpam(res)
-                      } catch {
-                        toast(t('common.error'), 'error')
-                      }
-                    }}
-                    min={1}
-                    max={1440}
-                  />
-                </div>
+          {spam.rateLimitEnabled && (
+            <div className="grid grid-cols-1 gap-4 rounded-lg border border-border p-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="max-calls">{t('spam.maxCallsPerMinute')}</Label>
+                <Input
+                  id="max-calls"
+                  type="number"
+                  value={spam.maxCallsPerMinute}
+                  onChange={async (e) => {
+                    try {
+                      const val = parseInt(e.target.value) || 3
+                      const res = await updateSpamSettings({ maxCallsPerMinute: val })
+                      setSpam(res)
+                    } catch {
+                      toast(t('common.error'), 'error')
+                    }
+                  }}
+                  min={1}
+                  max={60}
+                />
               </div>
-            )}
-          </CardContent>
-        </Card>
+              <div className="space-y-2">
+                <Label htmlFor="block-duration">{t('spam.blockDuration')}</Label>
+                <Input
+                  id="block-duration"
+                  type="number"
+                  value={spam.blockDurationMinutes}
+                  onChange={async (e) => {
+                    try {
+                      const val = parseInt(e.target.value) || 30
+                      const res = await updateSpamSettings({ blockDurationMinutes: val })
+                      setSpam(res)
+                    } catch {
+                      toast(t('common.error'), 'error')
+                    }
+                  }}
+                  min={1}
+                  max={1440}
+                />
+              </div>
+            </div>
+          )}
+        </SettingsSection>
       )}
 
       {/* Confirmation dialog for settings toggles */}

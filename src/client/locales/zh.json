@@ -317,7 +317,9 @@
     "playRingtone": "来电时播放铃声",
     "playRingtoneDescription": "来电响铃时播放提示音",
     "browserNotifications": "浏览器通知",
-    "browserNotificationsDescription": "来电时显示系统通知"
+    "browserNotificationsDescription": "来电时显示系统通知",
+    "copyLink": "复制此部分链接",
+    "linkCopied": "链接已复制"
   },
   "session": {
     "expiringWarning": "您的会话即将过期。",

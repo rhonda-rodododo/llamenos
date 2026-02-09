@@ -330,7 +330,9 @@
     "playRingtone": "Play ringtone for incoming calls",
     "playRingtoneDescription": "Plays an audio tone when a call is ringing",
     "browserNotifications": "Browser notifications",
-    "browserNotificationsDescription": "Show a system notification for incoming calls"
+    "browserNotificationsDescription": "Show a system notification for incoming calls",
+    "copyLink": "Copy link to this section",
+    "linkCopied": "Link copied"
   },
   "session": {
     "expiringWarning": "Your session is about to expire.",
