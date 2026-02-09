@@ -192,3 +192,33 @@
 - [x] Playwright config: explicit worker count (4 local, 1 CI)
 - [x] i18n: 20 new keys translated across 12 locales (238 keys parity across all 13 files)
 - [x] Deployed to https://llamenos.rhonda-rodododo.workers.dev/
+
+## 2026-02-08: Epics 24–27 — UX & Polish Round
+
+### Epic 24: Shift & Call Status Awareness
+- [x] Shift status hook (`useShiftStatus`) — checks current/next shift for logged-in user
+- [x] Sidebar shift indicator — shows current shift name + end time, or next shift day/time
+- [x] In-call indicator in sidebar — shows animated pulse when volunteer is on a call
+- [x] Dashboard "Calls Today" metric wired to real API data
+
+### Epic 25: Command Palette Enhancements
+- [x] Quick Note action — create encrypted note directly from command palette
+- [x] Search shortcuts — type in palette to search notes or calls
+- [x] Admin-only search filtering (call search only visible to admins)
+
+### Epic 26: Custom IVR Audio Recording
+- [x] Admin voice prompt recording via MediaRecorder API (max 60s per prompt)
+- [x] IVR audio CRUD API (upload, list, delete, stream)
+- [x] Backend storage in SessionManager DO (`ivr-audio:*` keys)
+- [x] `sayOrPlay()` TwiML helper — uses `<Play>` for custom audio, falls back to `<Say>` TTS
+- [x] `AudioUrlMap` type in TelephonyAdapter interface
+- [x] Voice Prompts admin settings card with per-language recording grid
+- [x] Audit events for IVR audio upload/delete
+
+### Epic 27: Remaining Polish & Backlog Items
+- [x] Replaced all raw `<select>` elements with shadcn Select (notes, volunteers, note-sheet)
+- [x] Toast dismiss button for manual close
+- [x] Keyboard shortcuts help dialog (`?` key + command palette action)
+- [x] Confirmation dialogs for admin settings toggles (transcription, CAPTCHA, rate limiting)
+- [x] Note draft auto-save with `useDraft` hook and draft indicator
+- [x] `shortcuts`, `confirm`, `draftSaved` i18n keys across all 13 locales
