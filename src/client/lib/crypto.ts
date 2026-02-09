@@ -1,5 +1,5 @@
 import { generateSecretKey, getPublicKey, nip19 } from 'nostr-tools'
-import { secp256k1 } from '@noble/curves/secp256k1.js'
+import { secp256k1, schnorr } from '@noble/curves/secp256k1.js'
 import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
@@ -173,8 +173,9 @@ export function createAuthToken(secretKey: Uint8Array, timestamp: number): strin
   const publicKey = getPublicKey(secretKey)
   const message = `llamenos:auth:${publicKey}:${timestamp}`
   const messageHash = sha256(utf8ToBytes(message))
-  // Use the hash as a simple token (the server can verify by recomputing)
-  const token = bytesToHex(messageHash)
+  // Sign with Schnorr (BIP-340) — proves possession of the secret key
+  const signature = schnorr.sign(messageHash, secretKey)
+  const token = bytesToHex(signature)
   return JSON.stringify({ pubkey: publicKey, timestamp, token })
 }
 

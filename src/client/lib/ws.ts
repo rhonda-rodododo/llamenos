@@ -29,7 +29,8 @@ export function connectWebSocket() {
   const url = `${protocol}//${window.location.host}/api/ws`
 
   // Pass auth via Sec-WebSocket-Protocol header (not URL params which get logged)
-  const authB64 = btoa(token)
+  // Use base64url encoding (no padding, URL-safe chars) — valid as HTTP token / subprotocol
+  const authB64 = btoa(token).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
   socket = new WebSocket(url, ['llamenos-auth', authB64])
 
   socket.onopen = () => {

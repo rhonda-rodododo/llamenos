@@ -179,7 +179,9 @@ export default {
       if (!authB64) return error('Unauthorized', 401)
       let auth: { pubkey: string; timestamp: number; token: string }
       try {
-        auth = JSON.parse(atob(authB64))
+        // Decode base64url (reverse: '-' → '+', '_' → '/', restore padding)
+        const b64 = authB64.replace(/-/g, '+').replace(/_/g, '/') + '=='.slice(0, (4 - authB64.length % 4) % 4)
+        auth = JSON.parse(atob(b64))
       } catch {
         return error('Invalid auth', 401)
       }

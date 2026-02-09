@@ -117,7 +117,7 @@ function showBrowserNotification(title: string, body: string) {
 
 // --- Public API ---
 
-export async function startRinging(_callerInfo: string, incomingText: string) {
+export async function startRinging(incomingText: string) {
   if (isRinging) return
   isRinging = true
 

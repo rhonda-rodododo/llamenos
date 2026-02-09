@@ -156,6 +156,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(() => {
     clearSession()
+    // Clean up encrypted drafts from localStorage
+    const draftKeys = Object.keys(localStorage).filter(k => k.startsWith('llamenos-draft:'))
+    draftKeys.forEach(k => localStorage.removeItem(k))
     setState({
       keyPair: null,
       role: null,

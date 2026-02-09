@@ -20,11 +20,8 @@ export function useCalls() {
     const unsubIncoming = onMessage('call:incoming', (data) => {
       const call = data as ActiveCall
       setCalls(prev => [...prev, call])
-      // Start ringing notification
-      startRinging(
-        call.callerNumber || 'Unknown',
-        'Incoming Call!'
-      )
+      // Start ringing notification (generic text only — never pass caller PII)
+      startRinging('Incoming Call!')
     })
 
     const unsubUpdate = onMessage('call:update', (data) => {

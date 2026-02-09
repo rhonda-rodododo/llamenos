@@ -123,7 +123,11 @@ export class CallRouterDO extends DurableObject<Env> {
     // Broadcast presence update to all (new volunteer came online)
     this.broadcastPresenceUpdate()
 
-    return new Response(null, { status: 101, webSocket: client })
+    return new Response(null, {
+      status: 101,
+      webSocket: client,
+      headers: { 'Sec-WebSocket-Protocol': 'llamenos-auth' },
+    })
   }
 
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {

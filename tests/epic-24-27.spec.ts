@@ -103,8 +103,8 @@ test.describe('Epic 27: Remaining Polish', () => {
     await page.getByRole('link', { name: 'Settings' }).click()
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
 
-    // Find the voice CAPTCHA switch and toggle it
-    const captchaSection = page.locator('div').filter({ hasText: /voice captcha/i }).last()
+    // Find the voice CAPTCHA switch — use filter with both text and switch presence
+    const captchaSection = page.locator('div').filter({ hasText: /voice captcha/i, has: page.getByRole('switch') }).last()
     const captchaSwitch = captchaSection.getByRole('switch')
     await captchaSwitch.click()
 
@@ -121,8 +121,8 @@ test.describe('Epic 27: Remaining Polish', () => {
     await page.getByRole('link', { name: 'Settings' }).click()
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
 
-    // Toggle rate limiting
-    const rlSection = page.locator('div').filter({ hasText: /rate limiting/i }).last()
+    // Toggle rate limiting — use filter with both text and switch presence
+    const rlSection = page.locator('div').filter({ hasText: /rate limiting/i, has: page.getByRole('switch') }).last()
     const rlSwitch = rlSection.getByRole('switch')
     const wasChecked = await rlSwitch.isChecked()
 

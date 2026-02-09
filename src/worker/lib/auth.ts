@@ -1,19 +1,10 @@
 import type { AuthPayload, Env, Volunteer } from '../types'
+import { schnorr } from '@noble/curves/secp256k1.js'
+import { sha256 } from '@noble/hashes/sha2.js'
+import { hexToBytes } from '@noble/hashes/utils.js'
+import { utf8ToBytes } from '@noble/ciphers/utils.js'
 
 const TOKEN_MAX_AGE_MS = 5 * 60 * 1000 // 5 minutes
-
-/** Constant-time string comparison to prevent timing attacks */
-function constantTimeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false
-  const encoder = new TextEncoder()
-  const aBuf = encoder.encode(a)
-  const bBuf = encoder.encode(b)
-  let result = 0
-  for (let i = 0; i < aBuf.length; i++) {
-    result |= aBuf[i] ^ bBuf[i]
-  }
-  return result === 0
-}
 
 export function parseAuthHeader(header: string | null): AuthPayload | null {
   if (!header?.startsWith('Bearer ')) return null
@@ -34,14 +25,15 @@ export function validateToken(auth: AuthPayload): boolean {
 
 export async function verifyAuthToken(auth: AuthPayload): Promise<boolean> {
   if (!validateToken(auth)) return false
-  const message = `llamenos:auth:${auth.pubkey}:${auth.timestamp}`
-  const encoder = new TextEncoder()
-  const data = encoder.encode(message)
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
-  const hashHex = Array.from(new Uint8Array(hashBuffer))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('')
-  return constantTimeEqual(hashHex, auth.token)
+  try {
+    // Reconstruct the signed message
+    const message = `llamenos:auth:${auth.pubkey}:${auth.timestamp}`
+    const messageHash = sha256(utf8ToBytes(message))
+    // Verify Schnorr signature (BIP-340) against the x-only pubkey
+    return schnorr.verify(hexToBytes(auth.token), messageHash, hexToBytes(auth.pubkey))
+  } catch {
+    return false
+  }
 }
 
 export async function authenticateRequest(
