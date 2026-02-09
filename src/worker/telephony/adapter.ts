@@ -5,8 +5,14 @@
  */
 export interface TelephonyAdapter {
   /**
-   * Generate TwiML/response for an incoming call.
-   * Handles the initial call flow: ban check, voice CAPTCHA, parallel ringing.
+   * Generate the language selection IVR menu.
+   * Plays each supported language option in its native voice, waits for a digit press.
+   */
+  handleLanguageMenu(params: LanguageMenuParams): Promise<TelephonyResponse>
+
+  /**
+   * Generate response for the main call flow (after language is known).
+   * Handles rate-limiting rejection, voice CAPTCHA, or enqueue-and-hold.
    */
   handleIncomingCall(params: IncomingCallParams): Promise<TelephonyResponse>
 
@@ -16,12 +22,22 @@ export interface TelephonyAdapter {
   handleCaptchaResponse(params: CaptchaResponseParams): Promise<TelephonyResponse>
 
   /**
-   * Generate response when a volunteer answers — connect the call.
+   * Generate response when a volunteer answers — bridge the call via queue.
    */
   handleCallAnswered(params: CallAnsweredParams): Promise<TelephonyResponse>
 
   /**
-   * End/reject a call.
+   * Generate hold music / wait message for callers in queue.
+   */
+  handleWaitMusic(lang: string): Promise<TelephonyResponse>
+
+  /**
+   * Reject a banned/blocked caller.
+   */
+  rejectCall(): TelephonyResponse
+
+  /**
+   * End/hangup a call by its SID.
    */
   hangupCall(callSid: string): Promise<void>
 
@@ -46,10 +62,16 @@ export interface TelephonyAdapter {
   getCallRecording(callSid: string): Promise<ArrayBuffer | null>
 }
 
+export interface LanguageMenuParams {
+  callSid: string
+  callerNumber: string
+  hotlineName: string
+  enabledLanguages: string[]
+}
+
 export interface IncomingCallParams {
   callSid: string
   callerNumber: string
-  isBanned: boolean
   voiceCaptchaEnabled: boolean
   rateLimited: boolean
   callerLanguage: string
@@ -64,8 +86,8 @@ export interface CaptchaResponseParams {
 }
 
 export interface CallAnsweredParams {
-  callSid: string
-  volunteerPhone: string
+  /** The incoming call SID, used as the queue name to bridge caller → volunteer */
+  parentCallSid: string
 }
 
 export interface RingVolunteersParams {

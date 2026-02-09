@@ -72,11 +72,12 @@ bunx tsc --noEmit
 ## Claude Code Working Style
 
 - Implement features completely — no stubs, no shortcuts, no TODOs left behind.
-- Edit files in place; never create copies. Git history is the backup.
+- Edit files in place; never create copies. Git history is the backup. Commit regularly when work is complete.
 - Keep the file tree lean. Use git commits frequently to checkpoint progress.
 - No legacy fallbacks or migration code until this file notes the app is in production.
 - Use `docs/epics/` for planning feature epics. Track backlog in `docs/NEXT_BACKLOG.md` and completed work in `docs/COMPLETED_BACKLOG.md`.
 - Use context7 plugin to look up current docs for Twilio, Cloudflare Workers, TanStack, shadcn/ui, and other libraries before implementing.
 - Use the feature-dev plugin for guided development of complex features.
 - Use Playwright plugin for E2E test development and debugging.
-- Clean and DRY patterns!
+- Clean, modular and DRY patterns!
+- When Requirements, Architecture, Design, and Technical changes occur, always update related documentation

@@ -9,14 +9,16 @@ import {
   updateTranscriptionSettings,
   updateMyTranscriptionPreference,
   updateMyProfile,
+  getIvrLanguages,
+  updateIvrLanguages,
   type SpamSettings,
 } from '@/lib/api'
 import { getStoredSession, keyPairFromNsec } from '@/lib/crypto'
 import { nip19 } from 'nostr-tools'
 import { useToast } from '@/lib/toast'
-import { Settings2, Mic, ShieldAlert, Bot, Timer, Bell, User, KeyRound, Shield, Globe } from 'lucide-react'
+import { Settings2, Mic, ShieldAlert, Bot, Timer, Bell, User, KeyRound, Shield, Globe, Phone } from 'lucide-react'
 import { getNotificationPrefs, setNotificationPrefs } from '@/lib/notifications'
-import { LANGUAGES } from '@shared/languages'
+import { LANGUAGES, IVR_LANGUAGES, LANGUAGE_MAP, ivrIndexToDigit } from '@shared/languages'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
@@ -36,6 +38,7 @@ function SettingsPage() {
   const [globalTranscription, setGlobalTranscription] = useState(false)
   const [myTranscription, setMyTranscription] = useState(transcriptionEnabled)
   const [notifPrefs, setNotifPrefs] = useState(getNotificationPrefs)
+  const [ivrEnabled, setIvrEnabled] = useState<string[]>([...IVR_LANGUAGES])
   const [loading, setLoading] = useState(true)
 
   // Profile state
@@ -54,6 +57,7 @@ function SettingsPage() {
       Promise.all([
         getSpamSettings().then(setSpam),
         getTranscriptionSettings().then(r => setGlobalTranscription(r.globalEnabled)),
+        getIvrLanguages().then(r => setIvrEnabled(r.enabledLanguages)),
       ]).catch(() => toast(t('common.error'), 'error'))
         .finally(() => setLoading(false))
     } else {
@@ -318,6 +322,57 @@ function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* IVR Language Menu */}
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Phone className="h-5 w-5 text-muted-foreground" />
+              {t('ivr.title')}
+            </CardTitle>
+            <CardDescription>{t('ivr.description')}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {IVR_LANGUAGES.map((code, index) => {
+                const lang = LANGUAGE_MAP[code]
+                if (!lang) return null
+                const enabled = ivrEnabled.includes(code)
+                const isLastEnabled = enabled && ivrEnabled.length === 1
+                return (
+                  <div key={code} className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs font-mono">
+                        {ivrIndexToDigit(index)}
+                      </Badge>
+                      <span className="text-sm">{lang.label}</span>
+                    </div>
+                    <Switch
+                      checked={enabled}
+                      disabled={isLastEnabled}
+                      onCheckedChange={async (checked) => {
+                        const next = checked
+                          ? [...ivrEnabled, code]
+                          : ivrEnabled.filter(c => c !== code)
+                        try {
+                          const res = await updateIvrLanguages({ enabledLanguages: next })
+                          setIvrEnabled(res.enabledLanguages)
+                        } catch {
+                          toast(t('common.error'), 'error')
+                        }
+                      }}
+                    />
+                  </div>
+                )
+              })}
+            </div>
+            {ivrEnabled.length === 1 && (
+              <p className="text-xs text-muted-foreground">{t('ivr.atLeastOne')}</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Spam mitigation */}
       {isAdmin && spam && (

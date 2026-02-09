@@ -168,6 +168,29 @@ export const LANGUAGE_CODES = LANGUAGES.map(l => l.code)
 export const DEFAULT_LANGUAGE = 'en'
 
 /**
+ * IVR language menu — ordered list of languages for phone keypad selection.
+ * Digit assignment: index 0 → '1', index 1 → '2', ..., index 8 → '9', index 9 → '0'.
+ * Languages not in this list rely on phone-prefix auto-detection.
+ */
+export const IVR_LANGUAGES: string[] = [
+  'es', 'en', 'zh', 'tl', 'vi', 'ar', 'fr', 'ht', 'ko', 'ru',
+]
+
+/** Convert IVR array index to phone digit string */
+export function ivrIndexToDigit(index: number): string {
+  if (index >= 0 && index <= 8) return String(index + 1)
+  if (index === 9) return '0'
+  return ''
+}
+
+/** Look up language code from a caller's digit press. Returns undefined for invalid digits. */
+export function languageFromDigit(digit: string): string | undefined {
+  const index = digit === '0' ? 9 : parseInt(digit, 10) - 1
+  if (index >= 0 && index < IVR_LANGUAGES.length) return IVR_LANGUAGES[index]
+  return undefined
+}
+
+/**
  * Detect caller language from phone number country code.
  * Longer prefixes are matched first for specificity.
  * Falls back to 'en' if no match.

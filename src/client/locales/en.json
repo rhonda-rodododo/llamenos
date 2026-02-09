@@ -207,8 +207,14 @@
       "adminPromoted": "Admin Promoted",
       "adminDemoted": "Admin Demoted",
       "volunteerOnBreak": "Volunteer On Break",
-      "volunteerAvailable": "Volunteer Available"
+      "volunteerAvailable": "Volunteer Available",
+      "ivrLanguagesUpdated": "IVR Languages Updated"
     }
+  },
+  "ivr": {
+    "title": "IVR Language Menu",
+    "description": "Choose which languages callers hear in the phone menu. Disabled languages are skipped; digit mappings stay fixed.",
+    "atLeastOne": "At least one language must be enabled"
   },
   "spam": {
     "title": "Spam Mitigation",

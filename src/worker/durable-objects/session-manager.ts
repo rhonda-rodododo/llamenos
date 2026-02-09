@@ -1,5 +1,6 @@
 import { DurableObject } from 'cloudflare:workers'
 import type { Env, Volunteer, BanEntry, EncryptedNote, AuditLogEntry, SpamSettings, InviteCode } from '../types'
+import { IVR_LANGUAGES } from '../../shared/languages'
 
 /**
  * SessionManagerDO — manages all persistent data:
@@ -53,6 +54,9 @@ export class SessionManagerDO extends DurableObject<Env> {
     }
     if (!(await this.ctx.storage.get('fallbackGroup'))) {
       await this.ctx.storage.put('fallbackGroup', [] as string[])
+    }
+    if (!(await this.ctx.storage.get('ivrLanguages'))) {
+      await this.ctx.storage.put('ivrLanguages', [...IVR_LANGUAGES])
     }
   }
 
@@ -139,6 +143,12 @@ export class SessionManagerDO extends DurableObject<Env> {
     }
     if (path === '/settings/transcription' && method === 'PATCH') {
       return this.updateTranscriptionSettings(await request.json())
+    }
+    if (path === '/settings/ivr-languages' && method === 'GET') {
+      return this.getIvrLanguages()
+    }
+    if (path === '/settings/ivr-languages' && method === 'PATCH') {
+      return this.updateIvrLanguages(await request.json())
     }
 
     // --- Invites ---
@@ -449,6 +459,23 @@ export class SessionManagerDO extends DurableObject<Env> {
     const updated = { ...settings, ...data }
     await this.ctx.storage.put('spamSettings', updated)
     return Response.json(updated)
+  }
+
+  private async getIvrLanguages(): Promise<Response> {
+    const languages = await this.ctx.storage.get<string[]>('ivrLanguages') || [...IVR_LANGUAGES]
+    return Response.json({ enabledLanguages: languages })
+  }
+
+  private async updateIvrLanguages(data: { enabledLanguages: string[] }): Promise<Response> {
+    if (!Array.isArray(data.enabledLanguages) || data.enabledLanguages.length === 0) {
+      return new Response(JSON.stringify({ error: 'At least one language must be enabled' }), { status: 400 })
+    }
+    const valid = data.enabledLanguages.filter(code => IVR_LANGUAGES.includes(code))
+    if (valid.length === 0) {
+      return new Response(JSON.stringify({ error: 'No valid IVR language codes provided' }), { status: 400 })
+    }
+    await this.ctx.storage.put('ivrLanguages', valid)
+    return Response.json({ enabledLanguages: valid })
   }
 
   private async getTranscriptionSettings(): Promise<Response> {

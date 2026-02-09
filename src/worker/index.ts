@@ -1,7 +1,7 @@
 import type { Env } from './types'
 import { authenticateRequest } from './lib/auth'
-import { TwilioAdapter, getPrompt } from './telephony/twilio'
-import { detectLanguageFromPhone, LANGUAGE_MAP, DEFAULT_LANGUAGE } from '../shared/languages'
+import { TwilioAdapter } from './telephony/twilio'
+import { detectLanguageFromPhone, languageFromDigit, DEFAULT_LANGUAGE } from '../shared/languages'
 import { encryptForPublicKey } from './lib/crypto'
 
 // Re-export Durable Object classes
@@ -465,6 +465,20 @@ export default {
       if (res.ok) await audit(dos.session, 'transcriptionToggled', pubkey, body as Record<string, unknown>)
       return res
     }
+    if (path === '/settings/ivr-languages' && method === 'GET') {
+      if (!isAdmin) return error('Forbidden', 403)
+      return dos.session.fetch(new Request('http://do/settings/ivr-languages'))
+    }
+    if (path === '/settings/ivr-languages' && method === 'PATCH') {
+      if (!isAdmin) return error('Forbidden', 403)
+      const body = await request.json()
+      const res = await dos.session.fetch(new Request('http://do/settings/ivr-languages', {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }))
+      if (res.ok) await audit(dos.session, 'ivrLanguagesUpdated', pubkey, body as Record<string, unknown>)
+      return res
+    }
 
     return error('Not Found', 404)
   },
@@ -529,6 +543,18 @@ async function handleCreateVolunteer(request: Request, session: DurableObjectStu
 }
 
 // --- Telephony Webhook Handler ---
+//
+// Call flow:
+//   1. /incoming       → ban check → reject or play language menu
+//   2. /language-selected → resolve language → spam/rate check → greeting + hold/captcha
+//   3. /captcha        → verify digits → hold or reject
+//   4. /volunteer-answer → bridge caller (from queue) to volunteer
+//   5. /call-status    → track completion, trigger transcription
+//   6. /wait-music     → hold music + message for queued callers
+
+function twimlResponse(response: { contentType: string; body: string }): Response {
+  return new Response(response.body, { headers: { 'Content-Type': response.contentType } })
+}
 
 async function handleTelephonyWebhook(
   path: string,
@@ -547,51 +573,81 @@ async function handleTelephonyWebhook(
     }
   }
 
-  // Incoming call from Twilio
+  // --- Step 1: Incoming call → ban check → language menu ---
   if (path === '/telephony/incoming' && request.method === 'POST') {
     const formData = await request.formData()
     const callSid = formData.get('CallSid') as string
     const callerNumber = formData.get('From') as string
 
-    // Check ban list
+    // Reject banned callers immediately (no language menu)
     const banCheck = await dos.session.fetch(new Request(`http://do/bans/check/${encodeURIComponent(callerNumber)}`))
     const { banned } = await banCheck.json() as { banned: boolean }
+    if (banned) {
+      return twimlResponse(twilio.rejectCall())
+    }
 
-    // Check spam settings
+    // Fetch admin-configured IVR languages
+    const ivrRes = await dos.session.fetch(new Request('http://do/settings/ivr-languages'))
+    const { enabledLanguages } = await ivrRes.json() as { enabledLanguages: string[] }
+
+    // Play the language selection IVR menu
+    const response = await twilio.handleLanguageMenu({
+      callSid,
+      callerNumber,
+      hotlineName: env.HOTLINE_NAME || 'Llámenos',
+      enabledLanguages,
+    })
+    return twimlResponse(response)
+  }
+
+  // --- Step 2: Language selected → spam check → greeting + hold/captcha ---
+  if (path === '/telephony/language-selected' && request.method === 'POST') {
+    const formData = await request.formData()
+    const callSid = formData.get('CallSid') as string
+    const callerNumber = formData.get('From') as string
+    const url = new URL(request.url)
+    const isAuto = url.searchParams.get('auto') === '1'
+
+    // Resolve language: forced (single-language skip), digit press, or auto-detect on timeout
+    let callerLanguage: string
+    const forceLang = url.searchParams.get('forceLang')
+    if (forceLang) {
+      callerLanguage = forceLang
+    } else if (isAuto) {
+      callerLanguage = detectLanguageFromPhone(callerNumber)
+    } else {
+      const digit = formData.get('Digits') as string || ''
+      callerLanguage = languageFromDigit(digit) ?? detectLanguageFromPhone(callerNumber)
+    }
+
+    // Check spam settings + rate limiting
     const spamRes = await dos.session.fetch(new Request('http://do/settings/spam'))
     const spamSettings = await spamRes.json() as { voiceCaptchaEnabled: boolean; rateLimitEnabled: boolean; maxCallsPerMinute: number }
 
-    // Rate limiting check (simplified — uses DO storage)
     let rateLimited = false
     if (spamSettings.rateLimitEnabled) {
       rateLimited = checkRateLimit(dos.session, callerNumber, spamSettings.maxCallsPerMinute)
     }
 
-    const callerLanguage = detectLanguageFromPhone(callerNumber)
-
     const response = await twilio.handleIncomingCall({
       callSid,
       callerNumber,
-      isBanned: banned,
       voiceCaptchaEnabled: spamSettings.voiceCaptchaEnabled,
       rateLimited,
       callerLanguage,
       hotlineName: env.HOTLINE_NAME || 'Llámenos',
     })
 
-    // If not banned and not rate limited, start ringing volunteers in the background
-    // (don't block the TwiML response — Twilio needs it promptly)
-    if (!banned && !rateLimited && !spamSettings.voiceCaptchaEnabled) {
+    // If not rate limited and no captcha, start ringing volunteers in the background
+    if (!rateLimited && !spamSettings.voiceCaptchaEnabled) {
       const origin = new URL(request.url).origin
       ctx.waitUntil(startParallelRinging(callSid, callerNumber, origin, env, dos))
     }
 
-    return new Response(response.body, {
-      headers: { 'Content-Type': response.contentType },
-    })
+    return twimlResponse(response)
   }
 
-  // CAPTCHA response
+  // --- Step 3: CAPTCHA response ---
   if (path === '/telephony/captcha' && request.method === 'POST') {
     const formData = await request.formData()
     const digits = formData.get('Digits') as string
@@ -609,12 +665,10 @@ async function handleTelephonyWebhook(
       ctx.waitUntil(startParallelRinging(callSid, callerNumber, origin, env, dos))
     }
 
-    return new Response(response.body, {
-      headers: { 'Content-Type': response.contentType },
-    })
+    return twimlResponse(response)
   }
 
-  // Volunteer answered the outbound leg
+  // --- Step 4: Volunteer answered → bridge via queue ---
   if (path === '/telephony/volunteer-answer' && request.method === 'POST') {
     const url = new URL(request.url)
     const parentCallSid = url.searchParams.get('parentCallSid') || ''
@@ -628,17 +682,12 @@ async function handleTelephonyWebhook(
 
     await audit(dos.session, 'callAnswered', pubkey, { callSid: parentCallSid })
 
-    // Connect the call
-    return new Response(`
-      <Response>
-        <Dial>
-          <Queue>${parentCallSid}</Queue>
-        </Dial>
-      </Response>
-    `.trim(), { headers: { 'Content-Type': 'text/xml' } })
+    // Bridge the call: connect volunteer to the caller waiting in queue
+    const response = await twilio.handleCallAnswered({ parentCallSid })
+    return twimlResponse(response)
   }
 
-  // Call status callback
+  // --- Step 5: Call status callback ---
   if (path === '/telephony/call-status' && request.method === 'POST') {
     const formData = await request.formData()
     const callStatus = formData.get('CallStatus') as string
@@ -646,13 +695,10 @@ async function handleTelephonyWebhook(
     const parentCallSid = url.searchParams.get('parentCallSid') || ''
 
     if (callStatus === 'completed' || callStatus === 'busy' || callStatus === 'no-answer' || callStatus === 'failed') {
-      // Check if this was the active call ending
       const pubkey = url.searchParams.get('pubkey') || ''
       if (callStatus === 'completed') {
         await dos.calls.fetch(new Request(`http://do/calls/${parentCallSid}/end`, { method: 'POST' }))
         await audit(dos.session, 'callEnded', pubkey, { callSid: parentCallSid })
-
-        // Trigger transcription if enabled
         await maybeTranscribe(parentCallSid, pubkey, env, dos)
       }
     }
@@ -660,18 +706,12 @@ async function handleTelephonyWebhook(
     return new Response('<Response/>', { headers: { 'Content-Type': 'text/xml' } })
   }
 
-  // Wait music for callers in queue
+  // --- Step 6: Wait music for queued callers ---
   if (path === '/telephony/wait-music') {
     const url = new URL(request.url)
     const lang = url.searchParams.get('lang') || DEFAULT_LANGUAGE
-    const tLang = LANGUAGE_MAP[lang]?.twilioVoice ?? LANGUAGE_MAP[DEFAULT_LANGUAGE].twilioVoice
-    const waitMsg = getPrompt('waitMessage', lang)
-    return new Response(`
-      <Response>
-        <Say language="${tLang}">${waitMsg}</Say>
-        <Play>https://com.twilio.music.soft-rock.s3.amazonaws.com/_ghost_-_promo_2_sample_pack.mp3</Play>
-      </Response>
-    `.trim(), { headers: { 'Content-Type': 'text/xml' } })
+    const response = await twilio.handleWaitMusic(lang)
+    return twimlResponse(response)
   }
 
   return new Response('Not Found', { status: 404 })

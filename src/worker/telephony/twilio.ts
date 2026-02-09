@@ -3,10 +3,16 @@ import type {
   IncomingCallParams,
   CaptchaResponseParams,
   CallAnsweredParams,
+  LanguageMenuParams,
   RingVolunteersParams,
   TelephonyResponse,
 } from './adapter'
-import { LANGUAGE_MAP, DEFAULT_LANGUAGE } from '../../shared/languages'
+import {
+  LANGUAGE_MAP,
+  DEFAULT_LANGUAGE,
+  IVR_LANGUAGES,
+  ivrIndexToDigit,
+} from '../../shared/languages'
 
 /**
  * Get Twilio voice language code for a language.
@@ -19,6 +25,10 @@ function getTwilioVoice(lang: string): string {
 /**
  * Voice prompts for all supported languages.
  * Each prompt has a key-per-language with fallback to English.
+ *
+ * Future extension: admins can upload recorded audio per prompt+language.
+ * The adapter would check for a custom audio URL first, falling back to
+ * these TTS strings. TwiML would use <Play> for audio, <Say> for TTS.
  */
 const VOICE_PROMPTS: Record<string, Record<string, string>> = {
   greeting: {
@@ -143,6 +153,23 @@ const VOICE_PROMPTS: Record<string, Record<string, string>> = {
   },
 }
 
+/**
+ * IVR language menu prompts — each language announces itself in its native voice.
+ * Keyed by language code, value is the phrase spoken in that language.
+ */
+const IVR_PROMPTS: Record<string, string> = {
+  es: 'Para español, marque uno.',
+  en: 'For English, press two.',
+  zh: '如需中文服务，请按三。',
+  tl: 'Para sa Tagalog, pindutin ang apat.',
+  vi: 'Tiếng Việt, nhấn năm.',
+  ar: 'للعربية، اضغط ستة.',
+  fr: 'Pour le français, appuyez sur sept.',
+  ht: 'Pou Kreyòl, peze wit.',
+  ko: '한국어는 아홉 번을 눌러주세요.',
+  ru: 'Для русского языка нажмите ноль.',
+}
+
 /** Get a voice prompt in the given language, falling back to English. */
 export function getPrompt(key: string, lang: string): string {
   return VOICE_PROMPTS[key]?.[lang] ?? VOICE_PROMPTS[key]?.[DEFAULT_LANGUAGE] ?? ''
@@ -162,14 +189,44 @@ export class TwilioAdapter implements TelephonyAdapter {
     this.phoneNumber = phoneNumber
   }
 
+  async handleLanguageMenu(params: LanguageMenuParams): Promise<TelephonyResponse> {
+    const enabled = params.enabledLanguages
+    // Filter IVR languages to only those enabled by admin
+    const activeLanguages = IVR_LANGUAGES.filter(code => enabled.includes(code))
+
+    // If only 1 language enabled, skip the menu entirely
+    if (activeLanguages.length <= 1) {
+      const lang = activeLanguages[0] || DEFAULT_LANGUAGE
+      return this.twiml(`
+        <Response>
+          <Redirect method="POST">/api/telephony/language-selected?auto=1&amp;forceLang=${lang}</Redirect>
+        </Response>
+      `)
+    }
+
+    // Build <Say> elements only for enabled languages, keeping fixed digit mapping
+    const sayElements = IVR_LANGUAGES.map((langCode) => {
+      if (!enabled.includes(langCode)) return ''
+      const voice = getTwilioVoice(langCode)
+      const prompt = IVR_PROMPTS[langCode]
+      if (!prompt) return ''
+      return `<Say language="${voice}">${prompt}</Say>`
+    }).filter(Boolean).join('\n      ')
+
+    return this.twiml(`
+      <Response>
+        <Gather numDigits="1" action="/api/telephony/language-selected" method="POST" timeout="8">
+          ${sayElements}
+        </Gather>
+        <Redirect method="POST">/api/telephony/language-selected?auto=1</Redirect>
+      </Response>
+    `)
+  }
+
   async handleIncomingCall(params: IncomingCallParams): Promise<TelephonyResponse> {
     const lang = params.callerLanguage
     const tLang = getTwilioVoice(lang)
     const greeting = getPrompt('greeting', lang).replace('{name}', params.hotlineName)
-
-    if (params.isBanned) {
-      return this.twiml('<Response><Reject reason="rejected"/></Response>')
-    }
 
     if (params.rateLimited) {
       return this.twiml(`
@@ -224,11 +281,26 @@ export class TwilioAdapter implements TelephonyAdapter {
   async handleCallAnswered(params: CallAnsweredParams): Promise<TelephonyResponse> {
     return this.twiml(`
       <Response>
-        <Dial callerId="${this.phoneNumber}">
-          <Number>${params.volunteerPhone}</Number>
+        <Dial>
+          <Queue>${params.parentCallSid}</Queue>
         </Dial>
       </Response>
     `)
+  }
+
+  async handleWaitMusic(lang: string): Promise<TelephonyResponse> {
+    const tLang = getTwilioVoice(lang)
+    const waitMsg = getPrompt('waitMessage', lang)
+    return this.twiml(`
+      <Response>
+        <Say language="${tLang}">${waitMsg}</Say>
+        <Play>https://com.twilio.music.soft-rock.s3.amazonaws.com/_ghost_-_promo_2_sample_pack.mp3</Play>
+      </Response>
+    `)
+  }
+
+  rejectCall(): TelephonyResponse {
+    return this.twiml('<Response><Reject reason="rejected"/></Response>')
   }
 
   async hangupCall(callSid: string): Promise<void> {
@@ -241,7 +313,6 @@ export class TwilioAdapter implements TelephonyAdapter {
   async ringVolunteers(params: RingVolunteersParams): Promise<string[]> {
     const callSids: string[] = []
 
-    // Parallel ring — call all volunteers simultaneously
     const calls = await Promise.allSettled(
       params.volunteers.map(async (vol) => {
         const body = new URLSearchParams({
@@ -290,7 +361,6 @@ export class TwilioAdapter implements TelephonyAdapter {
   }
 
   async validateWebhook(request: Request): Promise<boolean> {
-    // Validate Twilio webhook signature
     const signature = request.headers.get('X-Twilio-Signature')
     if (!signature) return false
 
@@ -298,14 +368,12 @@ export class TwilioAdapter implements TelephonyAdapter {
     const body = await request.clone().text()
     const params = new URLSearchParams(body)
 
-    // Build the data string for validation
     let dataString = url.toString()
     const sortedKeys = Array.from(params.keys()).sort()
     for (const key of sortedKeys) {
       dataString += key + params.get(key)
     }
 
-    // HMAC-SHA1 validation
     const encoder = new TextEncoder()
     const key = await crypto.subtle.importKey(
       'raw',
