@@ -53,6 +53,16 @@ async function audit(session: DurableObjectStub, event: string, actorPubkey: str
   }))
 }
 
+async function buildAudioUrlMap(session: DurableObjectStub, origin: string): Promise<Record<string, string>> {
+  const audioRes = await session.fetch(new Request('http://do/settings/ivr-audio'))
+  const { recordings } = await audioRes.json() as { recordings: Array<{ promptType: string; language: string }> }
+  const map: Record<string, string> = {}
+  for (const rec of recordings) {
+    map[`${rec.promptType}:${rec.language}`] = `${origin}/api/ivr-audio/${rec.promptType}/${rec.language}`
+  }
+  return map
+}
+
 const SECURITY_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
@@ -107,6 +117,13 @@ export default {
     // --- Telephony Webhooks (no auth — validated by Twilio signature) ---
     if (path.startsWith('/telephony/')) {
       return handleTelephonyWebhook(path, request, env, dos, ctx)
+    }
+
+    // --- Public IVR Audio Serve (no auth — Twilio fetches this during calls) ---
+    if (path.startsWith('/ivr-audio/') && method === 'GET') {
+      const parts = path.replace('/ivr-audio/', '').split('/')
+      if (parts.length !== 2) return error('Invalid path', 400)
+      return dos.session.fetch(new Request(`http://do/settings/ivr-audio/${parts[0]}/${parts[1]}`))
     }
 
     // --- Test Reset (development only) ---
@@ -488,6 +505,34 @@ export default {
       return res
     }
 
+    // --- IVR Audio (admin only) ---
+    if (path === '/settings/ivr-audio' && method === 'GET') {
+      if (!isAdmin) return error('Forbidden', 403)
+      return dos.session.fetch(new Request('http://do/settings/ivr-audio'))
+    }
+    if (path.startsWith('/settings/ivr-audio/') && method === 'PUT') {
+      if (!isAdmin) return error('Forbidden', 403)
+      const parts = path.replace('/settings/ivr-audio/', '').split('/')
+      if (parts.length !== 2) return error('Invalid path', 400)
+      const body = await request.arrayBuffer()
+      const res = await dos.session.fetch(new Request(`http://do/settings/ivr-audio/${parts[0]}/${parts[1]}`, {
+        method: 'PUT',
+        body,
+      }))
+      if (res.ok) await audit(dos.session, 'ivrAudioUploaded', pubkey, { promptType: parts[0], language: parts[1] })
+      return res
+    }
+    if (path.startsWith('/settings/ivr-audio/') && method === 'DELETE') {
+      if (!isAdmin) return error('Forbidden', 403)
+      const parts = path.replace('/settings/ivr-audio/', '').split('/')
+      if (parts.length !== 2) return error('Invalid path', 400)
+      const res = await dos.session.fetch(new Request(`http://do/settings/ivr-audio/${parts[0]}/${parts[1]}`, {
+        method: 'DELETE',
+      }))
+      if (res.ok) await audit(dos.session, 'ivrAudioDeleted', pubkey, { promptType: parts[0], language: parts[1] })
+      return res
+    }
+
     return error('Not Found', 404)
   },
 } satisfies ExportedHandler<Env>
@@ -637,6 +682,7 @@ async function handleTelephonyWebhook(
       rateLimited = checkRateLimit(dos.session, callerNumber, spamSettings.maxCallsPerMinute)
     }
 
+    const audioUrls = await buildAudioUrlMap(dos.session, new URL(request.url).origin)
     const response = await twilio.handleIncomingCall({
       callSid,
       callerNumber,
@@ -644,6 +690,7 @@ async function handleTelephonyWebhook(
       rateLimited,
       callerLanguage,
       hotlineName: env.HOTLINE_NAME || 'Llámenos',
+      audioUrls,
     })
 
     // If not rate limited and no captcha, start ringing volunteers in the background
@@ -718,7 +765,8 @@ async function handleTelephonyWebhook(
   if (path === '/telephony/wait-music') {
     const url = new URL(request.url)
     const lang = url.searchParams.get('lang') || DEFAULT_LANGUAGE
-    const response = await twilio.handleWaitMusic(lang)
+    const audioUrls = await buildAudioUrlMap(dos.session, new URL(request.url).origin)
+    const response = await twilio.handleWaitMusic(lang, audioUrls)
     return twimlResponse(response)
   }
 

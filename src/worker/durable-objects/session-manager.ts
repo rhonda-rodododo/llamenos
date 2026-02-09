@@ -170,6 +170,26 @@ export class SessionManagerDO extends DurableObject<Env> {
       return this.revokeInvite(code)
     }
 
+    // --- IVR Audio ---
+    if (path === '/settings/ivr-audio' && method === 'GET') {
+      return this.getIvrAudioList()
+    }
+    if (path.startsWith('/settings/ivr-audio/') && method === 'PUT') {
+      const parts = path.replace('/settings/ivr-audio/', '').split('/')
+      if (parts.length !== 2) return new Response('Invalid path', { status: 400 })
+      return this.uploadIvrAudio(parts[0], parts[1], await request.arrayBuffer())
+    }
+    if (path.startsWith('/settings/ivr-audio/') && method === 'GET') {
+      const parts = path.replace('/settings/ivr-audio/', '').split('/')
+      if (parts.length !== 2) return new Response('Invalid path', { status: 400 })
+      return this.getIvrAudio(parts[0], parts[1])
+    }
+    if (path.startsWith('/settings/ivr-audio/') && method === 'DELETE') {
+      const parts = path.replace('/settings/ivr-audio/', '').split('/')
+      if (parts.length !== 2) return new Response('Invalid path', { status: 400 })
+      return this.deleteIvrAudio(parts[0], parts[1])
+    }
+
     // --- Shifts / Fallback ---
     if (path === '/fallback' && method === 'GET') {
       return this.getFallbackGroup()
@@ -497,6 +517,67 @@ export class SessionManagerDO extends DurableObject<Env> {
 
   private async setFallbackGroup(data: { volunteers: string[] }): Promise<Response> {
     await this.ctx.storage.put('fallbackGroup', data.volunteers)
+    return Response.json({ ok: true })
+  }
+
+  // --- IVR Audio Methods ---
+
+  private static readonly VALID_PROMPT_TYPES = ['greeting', 'pleaseHold', 'waitMessage', 'rateLimited', 'captchaPrompt']
+  private static readonly MAX_AUDIO_SIZE = 1_048_576 // 1MB
+
+  private async getIvrAudioList(): Promise<Response> {
+    const meta = await this.ctx.storage.get<Array<{ promptType: string; language: string; size: number; uploadedAt: string }>>('ivrAudioMeta') || []
+    return Response.json({ recordings: meta })
+  }
+
+  private async uploadIvrAudio(promptType: string, language: string, data: ArrayBuffer): Promise<Response> {
+    if (!SessionManagerDO.VALID_PROMPT_TYPES.includes(promptType)) {
+      return new Response(JSON.stringify({ error: 'Invalid prompt type' }), { status: 400 })
+    }
+    if (data.byteLength > SessionManagerDO.MAX_AUDIO_SIZE) {
+      return new Response(JSON.stringify({ error: 'File too large (max 1MB)' }), { status: 400 })
+    }
+    if (data.byteLength === 0) {
+      return new Response(JSON.stringify({ error: 'Empty file' }), { status: 400 })
+    }
+
+    const key = `ivr-audio:${promptType}:${language}`
+    await this.ctx.storage.put(key, new Uint8Array(data))
+
+    // Update metadata
+    const meta = await this.ctx.storage.get<Array<{ promptType: string; language: string; size: number; uploadedAt: string }>>('ivrAudioMeta') || []
+    const existing = meta.findIndex(m => m.promptType === promptType && m.language === language)
+    const entry = { promptType, language, size: data.byteLength, uploadedAt: new Date().toISOString() }
+    if (existing >= 0) {
+      meta[existing] = entry
+    } else {
+      meta.push(entry)
+    }
+    await this.ctx.storage.put('ivrAudioMeta', meta)
+
+    return Response.json({ ok: true, ...entry })
+  }
+
+  private async getIvrAudio(promptType: string, language: string): Promise<Response> {
+    const key = `ivr-audio:${promptType}:${language}`
+    const data = await this.ctx.storage.get<Uint8Array>(key)
+    if (!data) return new Response('Not Found', { status: 404 })
+    return new Response(data.buffer as ArrayBuffer, {
+      headers: {
+        'Content-Type': 'audio/wav',
+        'Content-Length': data.byteLength.toString(),
+        'Cache-Control': 'public, max-age=3600',
+      },
+    })
+  }
+
+  private async deleteIvrAudio(promptType: string, language: string): Promise<Response> {
+    const key = `ivr-audio:${promptType}:${language}`
+    await this.ctx.storage.delete(key)
+
+    const meta = await this.ctx.storage.get<Array<{ promptType: string; language: string; size: number; uploadedAt: string }>>('ivrAudioMeta') || []
+    await this.ctx.storage.put('ivrAudioMeta', meta.filter(m => !(m.promptType === promptType && m.language === language)))
+
     return Response.json({ ok: true })
   }
 }

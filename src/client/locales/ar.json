@@ -200,8 +200,31 @@
       "adminPromoted": "تمت ترقية المسؤول",
       "adminDemoted": "تم تخفيض المسؤول",
       "volunteerOnBreak": "متطوع في استراحة",
-      "volunteerAvailable": "متطوع متاح"
+      "volunteerAvailable": "متطوع متاح",
+      "ivrLanguagesUpdated": "تم تحديث لغات IVR",
+      "ivrAudioUploaded": "تم رفع صوت IVR",
+      "ivrAudioDeleted": "تم حذف صوت IVR"
     }
+  },
+  "ivrAudio": {
+    "title": "الرسائل الصوتية",
+    "description": "سجّل صوتًا مخصصًا لرسائل IVR. يُستخدم تحويل النص إلى كلام عند عدم وجود تسجيل.",
+    "record": "تسجيل",
+    "stop": "إيقاف",
+    "delete": "حذف",
+    "uploaded": "مسجّل",
+    "prompt": {
+      "greeting": "ترحيب",
+      "pleaseHold": "انتظر من فضلك",
+      "waitMessage": "رسالة الانتظار",
+      "rateLimited": "حجم مكالمات مرتفع",
+      "captchaPrompt": "التحقق CAPTCHA"
+    }
+  },
+  "ivr": {
+    "title": "قائمة لغات IVR",
+    "description": "اختر اللغات التي يسمعها المتصلون في قائمة الهاتف.",
+    "atLeastOne": "يجب تفعيل لغة واحدة على الأقل"
   },
   "spam": {
     "title": "الحماية من البريد المزعج",

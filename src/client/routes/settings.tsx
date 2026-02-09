@@ -11,12 +11,18 @@ import {
   updateMyProfile,
   getIvrLanguages,
   updateIvrLanguages,
+  listIvrAudio,
+  uploadIvrAudio,
+  deleteIvrAudio,
+  getIvrAudioUrl,
   type SpamSettings,
+  type IvrAudioRecording,
 } from '@/lib/api'
 import { getStoredSession, keyPairFromNsec } from '@/lib/crypto'
 import { nip19 } from 'nostr-tools'
 import { useToast } from '@/lib/toast'
-import { Settings2, Mic, ShieldAlert, Bot, Timer, Bell, User, KeyRound, Shield, Globe, Phone } from 'lucide-react'
+import { Settings2, Mic, ShieldAlert, Bot, Timer, Bell, User, KeyRound, Shield, Globe, Phone, Volume2 } from 'lucide-react'
+import { AudioRecorder } from '@/components/audio-recorder'
 import { getNotificationPrefs, setNotificationPrefs } from '@/lib/notifications'
 import { LANGUAGES, IVR_LANGUAGES, LANGUAGE_MAP, ivrIndexToDigit } from '@shared/languages'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -39,6 +45,8 @@ function SettingsPage() {
   const [myTranscription, setMyTranscription] = useState(transcriptionEnabled)
   const [notifPrefs, setNotifPrefs] = useState(getNotificationPrefs)
   const [ivrEnabled, setIvrEnabled] = useState<string[]>([...IVR_LANGUAGES])
+  const [ivrAudio, setIvrAudio] = useState<IvrAudioRecording[]>([])
+  const [audioSaving, setAudioSaving] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   // Profile state
@@ -58,6 +66,7 @@ function SettingsPage() {
         getSpamSettings().then(setSpam),
         getTranscriptionSettings().then(r => setGlobalTranscription(r.globalEnabled)),
         getIvrLanguages().then(r => setIvrEnabled(r.enabledLanguages)),
+        listIvrAudio().then(r => setIvrAudio(r.recordings)),
       ]).catch(() => toast(t('common.error'), 'error'))
         .finally(() => setLoading(false))
     } else {
@@ -372,6 +381,75 @@ function SettingsPage() {
             {ivrEnabled.length === 1 && (
               <p className="text-xs text-muted-foreground">{t('ivr.atLeastOne')}</p>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Voice Prompts (IVR Audio) */}
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Volume2 className="h-5 w-5 text-muted-foreground" />
+              {t('ivrAudio.title')}
+            </CardTitle>
+            <CardDescription>{t('ivrAudio.description')}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {(['greeting', 'pleaseHold', 'waitMessage', 'rateLimited', 'captchaPrompt'] as const).map(promptType => (
+              <div key={promptType} className="space-y-2">
+                <h4 className="text-sm font-medium">{t(`ivrAudio.prompt.${promptType}`)}</h4>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {ivrEnabled.map(langCode => {
+                    const lang = LANGUAGE_MAP[langCode]
+                    if (!lang) return null
+                    const existing = ivrAudio.find(r => r.promptType === promptType && r.language === langCode)
+                    const key = `${promptType}:${langCode}`
+                    return (
+                      <div key={key} className="rounded-lg border border-border p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium">{lang.flag} {lang.label}</span>
+                          {existing && (
+                            <Badge variant="secondary" className="text-[10px]">{t('ivrAudio.uploaded')}</Badge>
+                          )}
+                        </div>
+                        <AudioRecorder
+                          existingUrl={existing ? getIvrAudioUrl(promptType, langCode) : undefined}
+                          onRecorded={async (blob) => {
+                            setAudioSaving(key)
+                            try {
+                              await uploadIvrAudio(promptType, langCode, blob)
+                              const res = await listIvrAudio()
+                              setIvrAudio(res.recordings)
+                              toast(t('common.success'), 'success')
+                            } catch {
+                              toast(t('common.error'), 'error')
+                            } finally {
+                              setAudioSaving(null)
+                            }
+                          }}
+                          onDelete={existing ? async () => {
+                            setAudioSaving(key)
+                            try {
+                              await deleteIvrAudio(promptType, langCode)
+                              setIvrAudio(prev => prev.filter(r => !(r.promptType === promptType && r.language === langCode)))
+                              toast(t('common.success'), 'success')
+                            } catch {
+                              toast(t('common.error'), 'error')
+                            } finally {
+                              setAudioSaving(null)
+                            }
+                          } : undefined}
+                        />
+                        {audioSaving === key && (
+                          <p className="text-xs text-muted-foreground">{t('common.loading')}</p>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
           </CardContent>
         </Card>
       )}

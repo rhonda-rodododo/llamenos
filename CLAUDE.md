@@ -81,3 +81,5 @@ bunx tsc --noEmit
 - Use Playwright plugin for E2E test development and debugging.
 - Clean, modular and DRY patterns!
 - When Requirements, Architecture, Design, and Technical changes occur, always update related documentation
+- you MUST NOT delete or regress functionality to fix type issues or get tests passing, only delete functionality or new features or improvements if asked to or if they need to be replaced as part of new features/changes
+- use parallel execution via agents where it makes sense to to keep things moving along

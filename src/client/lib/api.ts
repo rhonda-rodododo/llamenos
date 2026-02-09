@@ -313,6 +313,47 @@ export async function redeemInvite(code: string, pubkey: string) {
   return res.json() as Promise<{ volunteer: Volunteer }>
 }
 
+// --- IVR Audio ---
+
+export interface IvrAudioRecording {
+  promptType: string
+  language: string
+  size: number
+  uploadedAt: string
+}
+
+export async function listIvrAudio() {
+  return request<{ recordings: IvrAudioRecording[] }>('/settings/ivr-audio')
+}
+
+export async function uploadIvrAudio(promptType: string, language: string, audioBlob: Blob) {
+  const res = await fetch(`${API_BASE}/settings/ivr-audio/${promptType}/${language}`, {
+    method: 'PUT',
+    headers: {
+      ...getAuthHeaders(),
+      'Content-Type': audioBlob.type || 'audio/webm',
+    },
+    body: audioBlob,
+  })
+  if (!res.ok) {
+    if (res.status === 401) {
+      clearSession()
+      onAuthExpired?.()
+    }
+    const body = await res.text()
+    throw new ApiError(res.status, body)
+  }
+  return res.json() as Promise<{ ok: true }>
+}
+
+export async function deleteIvrAudio(promptType: string, language: string) {
+  return request<{ ok: true }>(`/settings/ivr-audio/${promptType}/${language}`, { method: 'DELETE' })
+}
+
+export function getIvrAudioUrl(promptType: string, language: string) {
+  return `${API_BASE}/ivr-audio/${promptType}/${language}`
+}
+
 // --- Types ---
 
 export interface Volunteer {

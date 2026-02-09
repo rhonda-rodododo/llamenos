@@ -200,8 +200,31 @@
       "adminPromoted": "관리자 승격됨",
       "adminDemoted": "관리자 해제됨",
       "volunteerOnBreak": "자원봉사자 휴식 중",
-      "volunteerAvailable": "자원봉사자 대기 중"
+      "volunteerAvailable": "자원봉사자 대기 중",
+      "ivrLanguagesUpdated": "IVR 언어 업데이트됨",
+      "ivrAudioUploaded": "IVR 오디오 업로드됨",
+      "ivrAudioDeleted": "IVR 오디오 삭제됨"
     }
+  },
+  "ivrAudio": {
+    "title": "음성 안내",
+    "description": "발신자용 IVR 안내 음성을 녹음하세요. 녹음이 없으면 텍스트 음성 변환을 사용합니다.",
+    "record": "녹음",
+    "stop": "중지",
+    "delete": "삭제",
+    "uploaded": "녹음됨",
+    "prompt": {
+      "greeting": "인사말",
+      "pleaseHold": "잠시만 기다려주세요",
+      "waitMessage": "대기 메시지",
+      "rateLimited": "통화량 초과",
+      "captchaPrompt": "CAPTCHA 확인"
+    }
+  },
+  "ivr": {
+    "title": "IVR 언어 메뉴",
+    "description": "발신자가 전화 메뉴에서 듣는 언어를 선택하세요.",
+    "atLeastOne": "최소 하나의 언어가 활성화되어야 합니다"
   },
   "spam": {
     "title": "스팸 방지",

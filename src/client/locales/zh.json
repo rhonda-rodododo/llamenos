@@ -200,8 +200,31 @@
       "adminPromoted": "已提升为管理员",
       "adminDemoted": "已取消管理员",
       "volunteerOnBreak": "志愿者休息中",
-      "volunteerAvailable": "志愿者可用"
+      "volunteerAvailable": "志愿者可用",
+      "ivrLanguagesUpdated": "IVR语言已更新",
+      "ivrAudioUploaded": "IVR音频已上传",
+      "ivrAudioDeleted": "IVR音频已删除"
     }
+  },
+  "ivrAudio": {
+    "title": "语音提示",
+    "description": "为来电者录制自定义IVR语音提示。没有录音时使用文字转语音。",
+    "record": "录制",
+    "stop": "停止",
+    "delete": "删除",
+    "uploaded": "已录制",
+    "prompt": {
+      "greeting": "问候语",
+      "pleaseHold": "请稍候",
+      "waitMessage": "等待消息",
+      "rateLimited": "高通话量消息",
+      "captchaPrompt": "验证提示"
+    }
+  },
+  "ivr": {
+    "title": "IVR语言菜单",
+    "description": "选择来电者在电话菜单中听到的语言。已禁用的语言将被跳过。",
+    "atLeastOne": "至少需要启用一种语言"
   },
   "spam": {
     "title": "垃圾电话防护",

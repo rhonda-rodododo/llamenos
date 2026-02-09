@@ -200,8 +200,31 @@
       "adminPromoted": "Administrator befördert",
       "adminDemoted": "Administrator herabgestuft",
       "volunteerOnBreak": "Freiwilliger in Pause",
-      "volunteerAvailable": "Freiwilliger verfügbar"
+      "volunteerAvailable": "Freiwilliger verfügbar",
+      "ivrLanguagesUpdated": "IVR-Sprachen aktualisiert",
+      "ivrAudioUploaded": "IVR-Audio hochgeladen",
+      "ivrAudioDeleted": "IVR-Audio gelöscht"
     }
+  },
+  "ivrAudio": {
+    "title": "Sprachansagen",
+    "description": "Nehmen Sie benutzerdefiniertes Audio für IVR-Ansagen auf. Text-zu-Sprache wird verwendet, wenn keine Aufnahme vorhanden ist.",
+    "record": "Aufnehmen",
+    "stop": "Stopp",
+    "delete": "Löschen",
+    "uploaded": "Aufgenommen",
+    "prompt": {
+      "greeting": "Begrüßung",
+      "pleaseHold": "Bitte warten",
+      "waitMessage": "Wartenachricht",
+      "rateLimited": "Hohes Anrufaufkommen",
+      "captchaPrompt": "CAPTCHA-Überprüfung"
+    }
+  },
+  "ivr": {
+    "title": "IVR-Sprachmenü",
+    "description": "Wählen Sie, welche Sprachen Anrufer im Telefonmenü hören.",
+    "atLeastOne": "Mindestens eine Sprache muss aktiviert sein"
   },
   "spam": {
     "title": "Spam-Schutz",

@@ -200,8 +200,31 @@
       "adminPromoted": "एडमिन पदोन्नत",
       "adminDemoted": "एडमिन पदावनत",
       "volunteerOnBreak": "स्वयंसेवक ब्रेक पर",
-      "volunteerAvailable": "स्वयंसेवक उपलब्ध"
+      "volunteerAvailable": "स्वयंसेवक उपलब्ध",
+      "ivrLanguagesUpdated": "IVR भाषाएं अपडेट की गईं",
+      "ivrAudioUploaded": "IVR ऑडियो अपलोड किया गया",
+      "ivrAudioDeleted": "IVR ऑडियो हटाया गया"
     }
+  },
+  "ivrAudio": {
+    "title": "ध्वनि संदेश",
+    "description": "कॉलर के लिए कस्टम IVR ऑडियो रिकॉर्ड करें। रिकॉर्डिंग न होने पर टेक्स्ट-टू-स्पीच का उपयोग होता है।",
+    "record": "रिकॉर्ड",
+    "stop": "रोकें",
+    "delete": "हटाएं",
+    "uploaded": "रिकॉर्ड किया",
+    "prompt": {
+      "greeting": "अभिवादन",
+      "pleaseHold": "कृपया प्रतीक्षा करें",
+      "waitMessage": "प्रतीक्षा संदेश",
+      "rateLimited": "उच्च कॉल मात्रा",
+      "captchaPrompt": "CAPTCHA सत्यापन"
+    }
+  },
+  "ivr": {
+    "title": "IVR भाषा मेनू",
+    "description": "चुनें कि कॉल करने वाले फ़ोन मेनू में कौन सी भाषाएं सुनें।",
+    "atLeastOne": "कम से कम एक भाषा सक्षम होनी चाहिए"
   },
   "spam": {
     "title": "स्पैम सुरक्षा",

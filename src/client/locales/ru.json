@@ -200,8 +200,31 @@
       "adminPromoted": "Повышен до администратора",
       "adminDemoted": "Понижен с администратора",
       "volunteerOnBreak": "Волонтёр на перерыве",
-      "volunteerAvailable": "Волонтёр доступен"
+      "volunteerAvailable": "Волонтёр доступен",
+      "ivrLanguagesUpdated": "Языки IVR обновлены",
+      "ivrAudioUploaded": "Аудио IVR загружено",
+      "ivrAudioDeleted": "Аудио IVR удалено"
     }
+  },
+  "ivrAudio": {
+    "title": "Голосовые сообщения",
+    "description": "Запишите пользовательское аудио для сообщений IVR. При отсутствии записи используется синтез речи.",
+    "record": "Записать",
+    "stop": "Остановить",
+    "delete": "Удалить",
+    "uploaded": "Записано",
+    "prompt": {
+      "greeting": "Приветствие",
+      "pleaseHold": "Подождите",
+      "waitMessage": "Сообщение ожидания",
+      "rateLimited": "Высокая нагрузка",
+      "captchaPrompt": "Проверка CAPTCHA"
+    }
+  },
+  "ivr": {
+    "title": "Языковое меню IVR",
+    "description": "Выберите языки, которые звонящие услышат в телефонном меню.",
+    "atLeastOne": "Должен быть включен хотя бы один язык"
   },
   "spam": {
     "title": "Защита от спама",

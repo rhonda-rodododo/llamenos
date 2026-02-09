@@ -200,8 +200,31 @@
       "adminPromoted": "Đã thăng quản trị viên",
       "adminDemoted": "Đã hủy quản trị viên",
       "volunteerOnBreak": "Tình nguyện viên đang nghỉ",
-      "volunteerAvailable": "Tình nguyện viên sẵn sàng"
+      "volunteerAvailable": "Tình nguyện viên sẵn sàng",
+      "ivrLanguagesUpdated": "Đã cập nhật ngôn ngữ IVR",
+      "ivrAudioUploaded": "Đã tải lên âm thanh IVR",
+      "ivrAudioDeleted": "Đã xóa âm thanh IVR"
     }
+  },
+  "ivrAudio": {
+    "title": "Lời nhắc thoại",
+    "description": "Ghi âm tùy chỉnh cho lời nhắc IVR. Sử dụng chuyển văn bản thành giọng nói khi không có bản ghi.",
+    "record": "Ghi âm",
+    "stop": "Dừng",
+    "delete": "Xóa",
+    "uploaded": "Đã ghi",
+    "prompt": {
+      "greeting": "Lời chào",
+      "pleaseHold": "Xin giữ máy",
+      "waitMessage": "Tin nhắn chờ",
+      "rateLimited": "Lượng cuộc gọi cao",
+      "captchaPrompt": "Xác minh CAPTCHA"
+    }
+  },
+  "ivr": {
+    "title": "Menu ngon ngu IVR",
+    "description": "Chon ngon ngu ma nguoi goi nghe trong menu dien thoai.",
+    "atLeastOne": "Can it nhat mot ngon ngu duoc bat"
   },
   "spam": {
     "title": "Bảo vệ chống spam",

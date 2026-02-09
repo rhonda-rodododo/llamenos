@@ -29,7 +29,7 @@ export interface TelephonyAdapter {
   /**
    * Generate hold music / wait message for callers in queue.
    */
-  handleWaitMusic(lang: string): Promise<TelephonyResponse>
+  handleWaitMusic(lang: string, audioUrls?: AudioUrlMap): Promise<TelephonyResponse>
 
   /**
    * Reject a banned/blocked caller.
@@ -76,6 +76,7 @@ export interface IncomingCallParams {
   rateLimited: boolean
   callerLanguage: string
   hotlineName: string
+  audioUrls?: AudioUrlMap
 }
 
 export interface CaptchaResponseParams {
@@ -102,3 +103,6 @@ export interface TelephonyResponse {
   body: string
   status?: number
 }
+
+/** Map of "promptType:language" -> audio URL for custom recordings */
+export type AudioUrlMap = Record<string, string>

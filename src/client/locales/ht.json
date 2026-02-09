@@ -200,8 +200,31 @@
       "adminPromoted": "Administratè Promouvwa",
       "adminDemoted": "Administratè Degrade",
       "volunteerOnBreak": "Volontè an Pòz",
-      "volunteerAvailable": "Volontè Disponib"
+      "volunteerAvailable": "Volontè Disponib",
+      "ivrLanguagesUpdated": "Lang IVR yo mete ajou",
+      "ivrAudioUploaded": "Odyo IVR telechaje",
+      "ivrAudioDeleted": "Odyo IVR efase"
     }
+  },
+  "ivrAudio": {
+    "title": "Mesaj vwa",
+    "description": "Anrejistre odyo pèsonalize pou mesaj IVR. Itilize tèks-a-lapawòl lè pa gen anrejistreman.",
+    "record": "Anrejistre",
+    "stop": "Sispann",
+    "delete": "Efase",
+    "uploaded": "Anrejistre",
+    "prompt": {
+      "greeting": "Akèy",
+      "pleaseHold": "Tanpri tann",
+      "waitMessage": "Mesaj atant",
+      "rateLimited": "Anpil apèl",
+      "captchaPrompt": "Verifikasyon CAPTCHA"
+    }
+  },
+  "ivr": {
+    "title": "Meni lang IVR",
+    "description": "Chwazi ki lang moun k ap rele yo tande nan meni telefòn nan.",
+    "atLeastOne": "Omwen yon lang dwe aktive"
   },
   "spam": {
     "title": "Pwoteksyon Anti-Spam",

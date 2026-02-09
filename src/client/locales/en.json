@@ -214,7 +214,24 @@
       "adminDemoted": "Admin Demoted",
       "volunteerOnBreak": "Volunteer On Break",
       "volunteerAvailable": "Volunteer Available",
-      "ivrLanguagesUpdated": "IVR Languages Updated"
+      "ivrLanguagesUpdated": "IVR Languages Updated",
+      "ivrAudioUploaded": "IVR Audio Uploaded",
+      "ivrAudioDeleted": "IVR Audio Deleted"
+    }
+  },
+  "ivrAudio": {
+    "title": "Voice Prompts",
+    "description": "Record custom audio for caller-facing IVR prompts. Falls back to text-to-speech when no recording exists.",
+    "record": "Record",
+    "stop": "Stop",
+    "delete": "Delete",
+    "uploaded": "Recorded",
+    "prompt": {
+      "greeting": "Greeting",
+      "pleaseHold": "Please Hold",
+      "waitMessage": "Wait Message",
+      "rateLimited": "High Volume Message",
+      "captchaPrompt": "CAPTCHA Prompt"
     }
   },
   "ivr": {

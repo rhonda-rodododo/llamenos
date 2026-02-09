@@ -200,8 +200,31 @@
       "adminPromoted": "Na-promote bilang Admin",
       "adminDemoted": "Na-demote mula sa Admin",
       "volunteerOnBreak": "Naka-break ang Boluntaryo",
-      "volunteerAvailable": "Available ang Boluntaryo"
+      "volunteerAvailable": "Available ang Boluntaryo",
+      "ivrLanguagesUpdated": "Na-update ang mga wika ng IVR",
+      "ivrAudioUploaded": "Na-upload ang IVR audio",
+      "ivrAudioDeleted": "Natanggal ang IVR audio"
     }
+  },
+  "ivrAudio": {
+    "title": "Mga Voice Prompt",
+    "description": "Mag-record ng custom na audio para sa mga prompt ng tumatawag. Gumagamit ng text-to-speech kung walang recording.",
+    "record": "Mag-record",
+    "stop": "Ihinto",
+    "delete": "Tanggalin",
+    "uploaded": "Na-record",
+    "prompt": {
+      "greeting": "Pagbati",
+      "pleaseHold": "Maghintay",
+      "waitMessage": "Mensahe sa paghihintay",
+      "rateLimited": "Mataas na dami ng tawag",
+      "captchaPrompt": "Prompt ng CAPTCHA"
+    }
+  },
+  "ivr": {
+    "title": "IVR Language Menu",
+    "description": "Piliin kung aling mga wika ang maririnig ng tumatawag sa menu ng telepono.",
+    "atLeastOne": "Kailangan ng kahit isang wikang naka-enable"
   },
   "spam": {
     "title": "Spam Mitigation",

@@ -200,8 +200,31 @@
       "adminPromoted": "Administrador Promovido",
       "adminDemoted": "Administrador Degradado",
       "volunteerOnBreak": "Voluntario en Descanso",
-      "volunteerAvailable": "Voluntario Disponible"
+      "volunteerAvailable": "Voluntario Disponible",
+      "ivrLanguagesUpdated": "Idiomas IVR actualizados",
+      "ivrAudioUploaded": "Audio IVR cargado",
+      "ivrAudioDeleted": "Audio IVR eliminado"
     }
+  },
+  "ivrAudio": {
+    "title": "Mensajes de voz",
+    "description": "Grabe audio personalizado para los mensajes de la línea telefónica. Se usa texto a voz cuando no hay grabación.",
+    "record": "Grabar",
+    "stop": "Detener",
+    "delete": "Eliminar",
+    "uploaded": "Grabado",
+    "prompt": {
+      "greeting": "Saludo",
+      "pleaseHold": "Espere por favor",
+      "waitMessage": "Mensaje de espera",
+      "rateLimited": "Alto volumen",
+      "captchaPrompt": "Verificación CAPTCHA"
+    }
+  },
+  "ivr": {
+    "title": "Menú de idiomas IVR",
+    "description": "Elija qué idiomas escuchan los llamantes en el menú telefónico. Los idiomas desactivados se omiten.",
+    "atLeastOne": "Debe haber al menos un idioma habilitado"
   },
   "spam": {
     "title": "Mitigación de Spam",

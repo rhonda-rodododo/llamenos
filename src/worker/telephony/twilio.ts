@@ -6,6 +6,7 @@ import type {
   LanguageMenuParams,
   RingVolunteersParams,
   TelephonyResponse,
+  AudioUrlMap,
 } from './adapter'
 import {
   LANGUAGE_MAP,
@@ -175,6 +176,17 @@ export function getPrompt(key: string, lang: string): string {
   return VOICE_PROMPTS[key]?.[lang] ?? VOICE_PROMPTS[key]?.[DEFAULT_LANGUAGE] ?? ''
 }
 
+/** Generate TwiML: <Play> if custom audio exists, <Say> fallback */
+function sayOrPlay(promptKey: string, lang: string, audioUrls?: AudioUrlMap, text?: string): string {
+  const audioUrl = audioUrls?.[`${promptKey}:${lang}`]
+  if (audioUrl) {
+    return `<Play>${audioUrl}</Play>`
+  }
+  const voice = getTwilioVoice(lang)
+  const content = text ?? getPrompt(promptKey, lang)
+  return `<Say language="${voice}">${content}</Say>`
+}
+
 /**
  * TwilioAdapter — Twilio implementation of TelephonyAdapter.
  */
@@ -226,12 +238,15 @@ export class TwilioAdapter implements TelephonyAdapter {
   async handleIncomingCall(params: IncomingCallParams): Promise<TelephonyResponse> {
     const lang = params.callerLanguage
     const tLang = getTwilioVoice(lang)
-    const greeting = getPrompt('greeting', lang).replace('{name}', params.hotlineName)
+    const greetingText = getPrompt('greeting', lang).replace('{name}', params.hotlineName)
+    const greetingTwiml = sayOrPlay('greeting', lang, params.audioUrls, greetingText)
 
     if (params.rateLimited) {
+      const rateLimitTwiml = sayOrPlay('rateLimited', lang, params.audioUrls)
       return this.twiml(`
         <Response>
-          <Say language="${tLang}">${greeting} ${getPrompt('rateLimited', lang)}</Say>
+          ${greetingTwiml}
+          ${rateLimitTwiml}
           <Hangup/>
         </Response>
       `)
@@ -239,10 +254,13 @@ export class TwilioAdapter implements TelephonyAdapter {
 
     if (params.voiceCaptchaEnabled) {
       const digits = String(Math.floor(1000 + Math.random() * 9000))
+      const captchaTwiml = sayOrPlay('captchaPrompt', lang, params.audioUrls)
       return this.twiml(`
         <Response>
           <Gather numDigits="4" action="/api/telephony/captcha?expected=${digits}&amp;callSid=${params.callSid}&amp;lang=${lang}" method="POST" timeout="10">
-            <Say language="${tLang}">${greeting} ${getPrompt('captchaPrompt', lang)} ${digits.split('').join(', ')}.</Say>
+            ${greetingTwiml}
+            ${captchaTwiml}
+            <Say language="${tLang}">${digits.split('').join(', ')}.</Say>
           </Gather>
           <Say language="${tLang}">${getPrompt('captchaTimeout', lang)}</Say>
           <Hangup/>
@@ -250,9 +268,11 @@ export class TwilioAdapter implements TelephonyAdapter {
       `)
     }
 
+    const holdTwiml = sayOrPlay('pleaseHold', lang, params.audioUrls)
     return this.twiml(`
       <Response>
-        <Say language="${tLang}">${greeting} ${getPrompt('pleaseHold', lang)}</Say>
+        ${greetingTwiml}
+        ${holdTwiml}
         <Enqueue waitUrl="/api/telephony/wait-music?lang=${lang}">${params.callSid}</Enqueue>
       </Response>
     `)
@@ -288,12 +308,11 @@ export class TwilioAdapter implements TelephonyAdapter {
     `)
   }
 
-  async handleWaitMusic(lang: string): Promise<TelephonyResponse> {
-    const tLang = getTwilioVoice(lang)
-    const waitMsg = getPrompt('waitMessage', lang)
+  async handleWaitMusic(lang: string, audioUrls?: AudioUrlMap): Promise<TelephonyResponse> {
+    const waitTwiml = sayOrPlay('waitMessage', lang, audioUrls)
     return this.twiml(`
       <Response>
-        <Say language="${tLang}">${waitMsg}</Say>
+        ${waitTwiml}
         <Play>https://com.twilio.music.soft-rock.s3.amazonaws.com/_ghost_-_promo_2_sample_pack.mp3</Play>
       </Response>
     `)

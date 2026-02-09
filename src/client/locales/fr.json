@@ -200,8 +200,31 @@
       "adminPromoted": "Administrateur promu",
       "adminDemoted": "Administrateur rétrogradé",
       "volunteerOnBreak": "Bénévole en pause",
-      "volunteerAvailable": "Bénévole disponible"
+      "volunteerAvailable": "Bénévole disponible",
+      "ivrLanguagesUpdated": "Langues IVR mises à jour",
+      "ivrAudioUploaded": "Audio IVR téléchargé",
+      "ivrAudioDeleted": "Audio IVR supprimé"
     }
+  },
+  "ivrAudio": {
+    "title": "Messages vocaux",
+    "description": "Enregistrez un audio personnalisé pour les messages IVR. Utilise la synthèse vocale en l'absence d'enregistrement.",
+    "record": "Enregistrer",
+    "stop": "Arrêter",
+    "delete": "Supprimer",
+    "uploaded": "Enregistré",
+    "prompt": {
+      "greeting": "Message d'accueil",
+      "pleaseHold": "Veuillez patienter",
+      "waitMessage": "Message d'attente",
+      "rateLimited": "Volume d'appels élevé",
+      "captchaPrompt": "Vérification CAPTCHA"
+    }
+  },
+  "ivr": {
+    "title": "Menu vocal IVR",
+    "description": "Choisissez les langues que les appelants entendent dans le menu téléphonique.",
+    "atLeastOne": "Au moins une langue doit être activée"
   },
   "spam": {
     "title": "Protection anti-spam",
