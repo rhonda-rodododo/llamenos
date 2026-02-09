@@ -352,7 +352,26 @@ export class CallRouterDO extends DurableObject<Env> {
   }
 
   private async getActiveCallsList(): Promise<CallRecord[]> {
-    return await this.ctx.storage.get<CallRecord[]>('activeCalls') || []
+    const calls = await this.ctx.storage.get<CallRecord[]>('activeCalls') || []
+    const now = Date.now()
+    // Ringing calls older than 5 minutes are stale (Twilio queues timeout well before this)
+    // In-progress calls older than 8 hours are stale (no call should last that long)
+    const RINGING_TTL = 5 * 60 * 1000
+    const IN_PROGRESS_TTL = 8 * 60 * 60 * 1000
+
+    const active = calls.filter(c => {
+      const age = now - new Date(c.startedAt).getTime()
+      if (c.status === 'ringing' && age > RINGING_TTL) return false
+      if (c.status === 'in-progress' && age > IN_PROGRESS_TTL) return false
+      return true
+    })
+
+    // Persist cleanup if stale calls were removed
+    if (active.length < calls.length) {
+      await this.ctx.storage.put('activeCalls', active)
+    }
+
+    return active
   }
 
   private async getCallHistory(
