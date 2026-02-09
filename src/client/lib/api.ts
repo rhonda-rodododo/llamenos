@@ -221,10 +221,11 @@ export async function getVolunteerPresence() {
 
 // --- Audit Log (admin only) ---
 
-export async function listAuditLog(params?: { page?: number; limit?: number }) {
+export async function listAuditLog(params?: { page?: number; limit?: number; actorPubkey?: string }) {
   const search = new URLSearchParams()
   if (params?.page) search.set('page', String(params.page))
   if (params?.limit) search.set('limit', String(params.limit))
+  if (params?.actorPubkey) search.set('actorPubkey', params.actorPubkey)
   return request<{ entries: AuditLogEntry[]; total: number }>(`/audit?${search}`)
 }
 

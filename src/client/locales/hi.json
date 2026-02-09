@@ -393,6 +393,13 @@
       "maxLength": "अधिकतम लंबाई"
     }
   },
+  "volunteerProfile": {
+    "joined": "शामिल हुए",
+    "assignedShifts": "निर्धारित शिफ्ट",
+    "noShifts": "कोई शिफ्ट निर्धारित नहीं",
+    "activity": "गतिविधि",
+    "noActivity": "कोई गतिविधि दर्ज नहीं"
+  },
   "a11y": {
     "skipToContent": "सामग्री पर जाएं",
     "switchToLanguage": "{{language}} में बदलें",

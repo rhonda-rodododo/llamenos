@@ -393,6 +393,13 @@
       "maxLength": "Độ dài tối đa"
     }
   },
+  "volunteerProfile": {
+    "joined": "Tham gia",
+    "assignedShifts": "Ca trực được phân công",
+    "noShifts": "Chưa được phân công ca trực nào",
+    "activity": "Hoạt động",
+    "noActivity": "Chưa có hoạt động nào"
+  },
   "a11y": {
     "skipToContent": "Chuyển đến nội dung",
     "switchToLanguage": "Chuyển sang {{language}}",

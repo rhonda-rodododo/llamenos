@@ -393,6 +393,13 @@
       "maxLength": "Longitud Máx"
     }
   },
+  "volunteerProfile": {
+    "joined": "Se unió",
+    "assignedShifts": "Turnos asignados",
+    "noShifts": "Sin turnos asignados",
+    "activity": "Actividad",
+    "noActivity": "Sin actividad registrada"
+  },
   "a11y": {
     "skipToContent": "Ir al contenido",
     "switchToLanguage": "Cambiar a {{language}}",

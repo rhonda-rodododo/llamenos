@@ -636,9 +636,11 @@ export default {
     // --- Audit Log (admin only) ---
     if (path === '/audit' && method === 'GET') {
       if (!isAdmin) return error('Forbidden', 403)
-      const page = url.searchParams.get('page') || '1'
-      const limit = url.searchParams.get('limit') || '50'
-      return dos.session.fetch(new Request(`http://do/audit?page=${page}&limit=${limit}`))
+      const params = new URLSearchParams()
+      params.set('page', url.searchParams.get('page') || '1')
+      params.set('limit', url.searchParams.get('limit') || '50')
+      if (url.searchParams.get('actorPubkey')) params.set('actorPubkey', url.searchParams.get('actorPubkey')!)
+      return dos.session.fetch(new Request(`http://do/audit?${params}`))
     }
 
     // --- Settings (admin only) ---

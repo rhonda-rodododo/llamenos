@@ -453,6 +453,13 @@
       "maxLength": "Max Length"
     }
   },
+  "volunteerProfile": {
+    "joined": "Joined",
+    "assignedShifts": "Assigned Shifts",
+    "noShifts": "Not assigned to any shifts",
+    "activity": "Activity",
+    "noActivity": "No activity recorded"
+  },
   "a11y": {
     "skipToContent": "Skip to content",
     "switchToLanguage": "Switch to {{language}}",

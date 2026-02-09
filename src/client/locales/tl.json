@@ -393,6 +393,13 @@
       "maxLength": "Max na Haba"
     }
   },
+  "volunteerProfile": {
+    "joined": "Sumali noong",
+    "assignedShifts": "Mga Nakatalagang Shift",
+    "noShifts": "Walang nakatalagang shift",
+    "activity": "Aktibidad",
+    "noActivity": "Walang naitatalang aktibidad"
+  },
   "a11y": {
     "skipToContent": "Pumunta sa nilalaman",
     "switchToLanguage": "Lumipat sa {{language}}",

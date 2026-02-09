@@ -393,6 +393,13 @@
       "maxLength": "最大长度"
     }
   },
+  "volunteerProfile": {
+    "joined": "加入于",
+    "assignedShifts": "已分配班次",
+    "noShifts": "未分配任何班次",
+    "activity": "活动记录",
+    "noActivity": "无活动记录"
+  },
   "a11y": {
     "skipToContent": "跳到内容",
     "switchToLanguage": "切换到{{language}}",

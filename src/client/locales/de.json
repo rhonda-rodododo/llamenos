@@ -393,6 +393,13 @@
       "maxLength": "Max. Länge"
     }
   },
+  "volunteerProfile": {
+    "joined": "Beigetreten",
+    "assignedShifts": "Zugewiesene Schichten",
+    "noShifts": "Keine Schichten zugewiesen",
+    "activity": "Aktivität",
+    "noActivity": "Keine Aktivität aufgezeichnet"
+  },
   "a11y": {
     "skipToContent": "Zum Inhalt springen",
     "switchToLanguage": "Zu {{language}} wechseln",

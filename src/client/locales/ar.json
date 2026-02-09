@@ -393,6 +393,13 @@
       "maxLength": "الحد الأقصى للطول"
     }
   },
+  "volunteerProfile": {
+    "joined": "انضم في",
+    "assignedShifts": "المناوبات المعينة",
+    "noShifts": "لم يتم تعيين أي مناوبات",
+    "activity": "النشاط",
+    "noActivity": "لا يوجد نشاط مسجل"
+  },
   "a11y": {
     "skipToContent": "انتقل إلى المحتوى",
     "switchToLanguage": "التبديل إلى {{language}}",

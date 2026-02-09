@@ -393,6 +393,13 @@
       "maxLength": "Longè Maks"
     }
   },
+  "volunteerProfile": {
+    "joined": "Te antre",
+    "assignedShifts": "Shift yo ki asiyen",
+    "noShifts": "Pa gen shift ki asiyen",
+    "activity": "Aktivite",
+    "noActivity": "Pa gen aktivite anrejistre"
+  },
   "a11y": {
     "skipToContent": "Ale nan kontni",
     "switchToLanguage": "Chanje a {{language}}",

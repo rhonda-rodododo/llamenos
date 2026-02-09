@@ -140,7 +140,8 @@ export class SessionManagerDO extends DurableObject<Env> {
     if (path === '/audit' && method === 'GET') {
       const page = parseInt(url.searchParams.get('page') || '1')
       const limit = parseInt(url.searchParams.get('limit') || '50')
-      return this.getAuditLog(page, limit)
+      const actorPubkey = url.searchParams.get('actorPubkey') || undefined
+      return this.getAuditLog(page, limit, actorPubkey)
     }
     if (path === '/audit' && method === 'POST') {
       return this.addAuditEntry(await request.json())
@@ -456,9 +457,10 @@ export class SessionManagerDO extends DurableObject<Env> {
 
   // --- Audit Log Methods ---
 
-  private async getAuditLog(page: number, limit: number): Promise<Response> {
+  private async getAuditLog(page: number, limit: number, actorPubkey?: string): Promise<Response> {
     const entries = await this.ctx.storage.get<AuditLogEntry[]>('auditLog') || []
-    const sorted = entries.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    const filtered = actorPubkey ? entries.filter(e => e.actorPubkey === actorPubkey) : entries
+    const sorted = filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     const start = (page - 1) * limit
     return Response.json({
       entries: sorted.slice(start, start + limit),

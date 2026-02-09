@@ -20,6 +20,7 @@ import { Route as CallsRouteImport } from './routes/calls'
 import { Route as BansRouteImport } from './routes/bans'
 import { Route as AuditRouteImport } from './routes/audit'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as VolunteersPubkeyRouteImport } from './routes/volunteers.$pubkey'
 
 const VolunteersRoute = VolunteersRouteImport.update({
   id: '/volunteers',
@@ -76,6 +77,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VolunteersPubkeyRoute = VolunteersPubkeyRouteImport.update({
+  id: '/$pubkey',
+  path: '/$pubkey',
+  getParentRoute: () => VolunteersRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -88,7 +94,8 @@ export interface FileRoutesByFullPath {
   '/profile-setup': typeof ProfileSetupRoute
   '/settings': typeof SettingsRoute
   '/shifts': typeof ShiftsRoute
-  '/volunteers': typeof VolunteersRoute
+  '/volunteers': typeof VolunteersRouteWithChildren
+  '/volunteers/$pubkey': typeof VolunteersPubkeyRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -101,7 +108,8 @@ export interface FileRoutesByTo {
   '/profile-setup': typeof ProfileSetupRoute
   '/settings': typeof SettingsRoute
   '/shifts': typeof ShiftsRoute
-  '/volunteers': typeof VolunteersRoute
+  '/volunteers': typeof VolunteersRouteWithChildren
+  '/volunteers/$pubkey': typeof VolunteersPubkeyRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -115,7 +123,8 @@ export interface FileRoutesById {
   '/profile-setup': typeof ProfileSetupRoute
   '/settings': typeof SettingsRoute
   '/shifts': typeof ShiftsRoute
-  '/volunteers': typeof VolunteersRoute
+  '/volunteers': typeof VolunteersRouteWithChildren
+  '/volunteers/$pubkey': typeof VolunteersPubkeyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -131,6 +140,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/shifts'
     | '/volunteers'
+    | '/volunteers/$pubkey'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -144,6 +154,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/shifts'
     | '/volunteers'
+    | '/volunteers/$pubkey'
   id:
     | '__root__'
     | '/'
@@ -157,6 +168,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/shifts'
     | '/volunteers'
+    | '/volunteers/$pubkey'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -170,7 +182,7 @@ export interface RootRouteChildren {
   ProfileSetupRoute: typeof ProfileSetupRoute
   SettingsRoute: typeof SettingsRoute
   ShiftsRoute: typeof ShiftsRoute
-  VolunteersRoute: typeof VolunteersRoute
+  VolunteersRoute: typeof VolunteersRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -252,8 +264,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/volunteers/$pubkey': {
+      id: '/volunteers/$pubkey'
+      path: '/$pubkey'
+      fullPath: '/volunteers/$pubkey'
+      preLoaderRoute: typeof VolunteersPubkeyRouteImport
+      parentRoute: typeof VolunteersRoute
+    }
   }
 }
+
+interface VolunteersRouteChildren {
+  VolunteersPubkeyRoute: typeof VolunteersPubkeyRoute
+}
+
+const VolunteersRouteChildren: VolunteersRouteChildren = {
+  VolunteersPubkeyRoute: VolunteersPubkeyRoute,
+}
+
+const VolunteersRouteWithChildren = VolunteersRoute._addFileChildren(
+  VolunteersRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -266,7 +297,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProfileSetupRoute: ProfileSetupRoute,
   SettingsRoute: SettingsRoute,
   ShiftsRoute: ShiftsRoute,
-  VolunteersRoute: VolunteersRoute,
+  VolunteersRoute: VolunteersRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

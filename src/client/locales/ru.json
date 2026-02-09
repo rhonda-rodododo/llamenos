@@ -393,6 +393,13 @@
       "maxLength": "Макс. длина"
     }
   },
+  "volunteerProfile": {
+    "joined": "Присоединился",
+    "assignedShifts": "Назначенные смены",
+    "noShifts": "Нет назначенных смен",
+    "activity": "Активность",
+    "noActivity": "Нет записанной активности"
+  },
   "a11y": {
     "skipToContent": "Перейти к содержимому",
     "switchToLanguage": "Переключить на {{language}}",
