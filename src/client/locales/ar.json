@@ -264,7 +264,8 @@
     "navigation": "التنقل",
     "actions": "الإجراءات",
     "theme": "السمة",
-    "language": "اللغة"
+    "searchNotes": "البحث في الملاحظات عن \"{{query}}\"",
+    "searchCalls": "البحث في المكالمات عن \"{{query}}\""
   },
   "a11y": {
     "skipToContent": "انتقل إلى المحتوى",

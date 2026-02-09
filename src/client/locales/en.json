@@ -283,7 +283,8 @@
     "navigation": "Navigation",
     "actions": "Actions",
     "theme": "Theme",
-    "language": "Language"
+    "searchNotes": "Search notes for \"{{query}}\"",
+    "searchCalls": "Search calls for \"{{query}}\""
   },
   "onboarding": {
     "noCode": "No invite code provided",

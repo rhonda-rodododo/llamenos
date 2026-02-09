@@ -264,7 +264,8 @@
     "navigation": "Điều hướng",
     "actions": "Hành động",
     "theme": "Giao diện",
-    "language": "Ngôn ngữ"
+    "searchNotes": "Tìm ghi chú cho \"{{query}}\"",
+    "searchCalls": "Tìm cuộc gọi cho \"{{query}}\""
   },
   "a11y": {
     "skipToContent": "Chuyển đến nội dung",

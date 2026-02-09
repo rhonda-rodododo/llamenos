@@ -264,7 +264,8 @@
     "navigation": "Navegación",
     "actions": "Acciones",
     "theme": "Tema",
-    "language": "Idioma"
+    "searchNotes": "Buscar notas de \"{{query}}\"",
+    "searchCalls": "Buscar llamadas de \"{{query}}\""
   },
   "a11y": {
     "skipToContent": "Ir al contenido",

@@ -264,7 +264,8 @@
     "navigation": "Навигация",
     "actions": "Действия",
     "theme": "Тема",
-    "language": "Язык"
+    "searchNotes": "Поиск заметок по \"{{query}}\"",
+    "searchCalls": "Поиск звонков по \"{{query}}\""
   },
   "a11y": {
     "skipToContent": "Перейти к содержимому",

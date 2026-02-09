@@ -264,7 +264,8 @@
     "navigation": "Navigasyon",
     "actions": "Aksyon",
     "theme": "Tèm",
-    "language": "Lang"
+    "searchNotes": "Chèche nòt pou \"{{query}}\"",
+    "searchCalls": "Chèche apèl pou \"{{query}}\""
   },
   "a11y": {
     "skipToContent": "Ale nan kontni",

@@ -264,7 +264,8 @@
     "navigation": "Nabigasyon",
     "actions": "Mga Aksyon",
     "theme": "Tema",
-    "language": "Wika"
+    "searchNotes": "Maghanap ng mga tala para sa \"{{query}}\"",
+    "searchCalls": "Maghanap ng mga tawag para sa \"{{query}}\""
   },
   "a11y": {
     "skipToContent": "Pumunta sa nilalaman",

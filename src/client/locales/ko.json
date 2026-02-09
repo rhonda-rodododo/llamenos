@@ -264,7 +264,8 @@
     "navigation": "탐색",
     "actions": "작업",
     "theme": "테마",
-    "language": "언어"
+    "searchNotes": "\"{{query}}\" 메모 검색",
+    "searchCalls": "\"{{query}}\" 통화 검색"
   },
   "a11y": {
     "skipToContent": "콘텐츠로 건너뛰기",

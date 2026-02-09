@@ -264,7 +264,8 @@
     "navigation": "नेविगेशन",
     "actions": "क्रियाएं",
     "theme": "थीम",
-    "language": "भाषा"
+    "searchNotes": "\"{{query}}\" के लिए नोट्स खोजें",
+    "searchCalls": "\"{{query}}\" के लिए कॉल खोजें"
   },
   "a11y": {
     "skipToContent": "सामग्री पर जाएं",
