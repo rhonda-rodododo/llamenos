@@ -1,4 +1,4 @@
-# Llamenos
+# Llámenos
 
 A secure, self-hosted crisis hotline platform. Callers dial a phone number; calls are routed to on-shift volunteers via parallel ringing. Volunteers log encrypted notes in a webapp. Admins manage shifts, volunteers, and ban lists.
 

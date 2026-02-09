@@ -82,6 +82,8 @@ function SettingsPage() {
     try {
       await updateMyProfile({
         spokenLanguages: selectedLanguages,
+        ...(profileName && { name: profileName }),
+        ...(profilePhone && { phone: profilePhone }),
       })
       await refreshProfile()
       toast(t('profileSettings.profileUpdated'), 'success')

@@ -188,7 +188,10 @@ export default {
       })
     }
     if (path === '/auth/me/profile' && method === 'PATCH') {
-      const body = await request.json() as { spokenLanguages?: string[]; uiLanguage?: string; profileCompleted?: boolean }
+      const body = await request.json() as { name?: string; phone?: string; spokenLanguages?: string[]; uiLanguage?: string; profileCompleted?: boolean }
+      if (body.phone && !isValidE164(body.phone)) {
+        return error('Invalid phone number. Use E.164 format (e.g. +12125551234)', 400)
+      }
       await dos.session.fetch(new Request(`http://do/volunteers/${pubkey}`, {
         method: 'PATCH',
         body: JSON.stringify(body),

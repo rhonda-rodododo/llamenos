@@ -252,7 +252,7 @@ export async function updateMyTranscriptionPreference(enabled: boolean) {
   })
 }
 
-export async function updateMyProfile(data: { spokenLanguages?: string[]; uiLanguage?: string; profileCompleted?: boolean }) {
+export async function updateMyProfile(data: { name?: string; phone?: string; spokenLanguages?: string[]; uiLanguage?: string; profileCompleted?: boolean }) {
   return request<{ ok: true }>('/auth/me/profile', {
     method: 'PATCH',
     body: JSON.stringify(data),
