@@ -382,6 +382,22 @@ export function getIvrAudioUrl(promptType: string, language: string) {
   return `${API_BASE}/ivr-audio/${promptType}/${language}`
 }
 
+// --- Custom Fields ---
+
+export type { CustomFieldDefinition } from '@shared/types'
+import type { CustomFieldDefinition } from '@shared/types'
+
+export async function getCustomFields() {
+  return request<{ fields: CustomFieldDefinition[] }>('/settings/custom-fields')
+}
+
+export async function updateCustomFields(fields: CustomFieldDefinition[]) {
+  return request<{ fields: CustomFieldDefinition[] }>('/settings/custom-fields', {
+    method: 'PUT',
+    body: JSON.stringify({ fields }),
+  })
+}
+
 // --- WebAuthn Settings ---
 
 export interface WebAuthnSettings {

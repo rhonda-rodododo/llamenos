@@ -357,6 +357,42 @@
     "rateLimitEnable": "Activer la limitation de fréquence ? Les appels répétés depuis le même numéro seront temporairement bloqués.",
     "rateLimitDisable": "Désactiver la limitation de fréquence ? Il n'y aura aucune limite sur les appels répétés depuis le même numéro."
   },
+  "customFields": {
+    "title": "Champs de note personnalisés",
+    "description": "Définissez des champs supplémentaires qui apparaissent sur le formulaire de notes",
+    "addField": "Ajouter un champ",
+    "fieldLabel": "Libellé du champ",
+    "fieldName": "Nom du champ",
+    "fieldType": "Type",
+    "required": "Obligatoire",
+    "options": "Options",
+    "addOption": "Ajouter une option",
+    "selectOption": "Sélectionner...",
+    "visibleToVolunteers": "Visible par les bénévoles",
+    "editableByVolunteers": "Modifiable par les bénévoles",
+    "adminOnly": "Administrateurs uniquement",
+    "noFields": "Aucun champ personnalisé défini",
+    "maxFields": "Maximum de 20 champs atteint",
+    "deleteConfirm": "Supprimer ce champ ? Les notes existantes avec ce champ conserveront leurs données.",
+    "fieldRequired": "{{label}} est obligatoire",
+    "tooShort": "Minimum {{min}} caractères",
+    "tooLong": "Maximum {{max}} caractères",
+    "tooLow": "La valeur minimale est {{min}}",
+    "tooHigh": "La valeur maximale est {{max}}",
+    "types": {
+      "text": "Texte",
+      "number": "Nombre",
+      "select": "Sélection",
+      "checkbox": "Case à cocher",
+      "textarea": "Zone de texte"
+    },
+    "validation": {
+      "min": "Min",
+      "max": "Max",
+      "minLength": "Longueur min",
+      "maxLength": "Longueur max"
+    }
+  },
   "a11y": {
     "skipToContent": "Aller au contenu",
     "switchToLanguage": "Passer à {{language}}",

@@ -699,6 +699,21 @@ export default {
       return res
     }
 
+    // --- Custom Fields (all authenticated for GET, admin only for PUT) ---
+    if (path === '/settings/custom-fields' && method === 'GET') {
+      return dos.session.fetch(new Request(`http://do/settings/custom-fields?role=${isAdmin ? 'admin' : 'volunteer'}`))
+    }
+    if (path === '/settings/custom-fields' && method === 'PUT') {
+      if (!isAdmin) return error('Forbidden', 403)
+      const body = await request.json()
+      const res = await dos.session.fetch(new Request('http://do/settings/custom-fields', {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      }))
+      if (res.ok) await audit(dos.session, 'customFieldsUpdated', pubkey, {})
+      return res
+    }
+
     // --- WebAuthn Settings (admin only) ---
     if (path === '/settings/webauthn' && method === 'GET') {
       if (!isAdmin) return error('Forbidden', 403)

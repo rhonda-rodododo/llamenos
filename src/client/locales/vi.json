@@ -357,6 +357,42 @@
     "rateLimitEnable": "Bật giới hạn tần suất? Các cuộc gọi lặp lại từ cùng một số sẽ bị chặn tạm thời.",
     "rateLimitDisable": "Tắt giới hạn tần suất? Sẽ không có giới hạn đối với các cuộc gọi lặp lại từ cùng một số."
   },
+  "customFields": {
+    "title": "Trường ghi chú tùy chỉnh",
+    "description": "Xác định các trường bổ sung xuất hiện trên biểu mẫu ghi chú",
+    "addField": "Thêm trường",
+    "fieldLabel": "Nhãn trường",
+    "fieldName": "Tên trường",
+    "fieldType": "Loại",
+    "required": "Bắt buộc",
+    "options": "Tùy chọn",
+    "addOption": "Thêm tùy chọn",
+    "selectOption": "Chọn...",
+    "visibleToVolunteers": "Hiển thị cho tình nguyện viên",
+    "editableByVolunteers": "Tình nguyện viên có thể chỉnh sửa",
+    "adminOnly": "Chỉ quản trị viên",
+    "noFields": "Chưa có trường tùy chỉnh nào",
+    "maxFields": "Đã đạt tối đa 20 trường",
+    "deleteConfirm": "Xóa trường này? Các ghi chú hiện có với trường này sẽ giữ nguyên dữ liệu.",
+    "fieldRequired": "{{label}} là bắt buộc",
+    "tooShort": "Tối thiểu {{min}} ký tự",
+    "tooLong": "Tối đa {{max}} ký tự",
+    "tooLow": "Giá trị tối thiểu là {{min}}",
+    "tooHigh": "Giá trị tối đa là {{max}}",
+    "types": {
+      "text": "Văn bản",
+      "number": "Số",
+      "select": "Lựa chọn",
+      "checkbox": "Hộp kiểm",
+      "textarea": "Vùng văn bản"
+    },
+    "validation": {
+      "min": "Tối thiểu",
+      "max": "Tối đa",
+      "minLength": "Độ dài tối thiểu",
+      "maxLength": "Độ dài tối đa"
+    }
+  },
   "a11y": {
     "skipToContent": "Chuyển đến nội dung",
     "switchToLanguage": "Chuyển sang {{language}}",

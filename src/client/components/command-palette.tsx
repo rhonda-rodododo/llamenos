@@ -93,7 +93,7 @@ export function CommandPalette() {
     if (!keyPair || !noteText.trim() || !noteCallId.trim()) return
     setNoteSaving(true)
     try {
-      const encrypted = encryptNote(noteText, keyPair.secretKey)
+      const encrypted = encryptNote({ text: noteText }, keyPair.secretKey)
       await createNote({ callId: noteCallId, encryptedContent: encrypted })
       toast(t('common.success'), 'success')
       setQuickNoteOpen(false)

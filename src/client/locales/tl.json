@@ -357,6 +357,42 @@
     "rateLimitEnable": "I-enable ang rate limiting? Pansamantalang haharangin ang paulit-ulit na tawag mula sa parehong numero.",
     "rateLimitDisable": "I-disable ang rate limiting? Walang limitasyon sa paulit-ulit na tawag mula sa parehong numero."
   },
+  "customFields": {
+    "title": "Mga Custom na Field ng Tala",
+    "description": "Magdagdag ng karagdagang mga field na lalabas sa form ng tala",
+    "addField": "Magdagdag ng Field",
+    "fieldLabel": "Label ng Field",
+    "fieldName": "Pangalan ng Field",
+    "fieldType": "Uri",
+    "required": "Kinakailangan",
+    "options": "Mga Opsyon",
+    "addOption": "Magdagdag ng Opsyon",
+    "selectOption": "Pumili...",
+    "visibleToVolunteers": "Nakikita ng mga boluntaryo",
+    "editableByVolunteers": "Maaaring i-edit ng mga boluntaryo",
+    "adminOnly": "Para sa admin lamang",
+    "noFields": "Walang mga custom na field na tinukoy",
+    "maxFields": "Naabot na ang maximum na 20 field",
+    "deleteConfirm": "Burahin ang field na ito? Ang mga umiiral na tala na may field na ito ay mananatili ang kanilang data.",
+    "fieldRequired": "Kinakailangan ang {{label}}",
+    "tooShort": "Minimum {{min}} na karakter",
+    "tooLong": "Maximum {{max}} na karakter",
+    "tooLow": "Ang minimum na halaga ay {{min}}",
+    "tooHigh": "Ang maximum na halaga ay {{max}}",
+    "types": {
+      "text": "Teksto",
+      "number": "Numero",
+      "select": "Pagpili",
+      "checkbox": "Checkbox",
+      "textarea": "Lugar ng Teksto"
+    },
+    "validation": {
+      "min": "Min",
+      "max": "Max",
+      "minLength": "Min na Haba",
+      "maxLength": "Max na Haba"
+    }
+  },
   "a11y": {
     "skipToContent": "Pumunta sa nilalaman",
     "switchToLanguage": "Lumipat sa {{language}}",

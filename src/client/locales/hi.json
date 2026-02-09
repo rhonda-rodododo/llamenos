@@ -357,6 +357,42 @@
     "rateLimitEnable": "दर सीमा सक्षम करें? एक ही नंबर से बार-बार कॉल अस्थायी रूप से ब्लॉक हो जाएंगी।",
     "rateLimitDisable": "दर सीमा अक्षम करें? एक ही नंबर से बार-बार कॉल पर कोई सीमा नहीं होगी।"
   },
+  "customFields": {
+    "title": "कस्टम नोट फ़ील्ड",
+    "description": "नोट फ़ॉर्म पर दिखाई देने वाले अतिरिक्त फ़ील्ड परिभाषित करें",
+    "addField": "फ़ील्ड जोड़ें",
+    "fieldLabel": "फ़ील्ड लेबल",
+    "fieldName": "फ़ील्ड नाम",
+    "fieldType": "प्रकार",
+    "required": "आवश्यक",
+    "options": "विकल्प",
+    "addOption": "विकल्प जोड़ें",
+    "selectOption": "चुनें...",
+    "visibleToVolunteers": "स्वयंसेवकों को दिखाई दे",
+    "editableByVolunteers": "स्वयंसेवकों द्वारा संपादन योग्य",
+    "adminOnly": "केवल एडमिन",
+    "noFields": "कोई कस्टम फ़ील्ड परिभाषित नहीं",
+    "maxFields": "अधिकतम 20 फ़ील्ड तक पहुँच गया",
+    "deleteConfirm": "यह फ़ील्ड हटाएं? इस फ़ील्ड वाले मौजूदा नोट अपना डेटा रखेंगे।",
+    "fieldRequired": "{{label}} आवश्यक है",
+    "tooShort": "न्यूनतम {{min}} अक्षर",
+    "tooLong": "अधिकतम {{max}} अक्षर",
+    "tooLow": "न्यूनतम मान {{min}} है",
+    "tooHigh": "अधिकतम मान {{max}} है",
+    "types": {
+      "text": "टेक्स्ट",
+      "number": "संख्या",
+      "select": "चयन",
+      "checkbox": "चेकबॉक्स",
+      "textarea": "टेक्स्ट एरिया"
+    },
+    "validation": {
+      "min": "न्यूनतम",
+      "max": "अधिकतम",
+      "minLength": "न्यूनतम लंबाई",
+      "maxLength": "अधिकतम लंबाई"
+    }
+  },
   "a11y": {
     "skipToContent": "सामग्री पर जाएं",
     "switchToLanguage": "{{language}} में बदलें",

@@ -17,14 +17,18 @@ import {
   uploadIvrAudio,
   deleteIvrAudio,
   getIvrAudioUrl,
+  getCustomFields,
+  updateCustomFields,
   type SpamSettings,
   type CallSettings,
   type IvrAudioRecording,
+  type CustomFieldDefinition,
 } from '@/lib/api'
+import { MAX_CUSTOM_FIELDS } from '@shared/types'
 import { getStoredSession, keyPairFromNsec } from '@/lib/crypto'
 import { nip19 } from 'nostr-tools'
 import { useToast } from '@/lib/toast'
-import { Settings2, Mic, ShieldAlert, Bot, Timer, Bell, User, KeyRound, Shield, Globe, Phone, Volume2, PhoneForwarded, Fingerprint, Trash2, Plus } from 'lucide-react'
+import { Settings2, Mic, ShieldAlert, Bot, Timer, Bell, User, KeyRound, Shield, Globe, Phone, Volume2, PhoneForwarded, Fingerprint, Trash2, Plus, StickyNote, ChevronUp, ChevronDown, Save } from 'lucide-react'
 import { isWebAuthnAvailable, registerCredential, listCredentials, deleteCredential, type WebAuthnCredentialInfo } from '@/lib/webauthn'
 import { getWebAuthnSettings, updateWebAuthnSettings, type WebAuthnSettings } from '@/lib/api'
 import { AudioRecorder } from '@/components/audio-recorder'
@@ -66,6 +70,9 @@ function SettingsPage() {
   const [webauthnRegistering, setWebauthnRegistering] = useState(false)
   const [webauthnSettings, setWebauthnSettings] = useState<WebAuthnSettings | null>(null)
   const webauthnAvailable = isWebAuthnAvailable()
+  const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDefinition[]>([])
+  const [editingField, setEditingField] = useState<Partial<CustomFieldDefinition> | null>(null)
+  const [fieldSaving, setFieldSaving] = useState(false)
 
   // Collapsible state — profile expanded by default, plus any deep-linked section
   const [expanded, setExpanded] = useState<Set<string>>(() => {
@@ -112,6 +119,7 @@ function SettingsPage() {
         getIvrLanguages().then(r => setIvrEnabled(r.enabledLanguages)),
         listIvrAudio().then(r => setIvrAudio(r.recordings)),
         getWebAuthnSettings().then(setWebauthnSettings).catch(() => {}),
+        getCustomFields().then(r => setCustomFieldDefs(r.fields)).catch(() => {}),
       )
     }
     if (promises.length > 0) {
@@ -682,6 +690,339 @@ function SettingsPage() {
               </div>
             </div>
           ))}
+        </SettingsSection>
+      )}
+
+      {/* Custom Note Fields (admin only) */}
+      {isAdmin && (
+        <SettingsSection
+          id="custom-fields"
+          title={t('customFields.title')}
+          description={t('customFields.description')}
+          icon={<StickyNote className="h-5 w-5 text-muted-foreground" />}
+          expanded={expanded.has('custom-fields')}
+          onToggle={(open) => toggleSection('custom-fields', open)}
+        >
+          {customFieldDefs.length === 0 && !editingField ? (
+            <p className="text-sm text-muted-foreground">{t('customFields.noFields')}</p>
+          ) : (
+            <div className="space-y-2">
+              {customFieldDefs.map((field, index) => (
+                <div key={field.id} className="flex items-center gap-2 rounded-lg border border-border px-4 py-3">
+                  <div className="flex flex-col gap-0.5">
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      disabled={index === 0}
+                      onClick={() => {
+                        const next = [...customFieldDefs]
+                        ;[next[index - 1], next[index]] = [next[index], next[index - 1]]
+                        next.forEach((f, i) => f.order = i)
+                        setCustomFieldDefs(next)
+                        updateCustomFields(next).catch(() => toast(t('common.error'), 'error'))
+                      }}
+                    >
+                      <ChevronUp className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      disabled={index === customFieldDefs.length - 1}
+                      onClick={() => {
+                        const next = [...customFieldDefs]
+                        ;[next[index], next[index + 1]] = [next[index + 1], next[index]]
+                        next.forEach((f, i) => f.order = i)
+                        setCustomFieldDefs(next)
+                        updateCustomFields(next).catch(() => toast(t('common.error'), 'error'))
+                      }}
+                    >
+                      <ChevronDown className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <div className="flex-1 space-y-0.5">
+                    <p className="text-sm font-medium">{field.label}</p>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-[10px]">{t(`customFields.types.${field.type}`)}</Badge>
+                      {field.required && <Badge variant="secondary" className="text-[10px]">{t('customFields.required')}</Badge>}
+                      {!field.visibleToVolunteers && <Badge variant="secondary" className="text-[10px]">{t('customFields.adminOnly')}</Badge>}
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditingField({ ...field })}
+                  >
+                    {t('common.edit')}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={async () => {
+                      if (!confirm(t('customFields.deleteConfirm'))) return
+                      const next = customFieldDefs.filter(f => f.id !== field.id)
+                      next.forEach((f, i) => f.order = i)
+                      try {
+                        const res = await updateCustomFields(next)
+                        setCustomFieldDefs(res.fields)
+                      } catch {
+                        toast(t('common.error'), 'error')
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add/Edit field form */}
+          {editingField ? (
+            <div className="space-y-4 rounded-lg border border-primary/30 bg-primary/5 p-4">
+              <h4 className="text-sm font-medium">
+                {editingField.id ? t('common.edit') : t('customFields.addField')}
+              </h4>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label>{t('customFields.fieldLabel')}</Label>
+                  <Input
+                    value={editingField.label || ''}
+                    onChange={e => {
+                      const label = e.target.value
+                      const autoName = !editingField.id
+                      setEditingField(prev => ({
+                        ...prev!,
+                        label,
+                        ...(autoName ? { name: label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 50) } : {}),
+                      }))
+                    }}
+                    placeholder="e.g. Severity Rating"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>{t('customFields.fieldName')}</Label>
+                  <Input
+                    value={editingField.name || ''}
+                    onChange={e => setEditingField(prev => ({ ...prev!, name: e.target.value }))}
+                    placeholder="e.g. severity"
+                    maxLength={50}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label>{t('customFields.fieldType')}</Label>
+                  <select
+                    value={editingField.type || 'text'}
+                    onChange={e => setEditingField(prev => ({ ...prev!, type: e.target.value as CustomFieldDefinition['type'] }))}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="text">{t('customFields.types.text')}</option>
+                    <option value="number">{t('customFields.types.number')}</option>
+                    <option value="select">{t('customFields.types.select')}</option>
+                    <option value="checkbox">{t('customFields.types.checkbox')}</option>
+                    <option value="textarea">{t('customFields.types.textarea')}</option>
+                  </select>
+                </div>
+                <div className="flex items-end gap-4">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={editingField.required ?? false}
+                      onCheckedChange={checked => setEditingField(prev => ({ ...prev!, required: checked }))}
+                    />
+                    <Label className="text-sm">{t('customFields.required')}</Label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Select options */}
+              {editingField.type === 'select' && (
+                <div className="space-y-2">
+                  <Label>{t('customFields.options')}</Label>
+                  {(editingField.options || []).map((opt, i) => (
+                    <div key={i} className="flex gap-2">
+                      <Input
+                        value={opt}
+                        onChange={e => {
+                          const next = [...(editingField.options || [])]
+                          next[i] = e.target.value
+                          setEditingField(prev => ({ ...prev!, options: next }))
+                        }}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setEditingField(prev => ({
+                            ...prev!,
+                            options: prev!.options!.filter((_, j) => j !== i),
+                          }))
+                        }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setEditingField(prev => ({
+                        ...prev!,
+                        options: [...(prev!.options || []), ''],
+                      }))
+                    }}
+                  >
+                    <Plus className="h-3 w-3" />
+                    {t('customFields.addOption')}
+                  </Button>
+                </div>
+              )}
+
+              {/* Validation */}
+              {(editingField.type === 'text' || editingField.type === 'textarea') && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label>{t('customFields.validation.minLength')}</Label>
+                    <Input
+                      type="number"
+                      value={editingField.validation?.minLength ?? ''}
+                      onChange={e => setEditingField(prev => ({
+                        ...prev!,
+                        validation: { ...prev!.validation, minLength: e.target.value ? Number(e.target.value) : undefined },
+                      }))}
+                      min={0}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>{t('customFields.validation.maxLength')}</Label>
+                    <Input
+                      type="number"
+                      value={editingField.validation?.maxLength ?? ''}
+                      onChange={e => setEditingField(prev => ({
+                        ...prev!,
+                        validation: { ...prev!.validation, maxLength: e.target.value ? Number(e.target.value) : undefined },
+                      }))}
+                      min={0}
+                    />
+                  </div>
+                </div>
+              )}
+              {editingField.type === 'number' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label>{t('customFields.validation.min')}</Label>
+                    <Input
+                      type="number"
+                      value={editingField.validation?.min ?? ''}
+                      onChange={e => setEditingField(prev => ({
+                        ...prev!,
+                        validation: { ...prev!.validation, min: e.target.value ? Number(e.target.value) : undefined },
+                      }))}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>{t('customFields.validation.max')}</Label>
+                    <Input
+                      type="number"
+                      value={editingField.validation?.max ?? ''}
+                      onChange={e => setEditingField(prev => ({
+                        ...prev!,
+                        validation: { ...prev!.validation, max: e.target.value ? Number(e.target.value) : undefined },
+                      }))}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Visibility */}
+              <div className="flex flex-wrap gap-4">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={editingField.visibleToVolunteers ?? true}
+                    onCheckedChange={checked => setEditingField(prev => ({ ...prev!, visibleToVolunteers: checked }))}
+                  />
+                  <Label className="text-sm">{t('customFields.visibleToVolunteers')}</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={editingField.editableByVolunteers ?? true}
+                    onCheckedChange={checked => setEditingField(prev => ({ ...prev!, editableByVolunteers: checked }))}
+                  />
+                  <Label className="text-sm">{t('customFields.editableByVolunteers')}</Label>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  disabled={fieldSaving || !editingField.label?.trim() || !editingField.name?.trim()}
+                  onClick={async () => {
+                    if (!editingField.label?.trim() || !editingField.name?.trim()) return
+                    setFieldSaving(true)
+                    try {
+                      let next: CustomFieldDefinition[]
+                      if (editingField.id) {
+                        // Edit existing
+                        next = customFieldDefs.map(f =>
+                          f.id === editingField.id ? { ...f, ...editingField } as CustomFieldDefinition : f
+                        )
+                      } else {
+                        // Add new
+                        const newField: CustomFieldDefinition = {
+                          id: crypto.randomUUID(),
+                          name: editingField.name!,
+                          label: editingField.label!,
+                          type: editingField.type || 'text',
+                          required: editingField.required ?? false,
+                          options: editingField.options,
+                          validation: editingField.validation,
+                          visibleToVolunteers: editingField.visibleToVolunteers ?? true,
+                          editableByVolunteers: editingField.editableByVolunteers ?? true,
+                          order: customFieldDefs.length,
+                          createdAt: new Date().toISOString(),
+                        }
+                        next = [...customFieldDefs, newField]
+                      }
+                      const res = await updateCustomFields(next)
+                      setCustomFieldDefs(res.fields)
+                      setEditingField(null)
+                      toast(t('common.success'), 'success')
+                    } catch {
+                      toast(t('common.error'), 'error')
+                    } finally {
+                      setFieldSaving(false)
+                    }
+                  }}
+                >
+                  <Save className="h-4 w-4" />
+                  {fieldSaving ? t('common.loading') : t('common.save')}
+                </Button>
+                <Button variant="outline" onClick={() => setEditingField(null)}>
+                  {t('common.cancel')}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            customFieldDefs.length < MAX_CUSTOM_FIELDS && (
+              <Button
+                variant="outline"
+                onClick={() => setEditingField({
+                  type: 'text',
+                  required: false,
+                  visibleToVolunteers: true,
+                  editableByVolunteers: true,
+                })}
+              >
+                <Plus className="h-4 w-4" />
+                {t('customFields.addField')}
+              </Button>
+            )
+          )}
+
+          {customFieldDefs.length >= MAX_CUSTOM_FIELDS && (
+            <p className="text-xs text-muted-foreground">{t('customFields.maxFields')}</p>
+          )}
         </SettingsSection>
       )}
 

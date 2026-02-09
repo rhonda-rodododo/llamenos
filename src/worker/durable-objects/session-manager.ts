@@ -1,5 +1,7 @@
 import { DurableObject } from 'cloudflare:workers'
 import type { Env, Volunteer, BanEntry, EncryptedNote, AuditLogEntry, SpamSettings, CallSettings, InviteCode, WebAuthnCredential, WebAuthnSettings, ServerSession } from '../types'
+import type { CustomFieldDefinition } from '../../shared/types'
+import { MAX_CUSTOM_FIELDS, MAX_SELECT_OPTIONS, MAX_FIELD_NAME_LENGTH, FIELD_NAME_REGEX } from '../../shared/types'
 import { IVR_LANGUAGES } from '../../shared/languages'
 import { hashPhone } from '../lib/crypto'
 
@@ -187,6 +189,15 @@ export class SessionManagerDO extends DurableObject<Env> {
     if (path.startsWith('/invites/') && method === 'DELETE') {
       const code = path.split('/invites/')[1]
       return this.revokeInvite(code)
+    }
+
+    // --- Custom Fields ---
+    if (path === '/settings/custom-fields' && method === 'GET') {
+      const role = url.searchParams.get('role') || 'admin'
+      return this.getCustomFields(role)
+    }
+    if (path === '/settings/custom-fields' && method === 'PUT') {
+      return this.updateCustomFields(await request.json())
     }
 
     // --- IVR Audio ---
@@ -787,6 +798,62 @@ export class SessionManagerDO extends DurableObject<Env> {
         await this.ctx.storage.delete(key)
       }
     }
+  }
+
+  // --- Custom Fields Methods ---
+
+  private async getCustomFields(role: string): Promise<Response> {
+    const fields = await this.ctx.storage.get<CustomFieldDefinition[]>('customFields') || []
+    if (role !== 'admin') {
+      return Response.json({ fields: fields.filter(f => f.visibleToVolunteers) })
+    }
+    return Response.json({ fields })
+  }
+
+  private async updateCustomFields(data: unknown): Promise<Response> {
+    if (!data || !Array.isArray((data as { fields?: unknown }).fields)) {
+      return new Response(JSON.stringify({ error: 'Invalid request: fields array required' }), { status: 400 })
+    }
+    const fields = (data as { fields: CustomFieldDefinition[] }).fields
+
+    // Validate max fields
+    if (fields.length > MAX_CUSTOM_FIELDS) {
+      return new Response(JSON.stringify({ error: `Maximum ${MAX_CUSTOM_FIELDS} custom fields` }), { status: 400 })
+    }
+
+    // Validate each field
+    const names = new Set<string>()
+    for (const field of fields) {
+      if (!field.name || !field.label || !field.type) {
+        return new Response(JSON.stringify({ error: 'Each field must have name, label, and type' }), { status: 400 })
+      }
+      if (!FIELD_NAME_REGEX.test(field.name)) {
+        return new Response(JSON.stringify({ error: `Invalid field name: ${field.name}. Use alphanumeric and underscores only.` }), { status: 400 })
+      }
+      if (field.name.length > MAX_FIELD_NAME_LENGTH) {
+        return new Response(JSON.stringify({ error: `Field name too long: ${field.name}` }), { status: 400 })
+      }
+      if (names.has(field.name)) {
+        return new Response(JSON.stringify({ error: `Duplicate field name: ${field.name}` }), { status: 400 })
+      }
+      names.add(field.name)
+      if (!['text', 'number', 'select', 'checkbox', 'textarea'].includes(field.type)) {
+        return new Response(JSON.stringify({ error: `Invalid field type: ${field.type}` }), { status: 400 })
+      }
+      if (field.type === 'select') {
+        if (!field.options || field.options.length === 0) {
+          return new Response(JSON.stringify({ error: `Select field "${field.name}" must have options` }), { status: 400 })
+        }
+        if (field.options.length > MAX_SELECT_OPTIONS) {
+          return new Response(JSON.stringify({ error: `Too many options for "${field.name}" (max ${MAX_SELECT_OPTIONS})` }), { status: 400 })
+        }
+      }
+    }
+
+    // Normalize order values
+    const normalized = fields.map((f, i) => ({ ...f, order: i }))
+    await this.ctx.storage.put('customFields', normalized)
+    return Response.json({ fields: normalized })
   }
 
   // --- IVR Audio Methods ---

@@ -417,6 +417,42 @@
     "rateLimitEnable": "Enable rate limiting? Repeated calls from the same number will be blocked temporarily.",
     "rateLimitDisable": "Disable rate limiting? There will be no limit on repeated calls from the same number."
   },
+  "customFields": {
+    "title": "Custom Note Fields",
+    "description": "Define additional fields that appear on the note form",
+    "addField": "Add Field",
+    "fieldLabel": "Field Label",
+    "fieldName": "Field Name",
+    "fieldType": "Type",
+    "required": "Required",
+    "options": "Options",
+    "addOption": "Add Option",
+    "selectOption": "Select...",
+    "visibleToVolunteers": "Visible to volunteers",
+    "editableByVolunteers": "Editable by volunteers",
+    "adminOnly": "Admin only",
+    "noFields": "No custom fields defined",
+    "maxFields": "Maximum 20 fields reached",
+    "deleteConfirm": "Delete this field? Existing notes with this field will keep their data.",
+    "fieldRequired": "{{label}} is required",
+    "tooShort": "Minimum {{min}} characters",
+    "tooLong": "Maximum {{max}} characters",
+    "tooLow": "Minimum value is {{min}}",
+    "tooHigh": "Maximum value is {{max}}",
+    "types": {
+      "text": "Text",
+      "number": "Number",
+      "select": "Select",
+      "checkbox": "Checkbox",
+      "textarea": "Text Area"
+    },
+    "validation": {
+      "min": "Min",
+      "max": "Max",
+      "minLength": "Min Length",
+      "maxLength": "Max Length"
+    }
+  },
   "a11y": {
     "skipToContent": "Skip to content",
     "switchToLanguage": "Switch to {{language}}",

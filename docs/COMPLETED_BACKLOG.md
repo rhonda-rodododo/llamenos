@@ -1,5 +1,25 @@
 # Completed Backlog
 
+## 2026-02-09: Epic 31 — Custom Note Fields
+
+### Epic 31: Admin-Configurable Custom Fields for Call Notes
+- [x] Created `src/shared/types.ts` — shared `CustomFieldDefinition`, `NotePayload`, constants
+- [x] Backend: `getCustomFields(role)` / `updateCustomFields(data)` in SessionManager DO
+- [x] API routes: `GET/PUT /settings/custom-fields` with role-based visibility filtering
+- [x] Client API: `getCustomFields()` / `updateCustomFields(fields)` functions
+- [x] Crypto: `encryptNote` now takes `NotePayload` (text + fields), JSON-serialized before encryption
+- [x] Crypto: `decryptNote` returns `NotePayload`, with legacy plain-text fallback
+- [x] Draft system: extended with `fields` state and `setFieldValue()` callback
+- [x] NoteSheet: renders custom fields (text, number, select, checkbox, textarea), validates, encrypts
+- [x] Notes page: displays custom field values as badges, preserves fields on edit, includes in export
+- [x] Settings page: full CRUD for custom fields — add, edit, delete, reorder (up/down), validation config
+- [x] Role-based: `visibleToVolunteers` / `editableByVolunteers` toggles per field
+- [x] Validation: required, min/max length, min/max value, max 20 fields, max 50 select options
+- [x] E2EE preserved: field values encrypted inside note payload, server only sees opaque ciphertext
+- [x] All i18n keys translated in 13 locales (en, es, zh, tl, vi, ar, fr, ht, ko, ru, hi, pt, de)
+- [x] 5 new E2E tests: section visibility, add text field, add select field, delete field, deep link
+- [x] 101 total E2E tests passing (0 regressions)
+
 ## 2026-02-09: Epic 30 — Collapsible Settings Sections
 
 ### Epic 30: Collapsible Settings with Deep Links

@@ -357,6 +357,42 @@
     "rateLimitEnable": "¿Habilitar el límite de frecuencia? Las llamadas repetidas del mismo número serán bloqueadas temporalmente.",
     "rateLimitDisable": "¿Deshabilitar el límite de frecuencia? No habrá límite en las llamadas repetidas del mismo número."
   },
+  "customFields": {
+    "title": "Campos de Nota Personalizados",
+    "description": "Defina campos adicionales que aparecen en el formulario de notas",
+    "addField": "Agregar Campo",
+    "fieldLabel": "Etiqueta del Campo",
+    "fieldName": "Nombre del Campo",
+    "fieldType": "Tipo",
+    "required": "Obligatorio",
+    "options": "Opciones",
+    "addOption": "Agregar Opción",
+    "selectOption": "Seleccionar...",
+    "visibleToVolunteers": "Visible para voluntarios",
+    "editableByVolunteers": "Editable por voluntarios",
+    "adminOnly": "Solo administradores",
+    "noFields": "No hay campos personalizados definidos",
+    "maxFields": "Máximo de 20 campos alcanzado",
+    "deleteConfirm": "¿Eliminar este campo? Las notas existentes con este campo conservarán sus datos.",
+    "fieldRequired": "{{label}} es obligatorio",
+    "tooShort": "Mínimo {{min}} caracteres",
+    "tooLong": "Máximo {{max}} caracteres",
+    "tooLow": "El valor mínimo es {{min}}",
+    "tooHigh": "El valor máximo es {{max}}",
+    "types": {
+      "text": "Texto",
+      "number": "Número",
+      "select": "Selección",
+      "checkbox": "Casilla de verificación",
+      "textarea": "Área de Texto"
+    },
+    "validation": {
+      "min": "Mín",
+      "max": "Máx",
+      "minLength": "Longitud Mín",
+      "maxLength": "Longitud Máx"
+    }
+  },
   "a11y": {
     "skipToContent": "Ir al contenido",
     "switchToLanguage": "Cambiar a {{language}}",

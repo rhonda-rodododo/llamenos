@@ -357,6 +357,42 @@
     "rateLimitEnable": "속도 제한을 활성화하시겠습니까? 같은 번호에서 반복되는 통화가 일시적으로 차단됩니다.",
     "rateLimitDisable": "속도 제한을 비활성화하시겠습니까? 같은 번호에서의 반복 통화에 제한이 없어집니다."
   },
+  "customFields": {
+    "title": "사용자 정의 메모 필드",
+    "description": "메모 양식에 표시되는 추가 필드를 정의합니다",
+    "addField": "필드 추가",
+    "fieldLabel": "필드 레이블",
+    "fieldName": "필드 이름",
+    "fieldType": "유형",
+    "required": "필수",
+    "options": "옵션",
+    "addOption": "옵션 추가",
+    "selectOption": "선택...",
+    "visibleToVolunteers": "자원봉사자에게 표시",
+    "editableByVolunteers": "자원봉사자가 편집 가능",
+    "adminOnly": "관리자 전용",
+    "noFields": "정의된 사용자 정의 필드가 없습니다",
+    "maxFields": "최대 20개 필드에 도달했습니다",
+    "deleteConfirm": "이 필드를 삭제하시겠습니까? 이 필드가 있는 기존 메모는 데이터를 유지합니다.",
+    "fieldRequired": "{{label}}은(는) 필수입니다",
+    "tooShort": "최소 {{min}}자",
+    "tooLong": "최대 {{max}}자",
+    "tooLow": "최솟값은 {{min}}입니다",
+    "tooHigh": "최댓값은 {{max}}입니다",
+    "types": {
+      "text": "텍스트",
+      "number": "숫자",
+      "select": "선택",
+      "checkbox": "체크박스",
+      "textarea": "텍스트 영역"
+    },
+    "validation": {
+      "min": "최소",
+      "max": "최대",
+      "minLength": "최소 길이",
+      "maxLength": "최대 길이"
+    }
+  },
   "a11y": {
     "skipToContent": "콘텐츠로 건너뛰기",
     "switchToLanguage": "{{language}}(으)로 전환",

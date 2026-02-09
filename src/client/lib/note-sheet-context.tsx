@@ -1,16 +1,19 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
 
+type FieldValues = Record<string, string | number | boolean>
+
 interface NoteSheetState {
   isOpen: boolean
   mode: 'new' | 'edit'
   editNoteId: string | null
   initialCallId: string
   initialText: string
+  initialFields?: FieldValues
 }
 
 interface NoteSheetContextValue extends NoteSheetState {
   openNewNote: (callId?: string) => void
-  openEditNote: (noteId: string, callId: string, text: string) => void
+  openEditNote: (noteId: string, callId: string, text: string, fields?: FieldValues) => void
   close: () => void
   onSaved: (() => void) | null
   setOnSaved: (cb: (() => void) | null) => void
@@ -35,16 +38,18 @@ export function NoteSheetProvider({ children }: { children: ReactNode }) {
       editNoteId: null,
       initialCallId: callId || '',
       initialText: '',
+      initialFields: undefined,
     })
   }, [])
 
-  const openEditNote = useCallback((noteId: string, callId: string, text: string) => {
+  const openEditNote = useCallback((noteId: string, callId: string, text: string, fields?: FieldValues) => {
     setState({
       isOpen: true,
       mode: 'edit',
       editNoteId: noteId,
       initialCallId: callId,
       initialText: text,
+      initialFields: fields,
     })
   }, [])
 

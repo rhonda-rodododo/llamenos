@@ -357,6 +357,42 @@
     "rateLimitEnable": "Aktive limitasyon frekans? Apèl repete nan menm nimewo a ap bloke tanporèman.",
     "rateLimitDisable": "Dezaktive limitasyon frekans? Pa p gen limit sou apèl repete nan menm nimewo a."
   },
+  "customFields": {
+    "title": "Chan Nòt Pèsonalize",
+    "description": "Defini chan siplemantè ki parèt sou fòm nòt la",
+    "addField": "Ajoute Chan",
+    "fieldLabel": "Etikèt Chan",
+    "fieldName": "Non Chan",
+    "fieldType": "Tip",
+    "required": "Obligatwa",
+    "options": "Opsyon",
+    "addOption": "Ajoute Opsyon",
+    "selectOption": "Chwazi...",
+    "visibleToVolunteers": "Vizib pou volontè",
+    "editableByVolunteers": "Modifyab pa volontè",
+    "adminOnly": "Administratè sèlman",
+    "noFields": "Pa gen chan pèsonalize defini",
+    "maxFields": "Maksimòm 20 chan rive",
+    "deleteConfirm": "Efase chan sa a? Nòt ki gen chan sa a deja ap kenbe done yo.",
+    "fieldRequired": "{{label}} obligatwa",
+    "tooShort": "Minimòm {{min}} karaktè",
+    "tooLong": "Maksimòm {{max}} karaktè",
+    "tooLow": "Valè minimòm se {{min}}",
+    "tooHigh": "Valè maksimòm se {{max}}",
+    "types": {
+      "text": "Tèks",
+      "number": "Nimewo",
+      "select": "Seleksyon",
+      "checkbox": "Kaz",
+      "textarea": "Zòn Tèks"
+    },
+    "validation": {
+      "min": "Min",
+      "max": "Maks",
+      "minLength": "Longè Min",
+      "maxLength": "Longè Maks"
+    }
+  },
   "a11y": {
     "skipToContent": "Ale nan kontni",
     "switchToLanguage": "Chanje a {{language}}",

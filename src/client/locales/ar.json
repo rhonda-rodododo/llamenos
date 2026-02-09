@@ -357,6 +357,42 @@
     "rateLimitEnable": "تفعيل تحديد المعدل؟ سيتم حظر المكالمات المتكررة من نفس الرقم مؤقتاً.",
     "rateLimitDisable": "تعطيل تحديد المعدل؟ لن يكون هناك حد للمكالمات المتكررة من نفس الرقم."
   },
+  "customFields": {
+    "title": "حقول الملاحظات المخصصة",
+    "description": "حدد حقولاً إضافية تظهر في نموذج الملاحظات",
+    "addField": "إضافة حقل",
+    "fieldLabel": "تسمية الحقل",
+    "fieldName": "اسم الحقل",
+    "fieldType": "النوع",
+    "required": "مطلوب",
+    "options": "الخيارات",
+    "addOption": "إضافة خيار",
+    "selectOption": "اختر...",
+    "visibleToVolunteers": "مرئي للمتطوعين",
+    "editableByVolunteers": "قابل للتعديل من المتطوعين",
+    "adminOnly": "المسؤولون فقط",
+    "noFields": "لم يتم تحديد حقول مخصصة",
+    "maxFields": "تم الوصول إلى الحد الأقصى 20 حقلاً",
+    "deleteConfirm": "حذف هذا الحقل؟ ستحتفظ الملاحظات الموجودة بهذا الحقل ببياناتها.",
+    "fieldRequired": "{{label}} مطلوب",
+    "tooShort": "الحد الأدنى {{min}} حرفاً",
+    "tooLong": "الحد الأقصى {{max}} حرفاً",
+    "tooLow": "القيمة الدنيا هي {{min}}",
+    "tooHigh": "القيمة القصوى هي {{max}}",
+    "types": {
+      "text": "نص",
+      "number": "رقم",
+      "select": "قائمة اختيار",
+      "checkbox": "مربع اختيار",
+      "textarea": "منطقة نصية"
+    },
+    "validation": {
+      "min": "الحد الأدنى",
+      "max": "الحد الأقصى",
+      "minLength": "الحد الأدنى للطول",
+      "maxLength": "الحد الأقصى للطول"
+    }
+  },
   "a11y": {
     "skipToContent": "انتقل إلى المحتوى",
     "switchToLanguage": "التبديل إلى {{language}}",

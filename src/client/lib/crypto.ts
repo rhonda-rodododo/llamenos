@@ -4,6 +4,7 @@ import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { utf8ToBytes } from '@noble/ciphers/utils.js'
+import type { NotePayload } from '@shared/types'
 
 function randomBytes(n: number): Uint8Array {
   const buf = new Uint8Array(n)
@@ -71,10 +72,11 @@ function deriveEncryptionKey(secretKey: Uint8Array, context: string): Uint8Array
   return sha256(combined)
 }
 
-export function encryptNote(plaintext: string, secretKey: Uint8Array): string {
+export function encryptNote(payload: NotePayload, secretKey: Uint8Array): string {
   const key = deriveEncryptionKey(secretKey, 'notes')
   const nonce = randomBytes(24) // XChaCha20 uses 24-byte nonces
-  const data = utf8ToBytes(plaintext)
+  const jsonString = JSON.stringify(payload)
+  const data = utf8ToBytes(jsonString)
   const cipher = xchacha20poly1305(key, nonce)
   const ciphertext = cipher.encrypt(data)
 
@@ -85,7 +87,7 @@ export function encryptNote(plaintext: string, secretKey: Uint8Array): string {
   return bytesToHex(packed)
 }
 
-export function decryptNote(packed: string, secretKey: Uint8Array): string | null {
+export function decryptNote(packed: string, secretKey: Uint8Array): NotePayload | null {
   try {
     const key = deriveEncryptionKey(secretKey, 'notes')
     const data = hexToBytes(packed)
@@ -93,7 +95,18 @@ export function decryptNote(packed: string, secretKey: Uint8Array): string | nul
     const ciphertext = data.slice(24)
     const cipher = xchacha20poly1305(key, nonce)
     const plaintext = cipher.decrypt(ciphertext)
-    return new TextDecoder().decode(plaintext)
+    const decoded = new TextDecoder().decode(plaintext)
+    // Try parsing as NotePayload JSON
+    try {
+      const parsed = JSON.parse(decoded)
+      if (parsed && typeof parsed === 'object' && typeof parsed.text === 'string') {
+        return parsed as NotePayload
+      }
+    } catch {
+      // Not JSON — legacy plain text note
+    }
+    // Legacy fallback: treat entire string as text
+    return { text: decoded }
   } catch {
     return null
   }

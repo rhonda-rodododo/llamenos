@@ -2,10 +2,11 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth'
 import { useEffect, useState, useCallback } from 'react'
-import { listNotes, createNote, updateNote, getCallHistory, type EncryptedNote, type CallRecord } from '@/lib/api'
+import { listNotes, createNote, updateNote, getCallHistory, getCustomFields, type EncryptedNote, type CallRecord, type CustomFieldDefinition } from '@/lib/api'
 import { useCalls } from '@/lib/hooks'
 import { encryptNote, decryptNote, decryptTranscription, encryptExport } from '@/lib/crypto'
 import { useToast } from '@/lib/toast'
+import type { NotePayload } from '@shared/types'
 import { StickyNote, Plus, Pencil, Lock, Mic, Save, X, Search, ChevronLeft, ChevronRight, Download, PhoneCall } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -31,6 +32,7 @@ export const Route = createFileRoute('/notes')({
 
 interface DecryptedNote extends EncryptedNote {
   decrypted: string
+  payload: NotePayload
   isTranscription: boolean
 }
 
@@ -52,6 +54,7 @@ function NotesPage() {
   const [saving, setSaving] = useState(false)
   const [recentCalls, setRecentCalls] = useState<CallRecord[]>([])
   const [searchInput, setSearchInput] = useState(search)
+  const [customFields, setCustomFields] = useState<CustomFieldDefinition[]>([])
   const limit = 50
 
   // Auto-fill call ID from active call
@@ -61,8 +64,9 @@ function NotesPage() {
     }
   }, [currentCall])
 
-  // Load recent calls for the dropdown
+  // Load recent calls for the dropdown and custom fields
   useEffect(() => {
+    getCustomFields().then(r => setCustomFields(r.fields)).catch(() => {})
     if (isAdmin) {
       getCallHistory({ limit: 20 }).then(r => setRecentCalls(r.calls)).catch(() => {})
     }
@@ -80,17 +84,18 @@ function NotesPage() {
           })
           .map(note => {
             const isTranscription = note.authorPubkey.startsWith('system:transcription')
-            let decrypted: string
+            let payload: NotePayload
             if (isTranscription && note.ephemeralPubkey && keyPair) {
-              decrypted = decryptTranscription(note.encryptedContent, note.ephemeralPubkey, keyPair.secretKey) || '[Decryption failed]'
+              const text = decryptTranscription(note.encryptedContent, note.ephemeralPubkey, keyPair.secretKey) || '[Decryption failed]'
+              payload = { text }
             } else if (isTranscription && !note.ephemeralPubkey) {
-              decrypted = note.encryptedContent
+              payload = { text: note.encryptedContent }
             } else if (keyPair) {
-              decrypted = decryptNote(note.encryptedContent, keyPair.secretKey) || '[Decryption failed]'
+              payload = decryptNote(note.encryptedContent, keyPair.secretKey) || { text: '[Decryption failed]' }
             } else {
-              decrypted = '[No key]'
+              payload = { text: '[No key]' }
             }
-            return { ...note, decrypted, isTranscription }
+            return { ...note, decrypted: payload.text, payload, isTranscription }
           })
         setNotes(decryptedNotes)
         setTotal(res.total)
@@ -107,10 +112,16 @@ function NotesPage() {
     if (!keyPair || !editText.trim()) return
     setSaving(true)
     try {
-      const encrypted = encryptNote(editText, keyPair.secretKey)
+      // Preserve existing custom field values when editing text inline
+      const existingNote = notes.find(n => n.id === noteId)
+      const payload: NotePayload = { text: editText }
+      if (existingNote?.payload.fields) {
+        payload.fields = existingNote.payload.fields
+      }
+      const encrypted = encryptNote(payload, keyPair.secretKey)
       const res = await updateNote(noteId, { encryptedContent: encrypted })
       setNotes(prev => prev.map(n =>
-        n.id === noteId ? { ...res.note, decrypted: editText, isTranscription: n.isTranscription } : n
+        n.id === noteId ? { ...res.note, decrypted: editText, payload, isTranscription: n.isTranscription } : n
       ))
       setEditingId(null)
       setEditText('')
@@ -125,10 +136,11 @@ function NotesPage() {
     if (!keyPair || !newNoteText.trim() || !newNoteCallId.trim()) return
     setSaving(true)
     try {
-      const encrypted = encryptNote(newNoteText, keyPair.secretKey)
+      const payload: NotePayload = { text: newNoteText }
+      const encrypted = encryptNote(payload, keyPair.secretKey)
       const res = await createNote({ callId: newNoteCallId, encryptedContent: encrypted })
       setNotes(prev => [
-        { ...res.note, decrypted: newNoteText, isTranscription: false },
+        { ...res.note, decrypted: newNoteText, payload, isTranscription: false },
         ...prev,
       ])
       setTotal(prev => prev + 1)
@@ -166,12 +178,16 @@ function NotesPage() {
 
   const totalPages = Math.ceil(total / limit)
 
+  // Filter custom fields by role visibility for display
+  const visibleFields = customFields.filter(f => isAdmin || f.visibleToVolunteers)
+
   async function handleExport() {
     if (!keyPair) return
     const rows = filteredNotes.map(n => ({
       id: n.id,
       callId: n.callId,
       content: n.decrypted,
+      fields: n.payload.fields,
       isTranscription: n.isTranscription,
       createdAt: n.createdAt,
       updatedAt: n.updatedAt,
@@ -390,7 +406,26 @@ function NotesPage() {
                             </div>
                           </div>
                         ) : (
-                          <p className="mt-2 text-sm whitespace-pre-wrap">{note.decrypted}</p>
+                          <>
+                            <p className="mt-2 text-sm whitespace-pre-wrap">{note.decrypted}</p>
+                            {/* Display custom field values */}
+                            {note.payload.fields && visibleFields.length > 0 && (
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {visibleFields.map(field => {
+                                  const val = note.payload.fields?.[field.id]
+                                  if (val === undefined || val === '') return null
+                                  const displayVal = field.type === 'checkbox'
+                                    ? (val ? '\u2713' : '\u2717')
+                                    : String(val)
+                                  return (
+                                    <Badge key={field.id} variant="outline" className="text-xs">
+                                      {field.label}: {displayVal}
+                                    </Badge>
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
                       {editingId !== note.id && (

@@ -357,6 +357,42 @@
     "rateLimitEnable": "Ratenbegrenzung aktivieren? Wiederholte Anrufe von derselben Nummer werden vorübergehend blockiert.",
     "rateLimitDisable": "Ratenbegrenzung deaktivieren? Es gibt keine Begrenzung für wiederholte Anrufe von derselben Nummer."
   },
+  "customFields": {
+    "title": "Benutzerdefinierte Notizfelder",
+    "description": "Definieren Sie zusätzliche Felder, die im Notizformular angezeigt werden",
+    "addField": "Feld hinzufügen",
+    "fieldLabel": "Feldbezeichnung",
+    "fieldName": "Feldname",
+    "fieldType": "Typ",
+    "required": "Pflichtfeld",
+    "options": "Optionen",
+    "addOption": "Option hinzufügen",
+    "selectOption": "Auswählen...",
+    "visibleToVolunteers": "Für Freiwillige sichtbar",
+    "editableByVolunteers": "Von Freiwilligen bearbeitbar",
+    "adminOnly": "Nur für Administratoren",
+    "noFields": "Keine benutzerdefinierten Felder definiert",
+    "maxFields": "Maximum von 20 Feldern erreicht",
+    "deleteConfirm": "Dieses Feld löschen? Bestehende Notizen mit diesem Feld behalten ihre Daten.",
+    "fieldRequired": "{{label}} ist erforderlich",
+    "tooShort": "Mindestens {{min}} Zeichen",
+    "tooLong": "Maximal {{max}} Zeichen",
+    "tooLow": "Mindestwert ist {{min}}",
+    "tooHigh": "Höchstwert ist {{max}}",
+    "types": {
+      "text": "Text",
+      "number": "Zahl",
+      "select": "Auswahl",
+      "checkbox": "Kontrollkästchen",
+      "textarea": "Textbereich"
+    },
+    "validation": {
+      "min": "Min",
+      "max": "Max",
+      "minLength": "Min. Länge",
+      "maxLength": "Max. Länge"
+    }
+  },
   "a11y": {
     "skipToContent": "Zum Inhalt springen",
     "switchToLanguage": "Zu {{language}} wechseln",

@@ -302,7 +302,7 @@ function ActiveCallPanel({ call, onHangup, onReportSpam, onBanNumber, secretKey 
     if (!noteText.trim()) return
     setSaving(true)
     try {
-      const encrypted = encryptNote(noteText, secretKey)
+      const encrypted = encryptNote({ text: noteText }, secretKey)
       await createNote({ callId: call.id, encryptedContent: encrypted })
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
