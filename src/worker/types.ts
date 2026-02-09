@@ -80,6 +80,18 @@ export interface SpamSettings {
   blockDurationMinutes: number
 }
 
+export interface InviteCode {
+  code: string
+  name: string
+  phone: string
+  role: 'volunteer' | 'admin'
+  createdBy: string
+  createdAt: string
+  expiresAt: string
+  usedAt?: string
+  usedBy?: string
+}
+
 export interface AuthPayload {
   pubkey: string
   timestamp: number

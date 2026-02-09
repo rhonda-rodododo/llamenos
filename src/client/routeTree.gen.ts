@@ -13,6 +13,7 @@ import { Route as VolunteersRouteImport } from './routes/volunteers'
 import { Route as ShiftsRouteImport } from './routes/shifts'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ProfileSetupRouteImport } from './routes/profile-setup'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as NotesRouteImport } from './routes/notes'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as CallsRouteImport } from './routes/calls'
@@ -38,6 +39,11 @@ const SettingsRoute = SettingsRouteImport.update({
 const ProfileSetupRoute = ProfileSetupRouteImport.update({
   id: '/profile-setup',
   path: '/profile-setup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NotesRoute = NotesRouteImport.update({
@@ -78,6 +84,7 @@ export interface FileRoutesByFullPath {
   '/calls': typeof CallsRoute
   '/login': typeof LoginRoute
   '/notes': typeof NotesRoute
+  '/onboarding': typeof OnboardingRoute
   '/profile-setup': typeof ProfileSetupRoute
   '/settings': typeof SettingsRoute
   '/shifts': typeof ShiftsRoute
@@ -90,6 +97,7 @@ export interface FileRoutesByTo {
   '/calls': typeof CallsRoute
   '/login': typeof LoginRoute
   '/notes': typeof NotesRoute
+  '/onboarding': typeof OnboardingRoute
   '/profile-setup': typeof ProfileSetupRoute
   '/settings': typeof SettingsRoute
   '/shifts': typeof ShiftsRoute
@@ -103,6 +111,7 @@ export interface FileRoutesById {
   '/calls': typeof CallsRoute
   '/login': typeof LoginRoute
   '/notes': typeof NotesRoute
+  '/onboarding': typeof OnboardingRoute
   '/profile-setup': typeof ProfileSetupRoute
   '/settings': typeof SettingsRoute
   '/shifts': typeof ShiftsRoute
@@ -117,6 +126,7 @@ export interface FileRouteTypes {
     | '/calls'
     | '/login'
     | '/notes'
+    | '/onboarding'
     | '/profile-setup'
     | '/settings'
     | '/shifts'
@@ -129,6 +139,7 @@ export interface FileRouteTypes {
     | '/calls'
     | '/login'
     | '/notes'
+    | '/onboarding'
     | '/profile-setup'
     | '/settings'
     | '/shifts'
@@ -141,6 +152,7 @@ export interface FileRouteTypes {
     | '/calls'
     | '/login'
     | '/notes'
+    | '/onboarding'
     | '/profile-setup'
     | '/settings'
     | '/shifts'
@@ -154,6 +166,7 @@ export interface RootRouteChildren {
   CallsRoute: typeof CallsRoute
   LoginRoute: typeof LoginRoute
   NotesRoute: typeof NotesRoute
+  OnboardingRoute: typeof OnboardingRoute
   ProfileSetupRoute: typeof ProfileSetupRoute
   SettingsRoute: typeof SettingsRoute
   ShiftsRoute: typeof ShiftsRoute
@@ -188,6 +201,13 @@ declare module '@tanstack/react-router' {
       path: '/profile-setup'
       fullPath: '/profile-setup'
       preLoaderRoute: typeof ProfileSetupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/notes': {
@@ -242,6 +262,7 @@ const rootRouteChildren: RootRouteChildren = {
   CallsRoute: CallsRoute,
   LoginRoute: LoginRoute,
   NotesRoute: NotesRoute,
+  OnboardingRoute: OnboardingRoute,
   ProfileSetupRoute: ProfileSetupRoute,
   SettingsRoute: SettingsRoute,
   ShiftsRoute: ShiftsRoute,

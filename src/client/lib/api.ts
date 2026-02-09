@@ -1,6 +1,10 @@
-import { createAuthToken, keyPairFromNsec, getStoredSession } from './crypto'
+import { createAuthToken, keyPairFromNsec, getStoredSession, clearSession } from './crypto'
 
 const API_BASE = '/api'
+
+// Auth expiry callback — set by AuthProvider to handle 401s reactively
+let onAuthExpired: (() => void) | null = null
+export function setOnAuthExpired(cb: (() => void) | null) { onAuthExpired = cb }
 
 function getAuthHeaders(): Record<string, string> {
   const nsec = getStoredSession()
@@ -20,9 +24,9 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers })
   if (!res.ok) {
     if (res.status === 401 && !path.startsWith('/auth/')) {
-      // Session expired or invalid — redirect to login
-      sessionStorage.removeItem('llamenos-session')
-      window.location.href = '/login'
+      // Session expired — notify auth provider reactively (no hard redirect)
+      clearSession()
+      onAuthExpired?.()
     }
     const body = await res.text()
     throw new ApiError(res.status, body)
@@ -249,6 +253,41 @@ export async function updateMyAvailability(onBreak: boolean) {
   })
 }
 
+// --- Invites ---
+
+export async function listInvites() {
+  return request<{ invites: InviteCode[] }>('/invites')
+}
+
+export async function createInvite(data: { name: string; phone: string; role: 'volunteer' | 'admin' }) {
+  return request<{ invite: InviteCode }>('/invites', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function revokeInvite(code: string) {
+  return request<{ ok: true }>(`/invites/${code}`, { method: 'DELETE' })
+}
+
+export async function validateInvite(code: string) {
+  const res = await fetch(`${API_BASE}/invites/validate/${code}`)
+  return res.json() as Promise<{ valid: boolean; name?: string; role?: string; error?: string }>
+}
+
+export async function redeemInvite(code: string, pubkey: string) {
+  const res = await fetch(`${API_BASE}/invites/redeem`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, pubkey }),
+  })
+  if (!res.ok) {
+    const body = await res.text()
+    throw new ApiError(res.status, body)
+  }
+  return res.json() as Promise<{ volunteer: Volunteer }>
+}
+
 // --- Types ---
 
 export interface Volunteer {
@@ -325,4 +364,15 @@ export interface SpamSettings {
   rateLimitEnabled: boolean
   maxCallsPerMinute: number
   blockDurationMinutes: number
+}
+
+export interface InviteCode {
+  code: string
+  name: string
+  phone: string
+  role: 'volunteer' | 'admin'
+  createdBy: string
+  createdAt: string
+  expiresAt: string
+  usedAt?: string
 }

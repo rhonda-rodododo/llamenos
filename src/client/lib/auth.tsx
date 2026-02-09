@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import { type KeyPair, keyPairFromNsec, getStoredSession, storeSession, clearSession, createAuthToken } from './crypto'
-import { getMe, login, updateMyAvailability } from './api'
+import { getMe, login, updateMyAvailability, setOnAuthExpired } from './api'
 
 interface AuthState {
   keyPair: KeyPair | null
@@ -39,6 +39,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     profileCompleted: true,
     onBreak: false,
   })
+
+  // Register auth expiry callback — called by api.ts when a 401 is received
+  useEffect(() => {
+    setOnAuthExpired(() => {
+      setState({
+        keyPair: null,
+        role: null,
+        name: null,
+        isLoading: false,
+        error: null,
+        transcriptionEnabled: true,
+        spokenLanguages: ['en'],
+        uiLanguage: 'en',
+        profileCompleted: true,
+        onBreak: false,
+      })
+    })
+    return () => setOnAuthExpired(null)
+  }, [])
 
   // Restore session on mount
   useEffect(() => {

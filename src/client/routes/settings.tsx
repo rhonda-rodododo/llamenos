@@ -8,15 +8,21 @@ import {
   getTranscriptionSettings,
   updateTranscriptionSettings,
   updateMyTranscriptionPreference,
+  updateMyProfile,
   type SpamSettings,
 } from '@/lib/api'
+import { getStoredSession, keyPairFromNsec } from '@/lib/crypto'
+import { nip19 } from 'nostr-tools'
 import { useToast } from '@/lib/toast'
-import { Settings2, Mic, ShieldAlert, Bot, Timer, Bell } from 'lucide-react'
+import { Settings2, Mic, ShieldAlert, Bot, Timer, Bell, User, KeyRound, Shield, Globe } from 'lucide-react'
 import { getNotificationPrefs, setNotificationPrefs } from '@/lib/notifications'
+import { LANGUAGES } from '@shared/languages'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 
 export const Route = createFileRoute('/settings')({
   component: SettingsPage,
@@ -24,13 +30,24 @@ export const Route = createFileRoute('/settings')({
 
 function SettingsPage() {
   const { t } = useTranslation()
-  const { isAdmin, transcriptionEnabled } = useAuth()
+  const { isAdmin, transcriptionEnabled, name: authName, spokenLanguages, refreshProfile } = useAuth()
   const { toast } = useToast()
   const [spam, setSpam] = useState<SpamSettings | null>(null)
   const [globalTranscription, setGlobalTranscription] = useState(false)
   const [myTranscription, setMyTranscription] = useState(transcriptionEnabled)
   const [notifPrefs, setNotifPrefs] = useState(getNotificationPrefs)
   const [loading, setLoading] = useState(true)
+
+  // Profile state
+  const [profileName, setProfileName] = useState(authName || '')
+  const [profilePhone, setProfilePhone] = useState('')
+  const [profileError, setProfileError] = useState('')
+  const [selectedLanguages, setSelectedLanguages] = useState<string[]>(spokenLanguages || ['en'])
+
+  // Get npub for display
+  const nsec = getStoredSession()
+  const keyPair = nsec ? keyPairFromNsec(nsec) : null
+  const npub = keyPair ? nip19.npubEncode(keyPair.publicKey) : ''
 
   useEffect(() => {
     if (isAdmin) {
@@ -44,6 +61,31 @@ function SettingsPage() {
     }
   }, [isAdmin])
 
+  useEffect(() => {
+    setProfileName(authName || '')
+  }, [authName])
+
+  useEffect(() => {
+    setSelectedLanguages(spokenLanguages || ['en'])
+  }, [spokenLanguages])
+
+  async function handleUpdateProfile() {
+    setProfileError('')
+    if (profilePhone && !/^\+\d{7,15}$/.test(profilePhone)) {
+      setProfileError(t('profileSettings.invalidPhone'))
+      return
+    }
+    try {
+      await updateMyProfile({
+        spokenLanguages: selectedLanguages,
+      })
+      await refreshProfile()
+      toast(t('profileSettings.profileUpdated'), 'success')
+    } catch {
+      toast(t('common.error'), 'error')
+    }
+  }
+
   if (loading) {
     return <div className="text-muted-foreground">{t('common.loading')}</div>
   }
@@ -54,6 +96,140 @@ function SettingsPage() {
         <Settings2 className="h-6 w-6 text-muted-foreground" />
         <h1 className="text-xl font-bold sm:text-2xl">{t('settings.title')}</h1>
       </div>
+
+      {/* Profile */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <User className="h-5 w-5 text-muted-foreground" />
+            {t('profileSettings.profile')}
+          </CardTitle>
+          <CardDescription>{t('profileSettings.profileDescription')}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="profile-name">{t('profileSettings.displayName')}</Label>
+              <Input
+                id="profile-name"
+                value={profileName}
+                onChange={e => setProfileName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="profile-phone">{t('profileSettings.phoneNumber')}</Label>
+              <Input
+                id="profile-phone"
+                value={profilePhone}
+                onChange={e => setProfilePhone(e.target.value)}
+                type="tel"
+                placeholder="+12125551234"
+              />
+            </div>
+          </div>
+
+          {npub && (
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">{t('profileSettings.yourPublicKey')}</p>
+              <code className="block break-all rounded-md bg-muted px-3 py-2 text-xs">{npub}</code>
+            </div>
+          )}
+
+          {profileError && (
+            <p className="text-sm text-destructive">{profileError}</p>
+          )}
+
+          {/* Spoken languages */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Globe className="h-4 w-4 text-muted-foreground" />
+              <Label>{t('profile.spokenLanguages')}</Label>
+            </div>
+            <p className="text-xs text-muted-foreground">{t('profile.spokenLanguagesHelp')}</p>
+            <div className="flex flex-wrap gap-2">
+              {LANGUAGES.map(lang => {
+                const selected = selectedLanguages.includes(lang.code)
+                return (
+                  <button
+                    key={lang.code}
+                    onClick={() => {
+                      setSelectedLanguages(prev =>
+                        selected
+                          ? prev.filter(c => c !== lang.code)
+                          : [...prev, lang.code]
+                      )
+                    }}
+                    className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs transition-colors ${
+                      selected
+                        ? 'border-primary bg-primary/10 text-primary font-medium'
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                  >
+                    <span>{lang.flag}</span>
+                    {lang.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <Button onClick={handleUpdateProfile}>
+            {t('profileSettings.updateProfile')}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Key Backup — admin only */}
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <KeyRound className="h-5 w-5 text-muted-foreground" />
+              {t('profileSettings.keyBackup')}
+            </CardTitle>
+            <CardDescription>{t('profileSettings.keyBackupDescription')}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button variant="outline" onClick={() => {
+              if (!nsec || !keyPair) return
+              const backup = JSON.stringify({
+                version: 1,
+                format: 'llamenos-key-backup',
+                pubkey: keyPair.publicKey,
+                nsec,
+                createdAt: new Date().toISOString(),
+              }, null, 2)
+              const blob = new Blob([backup], { type: 'application/json' })
+              const url = URL.createObjectURL(blob)
+              const a = document.createElement('a')
+              a.href = url
+              a.download = `llamenos-backup-${keyPair.publicKey.slice(0, 8)}.json`
+              a.click()
+              URL.revokeObjectURL(url)
+            }}>
+              {t('onboarding.downloadBackup')}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Security Keys (WebAuthn) — admin only */}
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-muted-foreground" />
+              {t('profileSettings.securityKeys')}
+            </CardTitle>
+            <CardDescription>{t('profileSettings.securityKeysDescription')}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              WebAuthn support coming soon.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Transcription */}
       <Card>

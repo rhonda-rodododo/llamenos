@@ -136,6 +136,36 @@ export function decryptTranscription(
   }
 }
 
+// --- Draft Encryption ---
+// Same as notes but with "drafts" domain separation for local draft auto-save
+
+export function encryptDraft(plaintext: string, secretKey: Uint8Array): string {
+  const key = deriveEncryptionKey(secretKey, 'drafts')
+  const nonce = randomBytes(24)
+  const data = utf8ToBytes(plaintext)
+  const cipher = xchacha20poly1305(key, nonce)
+  const ciphertext = cipher.encrypt(data)
+
+  const packed = new Uint8Array(nonce.length + ciphertext.length)
+  packed.set(nonce)
+  packed.set(ciphertext, nonce.length)
+  return bytesToHex(packed)
+}
+
+export function decryptDraft(packed: string, secretKey: Uint8Array): string | null {
+  try {
+    const key = deriveEncryptionKey(secretKey, 'drafts')
+    const data = hexToBytes(packed)
+    const nonce = data.slice(0, 24)
+    const ciphertext = data.slice(24)
+    const cipher = xchacha20poly1305(key, nonce)
+    const plaintext = cipher.decrypt(ciphertext)
+    return new TextDecoder().decode(plaintext)
+  } catch {
+    return null
+  }
+}
+
 // --- Session Token ---
 // Create a signed challenge for API authentication
 

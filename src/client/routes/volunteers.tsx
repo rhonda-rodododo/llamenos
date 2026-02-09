@@ -7,11 +7,15 @@ import {
   createVolunteer,
   updateVolunteer,
   deleteVolunteer,
+  listInvites,
+  createInvite,
+  revokeInvite,
   type Volunteer,
+  type InviteCode,
 } from '@/lib/api'
 import { generateKeyPair } from '@/lib/crypto'
 import { useToast } from '@/lib/toast'
-import { UserPlus, Shield, ShieldCheck, Trash2, Key, AlertTriangle, Copy, Coffee, Eye, EyeOff } from 'lucide-react'
+import { UserPlus, Shield, ShieldCheck, Trash2, Key, Copy, Coffee, Eye, EyeOff, Mail, X } from 'lucide-react'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -28,18 +32,22 @@ function VolunteersPage() {
   const { isAdmin } = useAuth()
   const { toast } = useToast()
   const [volunteers, setVolunteers] = useState<Volunteer[]>([])
+  const [invites, setInvites] = useState<InviteCode[]>([])
   const [showAddForm, setShowAddForm] = useState(false)
+  const [showInviteForm, setShowInviteForm] = useState(false)
   const [generatedNsec, setGeneratedNsec] = useState<string | null>(null)
+  const [inviteLink, setInviteLink] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    loadVolunteers()
+    loadData()
   }, [])
 
-  async function loadVolunteers() {
+  async function loadData() {
     try {
-      const res = await listVolunteers()
-      setVolunteers(res.volunteers)
+      const [volRes, invRes] = await Promise.all([listVolunteers(), listInvites()])
+      setVolunteers(volRes.volunteers)
+      setInvites(invRes.invites)
     } catch {
       toast(t('common.error'), 'error')
     } finally {
@@ -55,10 +63,16 @@ function VolunteersPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-bold sm:text-2xl">{t('volunteers.title')}</h1>
-        <Button onClick={() => { setShowAddForm(true); setGeneratedNsec(null) }}>
-          <UserPlus className="h-4 w-4" />
-          {t('volunteers.addVolunteer')}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => { setShowInviteForm(true); setInviteLink(null) }}>
+            <Mail className="h-4 w-4" />
+            {t('volunteers.inviteVolunteer')}
+          </Button>
+          <Button onClick={() => { setShowAddForm(true); setGeneratedNsec(null) }}>
+            <UserPlus className="h-4 w-4" />
+            {t('volunteers.addVolunteer')}
+          </Button>
+        </div>
       </div>
 
       {/* Generated key warning */}
@@ -90,6 +104,47 @@ function VolunteersPage() {
         </Card>
       )}
 
+      {/* Invite link display */}
+      {inviteLink && (
+        <Card className="border-green-400/50 bg-green-50 dark:border-green-600/50 dark:bg-green-950/10">
+          <CardContent className="space-y-3">
+            <div className="flex items-start gap-2">
+              <Mail className="mt-0.5 h-4 w-4 text-green-600 dark:text-green-400" />
+              <div>
+                <p className="text-sm font-medium text-green-800 dark:text-green-300">{t('volunteers.inviteCreated')}</p>
+                <p className="mt-0.5 text-xs text-green-600 dark:text-green-400/80">{t('volunteers.inviteLinkLabel')}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 break-all rounded-md bg-background px-3 py-2 text-xs">{inviteLink}</code>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => { navigator.clipboard.writeText(inviteLink); toast(t('common.success'), 'success') }}
+                aria-label={t('a11y.copyToClipboard')}
+              >
+                <Copy className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => setInviteLink(null)}>
+              {t('common.close')}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Invite form */}
+      {showInviteForm && (
+        <InviteForm
+          onCreated={(invite) => {
+            setInvites(prev => [...prev, invite])
+            setInviteLink(`${window.location.origin}/onboarding?code=${invite.code}`)
+            setShowInviteForm(false)
+          }}
+          onCancel={() => setShowInviteForm(false)}
+        />
+      )}
+
       {/* Add volunteer form */}
       {showAddForm && (
         <AddVolunteerForm
@@ -100,6 +155,47 @@ function VolunteersPage() {
           }}
           onCancel={() => setShowAddForm(false)}
         />
+      )}
+
+      {/* Pending invites */}
+      {invites.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Mail className="h-4 w-4 text-muted-foreground" />
+              {t('volunteers.pendingInvites')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="divide-y divide-border">
+              {invites.map(invite => (
+                <div key={invite.code} className="flex items-center justify-between px-4 py-3 sm:px-6">
+                  <div>
+                    <p className="text-sm font-medium">{invite.name}</p>
+                    <p className="text-xs text-muted-foreground">{invite.phone}</p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        await revokeInvite(invite.code)
+                        setInvites(prev => prev.filter(i => i.code !== invite.code))
+                        toast(t('volunteers.inviteRevoked'), 'success')
+                      } catch {
+                        toast(t('common.error'), 'error')
+                      }
+                    }}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <X className="h-3 w-3" />
+                    {t('volunteers.revokeInvite')}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Volunteers list */}
@@ -139,6 +235,81 @@ function VolunteersPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+function InviteForm({ onCreated, onCancel }: {
+  onCreated: (invite: InviteCode) => void
+  onCancel: () => void
+}) {
+  const { t } = useTranslation()
+  const { toast } = useToast()
+  const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [role, setRole] = useState<'volunteer' | 'admin'>('volunteer')
+  const [saving, setSaving] = useState(false)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!/^\+\d{7,15}$/.test(phone)) {
+      toast(t('volunteers.invalidPhone'), 'error')
+      return
+    }
+    setSaving(true)
+    try {
+      const res = await createInvite({ name, phone, role })
+      onCreated(res.invite)
+      toast(t('volunteers.inviteCreated'), 'success')
+    } catch {
+      toast(t('common.error'), 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Mail className="h-4 w-4 text-muted-foreground" />
+          {t('volunteers.inviteVolunteer')}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="invite-name">{t('volunteers.name')}</Label>
+              <Input
+                id="invite-name"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="invite-phone">{t('volunteers.phone')}</Label>
+              <Input
+                id="invite-phone"
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+                type="tel"
+                placeholder="+12125551234"
+                required
+              />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button type="submit" disabled={saving}>
+              {saving ? t('common.loading') : t('volunteers.createInvite')}
+            </Button>
+            <Button type="button" variant="outline" onClick={onCancel}>
+              {t('common.cancel')}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   )
 }
 

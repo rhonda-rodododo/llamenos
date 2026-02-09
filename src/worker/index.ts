@@ -74,7 +74,7 @@ function addSecurityHeaders(response: Response): Response {
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url)
 
     // Only handle /api/* routes — everything else goes to static assets
@@ -106,7 +106,7 @@ export default {
 
     // --- Telephony Webhooks (no auth — validated by Twilio signature) ---
     if (path.startsWith('/telephony/')) {
-      return handleTelephonyWebhook(path, request, env, dos)
+      return handleTelephonyWebhook(path, request, env, dos, ctx)
     }
 
     // --- Test Reset (development only) ---
@@ -116,6 +116,20 @@ export default {
       await dos.calls.fetch(new Request('http://do/reset', { method: 'POST' }))
       rateLimitMap.clear()
       return json({ ok: true })
+    }
+
+    // --- Public Invite Routes (no auth) ---
+    if (path.startsWith('/invites/validate/') && method === 'GET') {
+      const code = extractPathParam(path, '/invites/validate/')
+      if (!code) return error('Invalid code', 400)
+      return dos.session.fetch(new Request(`http://do/invites/validate/${code}`))
+    }
+    if (path === '/invites/redeem' && method === 'POST') {
+      const body = await request.json() as { code: string; pubkey: string }
+      return dos.session.fetch(new Request('http://do/invites/redeem', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }))
     }
 
     // --- Auth Routes ---
@@ -230,6 +244,33 @@ export default {
       if (!targetPubkey) return error('Invalid pubkey', 400)
       const res = await dos.session.fetch(new Request(`http://do/volunteers/${targetPubkey}`, { method: 'DELETE' }))
       if (res.ok) await audit(dos.session, 'volunteerRemoved', pubkey, { target: targetPubkey })
+      return res
+    }
+
+    // --- Invites (admin only) ---
+    if (path === '/invites' && method === 'GET') {
+      if (!isAdmin) return error('Forbidden', 403)
+      return dos.session.fetch(new Request('http://do/invites'))
+    }
+    if (path === '/invites' && method === 'POST') {
+      if (!isAdmin) return error('Forbidden', 403)
+      const body = await request.json() as { name: string; phone: string; role: 'volunteer' | 'admin' }
+      if (body.phone && !isValidE164(body.phone)) {
+        return error('Invalid phone number. Use E.164 format (e.g. +12125551234)', 400)
+      }
+      const res = await dos.session.fetch(new Request('http://do/invites', {
+        method: 'POST',
+        body: JSON.stringify({ ...body, createdBy: pubkey }),
+      }))
+      if (res.ok) await audit(dos.session, 'inviteCreated', pubkey, { name: body.name })
+      return res
+    }
+    if (path.startsWith('/invites/') && method === 'DELETE') {
+      if (!isAdmin) return error('Forbidden', 403)
+      const code = extractPathParam(path, '/invites/')
+      if (!code) return error('Invalid invite code', 400)
+      const res = await dos.session.fetch(new Request(`http://do/invites/${code}`, { method: 'DELETE' }))
+      if (res.ok) await audit(dos.session, 'inviteRevoked', pubkey, { code })
       return res
     }
 
@@ -494,6 +535,7 @@ async function handleTelephonyWebhook(
   request: Request,
   env: Env,
   dos: ReturnType<typeof getDOs>,
+  ctx: ExecutionContext,
 ): Promise<Response> {
   const twilio = getTwilio(env)
 
@@ -537,9 +579,11 @@ async function handleTelephonyWebhook(
       hotlineName: env.HOTLINE_NAME || 'Llámenos',
     })
 
-    // If not banned and not rate limited, start ringing volunteers
+    // If not banned and not rate limited, start ringing volunteers in the background
+    // (don't block the TwiML response — Twilio needs it promptly)
     if (!banned && !rateLimited && !spamSettings.voiceCaptchaEnabled) {
-      await startParallelRinging(callSid, callerNumber, env, dos)
+      const origin = new URL(request.url).origin
+      ctx.waitUntil(startParallelRinging(callSid, callerNumber, origin, env, dos))
     }
 
     return new Response(response.body, {
@@ -558,10 +602,11 @@ async function handleTelephonyWebhook(
 
     const response = await twilio.handleCaptchaResponse({ callSid, digits, expectedDigits: expected, callerLanguage: callerLang })
 
-    // If CAPTCHA passed, start ringing
+    // If CAPTCHA passed, start ringing in the background
     if (digits === expected) {
       const callerNumber = formData.get('From') as string || ''
-      await startParallelRinging(callSid, callerNumber, env, dos)
+      const origin = new URL(request.url).origin
+      ctx.waitUntil(startParallelRinging(callSid, callerNumber, origin, env, dos))
     }
 
     return new Response(response.body, {
@@ -624,7 +669,7 @@ async function handleTelephonyWebhook(
     return new Response(`
       <Response>
         <Say language="${tLang}">${waitMsg}</Say>
-        <Play>http://com.twilio.sounds.music.s3.amazonaws.com/MARKOVICHAMP-B4Da.mp3</Play>
+        <Play>https://com.twilio.music.soft-rock.s3.amazonaws.com/_ghost_-_promo_2_sample_pack.mp3</Play>
       </Response>
     `.trim(), { headers: { 'Content-Type': 'text/xml' } })
   }
@@ -637,53 +682,62 @@ async function handleTelephonyWebhook(
 async function startParallelRinging(
   callSid: string,
   callerNumber: string,
+  origin: string,
   env: Env,
   dos: ReturnType<typeof getDOs>,
 ) {
-  // Get on-shift volunteers
-  const shiftRes = await dos.shifts.fetch(new Request('http://do/current-volunteers'))
-  let { volunteers: onShiftPubkeys } = await shiftRes.json() as { volunteers: string[] }
+  try {
+    // Get on-shift volunteers
+    const shiftRes = await dos.shifts.fetch(new Request('http://do/current-volunteers'))
+    let { volunteers: onShiftPubkeys } = await shiftRes.json() as { volunteers: string[] }
 
-  // If no one is on shift, use fallback group
-  if (onShiftPubkeys.length === 0) {
-    const fallbackRes = await dos.session.fetch(new Request('http://do/fallback'))
-    const fallback = await fallbackRes.json() as { volunteers: string[] }
-    onShiftPubkeys = fallback.volunteers
-  }
+    // If no one is on shift, use fallback group
+    if (onShiftPubkeys.length === 0) {
+      const fallbackRes = await dos.session.fetch(new Request('http://do/fallback'))
+      const fallback = await fallbackRes.json() as { volunteers: string[] }
+      onShiftPubkeys = fallback.volunteers
+    }
 
-  if (onShiftPubkeys.length === 0) return
+    if (onShiftPubkeys.length === 0) {
+      console.log('No volunteers available to ring for call', callSid)
+      return
+    }
 
-  // Get volunteer phone numbers
-  const volRes = await dos.session.fetch(new Request('http://do/volunteers'))
-  const { volunteers: allVolunteers } = await volRes.json() as { volunteers: Array<{ pubkey: string; phone: string; active: boolean; onBreak?: boolean }> }
+    // Get volunteer phone numbers
+    const volRes = await dos.session.fetch(new Request('http://do/volunteers'))
+    const { volunteers: allVolunteers } = await volRes.json() as { volunteers: Array<{ pubkey: string; phone: string; active: boolean; onBreak?: boolean }> }
 
-  const toRing = allVolunteers
-    .filter(v => onShiftPubkeys.includes(v.pubkey) && v.active && v.phone && !v.onBreak)
-    .map(v => ({ pubkey: v.pubkey, phone: v.phone }))
+    const toRing = allVolunteers
+      .filter(v => onShiftPubkeys.includes(v.pubkey) && v.active && v.phone && !v.onBreak)
+      .map(v => ({ pubkey: v.pubkey, phone: v.phone }))
 
-  if (toRing.length === 0) return
+    if (toRing.length === 0) {
+      console.log('No active volunteers with phone numbers to ring for call', callSid)
+      return
+    }
 
-  // Notify CallRouter DO of the incoming call
-  await dos.calls.fetch(new Request('http://do/calls/incoming', {
-    method: 'POST',
-    body: JSON.stringify({
+    // Notify CallRouter DO of the incoming call
+    await dos.calls.fetch(new Request('http://do/calls/incoming', {
+      method: 'POST',
+      body: JSON.stringify({
+        callSid,
+        callerNumber,
+        volunteerPubkeys: toRing.map(v => v.pubkey),
+      }),
+    }))
+
+    // Ring all volunteers via Twilio
+    console.log(`Ringing ${toRing.length} volunteers for call ${callSid} (callback: ${origin})`)
+    const twilio = getTwilio(env)
+    await twilio.ringVolunteers({
       callSid,
       callerNumber,
-      volunteerPubkeys: toRing.map(v => v.pubkey),
-    }),
-  }))
-
-  // Ring all volunteers via Twilio
-  const twilio = getTwilio(env)
-  const baseUrl = env.ENVIRONMENT === 'development'
-    ? 'https://localhost:8787' // Will need a tunnel in dev
-    : `https://llamenos.${env.TWILIO_ACCOUNT_SID}.workers.dev` // Will be replaced with actual domain
-  await twilio.ringVolunteers({
-    callSid,
-    callerNumber,
-    volunteers: toRing,
-    callbackUrl: baseUrl,
-  })
+      volunteers: toRing,
+      callbackUrl: origin,
+    })
+  } catch (err) {
+    console.error('Failed to start parallel ringing for call', callSid, err)
+  }
 }
 
 // --- Rate Limiting ---

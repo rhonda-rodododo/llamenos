@@ -32,7 +32,11 @@
     "secretKeyPlaceholder": "nsec1...",
     "invalidKey": "Invalid secret key",
     "loginError": "Failed to log in. Please check your key and try again.",
-    "securityNote": "Your key never leaves your device"
+    "securityNote": "Your key never leaves your device",
+    "restoreFromBackup": "Restore from backup",
+    "selectBackupFile": "Select backup file",
+    "invalidBackup": "Invalid backup file",
+    "backupRestored": "Key restored from backup"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -155,7 +159,15 @@
     "active": "Active",
     "inactive": "Inactive",
     "volunteerAdded": "Volunteer added successfully",
-    "invalidPhone": "Invalid phone number. Use E.164 format (e.g. +12125551234)"
+    "invalidPhone": "Invalid phone number. Use E.164 format (e.g. +12125551234)",
+    "inviteVolunteer": "Invite Volunteer",
+    "createInvite": "Create Invite",
+    "inviteCreated": "Invite created",
+    "pendingInvites": "Pending Invites",
+    "revokeInvite": "Revoke",
+    "inviteRevoked": "Invite revoked",
+    "inviteExpires": "Expires {{date}}",
+    "inviteLinkLabel": "Invite link"
   },
   "banList": {
     "title": "Ban List",
@@ -260,6 +272,53 @@
     "actions": "Actions",
     "theme": "Theme",
     "language": "Language"
+  },
+  "onboarding": {
+    "noCode": "No invite code provided",
+    "expired": "This invite has expired",
+    "alreadyUsed": "This invite has already been used",
+    "invalidCode": "Invalid invite code",
+    "errorTitle": "Invite Error",
+    "goToLogin": "Go to Login",
+    "welcomeTitle": "Welcome to {{name}}",
+    "welcomeDescription": "You've been invited to join as a volunteer, {{volunteerName}}",
+    "getStarted": "Get Started",
+    "generatingKeys": "Generating your keys...",
+    "backupTitle": "Back Up Your Key",
+    "backupDescription": "Save your secret key somewhere safe. You'll need it to log in.",
+    "yourSecretKey": "Your secret key",
+    "secretKeyWarning": "Never share this key with anyone! Store it securely.",
+    "downloadBackup": "Download Backup",
+    "verifyTitle": "Verify your backup",
+    "verifyDescription": "Enter the characters at these positions from your secret key",
+    "charAtPosition": "Character #{{position}}",
+    "verifyButton": "Verify",
+    "verifyFailed": "Verification failed — please check your backup",
+    "verifySuccess": "Backup verified!",
+    "continue": "Continue",
+    "redeemFailed": "Failed to redeem invite"
+  },
+  "pin": {
+    "createTitle": "Create a PIN",
+    "createDescription": "Choose a 6-digit PIN to protect your key on this device",
+    "confirmTitle": "Confirm your PIN",
+    "confirmDescription": "Enter your PIN again to confirm",
+    "tooShort": "PIN must be 6 digits",
+    "mismatch": "PINs don't match. Try again."
+  },
+  "profileSettings": {
+    "profile": "Profile",
+    "profileDescription": "Manage your profile information",
+    "displayName": "Display Name",
+    "phoneNumber": "Phone Number",
+    "yourPublicKey": "Your public key",
+    "updateProfile": "Update Profile",
+    "profileUpdated": "Profile updated",
+    "invalidPhone": "Invalid phone number",
+    "keyBackup": "Key Backup",
+    "keyBackupDescription": "Download your encrypted key backup",
+    "securityKeys": "Security Keys",
+    "securityKeysDescription": "Manage WebAuthn credentials for step-up authentication"
   },
   "a11y": {
     "skipToContent": "Skip to content",

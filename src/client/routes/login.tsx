@@ -1,13 +1,13 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth'
 import { useConfig } from '@/lib/config'
 import { useTheme } from '@/lib/theme'
 import { isValidNsec } from '@/lib/crypto'
-import { setLanguage } from '@/lib/i18n'
-import { LANGUAGES } from '@shared/languages'
-import { Phone, KeyRound, LogIn, Globe, Lock, Sun, Moon, Monitor } from 'lucide-react'
+import { readBackupFile } from '@/lib/backup'
+import { Phone, KeyRound, LogIn, Lock, Sun, Moon, Monitor, Upload, ChevronDown, ChevronUp } from 'lucide-react'
+import { LanguageSelect } from '@/components/language-select'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -18,13 +18,15 @@ export const Route = createFileRoute('/login')({
 })
 
 function LoginPage() {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const { signIn, error, isLoading } = useAuth()
   const { hotlineName } = useConfig()
   const { theme, setTheme } = useTheme()
   const navigate = useNavigate()
   const [nsec, setNsec] = useState('')
   const [validationError, setValidationError] = useState('')
+  const [showRestore, setShowRestore] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -44,6 +46,19 @@ function LoginPage() {
     navigate({ to: '/' })
   }
 
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const backup = await readBackupFile(file)
+    if (!backup) {
+      setValidationError(t('auth.invalidBackup'))
+      return
+    }
+    // For now, just show the backup was loaded — user still needs nsec from backup
+    // The backup file contains encrypted nsec; we'd need PIN to decrypt
+    setValidationError('')
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
       <Card className="w-full max-w-md">
@@ -57,21 +72,9 @@ function LoginPage() {
 
         <CardContent className="space-y-4">
           {/* Language & theme toggles */}
-          <div className="flex flex-wrap items-center justify-center gap-1">
-            <Globe className="h-3.5 w-3.5 text-muted-foreground" />
-            {LANGUAGES.map(lang => (
-              <Button
-                key={lang.code}
-                variant={i18n.language === lang.code ? 'secondary' : 'ghost'}
-                size="xs"
-                onClick={() => setLanguage(lang.code)}
-                title={lang.label}
-                aria-label={t('a11y.switchToLanguage', { language: lang.label })}
-              >
-                {lang.flag}
-              </Button>
-            ))}
-            <span className="mx-1 h-4 w-px bg-border" />
+          <div className="flex items-center justify-center gap-2">
+            <LanguageSelect size="sm" />
+            <span className="h-4 w-px bg-border" />
             {([['system', Monitor], ['light', Sun], ['dark', Moon]] as const).map(([value, Icon]) => (
               <Button
                 key={value}
@@ -120,6 +123,32 @@ function LoginPage() {
               )}
             </Button>
           </form>
+
+          {/* Restore from backup */}
+          <div className="space-y-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full"
+              onClick={() => setShowRestore(!showRestore)}
+            >
+              <Upload className="h-3.5 w-3.5" />
+              {t('auth.restoreFromBackup')}
+              {showRestore ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            </Button>
+            {showRestore && (
+              <div className="rounded-md border border-border p-3 space-y-2">
+                <p className="text-sm text-muted-foreground">{t('auth.selectBackupFile')}</p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".json"
+                  onChange={handleFileSelect}
+                  className="block w-full text-sm file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90"
+                />
+              </div>
+            )}
+          </div>
         </CardContent>
 
         <CardFooter className="justify-center">

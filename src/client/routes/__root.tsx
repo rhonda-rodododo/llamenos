@@ -48,7 +48,7 @@ function RootLayout() {
   }, [isAuthenticated])
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated && location.pathname !== '/login') {
+    if (!isLoading && !isAuthenticated && location.pathname !== '/login' && location.pathname !== '/onboarding') {
       navigate({ to: '/login' })
     }
   }, [isLoading, isAuthenticated, location.pathname, navigate])
@@ -85,6 +85,18 @@ function RootLayout() {
   }
 
   if (!isAuthenticated || !profileCompleted) {
+    // Only render Outlet for public routes — prevent protected route components
+    // from mounting and making API calls before the redirect effect fires
+    const publicPaths = ['/login', '/onboarding', '/profile-setup']
+    if (!publicPaths.includes(location.pathname)) {
+      return (
+        <div className="flex h-screen items-center justify-center">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Phone className="h-5 w-5 animate-pulse" />
+          </div>
+        </div>
+      )
+    }
     return <Outlet />
   }
 

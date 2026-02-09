@@ -1,5 +1,5 @@
 import { DurableObject } from 'cloudflare:workers'
-import type { Env, Volunteer, BanEntry, EncryptedNote, AuditLogEntry, SpamSettings } from '../types'
+import type { Env, Volunteer, BanEntry, EncryptedNote, AuditLogEntry, SpamSettings, InviteCode } from '../types'
 
 /**
  * SessionManagerDO — manages all persistent data:
@@ -139,6 +139,25 @@ export class SessionManagerDO extends DurableObject<Env> {
     }
     if (path === '/settings/transcription' && method === 'PATCH') {
       return this.updateTranscriptionSettings(await request.json())
+    }
+
+    // --- Invites ---
+    if (path === '/invites' && method === 'GET') {
+      return this.getInvites()
+    }
+    if (path === '/invites' && method === 'POST') {
+      return this.createInvite(await request.json())
+    }
+    if (path.startsWith('/invites/validate/') && method === 'GET') {
+      const code = path.split('/invites/validate/')[1]
+      return this.validateInvite(code)
+    }
+    if (path === '/invites/redeem' && method === 'POST') {
+      return this.redeemInvite(await request.json())
+    }
+    if (path.startsWith('/invites/') && method === 'DELETE') {
+      const code = path.split('/invites/')[1]
+      return this.revokeInvite(code)
     }
 
     // --- Shifts / Fallback ---
@@ -344,6 +363,78 @@ export class SessionManagerDO extends DurableObject<Env> {
     entries.push(entry)
     await this.ctx.storage.put('auditLog', entries)
     return Response.json({ entry })
+  }
+
+  // --- Invite Methods ---
+
+  private async getInvites(): Promise<Response> {
+    const invites = await this.ctx.storage.get<InviteCode[]>('invites') || []
+    return Response.json({ invites: invites.filter(i => !i.usedAt) })
+  }
+
+  private async createInvite(data: { name: string; phone: string; role: 'volunteer' | 'admin'; createdBy: string }): Promise<Response> {
+    const invites = await this.ctx.storage.get<InviteCode[]>('invites') || []
+    const code = crypto.randomUUID()
+    const invite: InviteCode = {
+      code,
+      name: data.name,
+      phone: data.phone,
+      role: data.role,
+      createdBy: data.createdBy,
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
+    }
+    invites.push(invite)
+    await this.ctx.storage.put('invites', invites)
+    return Response.json({ invite })
+  }
+
+  private async validateInvite(code: string): Promise<Response> {
+    const invites = await this.ctx.storage.get<InviteCode[]>('invites') || []
+    const invite = invites.find(i => i.code === code)
+    if (!invite) return Response.json({ valid: false, error: 'not_found' })
+    if (invite.usedAt) return Response.json({ valid: false, error: 'already_used' })
+    if (new Date(invite.expiresAt) < new Date()) return Response.json({ valid: false, error: 'expired' })
+    return Response.json({ valid: true, name: invite.name, role: invite.role })
+  }
+
+  private async redeemInvite(data: { code: string; pubkey: string }): Promise<Response> {
+    const invites = await this.ctx.storage.get<InviteCode[]>('invites') || []
+    const invite = invites.find(i => i.code === data.code)
+    if (!invite) return new Response(JSON.stringify({ error: 'Invalid invite code' }), { status: 400 })
+    if (invite.usedAt) return new Response(JSON.stringify({ error: 'Invite already used' }), { status: 400 })
+    if (new Date(invite.expiresAt) < new Date()) return new Response(JSON.stringify({ error: 'Invite expired' }), { status: 400 })
+
+    // Mark invite as used
+    invite.usedAt = new Date().toISOString()
+    invite.usedBy = data.pubkey
+    await this.ctx.storage.put('invites', invites)
+
+    // Create volunteer
+    const volunteers = await this.ctx.storage.get<Record<string, Volunteer>>('volunteers') || {}
+    const volunteer: Volunteer = {
+      pubkey: data.pubkey,
+      name: invite.name,
+      phone: invite.phone,
+      role: invite.role,
+      active: true,
+      createdAt: new Date().toISOString(),
+      encryptedSecretKey: '',
+      transcriptionEnabled: true,
+      spokenLanguages: ['en'],
+      uiLanguage: 'en',
+      profileCompleted: false,
+      onBreak: false,
+    }
+    volunteers[data.pubkey] = volunteer
+    await this.ctx.storage.put('volunteers', volunteers)
+    return Response.json({ volunteer: { ...volunteer, encryptedSecretKey: undefined } })
+  }
+
+  private async revokeInvite(code: string): Promise<Response> {
+    const invites = await this.ctx.storage.get<InviteCode[]>('invites') || []
+    await this.ctx.storage.put('invites', invites.filter(i => i.code !== code))
+    return Response.json({ ok: true })
   }
 
   // --- Settings Methods ---
