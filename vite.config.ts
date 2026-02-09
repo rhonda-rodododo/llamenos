@@ -19,9 +19,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.svg'],
       manifest: {
-        name: 'Llámenos',
-        short_name: 'Llámenos',
-        description: 'Secure crisis response hotline',
+        name: 'Hotline',
+        short_name: 'Hotline',
+        description: 'Secure communication app',
         theme_color: '#1a1a2e',
         background_color: '#0a0a0a',
         display: 'standalone',
@@ -46,22 +46,7 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,woff2}'],
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/^\/api\//, /^\/telephony\//],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/.*\/api\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-cache',
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 5, // 5 minutes
-              },
-              cacheableResponse: {
-                statuses: [0, 200],
-              },
-            },
-          },
-        ],
+        // No API runtime caching — sensitive call data must never be cached on device
       },
     }),
   ],

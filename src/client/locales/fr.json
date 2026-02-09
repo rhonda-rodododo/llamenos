@@ -204,7 +204,8 @@
       "volunteerAvailable": "Bénévole disponible",
       "ivrLanguagesUpdated": "Langues IVR mises à jour",
       "ivrAudioUploaded": "Audio IVR téléchargé",
-      "ivrAudioDeleted": "Audio IVR supprimé"
+      "ivrAudioDeleted": "Audio IVR supprimé",
+      "voicemailReceived": "Messagerie vocale reçue"
     }
   },
   "ivrAudio": {
@@ -219,7 +220,8 @@
       "pleaseHold": "Veuillez patienter",
       "waitMessage": "Message d'attente",
       "rateLimited": "Volume d'appels élevé",
-      "captchaPrompt": "Vérification CAPTCHA"
+      "captchaPrompt": "Vérification CAPTCHA",
+      "voicemailPrompt": "Message de la messagerie vocale"
     }
   },
   "ivr": {
@@ -250,7 +252,9 @@
     "noResults": "Aucun appel ne correspond à votre recherche",
     "searchPlaceholder": "Rechercher par numéro de téléphone ou bénévole...",
     "from": "Du",
-    "to": "Au"
+    "to": "Au",
+    "unanswered": "Sans réponse",
+    "hasVoicemail": "Messagerie vocale"
   },
   "profile": {
     "welcome": "Bienvenue !",

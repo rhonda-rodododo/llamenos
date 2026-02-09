@@ -217,7 +217,8 @@
       "volunteerAvailable": "Volunteer Available",
       "ivrLanguagesUpdated": "IVR Languages Updated",
       "ivrAudioUploaded": "IVR Audio Uploaded",
-      "ivrAudioDeleted": "IVR Audio Deleted"
+      "ivrAudioDeleted": "IVR Audio Deleted",
+      "voicemailReceived": "Voicemail Received"
     }
   },
   "ivrAudio": {
@@ -232,7 +233,8 @@
       "pleaseHold": "Please Hold",
       "waitMessage": "Wait Message",
       "rateLimited": "High Volume Message",
-      "captchaPrompt": "CAPTCHA Prompt"
+      "captchaPrompt": "CAPTCHA Prompt",
+      "voicemailPrompt": "Voicemail Prompt"
     }
   },
   "ivr": {
@@ -263,7 +265,9 @@
     "noResults": "No calls match your search",
     "searchPlaceholder": "Search by phone number or volunteer...",
     "from": "From",
-    "to": "To"
+    "to": "To",
+    "unanswered": "Unanswered",
+    "hasVoicemail": "Voicemail"
   },
   "profile": {
     "welcome": "Welcome!",

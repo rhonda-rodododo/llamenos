@@ -204,7 +204,8 @@
       "volunteerAvailable": "متطوع متاح",
       "ivrLanguagesUpdated": "تم تحديث لغات IVR",
       "ivrAudioUploaded": "تم رفع صوت IVR",
-      "ivrAudioDeleted": "تم حذف صوت IVR"
+      "ivrAudioDeleted": "تم حذف صوت IVR",
+      "voicemailReceived": "تم استلام بريد صوتي"
     }
   },
   "ivrAudio": {
@@ -219,7 +220,8 @@
       "pleaseHold": "انتظر من فضلك",
       "waitMessage": "رسالة الانتظار",
       "rateLimited": "حجم مكالمات مرتفع",
-      "captchaPrompt": "التحقق CAPTCHA"
+      "captchaPrompt": "التحقق CAPTCHA",
+      "voicemailPrompt": "رسالة البريد الصوتي"
     }
   },
   "ivr": {
@@ -250,7 +252,9 @@
     "noResults": "لا توجد مكالمات مطابقة لبحثك",
     "searchPlaceholder": "البحث برقم الهاتف أو المتطوع...",
     "from": "من",
-    "to": "إلى"
+    "to": "إلى",
+    "unanswered": "لم يُرد عليها",
+    "hasVoicemail": "بريد صوتي"
   },
   "profile": {
     "welcome": "!مرحباً",

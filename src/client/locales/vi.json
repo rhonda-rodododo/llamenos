@@ -204,7 +204,8 @@
       "volunteerAvailable": "Tình nguyện viên sẵn sàng",
       "ivrLanguagesUpdated": "Đã cập nhật ngôn ngữ IVR",
       "ivrAudioUploaded": "Đã tải lên âm thanh IVR",
-      "ivrAudioDeleted": "Đã xóa âm thanh IVR"
+      "ivrAudioDeleted": "Đã xóa âm thanh IVR",
+      "voicemailReceived": "Đã nhận thư thoại"
     }
   },
   "ivrAudio": {
@@ -219,7 +220,8 @@
       "pleaseHold": "Xin giữ máy",
       "waitMessage": "Tin nhắn chờ",
       "rateLimited": "Lượng cuộc gọi cao",
-      "captchaPrompt": "Xác minh CAPTCHA"
+      "captchaPrompt": "Xác minh CAPTCHA",
+      "voicemailPrompt": "Lời nhắn thư thoại"
     }
   },
   "ivr": {
@@ -250,7 +252,9 @@
     "noResults": "Không có cuộc gọi nào phù hợp với tìm kiếm của bạn",
     "searchPlaceholder": "Tìm theo số điện thoại hoặc tình nguyện viên...",
     "from": "Từ",
-    "to": "Đến"
+    "to": "Đến",
+    "unanswered": "Không trả lời",
+    "hasVoicemail": "Thư thoại"
   },
   "profile": {
     "welcome": "Chào mừng!",

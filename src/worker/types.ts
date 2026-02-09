@@ -51,8 +51,9 @@ export interface CallRecord {
   startedAt: string
   endedAt?: string
   duration?: number
-  status: 'ringing' | 'in-progress' | 'completed'
+  status: 'ringing' | 'in-progress' | 'completed' | 'unanswered'
   hasTranscription: boolean
+  hasVoicemail: boolean
 }
 
 export interface EncryptedNote {

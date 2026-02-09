@@ -27,9 +27,16 @@ export interface TelephonyAdapter {
   handleCallAnswered(params: CallAnsweredParams): Promise<TelephonyResponse>
 
   /**
-   * Generate hold music / wait message for callers in queue.
+   * Generate voicemail prompt when no volunteer answers.
+   * Records caller's message for later transcription.
    */
-  handleWaitMusic(lang: string, audioUrls?: AudioUrlMap): Promise<TelephonyResponse>
+  handleVoicemail(params: VoicemailParams): Promise<TelephonyResponse>
+
+  /**
+   * Generate hold music / wait message for callers in queue.
+   * When queueTime exceeds threshold, returns <Leave/> to trigger voicemail.
+   */
+  handleWaitMusic(lang: string, audioUrls?: AudioUrlMap, queueTime?: number): Promise<TelephonyResponse>
 
   /**
    * Reject a banned/blocked caller.
@@ -89,6 +96,13 @@ export interface CaptchaResponseParams {
 export interface CallAnsweredParams {
   /** The incoming call SID, used as the queue name to bridge caller → volunteer */
   parentCallSid: string
+}
+
+export interface VoicemailParams {
+  callSid: string
+  callerLanguage: string
+  callbackUrl: string
+  audioUrls?: AudioUrlMap
 }
 
 export interface RingVolunteersParams {

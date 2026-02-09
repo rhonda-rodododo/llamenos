@@ -204,7 +204,8 @@
       "volunteerAvailable": "Available ang Boluntaryo",
       "ivrLanguagesUpdated": "Na-update ang mga wika ng IVR",
       "ivrAudioUploaded": "Na-upload ang IVR audio",
-      "ivrAudioDeleted": "Natanggal ang IVR audio"
+      "ivrAudioDeleted": "Natanggal ang IVR audio",
+      "voicemailReceived": "Natanggap ang Voicemail"
     }
   },
   "ivrAudio": {
@@ -219,7 +220,8 @@
       "pleaseHold": "Maghintay",
       "waitMessage": "Mensahe sa paghihintay",
       "rateLimited": "Mataas na dami ng tawag",
-      "captchaPrompt": "Prompt ng CAPTCHA"
+      "captchaPrompt": "Prompt ng CAPTCHA",
+      "voicemailPrompt": "Prompt ng Voicemail"
     }
   },
   "ivr": {
@@ -250,7 +252,9 @@
     "noResults": "Walang tawag na tumugma sa iyong paghahanap",
     "searchPlaceholder": "Maghanap ayon sa numero ng telepono o boluntaryo...",
     "from": "Mula",
-    "to": "Hanggang"
+    "to": "Hanggang",
+    "unanswered": "Hindi Sinagot",
+    "hasVoicemail": "Voicemail"
   },
   "profile": {
     "welcome": "Maligayang pagdating!",

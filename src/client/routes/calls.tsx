@@ -4,7 +4,7 @@ import { useAuth } from '@/lib/auth'
 import { useEffect, useState, useCallback } from 'react'
 import { getCallHistory, type CallRecord } from '@/lib/api'
 import { useToast } from '@/lib/toast'
-import { PhoneIncoming, ChevronLeft, ChevronRight, Clock, Mic, Search, X, StickyNote } from 'lucide-react'
+import { PhoneIncoming, ChevronLeft, ChevronRight, Clock, Mic, Search, X, StickyNote, Voicemail, PhoneMissed } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -171,9 +171,16 @@ function CallHistoryPage() {
               {calls.map(call => (
                 <div key={call.id} className="flex flex-wrap items-center gap-4 px-4 py-3 sm:px-6">
                   <code className="text-xs font-mono">{call.callerNumber}</code>
-                  <span className="text-xs text-muted-foreground">
-                    {call.answeredBy ? `${call.answeredBy.slice(0, 12)}...` : '-'}
-                  </span>
+                  {call.status === 'unanswered' ? (
+                    <Badge variant="destructive" className="gap-1">
+                      <PhoneMissed className="h-3 w-3" />
+                      {t('callHistory.unanswered')}
+                    </Badge>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      {call.answeredBy ? `${call.answeredBy.slice(0, 12)}...` : '-'}
+                    </span>
+                  )}
                   <Badge variant="outline" className="gap-1">
                     <Clock className="h-3 w-3" />
                     {formatDuration(call.duration)}
@@ -189,8 +196,14 @@ function CallHistoryPage() {
                     <StickyNote className="h-3 w-3" />
                     {t('notes.viewNotes')}
                   </Link>
+                  {call.hasVoicemail && (
+                    <Badge variant="secondary" className="gap-1">
+                      <Voicemail className="h-3 w-3" />
+                      {t('callHistory.hasVoicemail')}
+                    </Badge>
+                  )}
                   {call.hasTranscription && (
-                    <Badge variant="secondary">
+                    <Badge variant="secondary" className="gap-1">
                       <Mic className="h-3 w-3" />
                       {t('callHistory.hasTranscription')}
                     </Badge>

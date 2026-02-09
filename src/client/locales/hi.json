@@ -204,7 +204,8 @@
       "volunteerAvailable": "स्वयंसेवक उपलब्ध",
       "ivrLanguagesUpdated": "IVR भाषाएं अपडेट की गईं",
       "ivrAudioUploaded": "IVR ऑडियो अपलोड किया गया",
-      "ivrAudioDeleted": "IVR ऑडियो हटाया गया"
+      "ivrAudioDeleted": "IVR ऑडियो हटाया गया",
+      "voicemailReceived": "वॉइसमेल प्राप्त"
     }
   },
   "ivrAudio": {
@@ -219,7 +220,8 @@
       "pleaseHold": "कृपया प्रतीक्षा करें",
       "waitMessage": "प्रतीक्षा संदेश",
       "rateLimited": "उच्च कॉल मात्रा",
-      "captchaPrompt": "CAPTCHA सत्यापन"
+      "captchaPrompt": "CAPTCHA सत्यापन",
+      "voicemailPrompt": "वॉइसमेल संकेत"
     }
   },
   "ivr": {
@@ -250,7 +252,9 @@
     "noResults": "आपकी खोज से कोई कॉल मेल नहीं खाती",
     "searchPlaceholder": "फ़ोन नंबर या स्वयंसेवक द्वारा खोजें...",
     "from": "से",
-    "to": "तक"
+    "to": "तक",
+    "unanswered": "अनुत्तरित",
+    "hasVoicemail": "वॉइसमेल"
   },
   "profile": {
     "welcome": "स्वागत है!",

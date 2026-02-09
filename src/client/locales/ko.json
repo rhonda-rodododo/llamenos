@@ -204,7 +204,8 @@
       "volunteerAvailable": "자원봉사자 대기 중",
       "ivrLanguagesUpdated": "IVR 언어 업데이트됨",
       "ivrAudioUploaded": "IVR 오디오 업로드됨",
-      "ivrAudioDeleted": "IVR 오디오 삭제됨"
+      "ivrAudioDeleted": "IVR 오디오 삭제됨",
+      "voicemailReceived": "음성 사서함 수신됨"
     }
   },
   "ivrAudio": {
@@ -219,7 +220,8 @@
       "pleaseHold": "잠시만 기다려주세요",
       "waitMessage": "대기 메시지",
       "rateLimited": "통화량 초과",
-      "captchaPrompt": "CAPTCHA 확인"
+      "captchaPrompt": "CAPTCHA 확인",
+      "voicemailPrompt": "음성 사서함 안내"
     }
   },
   "ivr": {
@@ -250,7 +252,9 @@
     "noResults": "검색과 일치하는 통화가 없습니다",
     "searchPlaceholder": "전화번호 또는 자원봉사자로 검색...",
     "from": "시작",
-    "to": "종료"
+    "to": "종료",
+    "unanswered": "부재중",
+    "hasVoicemail": "음성 사서함"
   },
   "profile": {
     "welcome": "환영합니다!",

@@ -5,6 +5,7 @@ import type {
   CallAnsweredParams,
   LanguageMenuParams,
   RingVolunteersParams,
+  VoicemailParams,
   TelephonyResponse,
   AudioUrlMap,
 } from './adapter'
@@ -152,6 +153,21 @@ const VOICE_PROMPTS: Record<string, Record<string, string>> = {
     pt: 'Sua chamada é importante para nós. Por favor, aguarde enquanto conectamos você com um voluntário.',
     de: 'Ihr Anruf ist uns wichtig. Bitte warten Sie, während wir Sie mit einem Freiwilligen verbinden.',
   },
+  voicemailPrompt: {
+    en: 'No one is available to take your call right now. Please leave a message after the tone and we will get back to you.',
+    es: 'No hay nadie disponible para atender su llamada en este momento. Por favor, deje un mensaje después del tono y nos pondremos en contacto con usted.',
+    zh: '目前没有人能接听您的电话。请在提示音后留言，我们会尽快回复您。',
+    tl: 'Walang available na makasagot ng iyong tawag ngayon. Mangyaring mag-iwan ng mensahe pagkatapos ng tono.',
+    vi: 'Hiện không có ai có thể nhận cuộc gọi của bạn. Vui lòng để lại tin nhắn sau tiếng bíp.',
+    ar: 'لا يوجد أحد متاح للرد على مكالمتك الآن. يرجى ترك رسالة بعد النغمة.',
+    fr: 'Personne n\'est disponible pour prendre votre appel pour le moment. Veuillez laisser un message après le bip.',
+    ht: 'Pa gen moun disponib pou pran apèl ou kounye a. Tanpri kite yon mesaj apre son an.',
+    ko: '현재 전화를 받을 수 있는 사람이 없습니다. 신호음 후 메시지를 남겨주세요.',
+    ru: 'В данный момент никто не может ответить на ваш звонок. Пожалуйста, оставьте сообщение после сигнала.',
+    hi: 'इस समय आपकी कॉल लेने के लिए कोई उपलब्ध नहीं है। कृपया बीप के बाद एक संदेश छोड़ें।',
+    pt: 'Ninguém está disponível para atender sua ligação no momento. Por favor, deixe uma mensagem após o sinal.',
+    de: 'Im Moment ist niemand verfügbar, um Ihren Anruf entgegenzunehmen. Bitte hinterlassen Sie eine Nachricht nach dem Signalton.',
+  },
 }
 
 /**
@@ -273,7 +289,7 @@ export class TwilioAdapter implements TelephonyAdapter {
       <Response>
         ${greetingTwiml}
         ${holdTwiml}
-        <Enqueue waitUrl="/api/telephony/wait-music?lang=${lang}">${params.callSid}</Enqueue>
+        <Enqueue waitUrl="/api/telephony/wait-music?lang=${lang}" action="/api/telephony/queue-exit?callSid=${params.callSid}&amp;lang=${lang}" method="POST">${params.callSid}</Enqueue>
       </Response>
     `)
   }
@@ -286,7 +302,7 @@ export class TwilioAdapter implements TelephonyAdapter {
       return this.twiml(`
         <Response>
           <Say language="${tLang}">${getPrompt('captchaSuccess', lang)}</Say>
-          <Enqueue waitUrl="/api/telephony/wait-music?lang=${lang}">${params.callSid}</Enqueue>
+          <Enqueue waitUrl="/api/telephony/wait-music?lang=${lang}" action="/api/telephony/queue-exit?callSid=${params.callSid}&amp;lang=${lang}" method="POST">${params.callSid}</Enqueue>
         </Response>
       `)
     }
@@ -308,12 +324,29 @@ export class TwilioAdapter implements TelephonyAdapter {
     `)
   }
 
-  async handleWaitMusic(lang: string, audioUrls?: AudioUrlMap): Promise<TelephonyResponse> {
+  async handleWaitMusic(lang: string, audioUrls?: AudioUrlMap, queueTime?: number): Promise<TelephonyResponse> {
+    // After 90 seconds in queue with no answer, leave queue → triggers voicemail
+    if (queueTime !== undefined && queueTime >= 90) {
+      return this.twiml(`<Response><Leave/></Response>`)
+    }
+
     const waitTwiml = sayOrPlay('waitMessage', lang, audioUrls)
     return this.twiml(`
       <Response>
         ${waitTwiml}
         <Play>https://com.twilio.music.soft-rock.s3.amazonaws.com/_ghost_-_promo_2_sample_pack.mp3</Play>
+      </Response>
+    `)
+  }
+
+  async handleVoicemail(params: VoicemailParams): Promise<TelephonyResponse> {
+    const lang = params.callerLanguage
+    const voicemailTwiml = sayOrPlay('voicemailPrompt', lang, params.audioUrls)
+    return this.twiml(`
+      <Response>
+        ${voicemailTwiml}
+        <Record maxLength="120" action="/api/telephony/voicemail-complete?callSid=${params.callSid}&amp;lang=${lang}" recordingStatusCallback="${params.callbackUrl}/api/telephony/voicemail-recording?callSid=${params.callSid}" recordingStatusCallbackEvent="completed" />
+        <Hangup/>
       </Response>
     `)
   }
@@ -404,7 +437,15 @@ export class TwilioAdapter implements TelephonyAdapter {
     const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(dataString))
     const expected = btoa(String.fromCharCode(...new Uint8Array(sig)))
 
-    return signature === expected
+    // Constant-time comparison to prevent timing attacks
+    if (signature.length !== expected.length) return false
+    const aBuf = encoder.encode(signature)
+    const bBuf = encoder.encode(expected)
+    let result = 0
+    for (let i = 0; i < aBuf.length; i++) {
+      result |= aBuf[i] ^ bBuf[i]
+    }
+    return result === 0
   }
 
   async getCallRecording(callSid: string): Promise<ArrayBuffer | null> {

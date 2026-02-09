@@ -117,7 +117,7 @@ function showBrowserNotification(title: string, body: string) {
 
 // --- Public API ---
 
-export async function startRinging(callerInfo: string, incomingText: string) {
+export async function startRinging(_callerInfo: string, incomingText: string) {
   if (isRinging) return
   isRinging = true
 
@@ -129,14 +129,14 @@ export async function startRinging(callerInfo: string, incomingText: string) {
     ringInterval = setInterval(playRingTone, RING_DURATION + RING_PAUSE)
   }
 
-  // Tab title flash
+  // Tab title flash (generic text only — no caller info on lock screens)
   startTitleFlash(incomingText)
 
-  // Browser notification
+  // Browser notification (generic text — never include caller info to prevent leak on lock screens)
   if (prefs.browserNotificationsEnabled) {
     const granted = await requestPermission()
     if (granted) {
-      showBrowserNotification(incomingText, callerInfo)
+      showBrowserNotification('Incoming Call', 'A call is waiting')
     }
   }
 }

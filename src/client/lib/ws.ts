@@ -26,9 +26,11 @@ export function connectWebSocket() {
 
   const token = createAuthToken(keyPair.secretKey, Date.now())
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  const url = `${protocol}//${window.location.host}/api/ws?auth=${encodeURIComponent(token)}`
+  const url = `${protocol}//${window.location.host}/api/ws`
 
-  socket = new WebSocket(url)
+  // Pass auth via Sec-WebSocket-Protocol header (not URL params which get logged)
+  const authB64 = btoa(token)
+  socket = new WebSocket(url, ['llamenos-auth', authB64])
 
   socket.onopen = () => {
     reconnectAttempts = 0

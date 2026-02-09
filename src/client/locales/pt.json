@@ -204,7 +204,8 @@
       "volunteerAvailable": "Voluntário Disponível",
       "ivrLanguagesUpdated": "Idiomas IVR atualizados",
       "ivrAudioUploaded": "Áudio IVR carregado",
-      "ivrAudioDeleted": "Áudio IVR excluído"
+      "ivrAudioDeleted": "Áudio IVR excluído",
+      "voicemailReceived": "Correio de Voz Recebido"
     }
   },
   "ivrAudio": {
@@ -219,7 +220,8 @@
       "pleaseHold": "Aguarde",
       "waitMessage": "Mensagem de espera",
       "rateLimited": "Alto volume de chamadas",
-      "captchaPrompt": "Verificação CAPTCHA"
+      "captchaPrompt": "Verificação CAPTCHA",
+      "voicemailPrompt": "Mensagem de Correio de Voz"
     }
   },
   "ivr": {
@@ -250,7 +252,9 @@
     "noResults": "Nenhuma chamada corresponde à sua pesquisa",
     "searchPlaceholder": "Pesquisar por número de telefone ou voluntário...",
     "from": "De",
-    "to": "Até"
+    "to": "Até",
+    "unanswered": "Não Atendida",
+    "hasVoicemail": "Correio de Voz"
   },
   "profile": {
     "welcome": "Bem-vindo!",

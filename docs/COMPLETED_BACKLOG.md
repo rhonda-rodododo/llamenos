@@ -191,7 +191,7 @@
 - [x] Test helper `completeProfileSetup` updated for new button text
 - [x] Playwright config: explicit worker count (4 local, 1 CI)
 - [x] i18n: 20 new keys translated across 12 locales (238 keys parity across all 13 files)
-- [x] Deployed to https://llamenos.rhonda-rodododo.workers.dev/
+- [x] Deployed to Cloudflare Workers
 
 ## 2026-02-08: Epics 24–27 — UX & Polish Round
 
@@ -222,3 +222,31 @@
 - [x] Confirmation dialogs for admin settings toggles (transcription, CAPTCHA, rate limiting)
 - [x] Note draft auto-save with `useDraft` hook and draft indicator
 - [x] `shortcuts`, `confirm`, `draftSaved` i18n keys across all 13 locales
+
+## 2026-02-09: Security Hardening & Voicemail
+
+### Security Hardening (from deep audit)
+- [x] Constant-time comparison for auth tokens and Twilio webhook signatures
+- [x] WebSocket auth moved from URL query params to `Sec-WebSocket-Protocol` header
+- [x] CSP `wss:` restricted to same host only
+- [x] HSTS header added (max-age=63072000, includeSubDomains, preload)
+- [x] Caller phone numbers redacted in all WebSocket broadcasts
+- [x] Browser notifications use generic text (no caller info on lock screens)
+- [x] Service worker API caching removed (sensitive data protection)
+- [x] PWA manifest uses generic name "Hotline" (not "Llámenos")
+- [x] Audit logs include IP/country/UA metadata
+- [x] Console.logs removed from production paths
+- [x] Deployment URL removed from all documentation
+
+### Epic 28: Voicemail Fallback
+- [x] `handleVoicemail()` in TwilioAdapter with `<Record>` TwiML (max 120s)
+- [x] Voicemail voice prompts in all 13 languages
+- [x] Queue timeout: `<Leave/>` after 90 seconds via QueueTime check in wait music
+- [x] `<Enqueue action=...>` routes to voicemail on queue exit (leave/queue-full/error)
+- [x] CallRecord type expanded: `'unanswered'` status + `hasVoicemail` field
+- [x] CallRouter DO: `handleVoicemailLeft()` — moves call to history, broadcasts `voicemail:new`
+- [x] Voicemail transcription via Workers AI Whisper, encrypted for admin (ECIES)
+- [x] Voicemail thank-you message in 13 languages after recording
+- [x] Frontend: unanswered badge + voicemail indicator in call history
+- [x] `voicemailReceived` audit event
+- [x] i18n: `unanswered`, `hasVoicemail`, `voicemailReceived`, `voicemailPrompt` keys in all 13 locales

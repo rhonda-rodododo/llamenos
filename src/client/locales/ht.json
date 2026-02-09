@@ -204,7 +204,8 @@
       "volunteerAvailable": "Volontè Disponib",
       "ivrLanguagesUpdated": "Lang IVR yo mete ajou",
       "ivrAudioUploaded": "Odyo IVR telechaje",
-      "ivrAudioDeleted": "Odyo IVR efase"
+      "ivrAudioDeleted": "Odyo IVR efase",
+      "voicemailReceived": "Mesaj Vokal Resevwa"
     }
   },
   "ivrAudio": {
@@ -219,7 +220,8 @@
       "pleaseHold": "Tanpri tann",
       "waitMessage": "Mesaj atant",
       "rateLimited": "Anpil apèl",
-      "captchaPrompt": "Verifikasyon CAPTCHA"
+      "captchaPrompt": "Verifikasyon CAPTCHA",
+      "voicemailPrompt": "Envitasyon Mesaj Vokal"
     }
   },
   "ivr": {
@@ -250,7 +252,9 @@
     "noResults": "Pa gen apèl ki koresponn ak rechèch ou a",
     "searchPlaceholder": "Chèche pa nimewo telefòn oswa volontè...",
     "from": "De",
-    "to": "Jiska"
+    "to": "Jiska",
+    "unanswered": "San Repons",
+    "hasVoicemail": "Mesaj Vokal"
   },
   "profile": {
     "welcome": "Byenveni!",

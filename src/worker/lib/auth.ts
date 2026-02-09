@@ -2,6 +2,19 @@ import type { AuthPayload, Env, Volunteer } from '../types'
 
 const TOKEN_MAX_AGE_MS = 5 * 60 * 1000 // 5 minutes
 
+/** Constant-time string comparison to prevent timing attacks */
+function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  const encoder = new TextEncoder()
+  const aBuf = encoder.encode(a)
+  const bBuf = encoder.encode(b)
+  let result = 0
+  for (let i = 0; i < aBuf.length; i++) {
+    result |= aBuf[i] ^ bBuf[i]
+  }
+  return result === 0
+}
+
 export function parseAuthHeader(header: string | null): AuthPayload | null {
   if (!header?.startsWith('Bearer ')) return null
   try {
@@ -16,9 +29,6 @@ export function validateToken(auth: AuthPayload): boolean {
   // Check token freshness
   const age = Date.now() - auth.timestamp
   if (age > TOKEN_MAX_AGE_MS || age < -TOKEN_MAX_AGE_MS) return false
-  // We'll verify the token hash matches on the server side
-  // The token is SHA-256("llamenos:auth:{pubkey}:{timestamp}")
-  // Since we can't use noble-hashes in the worker easily, we'll use Web Crypto
   return true
 }
 
@@ -31,7 +41,7 @@ export async function verifyAuthToken(auth: AuthPayload): Promise<boolean> {
   const hashHex = Array.from(new Uint8Array(hashBuffer))
     .map(b => b.toString(16).padStart(2, '0'))
     .join('')
-  return hashHex === auth.token
+  return constantTimeEqual(hashHex, auth.token)
 }
 
 export async function authenticateRequest(

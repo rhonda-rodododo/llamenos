@@ -204,7 +204,8 @@
       "volunteerAvailable": "Freiwilliger verfügbar",
       "ivrLanguagesUpdated": "IVR-Sprachen aktualisiert",
       "ivrAudioUploaded": "IVR-Audio hochgeladen",
-      "ivrAudioDeleted": "IVR-Audio gelöscht"
+      "ivrAudioDeleted": "IVR-Audio gelöscht",
+      "voicemailReceived": "Sprachnachricht empfangen"
     }
   },
   "ivrAudio": {
@@ -219,7 +220,8 @@
       "pleaseHold": "Bitte warten",
       "waitMessage": "Wartenachricht",
       "rateLimited": "Hohes Anrufaufkommen",
-      "captchaPrompt": "CAPTCHA-Überprüfung"
+      "captchaPrompt": "CAPTCHA-Überprüfung",
+      "voicemailPrompt": "Sprachnachricht-Ansage"
     }
   },
   "ivr": {
@@ -250,7 +252,9 @@
     "noResults": "Keine Anrufe entsprechen Ihrer Suche",
     "searchPlaceholder": "Nach Telefonnummer oder Freiwilligem suchen...",
     "from": "Von",
-    "to": "Bis"
+    "to": "Bis",
+    "unanswered": "Unbeantwortet",
+    "hasVoicemail": "Sprachnachricht"
   },
   "profile": {
     "welcome": "Willkommen!",

@@ -399,7 +399,7 @@ export interface ActiveCall {
   callerNumber: string
   answeredBy: string | null
   startedAt: string
-  status: 'ringing' | 'in-progress' | 'completed'
+  status: 'ringing' | 'in-progress' | 'completed' | 'unanswered'
 }
 
 export interface CallRecord {
@@ -410,6 +410,8 @@ export interface CallRecord {
   endedAt: string
   duration: number
   hasTranscription: boolean
+  hasVoicemail: boolean
+  status: 'completed' | 'unanswered'
 }
 
 export interface AuditLogEntry {

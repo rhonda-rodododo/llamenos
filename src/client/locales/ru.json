@@ -204,7 +204,8 @@
       "volunteerAvailable": "Волонтёр доступен",
       "ivrLanguagesUpdated": "Языки IVR обновлены",
       "ivrAudioUploaded": "Аудио IVR загружено",
-      "ivrAudioDeleted": "Аудио IVR удалено"
+      "ivrAudioDeleted": "Аудио IVR удалено",
+      "voicemailReceived": "Голосовое сообщение получено"
     }
   },
   "ivrAudio": {
@@ -219,7 +220,8 @@
       "pleaseHold": "Подождите",
       "waitMessage": "Сообщение ожидания",
       "rateLimited": "Высокая нагрузка",
-      "captchaPrompt": "Проверка CAPTCHA"
+      "captchaPrompt": "Проверка CAPTCHA",
+      "voicemailPrompt": "Сообщение голосовой почты"
     }
   },
   "ivr": {
@@ -250,7 +252,9 @@
     "noResults": "Звонки по вашему запросу не найдены",
     "searchPlaceholder": "Поиск по номеру телефона или волонтёру...",
     "from": "С",
-    "to": "По"
+    "to": "По",
+    "unanswered": "Без ответа",
+    "hasVoicemail": "Голосовая почта"
   },
   "profile": {
     "welcome": "Добро пожаловать!",

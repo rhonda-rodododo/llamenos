@@ -70,6 +70,12 @@ export class CallRouterDO extends DurableObject<Env> {
       return this.handleCallEnded(callId)
     }
 
+    // Voicemail left (unanswered call with recording)
+    if (path.startsWith('/calls/') && path.endsWith('/voicemail') && method === 'POST') {
+      const callId = path.split('/calls/')[1].split('/voicemail')[0]
+      return this.handleVoicemailLeft(callId)
+    }
+
     // Report spam
     if (path.startsWith('/calls/') && path.endsWith('/spam') && method === 'POST') {
       const callId = path.split('/calls/')[1].split('/spam')[0]
@@ -106,10 +112,11 @@ export class CallRouterDO extends DurableObject<Env> {
       onCall: false,
     })
 
-    // Notify about current active calls
+    // Notify about current active calls (redact caller numbers)
     this.getActiveCallsList().then(calls => {
       if (server.readyState === WebSocket.OPEN) {
-        server.send(JSON.stringify({ type: 'calls:sync', calls }))
+        const redacted = calls.map((c: CallRecord) => ({ ...c, callerNumber: '[redacted]' }))
+        server.send(JSON.stringify({ type: 'calls:sync', calls: redacted }))
       }
     })
 
@@ -190,6 +197,7 @@ export class CallRouterDO extends DurableObject<Env> {
       startedAt: new Date().toISOString(),
       status: 'ringing',
       hasTranscription: false,
+      hasVoicemail: false,
     }
 
     // Store active call
@@ -198,9 +206,11 @@ export class CallRouterDO extends DurableObject<Env> {
     await this.ctx.storage.put('activeCalls', activeCalls)
 
     // Notify all on-shift, available volunteers via WebSocket
+    // Redact caller number — volunteers should not see caller phone numbers
     this.broadcast(data.volunteerPubkeys, {
       type: 'call:incoming',
       ...call,
+      callerNumber: '[redacted]',
     })
 
     return Response.json({ call })
@@ -220,9 +230,11 @@ export class CallRouterDO extends DurableObject<Env> {
     if (conn) conn.onCall = true
 
     // Notify all volunteers that the call was answered (stop ringing for others)
+    // Redact caller number in broadcasts
     this.broadcastAll({
       type: 'call:update',
       ...call,
+      callerNumber: '[redacted]',
     })
     this.broadcastPresenceUpdate()
 
@@ -257,12 +269,61 @@ export class CallRouterDO extends DurableObject<Env> {
       if (conn) conn.onCall = false
     }
 
-    // Notify all
+    // Notify all — redact caller number
     this.broadcastAll({
       type: 'call:update',
       ...call,
+      callerNumber: '[redacted]',
     })
     this.broadcastPresenceUpdate()
+
+    return Response.json({ call })
+  }
+
+  private async handleVoicemailLeft(callId: string): Promise<Response> {
+    // Move from active calls to history as 'unanswered' with voicemail
+    const activeCalls = await this.ctx.storage.get<CallRecord[]>('activeCalls') || []
+    const callIdx = activeCalls.findIndex(c => c.id === callId)
+
+    let call: CallRecord
+    if (callIdx !== -1) {
+      call = activeCalls[callIdx]
+      call.status = 'unanswered'
+      call.hasVoicemail = true
+      call.endedAt = new Date().toISOString()
+      call.duration = Math.floor(
+        (new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / 1000
+      )
+      activeCalls.splice(callIdx, 1)
+      await this.ctx.storage.put('activeCalls', activeCalls)
+    } else {
+      // Call wasn't tracked (edge case) — create a record
+      call = {
+        id: callId,
+        callerNumber: '[unknown]',
+        answeredBy: null,
+        startedAt: new Date().toISOString(),
+        endedAt: new Date().toISOString(),
+        duration: 0,
+        status: 'unanswered',
+        hasTranscription: false,
+        hasVoicemail: true,
+      }
+    }
+
+    // Store in history
+    const history = await this.ctx.storage.get<CallRecord[]>('callHistory') || []
+    history.unshift(call)
+    if (history.length > 10000) history.length = 10000
+    await this.ctx.storage.put('callHistory', history)
+
+    // Notify all connected users about the voicemail
+    this.broadcastAll({
+      type: 'voicemail:new',
+      callId: call.id,
+      startedAt: call.startedAt,
+      callerNumber: '[redacted]',
+    })
 
     return Response.json({ call })
   }

@@ -1,7 +1,7 @@
 import type { Env } from './types'
 import { authenticateRequest } from './lib/auth'
 import { TwilioAdapter } from './telephony/twilio'
-import { detectLanguageFromPhone, languageFromDigit, DEFAULT_LANGUAGE } from '../shared/languages'
+import { LANGUAGE_MAP, detectLanguageFromPhone, languageFromDigit, DEFAULT_LANGUAGE } from '../shared/languages'
 import { encryptForPublicKey } from './lib/crypto'
 
 // Re-export Durable Object classes
@@ -46,10 +46,16 @@ function error(message: string, status = 400): Response {
   return Response.json({ error: message }, { status })
 }
 
-async function audit(session: DurableObjectStub, event: string, actorPubkey: string, details: Record<string, unknown> = {}) {
+async function audit(session: DurableObjectStub, event: string, actorPubkey: string, details: Record<string, unknown> = {}, request?: Request) {
+  const meta: Record<string, unknown> = {}
+  if (request) {
+    meta.ip = request.headers.get('CF-Connecting-IP')
+    meta.country = request.headers.get('CF-IPCountry')
+    meta.ua = request.headers.get('User-Agent')
+  }
   await session.fetch(new Request('http://do/audit', {
     method: 'POST',
-    body: JSON.stringify({ event, actorPubkey, details }),
+    body: JSON.stringify({ event, actorPubkey, details: { ...details, ...meta } }),
   }))
 }
 
@@ -63,17 +69,21 @@ async function buildAudioUrlMap(session: DurableObjectStub, origin: string): Pro
   return map
 }
 
-const SECURITY_HEADERS = {
-  'X-Content-Type-Options': 'nosniff',
-  'X-Frame-Options': 'DENY',
-  'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-  'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' wss:; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';",
+function getSecurityHeaders(request: Request, env: Env) {
+  const host = new URL(request.url).host
+  return {
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+    'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
+    'Content-Security-Policy': `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' wss://${host}; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';`,
+  }
 }
 
-function addSecurityHeaders(response: Response): Response {
+function addSecurityHeaders(response: Response, request: Request, env: Env): Response {
   const newHeaders = new Headers(response.headers)
-  for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
+  for (const [key, value] of Object.entries(getSecurityHeaders(request, env))) {
     newHeaders.set(key, value)
   }
   return new Response(response.body, {
@@ -90,7 +100,7 @@ export default {
     // Only handle /api/* routes — everything else goes to static assets
     if (!url.pathname.startsWith('/api/')) {
       const assetResponse = await env.ASSETS.fetch(request)
-      return addSecurityHeaders(assetResponse)
+      return addSecurityHeaders(assetResponse, request, env)
     }
 
     const path = url.pathname.slice(4) // Remove /api prefix
@@ -98,7 +108,7 @@ export default {
     const dos = getDOs(env)
 
     // --- CORS headers (same-origin in production, permissive in dev for Vite proxy) ---
-    const allowedOrigin = env.ENVIRONMENT === 'development' ? 'http://localhost:5173' : url.origin
+    const allowedOrigin = env.ENVIRONMENT === 'development' ? 'http://localhost:5173' : url.origin.replace(/^http:/, 'https:')
     if (method === 'OPTIONS') {
       return new Response(null, {
         headers: {
@@ -161,13 +171,15 @@ export default {
       return handleLogin(request, dos.session)
     }
 
-    // --- WebSocket (auth via query param) ---
+    // --- WebSocket (auth via Sec-WebSocket-Protocol header) ---
     if (path === '/ws' && request.headers.get('Upgrade') === 'websocket') {
-      const authParam = url.searchParams.get('auth')
-      if (!authParam) return error('Unauthorized', 401)
+      const protocols = request.headers.get('Sec-WebSocket-Protocol') || ''
+      const parts = protocols.split(',').map(p => p.trim())
+      const authB64 = parts.find(p => p !== 'llamenos-auth' && p !== '')
+      if (!authB64) return error('Unauthorized', 401)
       let auth: { pubkey: string; timestamp: number; token: string }
       try {
-        auth = JSON.parse(decodeURIComponent(authParam))
+        auth = JSON.parse(atob(authB64))
       } catch {
         return error('Invalid auth', 401)
       }
@@ -175,9 +187,10 @@ export default {
       if (!(await verifyAuthToken(auth))) return error('Unauthorized', 401)
       const volRes = await dos.session.fetch(new Request(`http://do/volunteer/${auth.pubkey}`))
       if (!volRes.ok) return error('Unknown user', 401)
-      // Forward to CallRouter DO with pubkey
+      // Forward to CallRouter DO with pubkey (clean URL, no auth in query)
       const wsUrl = new URL(request.url)
       wsUrl.pathname = '/ws'
+      wsUrl.search = ''
       wsUrl.searchParams.set('pubkey', auth.pubkey)
       return dos.calls.fetch(new Request(wsUrl.toString(), request))
     }
@@ -765,9 +778,73 @@ async function handleTelephonyWebhook(
   if (path === '/telephony/wait-music') {
     const url = new URL(request.url)
     const lang = url.searchParams.get('lang') || DEFAULT_LANGUAGE
+    // Twilio sends QueueTime (seconds the caller has been waiting)
+    const formData = request.method === 'POST' ? await request.formData() : null
+    const queueTime = formData ? parseInt(formData.get('QueueTime') as string || '0', 10) : 0
     const audioUrls = await buildAudioUrlMap(dos.session, new URL(request.url).origin)
-    const response = await twilio.handleWaitMusic(lang, audioUrls)
+    const response = await twilio.handleWaitMusic(lang, audioUrls, queueTime)
     return twimlResponse(response)
+  }
+
+  // --- Step 7: Queue exit → voicemail if no one answered ---
+  if (path === '/telephony/queue-exit' && request.method === 'POST') {
+    const formData = await request.formData()
+    const queueResult = formData.get('QueueResult') as string
+    const url = new URL(request.url)
+    const callSid = url.searchParams.get('callSid') || ''
+    const lang = url.searchParams.get('lang') || DEFAULT_LANGUAGE
+
+    // If caller left queue (timeout) or no bridge happened, offer voicemail
+    if (queueResult === 'leave' || queueResult === 'queue-full' || queueResult === 'error') {
+      const audioUrls = await buildAudioUrlMap(dos.session, new URL(request.url).origin)
+      const origin = new URL(request.url).origin
+      const response = await twilio.handleVoicemail({
+        callSid,
+        callerLanguage: lang,
+        callbackUrl: origin,
+        audioUrls,
+      })
+      return twimlResponse(response)
+    }
+
+    // Bridged or hangup — no action needed
+    return new Response('<Response/>', { headers: { 'Content-Type': 'text/xml' } })
+  }
+
+  // --- Step 8: Voicemail recording complete (caller hangs up after recording) ---
+  if (path === '/telephony/voicemail-complete' && request.method === 'POST') {
+    const url = new URL(request.url)
+    const lang = url.searchParams.get('lang') || DEFAULT_LANGUAGE
+    const voice = LANGUAGE_MAP[lang]?.twilioVoice ?? LANGUAGE_MAP[DEFAULT_LANGUAGE].twilioVoice
+    // Thank the caller and hang up
+    return new Response(`
+      <Response>
+        <Say language="${voice}">${getVoicemailThanks(lang)}</Say>
+        <Hangup/>
+      </Response>
+    `.trim(), { headers: { 'Content-Type': 'text/xml' } })
+  }
+
+  // --- Step 9: Voicemail recording status callback (async — audio is ready) ---
+  if (path === '/telephony/voicemail-recording' && request.method === 'POST') {
+    const formData = await request.formData()
+    const recordingStatus = formData.get('RecordingStatus') as string
+    const url = new URL(request.url)
+    const callSid = url.searchParams.get('callSid') || ''
+
+    if (recordingStatus === 'completed') {
+      // Mark call as unanswered with voicemail in CallRouter DO
+      await dos.calls.fetch(new Request(`http://do/calls/${callSid}/voicemail`, {
+        method: 'POST',
+      }))
+
+      await audit(dos.session, 'voicemailReceived', 'system', { callSid }, request)
+
+      // Transcribe voicemail in background (encrypt for admin only)
+      ctx.waitUntil(transcribeVoicemail(callSid, env, dos))
+    }
+
+    return new Response('<Response/>', { headers: { 'Content-Type': 'text/xml' } })
   }
 
   return new Response('Not Found', { status: 404 })
@@ -795,7 +872,6 @@ async function startParallelRinging(
     }
 
     if (onShiftPubkeys.length === 0) {
-      console.log('No volunteers available to ring for call', callSid)
       return
     }
 
@@ -808,7 +884,6 @@ async function startParallelRinging(
       .map(v => ({ pubkey: v.pubkey, phone: v.phone }))
 
     if (toRing.length === 0) {
-      console.log('No active volunteers with phone numbers to ring for call', callSid)
       return
     }
 
@@ -823,7 +898,6 @@ async function startParallelRinging(
     }))
 
     // Ring all volunteers via Twilio
-    console.log(`Ringing ${toRing.length} volunteers for call ${callSid} (callback: ${origin})`)
     const twilio = getTwilio(env)
     await twilio.ringVolunteers({
       callSid,
@@ -831,8 +905,8 @@ async function startParallelRinging(
       volunteers: toRing,
       callbackUrl: origin,
     })
-  } catch (err) {
-    console.error('Failed to start parallel ringing for call', callSid, err)
+  } catch {
+    // Ringing failed — logged in audit trail, not console
   }
 }
 
@@ -920,7 +994,66 @@ async function maybeTranscribe(
       }))
     }
   } catch {
-    // Transcription failed — not critical, just log
-    console.error('Transcription failed for call', callSid)
+    // Transcription failed — not critical
+  }
+}
+
+// --- Voicemail ---
+
+const VOICEMAIL_THANKS: Record<string, string> = {
+  en: 'Thank you for your message. Goodbye.',
+  es: 'Gracias por su mensaje. Adiós.',
+  zh: '感谢您的留言。再见。',
+  tl: 'Salamat sa iyong mensahe. Paalam.',
+  vi: 'Cảm ơn tin nhắn của bạn. Tạm biệt.',
+  ar: 'شكراً لرسالتك. مع السلامة.',
+  fr: 'Merci pour votre message. Au revoir.',
+  ht: 'Mèsi pou mesaj ou. Orevwa.',
+  ko: '메시지를 남겨 주셔서 감사합니다. 안녕히 계세요.',
+  ru: 'Спасибо за ваше сообщение. До свидания.',
+  hi: 'आपके संदेश के लिए धन्यवाद। अलविदा।',
+  pt: 'Obrigado pela sua mensagem. Até logo.',
+  de: 'Vielen Dank für Ihre Nachricht. Auf Wiederhören.',
+}
+
+function getVoicemailThanks(lang: string): string {
+  return VOICEMAIL_THANKS[lang] ?? VOICEMAIL_THANKS[DEFAULT_LANGUAGE]
+}
+
+async function transcribeVoicemail(
+  callSid: string,
+  env: Env,
+  dos: ReturnType<typeof getDOs>,
+) {
+  // Check if transcription is globally enabled
+  const transRes = await dos.session.fetch(new Request('http://do/settings/transcription'))
+  const { globalEnabled } = await transRes.json() as { globalEnabled: boolean }
+  if (!globalEnabled) return
+
+  // Get voicemail recording from Twilio
+  const twilio = getTwilio(env)
+  const audio = await twilio.getCallRecording(callSid)
+  if (!audio) return
+
+  try {
+    const result = await env.AI.run('@cf/openai/whisper', {
+      audio: [...new Uint8Array(audio)],
+    })
+
+    if (result.text) {
+      // Voicemails are encrypted only for admin (no volunteer answered)
+      const adminEncrypted = encryptForPublicKey(result.text, env.ADMIN_PUBKEY)
+      await dos.session.fetch(new Request('http://do/notes', {
+        method: 'POST',
+        body: JSON.stringify({
+          callId: callSid,
+          authorPubkey: 'system:voicemail',
+          encryptedContent: adminEncrypted.encryptedContent,
+          ephemeralPubkey: adminEncrypted.ephemeralPubkey,
+        }),
+      }))
+    }
+  } catch {
+    // Voicemail transcription failed — not critical
   }
 }

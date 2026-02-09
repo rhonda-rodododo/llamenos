@@ -204,7 +204,8 @@
       "volunteerAvailable": "志愿者可用",
       "ivrLanguagesUpdated": "IVR语言已更新",
       "ivrAudioUploaded": "IVR音频已上传",
-      "ivrAudioDeleted": "IVR音频已删除"
+      "ivrAudioDeleted": "IVR音频已删除",
+      "voicemailReceived": "收到语音留言"
     }
   },
   "ivrAudio": {
@@ -219,7 +220,8 @@
       "pleaseHold": "请稍候",
       "waitMessage": "等待消息",
       "rateLimited": "高通话量消息",
-      "captchaPrompt": "验证提示"
+      "captchaPrompt": "验证提示",
+      "voicemailPrompt": "语音留言提示"
     }
   },
   "ivr": {
@@ -250,7 +252,9 @@
     "noResults": "没有匹配的通话记录",
     "searchPlaceholder": "按电话号码或志愿者搜索...",
     "from": "从",
-    "to": "到"
+    "to": "到",
+    "unanswered": "未接听",
+    "hasVoicemail": "语音留言"
   },
   "profile": {
     "welcome": "欢迎！",
