@@ -47,6 +47,9 @@ export class CallRouterDO extends DurableObject<Env> {
       const search = url.searchParams.get('search') || undefined
       const dateFrom = url.searchParams.get('dateFrom') || undefined
       const dateTo = url.searchParams.get('dateTo') || undefined
+      const activeCalls = await this.ctx.storage.get<CallRecord[]>('activeCalls') || []
+      const historyAll = await this.ctx.storage.get<CallRecord[]>('callHistory') || []
+      console.log(`[call-history] active=${activeCalls.length} history=${historyAll.length}`)
       return this.getCallHistory(page, limit, { search, dateFrom, dateTo })
     }
 

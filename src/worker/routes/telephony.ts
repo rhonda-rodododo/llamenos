@@ -12,13 +12,16 @@ const telephony = new Hono<AppEnv>()
 
 // Validate telephony webhook signature on all routes
 telephony.use('*', async (c, next) => {
+  const url = new URL(c.req.url)
+  console.log(`[telephony] ${c.req.method} ${url.pathname}${url.search}`)
   const env = c.env
   const adapter = getTelephony(env)
   const isDev = env.ENVIRONMENT === 'development'
-  const isLocal = isDev && (c.req.header('CF-Connecting-IP') === '127.0.0.1' || new URL(c.req.url).hostname === 'localhost')
+  const isLocal = isDev && (c.req.header('CF-Connecting-IP') === '127.0.0.1' || url.hostname === 'localhost')
   if (!isLocal) {
     const isValid = await adapter.validateWebhook(c.req.raw)
     if (!isValid) {
+      console.error(`[telephony] Webhook signature FAILED for ${url.pathname}`)
       return new Response('Forbidden', { status: 403 })
     }
   }
@@ -156,17 +159,21 @@ telephony.post('/call-status', async (c) => {
   const url = new URL(c.req.url)
   const parentCallSid = url.searchParams.get('parentCallSid') || ''
 
+  console.log(`[call-status] status=${callStatus} parentCallSid=${parentCallSid}`)
+
   if (callStatus === 'completed' || callStatus === 'busy' || callStatus === 'no-answer' || callStatus === 'failed') {
     const pubkey = url.searchParams.get('pubkey') || ''
     if (callStatus === 'completed') {
-      const [preCallRes, volInfoRes] = await Promise.all([
+      const [preCallRes] = await Promise.all([
         dos.calls.fetch(new Request('http://do/calls/active')),
         pubkey ? dos.session.fetch(new Request(`http://do/volunteer/${pubkey}`)) : Promise.resolve(null),
       ])
       const { calls: preCalls } = await preCallRes.json() as { calls: Array<{ id: string; callerLast4?: string; startedAt: string }> }
       const preCall = preCalls.find(call => call.id === parentCallSid)
+      console.log(`[call-status] ending call ${parentCallSid}, found in active: ${!!preCall}`)
 
-      await dos.calls.fetch(new Request(`http://do/calls/${parentCallSid}/end`, { method: 'POST' }))
+      const endRes = await dos.calls.fetch(new Request(`http://do/calls/${parentCallSid}/end`, { method: 'POST' }))
+      console.log(`[call-status] end result: ${endRes.status}`)
 
       const duration = preCall
         ? Math.floor((Date.now() - new Date(preCall.startedAt).getTime()) / 1000)
