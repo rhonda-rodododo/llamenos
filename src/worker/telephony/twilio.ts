@@ -8,20 +8,65 @@ import type {
   VoicemailParams,
   TelephonyResponse,
   AudioUrlMap,
+  WebhookCallInfo,
+  WebhookDigits,
+  WebhookCallStatus,
+  WebhookQueueResult,
+  WebhookQueueWait,
+  WebhookRecordingStatus,
 } from './adapter'
 import {
-  LANGUAGE_MAP,
   DEFAULT_LANGUAGE,
   IVR_LANGUAGES,
-  ivrIndexToDigit,
 } from '../../shared/languages'
+
+/**
+ * Twilio TwiML voice language codes, keyed by ISO 639-1 language code.
+ * Provider-specific — lives here, not in shared config.
+ */
+const VOICE_CODES: Record<string, string> = {
+  en: 'en-US',
+  es: 'es-MX',
+  zh: 'cmn-CN',
+  tl: 'fil-PH',
+  vi: 'vi-VN',
+  ar: 'ar-XA',
+  fr: 'fr-FR',
+  ht: 'fr-FR', // Twilio doesn't support Haitian Creole; French is closest
+  ko: 'ko-KR',
+  ru: 'ru-RU',
+  hi: 'hi-IN',
+  pt: 'pt-BR',
+  de: 'de-DE',
+}
 
 /**
  * Get Twilio voice language code for a language.
  * Falls back to en-US if the language isn't configured.
  */
 function getTwilioVoice(lang: string): string {
-  return LANGUAGE_MAP[lang]?.twilioVoice ?? LANGUAGE_MAP[DEFAULT_LANGUAGE].twilioVoice
+  return VOICE_CODES[lang] ?? VOICE_CODES[DEFAULT_LANGUAGE]
+}
+
+/** Voicemail "thank you" messages, keyed by language code. */
+const VOICEMAIL_THANKS: Record<string, string> = {
+  en: 'Thank you for your message. Goodbye.',
+  es: 'Gracias por su mensaje. Adiós.',
+  zh: '感谢您的留言。再见。',
+  tl: 'Salamat sa iyong mensahe. Paalam.',
+  vi: 'Cảm ơn tin nhắn của bạn. Tạm biệt.',
+  ar: 'شكراً لرسالتك. مع السلامة.',
+  fr: 'Merci pour votre message. Au revoir.',
+  ht: 'Mèsi pou mesaj ou. Orevwa.',
+  ko: '메시지를 남겨 주셔서 감사합니다. 안녕히 계세요.',
+  ru: 'Спасибо за ваше сообщение. До свидания.',
+  hi: 'आपके संदेश के लिए धन्यवाद। अलविदा।',
+  pt: 'Obrigado pela sua mensagem. Até logo.',
+  de: 'Vielen Dank für Ihre Nachricht. Auf Wiederhören.',
+}
+
+function getVoicemailThanks(lang: string): string {
+  return VOICEMAIL_THANKS[lang] ?? VOICEMAIL_THANKS[DEFAULT_LANGUAGE]
 }
 
 /**
@@ -317,7 +362,7 @@ export class TwilioAdapter implements TelephonyAdapter {
   async handleCallAnswered(params: CallAnsweredParams): Promise<TelephonyResponse> {
     return this.twiml(`
       <Response>
-        <Dial>
+        <Dial record="record-from-answer" recordingStatusCallback="${params.callbackUrl}/api/telephony/call-recording?parentCallSid=${params.parentCallSid}&amp;pubkey=${params.volunteerPubkey}" recordingStatusCallbackEvent="completed">
           <Queue>${params.parentCallSid}</Queue>
         </Dial>
       </Response>
@@ -469,6 +514,104 @@ export class TwilioAdapter implements TelephonyAdapter {
 
     if (!audioRes.ok) return null
     return audioRes.arrayBuffer()
+  }
+
+  async getRecordingAudio(recordingSid: string): Promise<ArrayBuffer | null> {
+    const audioRes = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${this.accountSid}/Recordings/${recordingSid}.wav`,
+      {
+        headers: {
+          'Authorization': 'Basic ' + btoa(`${this.accountSid}:${this.authToken}`),
+        },
+      }
+    )
+    if (!audioRes.ok) return null
+    return audioRes.arrayBuffer()
+  }
+
+  // --- Webhook parsing ---
+
+  async parseIncomingWebhook(request: Request): Promise<WebhookCallInfo> {
+    const form = await request.clone().formData()
+    return {
+      callSid: form.get('CallSid') as string,
+      callerNumber: form.get('From') as string,
+    }
+  }
+
+  async parseLanguageWebhook(request: Request): Promise<WebhookCallInfo & WebhookDigits> {
+    const form = await request.clone().formData()
+    return {
+      callSid: form.get('CallSid') as string,
+      callerNumber: form.get('From') as string,
+      digits: (form.get('Digits') as string) || '',
+    }
+  }
+
+  async parseCaptchaWebhook(request: Request): Promise<WebhookDigits & { callerNumber: string }> {
+    const form = await request.clone().formData()
+    return {
+      digits: (form.get('Digits') as string) || '',
+      callerNumber: (form.get('From') as string) || '',
+    }
+  }
+
+  async parseCallStatusWebhook(request: Request): Promise<WebhookCallStatus> {
+    const form = await request.clone().formData()
+    const raw = form.get('CallStatus') as string
+    const STATUS_MAP: Record<string, WebhookCallStatus['status']> = {
+      completed: 'completed',
+      busy: 'busy',
+      'no-answer': 'no-answer',
+      failed: 'failed',
+    }
+    return { status: STATUS_MAP[raw] ?? 'failed' }
+  }
+
+  async parseQueueWaitWebhook(request: Request): Promise<WebhookQueueWait> {
+    const form = await request.clone().formData()
+    return {
+      queueTime: parseInt((form.get('QueueTime') as string) || '0', 10),
+    }
+  }
+
+  async parseQueueExitWebhook(request: Request): Promise<WebhookQueueResult> {
+    const form = await request.clone().formData()
+    const raw = form.get('QueueResult') as string
+    const RESULT_MAP: Record<string, WebhookQueueResult['result']> = {
+      'leave': 'leave',
+      'queue-full': 'queue-full',
+      'error': 'error',
+      'bridged': 'bridged',
+      'hangup': 'hangup',
+    }
+    return { result: RESULT_MAP[raw] ?? 'error' }
+  }
+
+  async parseRecordingWebhook(request: Request): Promise<WebhookRecordingStatus> {
+    const form = await request.clone().formData()
+    const raw = form.get('RecordingStatus') as string
+    return {
+      status: raw === 'completed' ? 'completed' : 'failed',
+      recordingSid: (form.get('RecordingSid') as string) || undefined,
+      callSid: (form.get('CallSid') as string) || undefined,
+    }
+  }
+
+  // --- Additional response methods ---
+
+  handleVoicemailComplete(lang: string): TelephonyResponse {
+    const voice = getTwilioVoice(lang)
+    return this.twiml(`
+      <Response>
+        <Say language="${voice}">${getVoicemailThanks(lang)}</Say>
+        <Hangup/>
+      </Response>
+    `)
+  }
+
+  emptyResponse(): TelephonyResponse {
+    return this.twiml('<Response/>')
   }
 
   // --- Helpers ---

@@ -3,7 +3,7 @@
  * Used by both frontend (i18n, UI) and backend (telephony, voice prompts).
  *
  * Languages selected: English + top 10 most spoken by US immigrant communities
- * (Census ACS data). All have Twilio TTS support.
+ * (Census ACS data).
  *
  * To add a new language:
  * 1. Add entry here with all fields
@@ -19,8 +19,6 @@ export interface LanguageConfig {
   label: string
   /** Short display code for UI buttons (e.g. 'EN', 'ES') */
   flag: string
-  /** Twilio TwiML voice language code (e.g. 'en-US', 'es-MX') */
-  twilioVoice: string
   /** Phone number prefixes for auto-detection (E.164 format) */
   phonePrefixes: string[]
 }
@@ -31,7 +29,6 @@ export const LANGUAGES: LanguageConfig[] = [
     code: 'en',
     label: 'English',
     flag: 'EN',
-    twilioVoice: 'en-US',
     phonePrefixes: ['+1', '+44', '+61', '+64'], // US/Canada, UK, Australia, NZ
   },
   // --- Top 10 US immigrant languages ---
@@ -39,7 +36,6 @@ export const LANGUAGES: LanguageConfig[] = [
     code: 'es',
     label: 'Español',
     flag: 'ES',
-    twilioVoice: 'es-MX',
     phonePrefixes: [
       '+52',  '+34',  '+54',  '+56',  '+57',  '+58',  '+51',  '+53',
       '+591', '+593', '+595', '+598', '+502', '+503', '+504', '+505',
@@ -50,7 +46,6 @@ export const LANGUAGES: LanguageConfig[] = [
     code: 'zh',
     label: '中文',
     flag: '中',
-    twilioVoice: 'cmn-CN',
     phonePrefixes: [
       '+86',  // China
       '+886', // Taiwan
@@ -62,21 +57,18 @@ export const LANGUAGES: LanguageConfig[] = [
     code: 'tl',
     label: 'Tagalog',
     flag: 'TL',
-    twilioVoice: 'fil-PH',
     phonePrefixes: ['+63'], // Philippines
   },
   {
     code: 'vi',
     label: 'Tiếng Việt',
     flag: 'VI',
-    twilioVoice: 'vi-VN',
     phonePrefixes: ['+84'], // Vietnam
   },
   {
     code: 'ar',
     label: 'العربية',
     flag: 'ع',
-    twilioVoice: 'ar-XA',
     phonePrefixes: [
       '+20',  // Egypt
       '+212', // Morocco
@@ -101,7 +93,6 @@ export const LANGUAGES: LanguageConfig[] = [
     code: 'fr',
     label: 'Français',
     flag: 'FR',
-    twilioVoice: 'fr-FR',
     phonePrefixes: [
       '+33',  // France
       '+32',  // Belgium
@@ -115,21 +106,18 @@ export const LANGUAGES: LanguageConfig[] = [
     code: 'ht',
     label: 'Kreyòl Ayisyen',
     flag: 'HT',
-    twilioVoice: 'fr-FR', // Twilio doesn't support Haitian Creole; French is closest
     phonePrefixes: ['+509'], // Haiti
   },
   {
     code: 'ko',
     label: '한국어',
     flag: '한',
-    twilioVoice: 'ko-KR',
     phonePrefixes: ['+82'], // South Korea
   },
   {
     code: 'ru',
     label: 'Русский',
     flag: 'RU',
-    twilioVoice: 'ru-RU',
     phonePrefixes: [
       '+7',   // Russia & Kazakhstan
       '+380', // Ukraine (many speak Russian)
@@ -140,7 +128,6 @@ export const LANGUAGES: LanguageConfig[] = [
     code: 'hi',
     label: 'हिन्दी',
     flag: 'हि',
-    twilioVoice: 'hi-IN',
     phonePrefixes: ['+91'], // India
   },
   // --- Additional ---
@@ -148,7 +135,6 @@ export const LANGUAGES: LanguageConfig[] = [
     code: 'pt',
     label: 'Português',
     flag: 'PT',
-    twilioVoice: 'pt-BR',
     phonePrefixes: [
       '+55',  // Brazil
       '+351', // Portugal

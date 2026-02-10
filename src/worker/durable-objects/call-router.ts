@@ -364,20 +364,37 @@ export class CallRouterDO extends DurableObject<Env> {
   private async getActiveCallsList(): Promise<CallRecord[]> {
     const calls = await this.ctx.storage.get<CallRecord[]>('activeCalls') || []
     const now = Date.now()
-    // Ringing calls older than 5 minutes are stale (Twilio queues timeout well before this)
-    // In-progress calls older than 8 hours are stale (no call should last that long)
-    const RINGING_TTL = 5 * 60 * 1000
-    const IN_PROGRESS_TTL = 8 * 60 * 60 * 1000
+    // Ringing calls older than 3 minutes are stale (Twilio queues timeout well before this)
+    // In-progress calls older than 2 hours are stale (no call should last that long)
+    const RINGING_TTL = 3 * 60 * 1000
+    const IN_PROGRESS_TTL = 2 * 60 * 60 * 1000
 
-    const active = calls.filter(c => {
+    const active: CallRecord[] = []
+    const stale: CallRecord[] = []
+
+    for (const c of calls) {
       const age = now - new Date(c.startedAt).getTime()
-      if (c.status === 'ringing' && age > RINGING_TTL) return false
-      if (c.status === 'in-progress' && age > IN_PROGRESS_TTL) return false
-      return true
-    })
+      if ((c.status === 'ringing' && age > RINGING_TTL) ||
+          (c.status === 'in-progress' && age > IN_PROGRESS_TTL)) {
+        stale.push(c)
+      } else {
+        active.push(c)
+      }
+    }
 
-    // Persist cleanup if stale calls were removed
-    if (active.length < calls.length) {
+    // Move stale calls to history instead of silently dropping them
+    if (stale.length > 0) {
+      const history = await this.ctx.storage.get<CallRecord[]>('callHistory') || []
+      for (const call of stale) {
+        call.status = call.status === 'ringing' ? 'unanswered' : 'completed'
+        call.endedAt = call.endedAt || new Date().toISOString()
+        call.duration = call.duration || Math.floor(
+          (new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / 1000
+        )
+        history.unshift(call)
+      }
+      if (history.length > 10000) history.length = 10000
+      await this.ctx.storage.put('callHistory', history)
       await this.ctx.storage.put('activeCalls', active)
     }
 

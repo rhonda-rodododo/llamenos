@@ -1,0 +1,107 @@
+import { Hono } from 'hono'
+import type { AppEnv, WebAuthnCredential } from '../types'
+import { getDOs } from '../lib/do-access'
+import { hashIP } from '../lib/crypto'
+import { isValidE164, checkRateLimit } from '../lib/helpers'
+import { auth as authMiddleware } from '../middleware/auth'
+import { audit } from '../services/audit'
+
+const auth = new Hono<AppEnv>()
+
+// --- Login (no auth) ---
+auth.post('/login', async (c) => {
+  const dos = getDOs(c.env)
+
+  // Rate limit login attempts by IP (skip in development for testing)
+  if (c.env.ENVIRONMENT !== 'development') {
+    const clientIp = c.req.header('CF-Connecting-IP') || 'unknown'
+    const limited = await checkRateLimit(dos.session, `auth:${hashIP(clientIp)}`, 10)
+    if (limited) {
+      return c.json({ error: 'Too many login attempts. Try again later.' }, 429)
+    }
+  }
+
+  const { pubkey } = await c.req.json() as { pubkey: string; token: string }
+  const res = await dos.session.fetch(new Request(`http://do/volunteer/${pubkey}`))
+  if (!res.ok) return c.json({ error: 'Unknown user' }, 401)
+  const volunteer = await res.json() as { role: string }
+  return c.json({ ok: true, role: volunteer.role })
+})
+
+// --- Authenticated routes ---
+auth.use('/me', authMiddleware)
+auth.use('/me/*', authMiddleware)
+
+auth.get('/me', async (c) => {
+  const dos = getDOs(c.env)
+  const pubkey = c.get('pubkey')
+  const volunteer = c.get('volunteer')
+  const isAdmin = c.get('isAdmin')
+
+  const credsRes = await dos.session.fetch(new Request(`http://do/webauthn/credentials?pubkey=${pubkey}`))
+  const { credentials: webauthnCreds } = await credsRes.json() as { credentials: WebAuthnCredential[] }
+  const settingsRes = await dos.session.fetch(new Request('http://do/settings/webauthn'))
+  const webauthnSettings = await settingsRes.json() as { requireForAdmins: boolean; requireForVolunteers: boolean }
+  const webauthnRequired = isAdmin ? webauthnSettings.requireForAdmins : webauthnSettings.requireForVolunteers
+  return c.json({
+    pubkey: volunteer.pubkey,
+    role: volunteer.role,
+    name: volunteer.name,
+    transcriptionEnabled: volunteer.transcriptionEnabled,
+    spokenLanguages: volunteer.spokenLanguages || ['en'],
+    uiLanguage: volunteer.uiLanguage || 'en',
+    profileCompleted: volunteer.profileCompleted ?? true,
+    onBreak: volunteer.onBreak ?? false,
+    webauthnRequired,
+    webauthnRegistered: webauthnCreds.length > 0,
+  })
+})
+
+auth.patch('/me/profile', async (c) => {
+  const dos = getDOs(c.env)
+  const pubkey = c.get('pubkey')
+  const body = await c.req.json() as { name?: string; phone?: string; spokenLanguages?: string[]; uiLanguage?: string; profileCompleted?: boolean }
+  if (body.phone && !isValidE164(body.phone)) {
+    return c.json({ error: 'Invalid phone number. Use E.164 format (e.g. +12125551234)' }, 400)
+  }
+  await dos.session.fetch(new Request(`http://do/volunteers/${pubkey}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  }))
+  return c.json({ ok: true })
+})
+
+auth.patch('/me/availability', async (c) => {
+  const dos = getDOs(c.env)
+  const pubkey = c.get('pubkey')
+  const body = await c.req.json() as { onBreak: boolean }
+  await dos.session.fetch(new Request(`http://do/volunteers/${pubkey}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ onBreak: body.onBreak }),
+  }))
+  await audit(dos.session, body.onBreak ? 'volunteerOnBreak' : 'volunteerAvailable', pubkey)
+  return c.json({ ok: true })
+})
+
+auth.patch('/me/transcription', async (c) => {
+  const dos = getDOs(c.env)
+  const pubkey = c.get('pubkey')
+  const isAdmin = c.get('isAdmin')
+  const body = await c.req.json() as { enabled: boolean }
+  // If volunteer is trying to disable, check if admin allows opt-out
+  if (!body.enabled && !isAdmin) {
+    const transRes = await dos.session.fetch(new Request('http://do/settings/transcription'))
+    const transSettings = await transRes.json() as { globalEnabled: boolean; allowVolunteerOptOut: boolean }
+    if (!transSettings.allowVolunteerOptOut) {
+      return c.json({ error: 'Transcription opt-out is not allowed' }, 403)
+    }
+  }
+  await dos.session.fetch(new Request(`http://do/volunteers/${pubkey}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ transcriptionEnabled: body.enabled }),
+  }))
+  await audit(dos.session, 'transcriptionToggled', pubkey, { enabled: body.enabled })
+  return c.json({ ok: true })
+})
+
+export default auth

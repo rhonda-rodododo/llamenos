@@ -1,8 +1,8 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth'
-import { useEffect, useState, useCallback } from 'react'
-import { getCallHistory, type CallRecord } from '@/lib/api'
+import { useEffect, useState, useCallback, useMemo } from 'react'
+import { getCallHistory, listVolunteers, type CallRecord, type Volunteer } from '@/lib/api'
 import { useToast } from '@/lib/toast'
 import { PhoneIncoming, ChevronLeft, ChevronRight, Clock, Mic, Search, X, StickyNote, Voicemail, PhoneMissed } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
@@ -37,6 +37,7 @@ function CallHistoryPage() {
   const [calls, setCalls] = useState<CallRecord[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [volunteers, setVolunteers] = useState<Volunteer[]>([])
   // Local input state (synced to URL on submit)
   const [searchInput, setSearchInput] = useState(q)
   const [dateFromInput, setDateFromInput] = useState(dateFrom)
@@ -60,6 +61,16 @@ function CallHistoryPage() {
   useEffect(() => {
     fetchCalls()
   }, [fetchCalls])
+
+  useEffect(() => {
+    listVolunteers().then(r => setVolunteers(r.volunteers)).catch(() => {})
+  }, [])
+
+  const nameMap = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const v of volunteers) map.set(v.pubkey, v.name)
+    return map
+  }, [volunteers])
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault()
@@ -169,22 +180,43 @@ function CallHistoryPage() {
           ) : (
             <div className="divide-y divide-border">
               {calls.map(call => (
-                <div key={call.id} className="flex flex-wrap items-center gap-4 px-4 py-3 sm:px-6">
-                  <code className="text-xs font-mono">{call.callerNumber}</code>
-                  {call.status === 'unanswered' ? (
-                    <Badge variant="destructive" className="gap-1">
-                      <PhoneMissed className="h-3 w-3" />
-                      {t('callHistory.unanswered')}
+                <div key={call.id} className="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
+                  <div className="min-w-0 flex-1 sm:flex-none sm:w-48">
+                    {call.status === 'unanswered' ? (
+                      <div className="flex items-center gap-1.5">
+                        <PhoneMissed className="h-3.5 w-3.5 shrink-0 text-destructive" />
+                        <span className="text-sm font-medium text-destructive">{t('callHistory.unanswered')}</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <PhoneIncoming className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        <span className="text-sm font-medium">
+                          {call.answeredBy ? (nameMap.get(call.answeredBy) || t('volunteers.title')) : '-'}
+                        </span>
+                      </div>
+                    )}
+                    <code className="text-[10px] text-muted-foreground font-mono">
+                      {call.callerNumber.length > 12 ? call.callerNumber.slice(0, 12) + '...' : call.callerNumber}
+                    </code>
+                  </div>
+                  {call.duration !== undefined && (
+                    <Badge variant="outline" className="gap-1">
+                      <Clock className="h-3 w-3" />
+                      {formatDuration(call.duration)}
                     </Badge>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">
-                      {call.answeredBy ? `${call.answeredBy.slice(0, 12)}...` : '-'}
-                    </span>
                   )}
-                  <Badge variant="outline" className="gap-1">
-                    <Clock className="h-3 w-3" />
-                    {formatDuration(call.duration)}
-                  </Badge>
+                  <div className="flex items-center gap-1.5">
+                    {call.hasVoicemail && (
+                      <Badge variant="secondary" className="gap-1">
+                        <Voicemail className="h-3 w-3" />
+                      </Badge>
+                    )}
+                    {call.hasTranscription && (
+                      <Badge variant="secondary" className="gap-1">
+                        <Mic className="h-3 w-3" />
+                      </Badge>
+                    )}
+                  </div>
                   <span className="flex-1 text-right text-xs text-muted-foreground">
                     {new Date(call.startedAt).toLocaleString()}
                   </span>
@@ -196,18 +228,6 @@ function CallHistoryPage() {
                     <StickyNote className="h-3 w-3" />
                     {t('notes.viewNotes')}
                   </Link>
-                  {call.hasVoicemail && (
-                    <Badge variant="secondary" className="gap-1">
-                      <Voicemail className="h-3 w-3" />
-                      {t('callHistory.hasVoicemail')}
-                    </Badge>
-                  )}
-                  {call.hasTranscription && (
-                    <Badge variant="secondary" className="gap-1">
-                      <Mic className="h-3 w-3" />
-                      {t('callHistory.hasTranscription')}
-                    </Badge>
-                  )}
                 </div>
               ))}
             </div>

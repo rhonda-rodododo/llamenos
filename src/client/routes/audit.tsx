@@ -83,14 +83,7 @@ function AuditPage() {
                     {t(`auditLog.events.${entry.event}` as any, { defaultValue: entry.event })}
                   </Badge>
                   <ActorDisplay pubkey={entry.actorPubkey} nameMap={nameMap} />
-                  <span className="flex-1 truncate text-xs text-muted-foreground">
-                    {Object.entries(entry.details || {}).map(([k, v]) => {
-                      const display = k === 'callerHash' && typeof v === 'string' && v.length > 12
-                        ? v.slice(0, 12) + '...'
-                        : v
-                      return `${k}: ${display}`
-                    }).join(', ') || '—'}
-                  </span>
+                  <AuditDetails entry={entry} />
                 </div>
               ))}
             </div>
@@ -148,4 +141,47 @@ function ActorDisplay({ pubkey, nameMap }: { pubkey: string; nameMap: Map<string
   }
 
   return <code className="text-xs text-muted-foreground">{pubkey.slice(0, 12)}...</code>
+}
+
+function AuditDetails({ entry }: { entry: AuditLogEntry }) {
+  const { t } = useTranslation()
+  const details = entry.details || {}
+
+  // For call events, show caller hash and duration only
+  const callerHash = details.callerHash as string | undefined
+  const duration = details.duration as number | undefined
+  const volunteerName = details.volunteerName as string | undefined
+
+  const isCallEvent = entry.event === 'callAnswered' || entry.event === 'callEnded' || entry.event === 'callMissed'
+  const isVoicemail = entry.event === 'voicemailReceived'
+
+  if (isCallEvent) {
+    return (
+      <span className="flex flex-1 items-center gap-2 truncate text-xs text-muted-foreground">
+        {callerHash && (
+          <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">
+            {callerHash.length > 12 ? callerHash.slice(0, 12) + '...' : callerHash}
+          </code>
+        )}
+        {duration !== undefined && entry.event === 'callEnded' && (
+          <span>{Math.floor(duration / 60)}:{String(duration % 60).padStart(2, '0')}</span>
+        )}
+      </span>
+    )
+  }
+
+  if (isVoicemail) {
+    return (
+      <span className="flex-1 text-xs text-muted-foreground">
+        {t('callHistory.hasVoicemail')}
+      </span>
+    )
+  }
+
+  // For non-call events, show a brief summary (volunteer name, etc.)
+  if (volunteerName) {
+    return <span className="flex-1 truncate text-xs text-muted-foreground">{volunteerName}</span>
+  }
+
+  return <span className="flex-1 text-xs text-muted-foreground">—</span>
 }

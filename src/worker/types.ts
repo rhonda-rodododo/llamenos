@@ -126,3 +126,13 @@ export interface AuthPayload {
   timestamp: number
   token: string
 }
+
+// Hono typed context
+export type AppEnv = {
+  Bindings: Env
+  Variables: {
+    pubkey: string
+    volunteer: Volunteer
+    isAdmin: boolean
+  }
+}

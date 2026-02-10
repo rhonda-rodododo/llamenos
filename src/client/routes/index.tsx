@@ -184,8 +184,7 @@ function DashboardPage() {
             {ringingCalls.map(call => (
               <div key={call.id} className="flex items-center justify-between rounded-lg bg-green-100 px-4 py-3 dark:bg-green-950/30">
                 <div>
-                  <p className="font-medium">{call.callerNumber || t('calls.unknown')}</p>
-                  <p className="text-xs text-muted-foreground">{t('calls.incoming')}</p>
+                  <p className="font-medium">{t('calls.incoming')}</p>
                 </div>
                 <Button
                   onClick={() => answerCall(call.id)}
@@ -255,10 +254,14 @@ function DashboardPage() {
                 {calls.map(call => (
                   <div key={call.id} className="flex items-center justify-between px-4 py-3 sm:px-6">
                     <div>
-                      <p className="text-sm font-medium">{call.callerNumber || t('calls.unknown')}</p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-sm font-medium">
                         {call.status === 'ringing' ? t('calls.incoming') : t('calls.active')}
-                        {call.answeredBy && ` — ${call.answeredBy.slice(0, 8)}...`}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {call.answeredBy && (() => {
+                          const vol = volunteers.find(v => v.pubkey === call.answeredBy)
+                          return vol ? vol.name : t('calls.active')
+                        })()}
                       </p>
                     </div>
                     <Badge

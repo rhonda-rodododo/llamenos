@@ -1,0 +1,48 @@
+import { Hono } from 'hono'
+import type { AppEnv } from '../types'
+import { getDOs } from '../lib/do-access'
+import { audit } from '../services/audit'
+
+const notes = new Hono<AppEnv>()
+
+notes.get('/', async (c) => {
+  const dos = getDOs(c.env)
+  const pubkey = c.get('pubkey')
+  const isAdmin = c.get('isAdmin')
+  const callId = c.req.query('callId')
+  const page = c.req.query('page') || '1'
+  const limit = c.req.query('limit') || '50'
+  const params = new URLSearchParams()
+  if (callId) params.set('callId', callId)
+  if (!isAdmin) params.set('author', pubkey)
+  params.set('page', page)
+  params.set('limit', limit)
+  return dos.session.fetch(new Request(`http://do/notes?${params}`))
+})
+
+notes.post('/', async (c) => {
+  const dos = getDOs(c.env)
+  const pubkey = c.get('pubkey')
+  const body = await c.req.json() as { callId: string; encryptedContent: string }
+  const res = await dos.session.fetch(new Request('http://do/notes', {
+    method: 'POST',
+    body: JSON.stringify({ ...body, authorPubkey: pubkey }),
+  }))
+  if (res.ok) await audit(dos.session, 'noteCreated', pubkey, { callId: body.callId })
+  return res
+})
+
+notes.patch('/:id', async (c) => {
+  const dos = getDOs(c.env)
+  const pubkey = c.get('pubkey')
+  const id = c.req.param('id')
+  const body = await c.req.json() as { encryptedContent: string }
+  const res = await dos.session.fetch(new Request(`http://do/notes/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ ...body, authorPubkey: pubkey }),
+  }))
+  if (res.ok) await audit(dos.session, 'noteEdited', pubkey, { noteId: id })
+  return res
+})
+
+export default notes

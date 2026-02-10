@@ -14,10 +14,11 @@ Llámenos is a secure crisis response hotline webapp. Callers dial a phone numbe
 - **Frontend**: Vite + TanStack Router (SPA, no SSR) + shadcn/ui (component installer)
 - **Backend**: Cloudflare Workers + Durable Objects
 - **Telephony**: Twilio via a `TelephonyAdapter` interface (designed for future provider swaps, e.g. SIP trunks)
-- **Auth**: Nostr keypairs (with consideration for multi-device auth)
+- **Auth**: Nostr keypairs (BIP-340 Schnorr signatures) + WebAuthn session tokens for multi-device support
 - **i18n**: Built-in from day one — all user-facing strings must be translatable
 - **Deployment**: Cloudflare (Workers, DOs, Tunnels), billed to EU/GDPR-compatible account
 - **Testing**: E2E only via Playwright — no unit tests
+- **PWA**: Service worker via vite-plugin-pwa + Workbox; manifest uses generic name "Hotline" for security
 
 ## Architecture Roles
 
@@ -37,37 +38,63 @@ These are non-negotiable architectural constraints, not guidelines:
 - **Audit logging**: Every call answered, every note created — visible to admins only.
 - **GDPR compliance**: EU parent org, data handling must comply.
 
+## Directory Structure
+
+```
+src/
+  client/           # Frontend SPA (Vite + React)
+    routes/         # TanStack file-based routes
+    components/     # App components + ui/ (shadcn primitives)
+    lib/            # Client utilities (auth, crypto, ws, i18n, hooks)
+    locales/        # 13 locale JSON files (en, es, zh, tl, vi, ar, fr, ht, ko, ru, hi, pt, de)
+  worker/           # Cloudflare Worker backend
+    api/            # REST API handlers
+    durable-objects/ # CallRouterDO, ShiftManagerDO, SessionManagerDO
+    telephony/      # TelephonyAdapter interface + TwilioAdapter
+    lib/            # Server utilities (auth, crypto, webauthn)
+  shared/           # Cross-boundary types and config (@shared alias)
+    types.ts        # Shared types (CustomFieldDefinition, NotePayload, etc.)
+    languages.ts    # Centralized language config (codes, labels, Twilio voice IDs)
+```
+
+**Path aliases** (tsconfig.json + vite.config.ts):
+- `@/*` → `./src/client/*`
+- `@worker/*` → `./src/worker/*`
+- `@shared/*` → `./src/shared/*`
+
 ## Key Technical Patterns
 
 - **TelephonyAdapter**: Abstract interface for telephony providers. Twilio is the first implementation. All telephony logic goes through this adapter — never call Twilio APIs directly from business logic.
 - **Parallel ringing**: All on-shift, non-busy volunteers ring simultaneously. First pickup terminates other calls.
 - **Shift routing**: Automated, recurring schedule with ring groups. Fallback group if no schedule is defined.
-- **Durable Objects**: Used for real-time state (active calls, shift status, WebSocket connections).
+- **Durable Objects**: Three singletons accessed via `idFromName()` — CallRouterDO, ShiftManagerDO, SessionManagerDO.
+- **E2EE notes**: ECIES encryption (ephemeral ECDH on secp256k1 + XChaCha20-Poly1305). Dual-encrypted: one copy for volunteer, one for admin.
+- **WebSocket auth**: Token sent via `Sec-WebSocket-Protocol` header, base64url encoded (no `=`/`/`).
+
+## Gotchas
+
+- `@noble/ciphers` and `@noble/hashes` require `.js` extension in imports (e.g., `@noble/ciphers/chacha.js`)
+- `schnorr` is a separate named export: `import { schnorr } from '@noble/curves/secp256k1.js'`
+- Nostr pubkeys are x-only (32 bytes) — prepend `"02"` for ECDH compressed format
+- `secp256k1.getSharedSecret()` returns 33 bytes; extract x-coord with `.slice(1, 33)`
+- Workbox `navigateFallbackDenylist` excludes `/api/` and `/telephony/` routes from SPA caching
 
 ## Development Commands
 
 ```bash
-# Install dependencies
-bun install
-
-# Dev server
-bun run dev
-
-# Build
-bun run build
-
-# Deploy to Cloudflare
-bunx wrangler deploy
-
-# Run E2E tests
-bunx playwright test
-
-# Run a single E2E test file
-bunx playwright test tests/example.spec.ts
-
-# Type check
-bunx tsc --noEmit
+bun install                              # Install dependencies
+bun run dev                              # Vite dev server (frontend only)
+bun run dev:worker                       # Wrangler dev server (Worker + DOs)
+bun run build                            # Vite build → dist/client/
+bun run deploy                           # Build + wrangler deploy
+bunx playwright test                     # Run all E2E tests
+bunx playwright test tests/smoke.spec.ts # Run a single test file
+bun run test:ui                          # Playwright UI mode
+bun run typecheck                        # Type check (tsc --noEmit)
+bun run bootstrap-admin                  # Generate admin keypair
 ```
+
+**Key config files**: `wrangler.jsonc` (Worker + DO bindings), `playwright.config.ts`, `.dev.vars` (Twilio creds + ADMIN_PUBKEY, gitignored)
 
 ## Claude Code Working Style
 
@@ -79,7 +106,7 @@ bunx tsc --noEmit
 - Use context7 plugin to look up current docs for Twilio, Cloudflare Workers, TanStack, shadcn/ui, and other libraries before implementing.
 - Use the feature-dev plugin for guided development of complex features.
 - Use Playwright plugin for E2E test development and debugging.
-- Clean, modular and DRY patterns! Clean up after yourself when pivoting or changing things, removing unused files and configurations
-- When Requirements, Architecture, Design, and Technical changes occur, always update related documentation
-- you MUST NOT delete or regress functionality to fix type issues or get tests passing, only delete functionality or new features or improvements if asked to or if they need to be replaced as part of new features/changes
-- use parallel execution via agents where it makes sense to to keep things moving along
+- Clean up unused files/configs when pivoting. Keep code modular and DRY — refactor proactively.
+- Update related documentation when requirements, architecture, or design changes occur.
+- NEVER delete or regress functionality to fix type issues or get tests passing. Only remove features if explicitly asked or when replacing as part of new work.
+- Use parallel agent execution where it makes sense to keep things moving.

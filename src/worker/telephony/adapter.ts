@@ -1,3 +1,32 @@
+// --- Webhook result types (provider-agnostic) ---
+
+export interface WebhookCallInfo {
+  callSid: string
+  callerNumber: string
+}
+
+export interface WebhookDigits {
+  digits: string
+}
+
+export interface WebhookCallStatus {
+  status: 'completed' | 'busy' | 'no-answer' | 'failed'
+}
+
+export interface WebhookQueueResult {
+  result: 'leave' | 'queue-full' | 'error' | 'bridged' | 'hangup'
+}
+
+export interface WebhookQueueWait {
+  queueTime: number
+}
+
+export interface WebhookRecordingStatus {
+  status: 'completed' | 'failed'
+  recordingSid?: string
+  callSid?: string
+}
+
 /**
  * TelephonyAdapter — abstract interface for telephony providers.
  * All telephony logic goes through this adapter.
@@ -64,9 +93,45 @@ export interface TelephonyAdapter {
   validateWebhook(request: Request): Promise<boolean>
 
   /**
-   * Get call recording/audio for transcription.
+   * Get call recording/audio for transcription by call SID.
    */
   getCallRecording(callSid: string): Promise<ArrayBuffer | null>
+
+  /**
+   * Get recording audio directly by recording SID.
+   */
+  getRecordingAudio(recordingSid: string): Promise<ArrayBuffer | null>
+
+  // --- Webhook parsing (provider-specific field names → agnostic types) ---
+
+  /** Parse incoming call webhook (CallSid, From) */
+  parseIncomingWebhook(request: Request): Promise<WebhookCallInfo>
+
+  /** Parse language selection webhook (CallSid, From, Digits) */
+  parseLanguageWebhook(request: Request): Promise<WebhookCallInfo & WebhookDigits>
+
+  /** Parse CAPTCHA response webhook (Digits, From) */
+  parseCaptchaWebhook(request: Request): Promise<WebhookDigits & { callerNumber: string }>
+
+  /** Parse call status callback (CallStatus) */
+  parseCallStatusWebhook(request: Request): Promise<WebhookCallStatus>
+
+  /** Parse queue wait webhook (QueueTime) */
+  parseQueueWaitWebhook(request: Request): Promise<WebhookQueueWait>
+
+  /** Parse queue exit webhook (QueueResult) */
+  parseQueueExitWebhook(request: Request): Promise<WebhookQueueResult>
+
+  /** Parse recording status webhook (RecordingStatus) */
+  parseRecordingWebhook(request: Request): Promise<WebhookRecordingStatus>
+
+  // --- Additional response methods ---
+
+  /** Thank the caller after voicemail recording and hang up */
+  handleVoicemailComplete(lang: string): TelephonyResponse
+
+  /** Return an empty/no-op response */
+  emptyResponse(): TelephonyResponse
 }
 
 export interface LanguageMenuParams {
@@ -96,6 +161,10 @@ export interface CaptchaResponseParams {
 export interface CallAnsweredParams {
   /** The incoming call SID, used as the queue name to bridge caller → volunteer */
   parentCallSid: string
+  /** Origin URL for recording status callbacks */
+  callbackUrl: string
+  /** Volunteer pubkey for recording callback routing */
+  volunteerPubkey: string
 }
 
 export interface VoicemailParams {

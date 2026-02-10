@@ -1,0 +1,57 @@
+import { Hono } from 'hono'
+import type { AppEnv } from '../types'
+import { getDOs } from '../lib/do-access'
+import { isValidE164 } from '../lib/helpers'
+import { adminGuard } from '../middleware/admin-guard'
+import { audit } from '../services/audit'
+
+const bans = new Hono<AppEnv>()
+
+// Any authenticated user can report/ban
+bans.post('/', async (c) => {
+  const dos = getDOs(c.env)
+  const pubkey = c.get('pubkey')
+  const body = await c.req.json() as { phone: string; reason: string }
+  if (!isValidE164(body.phone)) {
+    return c.json({ error: 'Invalid phone number. Use E.164 format (e.g. +12125551234)' }, 400)
+  }
+  const res = await dos.session.fetch(new Request('http://do/bans', {
+    method: 'POST',
+    body: JSON.stringify({ ...body, bannedBy: pubkey }),
+  }))
+  if (res.ok) await audit(dos.session, 'numberBanned', pubkey, { phone: body.phone })
+  return res
+})
+
+// Admin-only routes
+bans.get('/', adminGuard, async (c) => {
+  const dos = getDOs(c.env)
+  return dos.session.fetch(new Request('http://do/bans'))
+})
+
+bans.post('/bulk', adminGuard, async (c) => {
+  const dos = getDOs(c.env)
+  const pubkey = c.get('pubkey')
+  const body = await c.req.json() as { phones: string[]; reason: string }
+  const invalidPhones = body.phones.filter(p => !isValidE164(p))
+  if (invalidPhones.length > 0) {
+    return c.json({ error: `Invalid phone number(s): ${invalidPhones[0]}. Use E.164 format (e.g. +12125551234)` }, 400)
+  }
+  const res = await dos.session.fetch(new Request('http://do/bans/bulk', {
+    method: 'POST',
+    body: JSON.stringify({ ...body, bannedBy: pubkey }),
+  }))
+  if (res.ok) await audit(dos.session, 'numberBanned', pubkey, { count: body.phones.length, bulk: true })
+  return res
+})
+
+bans.delete('/:phone', adminGuard, async (c) => {
+  const dos = getDOs(c.env)
+  const pubkey = c.get('pubkey')
+  const phone = decodeURIComponent(c.req.param('phone'))
+  const res = await dos.session.fetch(new Request(`http://do/bans/${encodeURIComponent(phone)}`, { method: 'DELETE' }))
+  if (res.ok) await audit(dos.session, 'numberUnbanned', pubkey, {})
+  return res
+})
+
+export default bans
