@@ -155,7 +155,11 @@
       "friday": "Vandredi",
       "saturday": "Samdi",
       "sunday": "Dimanch"
-    }
+    },
+    "searchVolunteers": "Chèche volontè...",
+    "noVolunteersFound": "Pa jwenn volontè",
+    "selectedCount": "{{count}} chwazi",
+    "removeVolunteer": "Retire {{name}}"
   },
   "volunteers": {
     "title": "Volontè",

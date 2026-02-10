@@ -60,7 +60,7 @@
     "currentShift": "Current Shift",
     "noShift": "No shift scheduled",
     "ready": "Ready for calls",
-    "onCall": "On a call",
+    "onCall": "On Call",
     "away": "Away",
     "onBreak": "On Break",
     "goOnBreak": "Take a Break",
@@ -68,7 +68,6 @@
     "breakDescription": "You won't receive calls while on break",
     "volunteerStatus": "Volunteer Status",
     "available": "Available",
-    "onCall": "On Call",
     "offline": "Offline",
     "noVolunteersOnline": "No volunteers online"
   },
@@ -160,7 +159,11 @@
       "friday": "Friday",
       "saturday": "Saturday",
       "sunday": "Sunday"
-    }
+    },
+    "searchVolunteers": "Search volunteers...",
+    "noVolunteersFound": "No volunteers found",
+    "selectedCount": "{{count}} selected",
+    "removeVolunteer": "Remove {{name}}"
   },
   "volunteers": {
     "title": "Volunteers",

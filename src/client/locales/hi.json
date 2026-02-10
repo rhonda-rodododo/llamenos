@@ -155,7 +155,11 @@
       "friday": "शुक्रवार",
       "saturday": "शनिवार",
       "sunday": "रविवार"
-    }
+    },
+    "searchVolunteers": "स्वयंसेवकों को खोजें...",
+    "noVolunteersFound": "कोई स्वयंसेवक नहीं मिला",
+    "selectedCount": "{{count}} चयनित",
+    "removeVolunteer": "{{name}} को हटाएँ"
   },
   "volunteers": {
     "title": "स्वयंसेवक",

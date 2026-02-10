@@ -155,7 +155,11 @@
       "friday": "星期五",
       "saturday": "星期六",
       "sunday": "星期日"
-    }
+    },
+    "searchVolunteers": "搜索志愿者...",
+    "noVolunteersFound": "未找到志愿者",
+    "selectedCount": "已选择 {{count}} 人",
+    "removeVolunteer": "移除 {{name}}"
   },
   "volunteers": {
     "title": "志愿者",

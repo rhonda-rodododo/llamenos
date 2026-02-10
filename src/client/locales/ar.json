@@ -155,7 +155,11 @@
       "friday": "الجمعة",
       "saturday": "السبت",
       "sunday": "الأحد"
-    }
+    },
+    "searchVolunteers": "البحث عن متطوعين...",
+    "noVolunteersFound": "لم يتم العثور على متطوعين",
+    "selectedCount": "{{count}} محدد",
+    "removeVolunteer": "إزالة {{name}}"
   },
   "volunteers": {
     "title": "المتطوعون",

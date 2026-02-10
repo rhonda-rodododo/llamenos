@@ -155,7 +155,11 @@
       "friday": "Freitag",
       "saturday": "Samstag",
       "sunday": "Sonntag"
-    }
+    },
+    "searchVolunteers": "Freiwillige suchen...",
+    "noVolunteersFound": "Keine Freiwilligen gefunden",
+    "selectedCount": "{{count}} ausgewählt",
+    "removeVolunteer": "{{name}} entfernen"
   },
   "volunteers": {
     "title": "Freiwillige",

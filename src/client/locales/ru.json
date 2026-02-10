@@ -155,7 +155,11 @@
       "friday": "Пятница",
       "saturday": "Суббота",
       "sunday": "Воскресенье"
-    }
+    },
+    "searchVolunteers": "Поиск волонтёров...",
+    "noVolunteersFound": "Волонтёры не найдены",
+    "selectedCount": "Выбрано: {{count}}",
+    "removeVolunteer": "Убрать {{name}}"
   },
   "volunteers": {
     "title": "Волонтёры",

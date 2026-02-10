@@ -155,7 +155,11 @@
       "friday": "Thứ Sáu",
       "saturday": "Thứ Bảy",
       "sunday": "Chủ Nhật"
-    }
+    },
+    "searchVolunteers": "Tìm tình nguyện viên...",
+    "noVolunteersFound": "Không tìm thấy tình nguyện viên",
+    "selectedCount": "Đã chọn {{count}}",
+    "removeVolunteer": "Xóa {{name}}"
   },
   "volunteers": {
     "title": "Tình nguyện viên",

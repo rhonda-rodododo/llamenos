@@ -20,6 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { VolunteerMultiSelect } from '@/components/volunteer-multi-select'
 
 export const Route = createFileRoute('/shifts')({
   component: ShiftsPage,
@@ -182,25 +183,11 @@ function ShiftsPage() {
           <CardDescription>{t('shifts.fallbackDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {volunteers.filter(v => v.active).map(vol => (
-              <label key={vol.pubkey} className="flex items-center gap-1.5 text-sm">
-                <input
-                  type="checkbox"
-                  checked={fallback.includes(vol.pubkey)}
-                  onChange={(e) => {
-                    const next = e.target.checked
-                      ? [...fallback, vol.pubkey]
-                      : fallback.filter(p => p !== vol.pubkey)
-                    handleSaveFallback(next)
-                  }}
-                  className="rounded border-input"
-                />
-                {vol.name}
-                <span className="font-mono text-xs text-muted-foreground">({vol.pubkey.slice(0, 8)})</span>
-              </label>
-            ))}
-          </div>
+          <VolunteerMultiSelect
+            volunteers={volunteers.filter(v => v.active)}
+            selected={fallback}
+            onSelectionChange={handleSaveFallback}
+          />
         </CardContent>
       </Card>
     </div>
@@ -289,26 +276,12 @@ function ShiftForm({ shift, volunteers, onSave, onCancel }: {
           </div>
           <div className="space-y-2">
             <Label>{t('shifts.assignVolunteers')}</Label>
-            <div className="flex flex-wrap gap-2">
-              {volunteers.filter(v => v.active).map(vol => (
-                <label key={vol.pubkey} className="flex items-center gap-1.5 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={selectedVolunteers.includes(vol.pubkey)}
-                    onChange={(e) => {
-                      setSelectedVolunteers(
-                        e.target.checked
-                          ? [...selectedVolunteers, vol.pubkey]
-                          : selectedVolunteers.filter(p => p !== vol.pubkey)
-                      )
-                    }}
-                    className="rounded border-input"
-                  />
-                  {vol.name}
-                  <span className="font-mono text-xs text-muted-foreground">({vol.pubkey.slice(0, 8)})</span>
-                </label>
-              ))}
-            </div>
+            <VolunteerMultiSelect
+              volunteers={volunteers.filter(v => v.active)}
+              selected={selectedVolunteers}
+              onSelectionChange={setSelectedVolunteers}
+              placeholder={t('shifts.searchVolunteers')}
+            />
           </div>
           <div className="flex gap-2">
             <Button type="submit" disabled={saving}>

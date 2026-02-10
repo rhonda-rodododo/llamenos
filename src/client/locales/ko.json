@@ -155,7 +155,11 @@
       "friday": "금요일",
       "saturday": "토요일",
       "sunday": "일요일"
-    }
+    },
+    "searchVolunteers": "자원봉사자 검색...",
+    "noVolunteersFound": "자원봉사자를 찾을 수 없습니다",
+    "selectedCount": "{{count}}명 선택됨",
+    "removeVolunteer": "{{name}} 제거"
   },
   "volunteers": {
     "title": "자원봉사자",

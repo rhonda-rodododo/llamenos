@@ -155,7 +155,11 @@
       "friday": "Biyernes",
       "saturday": "Sabado",
       "sunday": "Linggo"
-    }
+    },
+    "searchVolunteers": "Maghanap ng mga boluntaryo...",
+    "noVolunteersFound": "Walang nahanap na boluntaryo",
+    "selectedCount": "{{count}} ang napili",
+    "removeVolunteer": "Alisin si {{name}}"
   },
   "volunteers": {
     "title": "Mga Boluntaryo",
