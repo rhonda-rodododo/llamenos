@@ -36,8 +36,8 @@ export function useKeyboardShortcuts() {
       // Skip shortcuts when focused on inputs (except Escape above)
       if (isInputFocused()) return
 
-      // Ctrl/Cmd+N — New note
-      if (mod && e.key === 'n' && !e.shiftKey) {
+      // Alt+N — New note
+      if (e.altKey && e.key === 'n' && !mod && !e.shiftKey) {
         e.preventDefault()
         noteSheet.openNewNote()
         return

@@ -44,7 +44,8 @@
     "banList": "차단 목록",
     "auditLog": "감사 로그",
     "callHistory": "통화 기록",
-    "settings": "설정"
+    "settings": "설정",
+    "adminSettings": "관리자 설정"
   },
   "dashboard": {
     "title": "대시보드",
@@ -303,7 +304,9 @@
     "invalid": "유효하지 않은 전화번호"
   },
   "settings": {
-    "title": "설정",
+    "title": "계정 설정",
+    "adminTitle": "관리자 설정",
+    "adminDescription": "전체 핫라인에 영향을 미치는 시스템 설정입니다.",
     "general": "일반",
     "security": "보안",
     "telephony": "전화",
@@ -344,6 +347,11 @@
     "description": "어디서나 사용할 수 있는 빠른 작업",
     "commandPalette": "명령 팔레트 열기",
     "showHelp": "키보드 단축키 보기",
+    "newNote": "새 메모",
+    "searchNotes": "메모 검색",
+    "answerCall": "전화 받기",
+    "hangUp": "전화 끊기",
+    "toggleBreak": "휴식 전환",
     "saveNote": "메모 저장"
   },
   "confirm": {

@@ -48,7 +48,8 @@
     "banList": "Ban List",
     "auditLog": "Audit Log",
     "callHistory": "Call History",
-    "settings": "Settings"
+    "settings": "Settings",
+    "adminSettings": "Admin Settings"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -316,7 +317,9 @@
     "invalid": "Invalid phone number"
   },
   "settings": {
-    "title": "Settings",
+    "title": "Account Settings",
+    "adminTitle": "Admin Settings",
+    "adminDescription": "System-wide settings that affect the entire hotline.",
     "general": "General",
     "security": "Security",
     "telephony": "Telephony",
@@ -404,7 +407,12 @@
     "description": "Quick actions available from anywhere",
     "commandPalette": "Open command palette",
     "showHelp": "Show keyboard shortcuts",
-    "saveNote": "Save note"
+    "newNote": "New note",
+    "saveNote": "Save note",
+    "searchNotes": "Search notes",
+    "answerCall": "Answer call",
+    "hangUp": "Hang up",
+    "toggleBreak": "Toggle break"
   },
   "confirm": {
     "transcriptionTitle": "Change Transcription Setting",

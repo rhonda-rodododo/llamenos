@@ -44,7 +44,8 @@
     "banList": "प्रतिबंध सूची",
     "auditLog": "ऑडिट लॉग",
     "callHistory": "कॉल इतिहास",
-    "settings": "सेटिंग्स"
+    "settings": "सेटिंग्स",
+    "adminSettings": "व्यवस्थापक सेटिंग्स"
   },
   "dashboard": {
     "title": "डैशबोर्ड",
@@ -303,7 +304,9 @@
     "invalid": "अमान्य फ़ोन नंबर"
   },
   "settings": {
-    "title": "सेटिंग्स",
+    "title": "खाता सेटिंग्स",
+    "adminTitle": "व्यवस्थापक सेटिंग्स",
+    "adminDescription": "सिस्टम सेटिंग्स जो पूरी हेल्पलाइन को प्रभावित करती हैं।",
     "general": "सामान्य",
     "security": "सुरक्षा",
     "telephony": "टेलीफ़ोनी",
@@ -344,6 +347,11 @@
     "description": "कहीं से भी उपलब्ध त्वरित क्रियाएं",
     "commandPalette": "कमांड पैलेट खोलें",
     "showHelp": "कीबोर्ड शॉर्टकट दिखाएं",
+    "newNote": "नया नोट",
+    "searchNotes": "नोट खोजें",
+    "answerCall": "कॉल का उत्तर दें",
+    "hangUp": "कॉल काटें",
+    "toggleBreak": "ब्रेक टॉगल करें",
     "saveNote": "नोट सहेजें"
   },
   "confirm": {

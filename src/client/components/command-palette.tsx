@@ -3,10 +3,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth'
 import { useTheme } from '@/lib/theme'
-import { useCalls } from '@/lib/hooks'
-import { createNote } from '@/lib/api'
-import { encryptNote } from '@/lib/crypto'
-import { useToast } from '@/lib/toast'
+import { useNoteSheet } from '@/lib/note-sheet-context'
 import {
   CommandDialog,
   CommandInput,
@@ -14,6 +11,7 @@ import {
   CommandEmpty,
   CommandGroup,
   CommandItem,
+  CommandShortcut,
 } from '@/components/ui/command'
 import { triggerShortcutsDialog } from '@/components/keyboard-shortcuts-dialog'
 import {
@@ -32,12 +30,8 @@ import {
   Monitor,
   Plus,
   Search,
-  Lock,
-  Save,
   Keyboard,
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 
 let openCommandPalette: (() => void) | null = null
 
@@ -47,19 +41,15 @@ export function triggerCommandPalette() {
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false)
-  const [quickNoteOpen, setQuickNoteOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const { t } = useTranslation()
-  const { isAdmin, signOut, onBreak, toggleBreak, keyPair } = useAuth()
+  const { isAdmin, signOut, onBreak, toggleBreak } = useAuth()
   const { setTheme } = useTheme()
-  const { currentCall } = useCalls()
-  const { toast } = useToast()
+  const noteSheet = useNoteSheet()
   const navigate = useNavigate()
 
-  // Quick note state
-  const [noteCallId, setNoteCallId] = useState('')
-  const [noteText, setNoteText] = useState('')
-  const [noteSaving, setNoteSaving] = useState(false)
+  const isMac = typeof navigator !== 'undefined' && navigator.platform?.includes('Mac')
+  const mod = isMac ? '⌘' : 'Ctrl'
 
   useEffect(() => {
     openCommandPalette = () => setOpen(true)
@@ -80,30 +70,6 @@ export function CommandPalette() {
   function runCommand(fn: () => void) {
     setOpen(false)
     fn()
-  }
-
-  function openQuickNote() {
-    setOpen(false)
-    setNoteCallId(currentCall?.id || '')
-    setNoteText('')
-    setQuickNoteOpen(true)
-  }
-
-  async function handleSaveQuickNote() {
-    if (!keyPair || !noteText.trim() || !noteCallId.trim()) return
-    setNoteSaving(true)
-    try {
-      const encrypted = encryptNote({ text: noteText }, keyPair.secretKey)
-      await createNote({ callId: noteCallId, encryptedContent: encrypted })
-      toast(t('common.success'), 'success')
-      setQuickNoteOpen(false)
-      setNoteText('')
-      setNoteCallId('')
-    } catch {
-      toast(t('common.error'), 'error')
-    } finally {
-      setNoteSaving(false)
-    }
   }
 
   return (
@@ -147,6 +113,7 @@ export function CommandPalette() {
             <CommandItem onSelect={() => runCommand(() => navigate({ to: '/notes', search: { page: 1, callId: '', search: '' } }))}>
               <StickyNote className="h-4 w-4" />
               {t('nav.notes')}
+              <CommandShortcut>{mod}+Shift+F</CommandShortcut>
             </CommandItem>
             <CommandItem onSelect={() => runCommand(() => navigate({ to: '/settings', search: { section: '' } }))}>
               <Settings className="h-4 w-4" />
@@ -154,6 +121,10 @@ export function CommandPalette() {
             </CommandItem>
             {isAdmin && (
               <>
+                <CommandItem onSelect={() => runCommand(() => navigate({ to: '/admin/settings', search: { section: '' } }))}>
+                  <Settings className="h-4 w-4" />
+                  {t('nav.adminSettings')}
+                </CommandItem>
                 <CommandItem onSelect={() => runCommand(() => navigate({ to: '/shifts' }))}>
                   <Clock className="h-4 w-4" />
                   {t('nav.shifts')}
@@ -180,17 +151,20 @@ export function CommandPalette() {
 
           {/* Actions */}
           <CommandGroup heading={t('commandPalette.actions')}>
-            <CommandItem onSelect={openQuickNote}>
+            <CommandItem onSelect={() => runCommand(() => noteSheet.openNewNote())}>
               <Plus className="h-4 w-4" />
               {t('notes.newNote')}
+              <CommandShortcut>Alt+N</CommandShortcut>
             </CommandItem>
             <CommandItem onSelect={() => runCommand(() => toggleBreak())}>
               <Coffee className="h-4 w-4" />
               {onBreak ? t('dashboard.endBreak') : t('dashboard.goOnBreak')}
+              <CommandShortcut>{mod}+Shift+B</CommandShortcut>
             </CommandItem>
             <CommandItem onSelect={() => runCommand(() => triggerShortcutsDialog())}>
               <Keyboard className="h-4 w-4" />
               {t('shortcuts.title')}
+              <CommandShortcut>?</CommandShortcut>
             </CommandItem>
             <CommandItem onSelect={() => runCommand(() => { signOut(); navigate({ to: '/login' }) })}>
               <LogOut className="h-4 w-4" />
@@ -215,65 +189,6 @@ export function CommandPalette() {
           </CommandGroup>
         </CommandList>
       </CommandDialog>
-
-      {/* Quick Note Dialog */}
-      {quickNoteOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="fixed inset-0 bg-black/50" onClick={() => setQuickNoteOpen(false)} />
-          <div className="relative z-50 w-full max-w-md rounded-lg border border-border bg-background p-6 shadow-lg">
-            <h3 className="flex items-center gap-2 text-lg font-semibold">
-              <StickyNote className="h-5 w-5 text-muted-foreground" />
-              {t('notes.newNote')}
-            </h3>
-            <div className="mt-4 space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">{t('notes.callId')}</label>
-                <Input
-                  value={noteCallId}
-                  onChange={e => setNoteCallId(e.target.value)}
-                  placeholder={t('notes.callIdPlaceholder')}
-                />
-                {currentCall && noteCallId === currentCall.id && (
-                  <p className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
-                    <PhoneIncoming className="h-3 w-3" />
-                    {t('notes.activeCallNote')}
-                  </p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <label className="flex items-center gap-1.5 text-sm font-medium">
-                  <Lock className="h-3.5 w-3.5 text-muted-foreground" />
-                  {t('notes.newNote')}
-                </label>
-                <textarea
-                  value={noteText}
-                  onChange={e => setNoteText(e.target.value)}
-                  placeholder={t('notes.notePlaceholder')}
-                  rows={4}
-                  autoFocus
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setQuickNoteOpen(false)}>
-                  {t('common.cancel')}
-                </Button>
-                <Button
-                  onClick={handleSaveQuickNote}
-                  disabled={noteSaving || !noteText.trim() || !noteCallId.trim()}
-                >
-                  <Save className="h-4 w-4" />
-                  {noteSaving ? t('common.loading') : t('common.save')}
-                </Button>
-              </div>
-              <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Lock className="h-3 w-3" />
-                {t('notes.encryptionNote')}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   )
 }

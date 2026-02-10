@@ -17,6 +17,11 @@ test.describe('Auth guards', () => {
     await expect(page).toHaveURL(/\/login/)
   })
 
+  test('unauthenticated user is redirected from /admin/settings', async ({ page }) => {
+    await page.goto('/admin/settings')
+    await expect(page).toHaveURL(/\/login/)
+  })
+
   test('session persists across page reload', async ({ page }) => {
     await loginAsAdmin(page)
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()

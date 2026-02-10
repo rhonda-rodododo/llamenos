@@ -44,7 +44,8 @@
     "banList": "Liste noire",
     "auditLog": "Journal d'audit",
     "callHistory": "Historique des appels",
-    "settings": "Paramètres"
+    "settings": "Paramètres",
+    "adminSettings": "Paramètres admin"
   },
   "dashboard": {
     "title": "Tableau de bord",
@@ -303,7 +304,9 @@
     "invalid": "Numéro de téléphone invalide"
   },
   "settings": {
-    "title": "Paramètres",
+    "title": "Paramètres du compte",
+    "adminTitle": "Paramètres admin",
+    "adminDescription": "Paramètres système affectant l'ensemble de la ligne d'urgence.",
     "general": "Général",
     "security": "Sécurité",
     "telephony": "Téléphonie",
@@ -344,6 +347,11 @@
     "description": "Actions rapides disponibles depuis n'importe où",
     "commandPalette": "Ouvrir la palette de commandes",
     "showHelp": "Afficher les raccourcis clavier",
+    "newNote": "Nouvelle note",
+    "searchNotes": "Rechercher des notes",
+    "answerCall": "Répondre à l'appel",
+    "hangUp": "Raccrocher",
+    "toggleBreak": "Basculer la pause",
     "saveNote": "Enregistrer la note"
   },
   "confirm": {

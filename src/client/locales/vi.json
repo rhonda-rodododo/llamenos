@@ -44,7 +44,8 @@
     "banList": "Danh sách chặn",
     "auditLog": "Nhật ký kiểm toán",
     "callHistory": "Lịch sử cuộc gọi",
-    "settings": "Cài đặt"
+    "settings": "Cài đặt",
+    "adminSettings": "Cài đặt quản trị"
   },
   "dashboard": {
     "title": "Bảng điều khiển",
@@ -303,7 +304,9 @@
     "invalid": "Số điện thoại không hợp lệ"
   },
   "settings": {
-    "title": "Cài đặt",
+    "title": "Cài đặt tài khoản",
+    "adminTitle": "Cài đặt quản trị",
+    "adminDescription": "Cài đặt hệ thống ảnh hưởng đến toàn bộ đường dây nóng.",
     "general": "Chung",
     "security": "Bảo mật",
     "telephony": "Điện thoại",
@@ -344,6 +347,11 @@
     "description": "Các thao tác nhanh có thể sử dụng ở bất kỳ đâu",
     "commandPalette": "Mở bảng lệnh",
     "showHelp": "Hiển thị phím tắt",
+    "newNote": "Ghi chú mới",
+    "searchNotes": "Tìm ghi chú",
+    "answerCall": "Trả lời cuộc gọi",
+    "hangUp": "Cúp máy",
+    "toggleBreak": "Chuyển đổi nghỉ",
     "saveNote": "Lưu ghi chú"
   },
   "confirm": {

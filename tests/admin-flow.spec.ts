@@ -17,7 +17,8 @@ test.describe('Admin flow', () => {
     await expect(page.getByRole('link', { name: 'Ban List' })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Call History' })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Audit Log' })).toBeVisible()
-    await expect(page.getByRole('link', { name: 'Settings' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Admin Settings' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Settings' }).last()).toBeVisible()
   })
 
   test('volunteer CRUD', async ({ page }) => {
@@ -163,9 +164,9 @@ test.describe('Admin flow', () => {
     await page.waitForTimeout(1000)
   })
 
-  test('settings page loads with all sections', async ({ page }) => {
-    await page.getByRole('link', { name: 'Settings' }).click()
-    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
+  test('admin settings page loads with all sections', async ({ page }) => {
+    await page.getByRole('link', { name: 'Admin Settings' }).click()
+    await expect(page.getByRole('heading', { name: 'Admin Settings', exact: true })).toBeVisible()
 
     // Section headers are always visible (in collapsible trigger)
     await expect(page.getByRole('heading', { name: 'Transcription' })).toBeVisible()
@@ -177,11 +178,10 @@ test.describe('Admin flow', () => {
     await expect(page.getByText('Rate Limiting')).toBeVisible()
   })
 
-  test('settings toggles work', async ({ page }) => {
-    await page.getByRole('link', { name: 'Settings' }).click()
-    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
+  test('admin settings toggles work', async ({ page }) => {
+    await page.getByRole('link', { name: 'Admin Settings' }).click()
+    await expect(page.getByRole('heading', { name: 'Admin Settings', exact: true })).toBeVisible()
 
-    // Profile is expanded by default — switches should be visible there
     // Expand transcription section to see its switches
     await page.getByRole('heading', { name: 'Transcription' }).click()
     const switches = page.getByRole('switch')
@@ -214,13 +214,15 @@ test.describe('Admin flow', () => {
   })
 
   test('language switching works', async ({ page }) => {
-    // Use title attribute — always the native name regardless of UI language
-    await page.locator('button[title="Español"]').click()
+    // Open the language selector dropdown and pick Español
+    await page.getByRole('combobox', { name: /switch to/i }).click()
+    await page.getByRole('option', { name: /español/i }).click()
     await expect(page.getByRole('heading', { name: 'Panel' })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Notas' })).toBeVisible()
 
-    // Switch back to English (title stays the native name)
-    await page.locator('button[title="English"]').click()
+    // Switch back to English — aria-label is now in Spanish ("Cambiar a ...")
+    await page.getByRole('combobox', { name: /cambiar a/i }).click()
+    await page.getByRole('option', { name: /english/i }).click()
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()
   })
 

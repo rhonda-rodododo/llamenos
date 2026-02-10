@@ -14,6 +14,7 @@ interface SettingsSectionProps {
   icon: ReactNode
   expanded: boolean
   onToggle: (open: boolean) => void
+  basePath?: string
   children: ReactNode
 }
 
@@ -24,6 +25,7 @@ export function SettingsSection({
   icon,
   expanded,
   onToggle,
+  basePath,
   children,
 }: SettingsSectionProps) {
   const { t } = useTranslation()
@@ -31,7 +33,8 @@ export function SettingsSection({
 
   function handleCopyLink(e: React.MouseEvent) {
     e.stopPropagation()
-    const url = `${window.location.origin}/settings?section=${id}`
+    const path = basePath || window.location.pathname
+    const url = `${window.location.origin}${path}?section=${id}`
     navigator.clipboard.writeText(url).then(() => {
       toast(t('settings.linkCopied'), 'success')
       // Auto-clear clipboard after 30s (security pattern)

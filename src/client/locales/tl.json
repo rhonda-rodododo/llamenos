@@ -44,7 +44,8 @@
     "banList": "Listahan ng Ban",
     "auditLog": "Audit Log",
     "callHistory": "Kasaysayan ng Tawag",
-    "settings": "Mga Setting"
+    "settings": "Mga Setting",
+    "adminSettings": "Mga Setting ng Admin"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -303,7 +304,9 @@
     "invalid": "Hindi valid na numero ng telepono"
   },
   "settings": {
-    "title": "Mga Setting",
+    "title": "Mga Setting ng Account",
+    "adminTitle": "Mga Setting ng Admin",
+    "adminDescription": "Mga setting ng sistema na nakakaapekto sa buong hotline.",
     "general": "General",
     "security": "Seguridad",
     "telephony": "Telepono",
@@ -344,6 +347,11 @@
     "description": "Mga mabilis na aksyon na available kahit saan",
     "commandPalette": "Buksan ang command palette",
     "showHelp": "Ipakita ang mga shortcut sa keyboard",
+    "newNote": "Bagong tala",
+    "searchNotes": "Maghanap ng tala",
+    "answerCall": "Sagutin ang tawag",
+    "hangUp": "Ibaba",
+    "toggleBreak": "I-toggle ang pahinga",
     "saveNote": "I-save ang tala"
   },
   "confirm": {

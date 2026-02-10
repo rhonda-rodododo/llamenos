@@ -45,7 +45,12 @@ export function KeyboardShortcutsDialog() {
   const shortcuts = [
     { keys: `${mod}+K`, description: t('shortcuts.commandPalette') },
     { keys: '?', description: t('shortcuts.showHelp') },
+    { keys: 'Alt+N', description: t('shortcuts.newNote') },
     { keys: `${mod}+Enter`, description: t('shortcuts.saveNote') },
+    { keys: `${mod}+Shift+F`, description: t('shortcuts.searchNotes') },
+    { keys: `${mod}+Shift+A`, description: t('shortcuts.answerCall') },
+    { keys: `${mod}+Shift+H`, description: t('shortcuts.hangUp') },
+    { keys: `${mod}+Shift+B`, description: t('shortcuts.toggleBreak') },
   ]
 
   return (

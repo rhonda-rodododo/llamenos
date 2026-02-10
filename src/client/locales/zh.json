@@ -44,7 +44,8 @@
     "banList": "黑名单",
     "auditLog": "审计日志",
     "callHistory": "通话记录",
-    "settings": "设置"
+    "settings": "设置",
+    "adminSettings": "管理员设置"
   },
   "dashboard": {
     "title": "仪表盘",
@@ -303,7 +304,9 @@
     "invalid": "无效的电话号码"
   },
   "settings": {
-    "title": "设置",
+    "title": "账户设置",
+    "adminTitle": "管理员设置",
+    "adminDescription": "影响整个热线的系统设置。",
     "general": "常规",
     "security": "安全",
     "telephony": "电话",
@@ -344,6 +347,11 @@
     "description": "随处可用的快捷操作",
     "commandPalette": "打开命令面板",
     "showHelp": "显示键盘快捷键",
+    "newNote": "新建笔记",
+    "searchNotes": "搜索笔记",
+    "answerCall": "接听电话",
+    "hangUp": "挂断",
+    "toggleBreak": "切换休息",
     "saveNote": "保存笔记"
   },
   "confirm": {

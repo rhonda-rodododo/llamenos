@@ -8,6 +8,8 @@ import { connectWebSocket, disconnectWebSocket } from '@/lib/ws'
 import { useCalls, useShiftStatus } from '@/lib/hooks'
 import { CommandPalette, triggerCommandPalette } from '@/components/command-palette'
 import { KeyboardShortcutsDialog } from '@/components/keyboard-shortcuts-dialog'
+import { NoteSheet } from '@/components/note-sheet'
+import { useKeyboardShortcuts } from '@/lib/use-keyboard-shortcuts'
 import { LanguageSelect } from '@/components/language-select'
 import {
   LayoutDashboard,
@@ -117,6 +119,7 @@ function AuthenticatedLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { currentCall } = useCalls()
   const { onShift, currentShift, nextShift } = useShiftStatus()
+  useKeyboardShortcuts()
 
   // Close sidebar on navigation
   useEffect(() => {
@@ -190,9 +193,6 @@ function AuthenticatedLayout() {
         <div className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-3">
           <NavLink to="/" icon={<LayoutDashboard className="h-4 w-4" />}>{t('nav.dashboard')}</NavLink>
           <NavLink to="/notes" icon={<StickyNote className="h-4 w-4" />}>{t('nav.notes')}</NavLink>
-          {!isAdmin && (
-            <NavLink to="/settings" icon={<Settings className="h-4 w-4" />}>{t('nav.settings')}</NavLink>
-          )}
 
           {isAdmin && (
             <>
@@ -205,9 +205,10 @@ function AuthenticatedLayout() {
               <NavLink to="/bans" icon={<ShieldBan className="h-4 w-4" />}>{t('nav.banList')}</NavLink>
               <NavLink to="/calls" icon={<PhoneIncoming className="h-4 w-4" />}>{t('nav.callHistory')}</NavLink>
               <NavLink to="/audit" icon={<ScrollText className="h-4 w-4" />}>{t('nav.auditLog')}</NavLink>
-              <NavLink to="/settings" icon={<Settings className="h-4 w-4" />}>{t('nav.settings')}</NavLink>
+              <NavLink to="/admin/settings" icon={<Settings className="h-4 w-4" />}>{t('nav.adminSettings')}</NavLink>
             </>
           )}
+          <NavLink to="/settings" icon={<Settings className="h-4 w-4" />}>{t('nav.settings')}</NavLink>
         </div>
 
         <div className="border-t border-border p-3 space-y-2">
@@ -270,6 +271,7 @@ function AuthenticatedLayout() {
 
       <CommandPalette />
       <KeyboardShortcutsDialog />
+      <NoteSheet />
 
       {/* Session expiring warning */}
       {sessionExpiring && !sessionExpired && (

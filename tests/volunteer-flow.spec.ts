@@ -95,8 +95,8 @@ test.describe('Volunteer flow', () => {
     await completeProfileSetup(page)
 
     await page.getByRole('link', { name: 'Settings' }).click()
-    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
-    // Should see transcription toggle but not spam settings
+    await expect(page.getByRole('heading', { name: 'Account Settings', exact: true })).toBeVisible()
+    // Should see transcription toggle but not spam settings (which is on admin settings)
     await expect(page.getByRole('heading', { name: 'Spam Mitigation' })).not.toBeVisible()
   })
 })

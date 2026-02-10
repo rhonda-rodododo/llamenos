@@ -44,7 +44,8 @@
     "banList": "Lista de Bloqueio",
     "auditLog": "Registro de Auditoria",
     "callHistory": "Histórico de Chamadas",
-    "settings": "Configurações"
+    "settings": "Configurações",
+    "adminSettings": "Configurações de Admin"
   },
   "dashboard": {
     "title": "Painel",
@@ -303,7 +304,9 @@
     "invalid": "Número de telefone inválido"
   },
   "settings": {
-    "title": "Configurações",
+    "title": "Configurações da Conta",
+    "adminTitle": "Configurações de Admin",
+    "adminDescription": "Configurações do sistema que afetam toda a linha de ajuda.",
     "general": "Geral",
     "security": "Segurança",
     "telephony": "Telefonia",
@@ -344,6 +347,11 @@
     "description": "Ações rápidas disponíveis de qualquer lugar",
     "commandPalette": "Abrir paleta de comandos",
     "showHelp": "Mostrar atalhos de teclado",
+    "newNote": "Nova nota",
+    "searchNotes": "Pesquisar notas",
+    "answerCall": "Atender chamada",
+    "hangUp": "Desligar",
+    "toggleBreak": "Alternar pausa",
     "saveNote": "Salvar nota"
   },
   "confirm": {

@@ -44,7 +44,8 @@
     "banList": "قائمة الحظر",
     "auditLog": "سجل المراجعة",
     "callHistory": "سجل المكالمات",
-    "settings": "الإعدادات"
+    "settings": "الإعدادات",
+    "adminSettings": "إعدادات المسؤول"
   },
   "dashboard": {
     "title": "لوحة التحكم",
@@ -303,7 +304,9 @@
     "invalid": "رقم هاتف غير صالح"
   },
   "settings": {
-    "title": "الإعدادات",
+    "title": "إعدادات الحساب",
+    "adminTitle": "إعدادات المسؤول",
+    "adminDescription": "إعدادات النظام التي تؤثر على خط المساعدة بالكامل.",
     "general": "عام",
     "security": "الأمان",
     "telephony": "الاتصالات",
@@ -344,6 +347,11 @@
     "description": "إجراءات سريعة متاحة من أي مكان",
     "commandPalette": "فتح لوحة الأوامر",
     "showHelp": "عرض اختصارات لوحة المفاتيح",
+    "newNote": "ملاحظة جديدة",
+    "searchNotes": "البحث في الملاحظات",
+    "answerCall": "الرد على المكالمة",
+    "hangUp": "إنهاء المكالمة",
+    "toggleBreak": "تبديل الاستراحة",
     "saveNote": "حفظ الملاحظة"
   },
   "confirm": {

@@ -44,7 +44,8 @@
     "banList": "Lis Blokaj",
     "auditLog": "Jounal Odit",
     "callHistory": "Istorik Apèl",
-    "settings": "Paramèt"
+    "settings": "Paramèt",
+    "adminSettings": "Paramèt Admin"
   },
   "dashboard": {
     "title": "Tablo",
@@ -303,7 +304,9 @@
     "invalid": "Nimewo telefòn envalid"
   },
   "settings": {
-    "title": "Paramèt",
+    "title": "Paramèt Kont",
+    "adminTitle": "Paramèt Admin",
+    "adminDescription": "Paramèt sistèm ki afekte tout liy asistans lan.",
     "general": "Jeneral",
     "security": "Sekirite",
     "telephony": "Telefoni",
@@ -344,6 +347,11 @@
     "description": "Aksyon rapid disponib toupatou",
     "commandPalette": "Louvri palèt kòmand",
     "showHelp": "Montre rakousi klavye",
+    "newNote": "Nouvo nòt",
+    "searchNotes": "Chèche nòt",
+    "answerCall": "Reponn apèl",
+    "hangUp": "Rakkwoche",
+    "toggleBreak": "Chanje poz",
     "saveNote": "Anrejistre nòt"
   },
   "confirm": {

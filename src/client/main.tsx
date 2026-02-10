@@ -6,6 +6,7 @@ import { AuthProvider } from '@/lib/auth'
 import { ConfigProvider } from '@/lib/config'
 import { ThemeProvider } from '@/lib/theme'
 import { ToastProvider } from '@/lib/toast'
+import { NoteSheetProvider } from '@/lib/note-sheet-context'
 import '@/lib/i18n'
 import '@/app.css'
 
@@ -23,7 +24,9 @@ createRoot(document.getElementById('root')!).render(
       <ConfigProvider>
         <ToastProvider>
           <AuthProvider>
-            <RouterProvider router={router} />
+            <NoteSheetProvider>
+              <RouterProvider router={router} />
+            </NoteSheetProvider>
           </AuthProvider>
         </ToastProvider>
       </ConfigProvider>
