@@ -84,7 +84,12 @@ function AuditPage() {
                   </Badge>
                   <ActorDisplay pubkey={entry.actorPubkey} nameMap={nameMap} />
                   <span className="flex-1 truncate text-xs text-muted-foreground">
-                    {Object.entries(entry.details || {}).map(([k, v]) => `${k}: ${v}`).join(', ') || '—'}
+                    {Object.entries(entry.details || {}).map(([k, v]) => {
+                      const display = k === 'callerHash' && typeof v === 'string' && v.length > 12
+                        ? v.slice(0, 12) + '...'
+                        : v
+                      return `${k}: ${display}`
+                    }).join(', ') || '—'}
                   </span>
                 </div>
               ))}

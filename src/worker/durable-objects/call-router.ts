@@ -2,14 +2,11 @@ import { DurableObject } from 'cloudflare:workers'
 import type { Env, CallRecord } from '../types'
 import { hashPhone } from '../lib/crypto'
 
-interface ConnectedVolunteer {
-  pubkey: string
-  ws: WebSocket
-  onCall: boolean
-}
-
 /**
  * CallRouterDO — manages real-time call state and WebSocket connections.
+ * Uses the Hibernation API: connections survive DO hibernation via
+ * ctx.getWebSockets() instead of an in-memory Map.
+ *
  * Handles:
  * - WebSocket connections from volunteers
  * - Active call tracking
@@ -17,7 +14,6 @@ interface ConnectedVolunteer {
  * - Call history
  */
 export class CallRouterDO extends DurableObject<Env> {
-  private connections: Map<string, ConnectedVolunteer> = new Map()
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url)
@@ -77,6 +73,12 @@ export class CallRouterDO extends DurableObject<Env> {
       return this.handleVoicemailLeft(callId)
     }
 
+    // Update call metadata (e.g. hasTranscription)
+    if (path.startsWith('/calls/') && path.endsWith('/metadata') && method === 'PATCH') {
+      const callId = path.split('/calls/')[1].split('/metadata')[0]
+      return this.handleUpdateMetadata(callId, await request.json())
+    }
+
     // Report spam
     if (path.startsWith('/calls/') && path.endsWith('/spam') && method === 'POST') {
       const callId = path.split('/calls/')[1].split('/spam')[0]
@@ -86,10 +88,9 @@ export class CallRouterDO extends DurableObject<Env> {
     // --- Test Reset (development only) ---
     if (path === '/reset' && method === 'POST') {
       // Close all WebSocket connections
-      for (const conn of this.connections.values()) {
-        try { conn.ws.close() } catch {}
+      for (const ws of this.ctx.getWebSockets()) {
+        try { ws.close() } catch {}
       }
-      this.connections.clear()
       await this.ctx.storage.deleteAll()
       return Response.json({ ok: true })
     }
@@ -106,12 +107,6 @@ export class CallRouterDO extends DurableObject<Env> {
     const [client, server] = Object.values(pair)
 
     this.ctx.acceptWebSocket(server, [pubkey])
-
-    this.connections.set(pubkey, {
-      pubkey,
-      ws: server,
-      onCall: false,
-    })
 
     // Notify about current active calls (redact caller numbers)
     this.getActiveCallsList().then(calls => {
@@ -139,13 +134,6 @@ export class CallRouterDO extends DurableObject<Env> {
       const pubkey = tags[0]
       if (!pubkey) return
 
-      if (msg.type === 'status:update') {
-        const conn = this.connections.get(pubkey)
-        if (conn) {
-          conn.onCall = msg.onCall ?? conn.onCall
-        }
-      }
-
       // Volunteer answers a call via WebSocket
       if (msg.type === 'call:answer' && msg.callId) {
         await this.handleCallAnswered(msg.callId, { pubkey })
@@ -170,22 +158,24 @@ export class CallRouterDO extends DurableObject<Env> {
     }
   }
 
-  async webSocketClose(ws: WebSocket): Promise<void> {
-    const tags = this.ctx.getTags(ws)
-    const pubkey = tags[0]
-    if (pubkey) {
-      this.connections.delete(pubkey)
-      this.broadcastPresenceUpdate()
-    }
+  async webSocketClose(_ws: WebSocket): Promise<void> {
+    this.broadcastPresenceUpdate()
   }
 
-  async webSocketError(ws: WebSocket): Promise<void> {
-    const tags = this.ctx.getTags(ws)
-    const pubkey = tags[0]
-    if (pubkey) {
-      this.connections.delete(pubkey)
-      this.broadcastPresenceUpdate()
-    }
+  async webSocketError(_ws: WebSocket): Promise<void> {
+    this.broadcastPresenceUpdate()
+  }
+
+  // --- Helpers ---
+
+  /** Get the set of pubkeys currently on an active call */
+  private async getOnCallPubkeys(): Promise<Set<string>> {
+    const calls = await this.ctx.storage.get<CallRecord[]>('activeCalls') || []
+    return new Set(
+      calls
+        .filter(c => c.answeredBy && c.status === 'in-progress')
+        .map(c => c.answeredBy!)
+    )
   }
 
   // --- Call Handling ---
@@ -230,10 +220,6 @@ export class CallRouterDO extends DurableObject<Env> {
     call.status = 'in-progress'
     await this.ctx.storage.put('activeCalls', activeCalls)
 
-    // Mark volunteer as on-call
-    const conn = this.connections.get(data.pubkey)
-    if (conn) conn.onCall = true
-
     // Notify all volunteers that the call was answered (stop ringing for others)
     // Redact caller number in broadcasts
     this.broadcastAll({
@@ -267,12 +253,6 @@ export class CallRouterDO extends DurableObject<Env> {
     // Keep last 10000 records
     if (history.length > 10000) history.length = 10000
     await this.ctx.storage.put('callHistory', history)
-
-    // Mark volunteer as available
-    if (call.answeredBy) {
-      const conn = this.connections.get(call.answeredBy)
-      if (conn) conn.onCall = false
-    }
 
     // Notify all — redact caller number
     this.broadcastAll({
@@ -329,6 +309,36 @@ export class CallRouterDO extends DurableObject<Env> {
       startedAt: call.startedAt,
       callerNumber: '[redacted]',
     })
+
+    return Response.json({ call })
+  }
+
+  private async handleUpdateMetadata(callId: string, data: Record<string, unknown>): Promise<Response> {
+    // Search active calls first, then history
+    const activeCalls = await this.ctx.storage.get<CallRecord[]>('activeCalls') || []
+    let call = activeCalls.find(c => c.id === callId)
+    let source: 'active' | 'history' | null = call ? 'active' : null
+
+    let history: CallRecord[] = []
+    if (!call) {
+      history = await this.ctx.storage.get<CallRecord[]>('callHistory') || []
+      call = history.find(c => c.id === callId)
+      source = call ? 'history' : null
+    }
+
+    if (!call || !source) {
+      return new Response('Call not found', { status: 404 })
+    }
+
+    // Apply allowed metadata fields
+    if (data.hasTranscription !== undefined) call.hasTranscription = Boolean(data.hasTranscription)
+    if (data.hasVoicemail !== undefined) call.hasVoicemail = Boolean(data.hasVoicemail)
+
+    if (source === 'active') {
+      await this.ctx.storage.put('activeCalls', activeCalls)
+    } else {
+      await this.ctx.storage.put('callHistory', history)
+    }
 
     return Response.json({ call })
   }
@@ -406,12 +416,20 @@ export class CallRouterDO extends DurableObject<Env> {
 
   // --- Presence & Metrics ---
 
-  private getVolunteerPresence(): Response {
+  private async getVolunteerPresence(): Promise<Response> {
+    const onCallPubkeys = await this.getOnCallPubkeys()
+    const sockets = this.ctx.getWebSockets()
+    const seen = new Set<string>()
     const statuses: Array<{ pubkey: string; status: 'available' | 'on-call' | 'online' }> = []
-    for (const conn of this.connections.values()) {
+
+    for (const ws of sockets) {
+      const tags = this.ctx.getTags(ws)
+      const pubkey = tags[0]
+      if (!pubkey || seen.has(pubkey)) continue
+      seen.add(pubkey)
       statuses.push({
-        pubkey: conn.pubkey,
-        status: conn.onCall ? 'on-call' : 'available',
+        pubkey,
+        status: onCallPubkeys.has(pubkey) ? 'on-call' : 'available',
       })
     }
     return Response.json({ volunteers: statuses })
@@ -431,33 +449,48 @@ export class CallRouterDO extends DurableObject<Env> {
 
   // --- Broadcasting ---
 
-  private broadcast(pubkeys: string[], message: Record<string, unknown>) {
+  private async broadcast(pubkeys: string[], message: Record<string, unknown>) {
     const data = JSON.stringify(message)
+    const onCallPubkeys = await this.getOnCallPubkeys()
     for (const pubkey of pubkeys) {
-      const conn = this.connections.get(pubkey)
-      if (conn?.ws.readyState === WebSocket.OPEN && !conn.onCall) {
-        conn.ws.send(data)
+      // Don't send incoming call notifications to volunteers already on a call
+      if (onCallPubkeys.has(pubkey)) continue
+      for (const ws of this.ctx.getWebSockets(pubkey)) {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(data)
+        }
       }
     }
   }
 
   private broadcastAll(message: Record<string, unknown>) {
     const data = JSON.stringify(message)
-    for (const conn of this.connections.values()) {
-      if (conn.ws.readyState === WebSocket.OPEN) {
-        conn.ws.send(data)
+    for (const ws of this.ctx.getWebSockets()) {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(data)
       }
     }
   }
 
-  private broadcastPresenceUpdate() {
-    // Broadcast anonymous counts only (not pubkeys) to prevent tracking
+  private async broadcastPresenceUpdate() {
+    const onCallPubkeys = await this.getOnCallPubkeys()
+    const sockets = this.ctx.getWebSockets()
+    const seen = new Set<string>()
     let available = 0
     let onCall = 0
-    for (const conn of this.connections.values()) {
-      if (conn.onCall) onCall++
+
+    for (const ws of sockets) {
+      const tags = this.ctx.getTags(ws)
+      const pubkey = tags[0]
+      if (!pubkey || seen.has(pubkey)) continue
+      seen.add(pubkey)
+      if (onCallPubkeys.has(pubkey)) onCall++
       else available++
     }
-    this.broadcastAll({ type: 'presence:update', counts: { available, onCall, total: this.connections.size } })
+
+    this.broadcastAll({
+      type: 'presence:update',
+      counts: { available, onCall, total: seen.size },
+    })
   }
 }

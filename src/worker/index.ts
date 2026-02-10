@@ -985,7 +985,19 @@ async function handleTelephonyWebhook(
       body: JSON.stringify({ pubkey }),
     }))
 
-    await audit(dos.session, 'callAnswered', pubkey, { callSid: parentCallSid })
+    // Enrich audit with volunteer name and caller hash
+    const [volInfoRes, activeCallsRes] = await Promise.all([
+      dos.session.fetch(new Request(`http://do/volunteer/${pubkey}`)),
+      dos.calls.fetch(new Request('http://do/calls/active')),
+    ])
+    const volInfo = volInfoRes.ok ? await volInfoRes.json() as { name?: string } : {}
+    const { calls: activeCalls } = await activeCallsRes.json() as { calls: Array<{ id: string; callerNumber: string }> }
+    const callRecord = activeCalls.find(c => c.id === parentCallSid)
+    await audit(dos.session, 'callAnswered', pubkey, {
+      callSid: parentCallSid,
+      volunteerName: volInfo.name || pubkey.slice(0, 12),
+      callerHash: callRecord?.callerNumber || 'unknown',
+    })
 
     // Bridge the call: connect volunteer to the caller waiting in queue
     const response = await twilio.handleCallAnswered({ parentCallSid })
@@ -1002,8 +1014,27 @@ async function handleTelephonyWebhook(
     if (callStatus === 'completed' || callStatus === 'busy' || callStatus === 'no-answer' || callStatus === 'failed') {
       const pubkey = url.searchParams.get('pubkey') || ''
       if (callStatus === 'completed') {
+        // Fetch call data + volunteer name BEFORE ending (handleCallEnded moves to history)
+        const [preCallRes, volInfoRes] = await Promise.all([
+          dos.calls.fetch(new Request('http://do/calls/active')),
+          pubkey ? dos.session.fetch(new Request(`http://do/volunteer/${pubkey}`)) : Promise.resolve(null),
+        ])
+        const { calls: preCalls } = await preCallRes.json() as { calls: Array<{ id: string; callerNumber: string; startedAt: string }> }
+        const preCall = preCalls.find(c => c.id === parentCallSid)
+        const volInfo = volInfoRes?.ok ? await volInfoRes.json() as { name?: string } : {}
+
         await dos.calls.fetch(new Request(`http://do/calls/${parentCallSid}/end`, { method: 'POST' }))
-        await audit(dos.session, 'callEnded', pubkey, { callSid: parentCallSid })
+
+        // Calculate duration from the pre-fetched start time
+        const duration = preCall
+          ? Math.floor((Date.now() - new Date(preCall.startedAt).getTime()) / 1000)
+          : undefined
+        await audit(dos.session, 'callEnded', pubkey, {
+          callSid: parentCallSid,
+          volunteerName: volInfo.name || (pubkey ? pubkey.slice(0, 12) : 'unknown'),
+          callerHash: preCall?.callerNumber || 'unknown',
+          duration,
+        })
         await maybeTranscribe(parentCallSid, pubkey, env, dos)
       }
     }
@@ -1206,6 +1237,12 @@ async function maybeTranscribe(
           ephemeralPubkey: adminEncrypted.ephemeralPubkey,
         }),
       }))
+
+      // Mark call record as having a transcription
+      await dos.calls.fetch(new Request(`http://do/calls/${callSid}/metadata`, {
+        method: 'PATCH',
+        body: JSON.stringify({ hasTranscription: true }),
+      }))
     }
   } catch {
     // Transcription failed — not critical
@@ -1265,6 +1302,12 @@ async function transcribeVoicemail(
           encryptedContent: adminEncrypted.encryptedContent,
           ephemeralPubkey: adminEncrypted.ephemeralPubkey,
         }),
+      }))
+
+      // Mark call record as having a transcription
+      await dos.calls.fetch(new Request(`http://do/calls/${callSid}/metadata`, {
+        method: 'PATCH',
+        body: JSON.stringify({ hasTranscription: true }),
       }))
     }
   } catch {

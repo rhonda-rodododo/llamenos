@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { onMessage, sendMessage } from './ws'
 import { startRinging, stopRinging } from './notifications'
-import { getMyShiftStatus, type ActiveCall, type ShiftStatus } from './api'
+import { getMyShiftStatus, listActiveCalls, type ActiveCall, type ShiftStatus } from './api'
 
 /**
  * Hook to manage real-time call state via WebSocket.
@@ -60,6 +60,34 @@ export function useCalls() {
       unsubUpdate()
     }
   }, [currentCall])
+
+  // Polling fallback — safety net when WS broadcasts are missed (e.g. DO hibernation)
+  useEffect(() => {
+    let mounted = true
+
+    const poll = () => {
+      listActiveCalls()
+        .then(({ calls: polledCalls }) => {
+          if (!mounted) return
+          setCalls(prev => {
+            // Only update if the call list actually changed
+            const prevIds = prev.map(c => `${c.id}:${c.status}`).sort().join(',')
+            const newIds = polledCalls.map(c => `${c.id}:${c.status}`).sort().join(',')
+            return prevIds === newIds ? prev : polledCalls
+          })
+          // Clear currentCall if it's no longer in active list
+          setCurrentCall(prev => {
+            if (!prev) return prev
+            return polledCalls.some(c => c.id === prev.id) ? prev : null
+          })
+        })
+        .catch(() => {})
+    }
+
+    poll() // Seed initial state on mount
+    const interval = setInterval(poll, 15_000)
+    return () => { mounted = false; clearInterval(interval) }
+  }, [])
 
   const answerCall = useCallback((callId: string) => {
     sendMessage('call:answer', { callId })
