@@ -4,6 +4,14 @@
   "compatibility_date": "2025-04-23",
   "compatibility_flags": ["nodejs_compat"],
 
+  // Disable the default workers.dev URL
+  "workers_dev": false,
+
+  // Custom domain
+  "routes": [
+    { "pattern": "demo.llamenos-hotline.com", "custom_domain": true }
+  ],
+
   // Serve the Vite-built SPA as static assets
   "assets": {
     "directory": "dist/client",

@@ -137,12 +137,10 @@ telephony.post('/volunteer-answer', async (c) => {
     dos.calls.fetch(new Request('http://do/calls/active')),
   ])
   const volInfo = volInfoRes.ok ? await volInfoRes.json() as { name?: string } : {}
-  const { calls: activeCalls } = await activeCallsRes.json() as { calls: Array<{ id: string; callerNumber: string }> }
+  const { calls: activeCalls } = await activeCallsRes.json() as { calls: Array<{ id: string; callerLast4?: string }> }
   const callRecord = activeCalls.find(call => call.id === parentCallSid)
   await audit(dos.session, 'callAnswered', pubkey, {
-    callSid: parentCallSid,
-    volunteerName: volInfo.name || pubkey.slice(0, 12),
-    callerHash: callRecord?.callerNumber || 'unknown',
+    callerLast4: callRecord?.callerLast4 || '',
   })
 
   const origin = new URL(c.req.url).origin
@@ -165,9 +163,8 @@ telephony.post('/call-status', async (c) => {
         dos.calls.fetch(new Request('http://do/calls/active')),
         pubkey ? dos.session.fetch(new Request(`http://do/volunteer/${pubkey}`)) : Promise.resolve(null),
       ])
-      const { calls: preCalls } = await preCallRes.json() as { calls: Array<{ id: string; callerNumber: string; startedAt: string }> }
+      const { calls: preCalls } = await preCallRes.json() as { calls: Array<{ id: string; callerLast4?: string; startedAt: string }> }
       const preCall = preCalls.find(call => call.id === parentCallSid)
-      const volInfo = volInfoRes?.ok ? await volInfoRes.json() as { name?: string } : {}
 
       await dos.calls.fetch(new Request(`http://do/calls/${parentCallSid}/end`, { method: 'POST' }))
 
@@ -175,9 +172,7 @@ telephony.post('/call-status', async (c) => {
         ? Math.floor((Date.now() - new Date(preCall.startedAt).getTime()) / 1000)
         : undefined
       await audit(dos.session, 'callEnded', pubkey, {
-        callSid: parentCallSid,
-        volunteerName: volInfo.name || (pubkey ? pubkey.slice(0, 12) : 'unknown'),
-        callerHash: preCall?.callerNumber || 'unknown',
+        callerLast4: preCall?.callerLast4 || '',
         duration,
       })
     }

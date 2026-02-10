@@ -47,6 +47,7 @@ export interface BanEntry {
 export interface CallRecord {
   id: string
   callerNumber: string
+  callerLast4?: string
   answeredBy: string | null
   startedAt: string
   endedAt?: string

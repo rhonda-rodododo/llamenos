@@ -147,10 +147,8 @@ function AuditDetails({ entry }: { entry: AuditLogEntry }) {
   const { t } = useTranslation()
   const details = entry.details || {}
 
-  // For call events, show caller hash and duration only
-  const callerHash = details.callerHash as string | undefined
+  const callerLast4 = details.callerLast4 as string | undefined
   const duration = details.duration as number | undefined
-  const volunteerName = details.volunteerName as string | undefined
 
   const isCallEvent = entry.event === 'callAnswered' || entry.event === 'callEnded' || entry.event === 'callMissed'
   const isVoicemail = entry.event === 'voicemailReceived'
@@ -158,9 +156,9 @@ function AuditDetails({ entry }: { entry: AuditLogEntry }) {
   if (isCallEvent) {
     return (
       <span className="flex flex-1 items-center gap-2 truncate text-xs text-muted-foreground">
-        {callerHash && (
+        {callerLast4 && (
           <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">
-            {callerHash.length > 12 ? callerHash.slice(0, 12) + '...' : callerHash}
+            ***{callerLast4}
           </code>
         )}
         {duration !== undefined && entry.event === 'callEnded' && (
@@ -176,11 +174,6 @@ function AuditDetails({ entry }: { entry: AuditLogEntry }) {
         {t('callHistory.hasVoicemail')}
       </span>
     )
-  }
-
-  // For non-call events, show a brief summary (volunteer name, etc.)
-  if (volunteerName) {
-    return <span className="flex-1 truncate text-xs text-muted-foreground">{volunteerName}</span>
   }
 
   return <span className="flex-1 text-xs text-muted-foreground">—</span>

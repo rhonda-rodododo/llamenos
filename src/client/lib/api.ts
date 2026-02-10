@@ -468,6 +468,7 @@ export interface ActiveCall {
 export interface CallRecord {
   id: string
   callerNumber: string
+  callerLast4?: string
   answeredBy: string
   startedAt: string
   endedAt: string

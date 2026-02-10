@@ -185,9 +185,14 @@ export class CallRouterDO extends DurableObject<Env> {
     callerNumber: string
     volunteerPubkeys: string[]
   }): Promise<Response> {
+    // Store last 4 digits for admin display, hash the rest
+    const digits = data.callerNumber.replace(/\D/g, '')
+    const last4 = digits.length >= 4 ? digits.slice(-4) : digits
+
     const call: CallRecord = {
       id: data.callSid,
       callerNumber: hashPhone(data.callerNumber),
+      callerLast4: last4,
       answeredBy: null,
       startedAt: new Date().toISOString(),
       status: 'ringing',

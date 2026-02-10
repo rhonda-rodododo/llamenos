@@ -195,9 +195,11 @@ function CallHistoryPage() {
                         </span>
                       </div>
                     )}
-                    <code className="text-[10px] text-muted-foreground font-mono">
-                      {call.callerNumber.length > 12 ? call.callerNumber.slice(0, 12) + '...' : call.callerNumber}
-                    </code>
+                    {call.callerLast4 && (
+                      <code className="text-[10px] text-muted-foreground font-mono">
+                        ***{call.callerLast4}
+                      </code>
+                    )}
                   </div>
                   {call.duration !== undefined && (
                     <Badge variant="outline" className="gap-1">
