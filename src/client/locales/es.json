@@ -123,7 +123,10 @@
     "enabledGlobal": "Transcripción habilitada (admin)",
     "disabledGlobal": "Transcripción deshabilitada por admin",
     "enableForCalls": "Habilitar transcripción para mis llamadas",
-    "disableForCalls": "Deshabilitar transcripción para mis llamadas"
+    "disableForCalls": "Deshabilitar transcripción para mis llamadas",
+    "allowOptOut": "Permitir a voluntarios desactivar la transcripción",
+    "allowOptOutDescription": "Cuando está desactivado, los voluntarios no pueden optar por no transcribir",
+    "managedByAdmin": "La transcripción es administrada por su administrador"
   },
   "shifts": {
     "title": "Horario de Turnos",

@@ -335,6 +335,14 @@ export default {
     }
     if (path === '/auth/me/transcription' && method === 'PATCH') {
       const body = await request.json() as { enabled: boolean }
+      // If volunteer is trying to disable, check if admin allows opt-out
+      if (!body.enabled && !isAdmin) {
+        const transRes = await dos.session.fetch(new Request('http://do/settings/transcription'))
+        const transSettings = await transRes.json() as { globalEnabled: boolean; allowVolunteerOptOut: boolean }
+        if (!transSettings.allowVolunteerOptOut) {
+          return error('Transcription opt-out is not allowed', 403)
+        }
+      }
       await dos.session.fetch(new Request(`http://do/volunteers/${pubkey}`, {
         method: 'PATCH',
         body: JSON.stringify({ transcriptionEnabled: body.enabled }),
@@ -659,7 +667,7 @@ export default {
       return res
     }
     if (path === '/settings/transcription' && method === 'GET') {
-      if (!isAdmin) return error('Forbidden', 403)
+      // All authenticated users can read transcription settings (to check opt-out policy)
       return dos.session.fetch(new Request('http://do/settings/transcription'))
     }
     if (path === '/settings/transcription' && method === 'PATCH') {

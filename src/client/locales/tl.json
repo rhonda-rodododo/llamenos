@@ -123,7 +123,10 @@
     "enabledGlobal": "Naka-enable ang transkripsyon (admin)",
     "disabledGlobal": "Naka-disable ang transkripsyon ng admin",
     "enableForCalls": "I-enable ang transkripsyon para sa aking mga tawag",
-    "disableForCalls": "I-disable ang transkripsyon para sa aking mga tawag"
+    "disableForCalls": "I-disable ang transkripsyon para sa aking mga tawag",
+    "allowOptOut": "Payagan ang mga volunteer na i-disable ang transkripsyon",
+    "allowOptOutDescription": "Kapag naka-disable, hindi maaaring mag-opt out ang mga volunteer sa transkripsyon",
+    "managedByAdmin": "Ang transkripsyon ay pinamamahalaan ng iyong admin"
   },
   "shifts": {
     "title": "Iskedyul ng Shift",

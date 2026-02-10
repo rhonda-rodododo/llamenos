@@ -86,15 +86,17 @@ test.describe('Profile self-service', () => {
     await expect(page.getByText(/npub1/)).toBeVisible()
   })
 
-  test('admin sees backup and spam cards in admin settings', async ({ page }) => {
+  test('admin sees key backup in user settings and spam in admin settings', async ({ page }) => {
     await loginAsAdmin(page)
-    await page.getByRole('link', { name: 'Admin Settings' }).click()
-    await expect(page.getByRole('heading', { name: 'Admin Settings', exact: true })).toBeVisible()
 
-    // Key Backup card
+    // Key Backup is in user settings
+    await page.getByRole('link', { name: 'Settings' }).last().click()
+    await expect(page.getByRole('heading', { name: 'Account Settings', exact: true })).toBeVisible()
     await expect(page.getByRole('heading', { name: /key backup/i })).toBeVisible()
 
-    // Spam Mitigation card — admin only
+    // Spam Mitigation is in admin settings
+    await page.getByRole('link', { name: 'Admin Settings' }).click()
+    await expect(page.getByRole('heading', { name: 'Admin Settings', exact: true })).toBeVisible()
     await expect(page.getByRole('heading', { name: /spam mitigation/i })).toBeVisible()
   })
 
@@ -172,7 +174,8 @@ test.describe('Profile self-service', () => {
     await expect(page.getByRole('heading', { name: 'Account Settings', exact: true })).toBeVisible()
 
     // Transcription section should be expanded — content should be visible
-    await expect(page.getByText(/enable transcription for my calls/i)).toBeVisible()
+    // When allowVolunteerOptOut is false (default), shows "managed by admin" instead of toggle
+    await expect(page.getByText(/transcription is managed by your admin/i)).toBeVisible()
   })
 
   test('sections collapse and expand on click', async ({ page }) => {
@@ -202,7 +205,7 @@ test.describe('Profile self-service', () => {
 
     // Expand Transcription too
     await page.getByRole('heading', { name: 'Transcription' }).click()
-    await expect(page.getByText(/enable transcription for my calls/i)).toBeVisible()
+    await expect(page.getByText(/transcription is managed by your admin/i)).toBeVisible()
 
     // Profile should still be expanded
     await expect(page.locator('#profile-name')).toBeVisible()

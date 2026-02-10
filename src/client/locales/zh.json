@@ -123,7 +123,10 @@
     "enabledGlobal": "转录已启用（管理员）",
     "disabledGlobal": "转录已被管理员禁用",
     "enableForCalls": "为我的通话启用转录",
-    "disableForCalls": "为我的通话禁用转录"
+    "disableForCalls": "为我的通话禁用转录",
+    "allowOptOut": "允许志愿者禁用转录",
+    "allowOptOutDescription": "禁用后，志愿者无法选择退出通话转录",
+    "managedByAdmin": "转录由管理员管理"
   },
   "shifts": {
     "title": "班次安排",

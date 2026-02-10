@@ -5,11 +5,12 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   updateMyTranscriptionPreference,
   updateMyProfile,
+  getTranscriptionSettings,
 } from '@/lib/api'
 import { getStoredSession, keyPairFromNsec } from '@/lib/crypto'
 import { nip19 } from 'nostr-tools'
 import { useToast } from '@/lib/toast'
-import { Settings2, Mic, Bell, User, Globe, Fingerprint, Trash2, Plus } from 'lucide-react'
+import { Settings2, Mic, Bell, User, Globe, Fingerprint, KeyRound, Trash2, Plus } from 'lucide-react'
 import { isWebAuthnAvailable, registerCredential, listCredentials, deleteCredential, type WebAuthnCredentialInfo } from '@/lib/webauthn'
 import { PhoneInput } from '@/components/phone-input'
 import { getNotificationPrefs, setNotificationPrefs } from '@/lib/notifications'
@@ -36,6 +37,7 @@ function SettingsPage() {
   const [myTranscription, setMyTranscription] = useState(transcriptionEnabled)
   const [notifPrefs, setNotifPrefs] = useState(getNotificationPrefs)
   const [loading, setLoading] = useState(true)
+  const [canOptOut, setCanOptOut] = useState(true)
   const [webauthnCreds, setWebauthnCreds] = useState<WebAuthnCredentialInfo[]>([])
   const [webauthnLabel, setWebauthnLabel] = useState('')
   const [webauthnRegistering, setWebauthnRegistering] = useState(false)
@@ -43,7 +45,7 @@ function SettingsPage() {
 
   // Collapsible state — profile expanded by default, plus any deep-linked section
   const [expanded, setExpanded] = useState<Set<string>>(() => {
-    const initial = new Set(['profile'])
+    const initial = new Set(['profile', 'key-backup'])
     if (section) initial.add(section)
     return initial
   })
@@ -73,18 +75,18 @@ function SettingsPage() {
   const npub = keyPair ? nip19.npubEncode(keyPair.publicKey) : ''
 
   useEffect(() => {
-    const promises: Promise<void>[] = []
+    const promises: Promise<void>[] = [
+      getTranscriptionSettings().then(r => {
+        setCanOptOut(r.allowVolunteerOptOut)
+      }).catch(() => {}),
+    ]
     // Load WebAuthn credentials for all users
     if (webauthnAvailable) {
       promises.push(listCredentials().then(setWebauthnCreds).catch(() => {}))
     }
-    if (promises.length > 0) {
-      Promise.all(promises)
-        .catch(() => toast(t('common.error'), 'error'))
-        .finally(() => setLoading(false))
-    } else {
-      setLoading(false)
-    }
+    Promise.all(promises)
+      .catch(() => toast(t('common.error'), 'error'))
+      .finally(() => setLoading(false))
   }, [])
 
   // Scroll to deep-linked section after loading
@@ -213,6 +215,36 @@ function SettingsPage() {
         </Button>
       </SettingsSection>
 
+      {/* Key Backup */}
+      <SettingsSection
+        id="key-backup"
+        title={t('profileSettings.keyBackup')}
+        description={t('profileSettings.keyBackupDescription')}
+        icon={<KeyRound className="h-5 w-5 text-muted-foreground" />}
+        expanded={expanded.has('key-backup')}
+        onToggle={(open) => toggleSection('key-backup', open)}
+      >
+        <Button variant="outline" onClick={() => {
+          if (!nsec || !keyPair) return
+          const backup = JSON.stringify({
+            version: 1,
+            format: 'llamenos-key-backup',
+            pubkey: keyPair.publicKey,
+            nsec,
+            createdAt: new Date().toISOString(),
+          }, null, 2)
+          const blob = new Blob([backup], { type: 'application/json' })
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = `llamenos-backup-${keyPair.publicKey.slice(0, 8)}.json`
+          a.click()
+          URL.revokeObjectURL(url)
+        }}>
+          {t('onboarding.downloadBackup')}
+        </Button>
+      </SettingsSection>
+
       {/* Passkeys (WebAuthn) — all users */}
       {webauthnAvailable && (
         <SettingsSection
@@ -302,22 +334,26 @@ function SettingsPage() {
         expanded={expanded.has('transcription')}
         onToggle={(open) => toggleSection('transcription', open)}
       >
-        <div className="flex items-center justify-between rounded-lg border border-border p-4">
-          <div className="space-y-0.5">
-            <Label>{t('transcription.enableForCalls')}</Label>
+        {canOptOut ? (
+          <div className="flex items-center justify-between rounded-lg border border-border p-4">
+            <div className="space-y-0.5">
+              <Label>{t('transcription.enableForCalls')}</Label>
+            </div>
+            <Switch
+              checked={myTranscription}
+              onCheckedChange={async (checked) => {
+                try {
+                  await updateMyTranscriptionPreference(checked)
+                  setMyTranscription(checked)
+                } catch {
+                  toast(t('common.error'), 'error')
+                }
+              }}
+            />
           </div>
-          <Switch
-            checked={myTranscription}
-            onCheckedChange={async (checked) => {
-              try {
-                await updateMyTranscriptionPreference(checked)
-                setMyTranscription(checked)
-              } catch {
-                toast(t('common.error'), 'error')
-              }
-            }}
-          />
-        </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">{t('transcription.managedByAdmin')}</p>
+        )}
       </SettingsSection>
 
       {/* Call Notifications */}

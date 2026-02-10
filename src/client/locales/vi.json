@@ -123,7 +123,10 @@
     "enabledGlobal": "Phiên âm đã bật (quản trị viên)",
     "disabledGlobal": "Phiên âm đã bị quản trị viên tắt",
     "enableForCalls": "Bật phiên âm cho cuộc gọi của tôi",
-    "disableForCalls": "Tắt phiên âm cho cuộc gọi của tôi"
+    "disableForCalls": "Tắt phiên âm cho cuộc gọi của tôi",
+    "allowOptOut": "Cho phép tình nguyện viên tắt phiên âm",
+    "allowOptOutDescription": "Khi tắt, tình nguyện viên không thể từ chối phiên âm cuộc gọi",
+    "managedByAdmin": "Phiên âm được quản lý bởi quản trị viên"
   },
   "shifts": {
     "title": "Lịch ca trực",

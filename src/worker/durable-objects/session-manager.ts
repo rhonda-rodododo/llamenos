@@ -587,12 +587,20 @@ export class SessionManagerDO extends DurableObject<Env> {
 
   private async getTranscriptionSettings(): Promise<Response> {
     const enabled = await this.ctx.storage.get<boolean>('transcriptionEnabled')
-    return Response.json({ globalEnabled: enabled ?? true })
+    const allowVolunteerOptOut = await this.ctx.storage.get<boolean>('allowVolunteerTranscriptionOptOut')
+    return Response.json({ globalEnabled: enabled ?? true, allowVolunteerOptOut: allowVolunteerOptOut ?? false })
   }
 
-  private async updateTranscriptionSettings(data: { globalEnabled: boolean }): Promise<Response> {
-    await this.ctx.storage.put('transcriptionEnabled', data.globalEnabled)
-    return Response.json({ globalEnabled: data.globalEnabled })
+  private async updateTranscriptionSettings(data: { globalEnabled?: boolean; allowVolunteerOptOut?: boolean }): Promise<Response> {
+    if (data.globalEnabled !== undefined) {
+      await this.ctx.storage.put('transcriptionEnabled', data.globalEnabled)
+    }
+    if (data.allowVolunteerOptOut !== undefined) {
+      await this.ctx.storage.put('allowVolunteerTranscriptionOptOut', data.allowVolunteerOptOut)
+    }
+    const enabled = await this.ctx.storage.get<boolean>('transcriptionEnabled')
+    const allowVolunteerOptOut = await this.ctx.storage.get<boolean>('allowVolunteerTranscriptionOptOut')
+    return Response.json({ globalEnabled: enabled ?? true, allowVolunteerOptOut: allowVolunteerOptOut ?? false })
   }
 
   private async getCallSettings(): Promise<Response> {

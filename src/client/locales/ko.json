@@ -123,7 +123,10 @@
     "enabledGlobal": "전사 활성화됨 (관리자)",
     "disabledGlobal": "관리자에 의해 전사 비활성화됨",
     "enableForCalls": "내 통화에 전사 활성화",
-    "disableForCalls": "내 통화에 전사 비활성화"
+    "disableForCalls": "내 통화에 전사 비활성화",
+    "allowOptOut": "자원봉사자가 전사를 비활성화하도록 허용",
+    "allowOptOutDescription": "비활성화 시 자원봉사자는 통화 전사를 거부할 수 없습니다",
+    "managedByAdmin": "전사는 관리자가 관리합니다"
   },
   "shifts": {
     "title": "교대 일정",

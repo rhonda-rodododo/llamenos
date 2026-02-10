@@ -123,7 +123,10 @@
     "enabledGlobal": "Transcrição ativada (admin)",
     "disabledGlobal": "Transcrição desativada pelo admin",
     "enableForCalls": "Ativar transcrição para minhas chamadas",
-    "disableForCalls": "Desativar transcrição para minhas chamadas"
+    "disableForCalls": "Desativar transcrição para minhas chamadas",
+    "allowOptOut": "Permitir que voluntários desativem a transcrição",
+    "allowOptOutDescription": "Quando desativado, voluntários não podem optar por não transcrever",
+    "managedByAdmin": "A transcrição é gerenciada pelo seu administrador"
   },
   "shifts": {
     "title": "Escala de Turnos",

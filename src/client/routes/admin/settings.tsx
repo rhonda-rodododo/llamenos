@@ -23,10 +23,8 @@ import {
   type CustomFieldDefinition,
 } from '@/lib/api'
 import { MAX_CUSTOM_FIELDS } from '@shared/types'
-import { getStoredSession, keyPairFromNsec } from '@/lib/crypto'
-import { nip19 } from 'nostr-tools'
 import { useToast } from '@/lib/toast'
-import { Settings2, Mic, ShieldAlert, Bot, Timer, KeyRound, Shield, Globe, Phone, Volume2, PhoneForwarded, Fingerprint, Trash2, Plus, StickyNote, ChevronUp, ChevronDown, Save } from 'lucide-react'
+import { Settings2, Mic, ShieldAlert, Bot, Timer, Shield, Globe, Phone, Volume2, PhoneForwarded, Fingerprint, Trash2, Plus, StickyNote, ChevronUp, ChevronDown, Save } from 'lucide-react'
 import { getWebAuthnSettings, updateWebAuthnSettings, type WebAuthnSettings } from '@/lib/api'
 import { AudioRecorder } from '@/components/audio-recorder'
 import { LANGUAGES, IVR_LANGUAGES, LANGUAGE_MAP, ivrIndexToDigit } from '@shared/languages'
@@ -53,6 +51,7 @@ function AdminSettingsPage() {
   const [spam, setSpam] = useState<SpamSettings | null>(null)
   const [callSet, setCallSet] = useState<CallSettings | null>(null)
   const [globalTranscription, setGlobalTranscription] = useState(false)
+  const [allowVolunteerOptOut, setAllowVolunteerOptOut] = useState(false)
   const [ivrEnabled, setIvrEnabled] = useState<string[]>([...IVR_LANGUAGES])
   const [ivrAudio, setIvrAudio] = useState<IvrAudioRecording[]>([])
   const [audioSaving, setAudioSaving] = useState<string | null>(null)
@@ -63,13 +62,9 @@ function AdminSettingsPage() {
   const [editingField, setEditingField] = useState<Partial<CustomFieldDefinition> | null>(null)
   const [fieldSaving, setFieldSaving] = useState(false)
 
-  // Key backup
-  const nsec = getStoredSession()
-  const keyPair = nsec ? keyPairFromNsec(nsec) : null
-
   // Collapsible state — first section expanded by default, plus any deep-linked section
   const [expanded, setExpanded] = useState<Set<string>>(() => {
-    const initial = new Set(['key-backup'])
+    const initial = new Set(['passkey-policy'])
     if (section) initial.add(section)
     return initial
   })
@@ -92,7 +87,10 @@ function AdminSettingsPage() {
     const promises: Promise<void>[] = [
       getSpamSettings().then(setSpam),
       getCallSettings().then(setCallSet),
-      getTranscriptionSettings().then(r => setGlobalTranscription(r.globalEnabled)),
+      getTranscriptionSettings().then(r => {
+        setGlobalTranscription(r.globalEnabled)
+        setAllowVolunteerOptOut(r.allowVolunteerOptOut)
+      }),
       getIvrLanguages().then(r => setIvrEnabled(r.enabledLanguages)),
       listIvrAudio().then(r => setIvrAudio(r.recordings)),
       getWebAuthnSettings().then(setWebauthnSettings).catch(() => {}),
@@ -160,37 +158,6 @@ function AdminSettingsPage() {
       </div>
       <p className="text-sm text-muted-foreground">{t('settings.adminDescription')}</p>
 
-      {/* Key Backup */}
-      <SettingsSection
-        id="key-backup"
-        title={t('profileSettings.keyBackup')}
-        description={t('profileSettings.keyBackupDescription')}
-        icon={<KeyRound className="h-5 w-5 text-muted-foreground" />}
-        expanded={expanded.has('key-backup')}
-        onToggle={(open) => toggleSection('key-backup', open)}
-        basePath="/admin/settings"
-      >
-        <Button variant="outline" onClick={() => {
-          if (!nsec || !keyPair) return
-          const backup = JSON.stringify({
-            version: 1,
-            format: 'llamenos-key-backup',
-            pubkey: keyPair.publicKey,
-            nsec,
-            createdAt: new Date().toISOString(),
-          }, null, 2)
-          const blob = new Blob([backup], { type: 'application/json' })
-          const url = URL.createObjectURL(blob)
-          const a = document.createElement('a')
-          a.href = url
-          a.download = `llamenos-backup-${keyPair.publicKey.slice(0, 8)}.json`
-          a.click()
-          URL.revokeObjectURL(url)
-        }}>
-          {t('onboarding.downloadBackup')}
-        </Button>
-      </SettingsSection>
-
       {/* WebAuthn Policy */}
       {webauthnSettings && (
         <SettingsSection
@@ -255,6 +222,23 @@ function AdminSettingsPage() {
           <Switch
             checked={globalTranscription}
             onCheckedChange={(checked) => setConfirmToggle({ key: 'transcription', newValue: checked })}
+          />
+        </div>
+        <div className="flex items-center justify-between rounded-lg border border-border p-4">
+          <div className="space-y-0.5">
+            <Label>{t('transcription.allowOptOut')}</Label>
+            <p className="text-xs text-muted-foreground">{t('transcription.allowOptOutDescription')}</p>
+          </div>
+          <Switch
+            checked={allowVolunteerOptOut}
+            onCheckedChange={async (checked) => {
+              try {
+                const res = await updateTranscriptionSettings({ allowVolunteerOptOut: checked })
+                setAllowVolunteerOptOut(res.allowVolunteerOptOut)
+              } catch {
+                toast(t('common.error'), 'error')
+              }
+            }}
           />
         </div>
       </SettingsSection>

@@ -128,7 +128,10 @@
     "enabledGlobal": "Transcription enabled (admin)",
     "disabledGlobal": "Transcription disabled by admin",
     "enableForCalls": "Enable transcription for my calls",
-    "disableForCalls": "Disable transcription for my calls"
+    "disableForCalls": "Disable transcription for my calls",
+    "allowOptOut": "Allow volunteers to disable transcription",
+    "allowOptOutDescription": "When disabled, volunteers cannot opt out of call transcription",
+    "managedByAdmin": "Transcription is managed by your admin"
   },
   "shifts": {
     "title": "Shift Schedule",

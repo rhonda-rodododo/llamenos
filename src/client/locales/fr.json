@@ -123,7 +123,10 @@
     "enabledGlobal": "Transcription activée (admin)",
     "disabledGlobal": "Transcription désactivée par l'admin",
     "enableForCalls": "Activer la transcription pour mes appels",
-    "disableForCalls": "Désactiver la transcription pour mes appels"
+    "disableForCalls": "Désactiver la transcription pour mes appels",
+    "allowOptOut": "Permettre aux bénévoles de désactiver la transcription",
+    "allowOptOutDescription": "Lorsque désactivé, les bénévoles ne peuvent pas refuser la transcription des appels",
+    "managedByAdmin": "La transcription est gérée par votre administrateur"
   },
   "shifts": {
     "title": "Horaire des quarts",

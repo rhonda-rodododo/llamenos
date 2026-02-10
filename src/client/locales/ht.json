@@ -123,7 +123,10 @@
     "enabledGlobal": "Transkripsyon aktive (admin)",
     "disabledGlobal": "Transkripsyon dezaktive pa admin",
     "enableForCalls": "Aktive transkripsyon pou apèl mwen yo",
-    "disableForCalls": "Dezaktive transkripsyon pou apèl mwen yo"
+    "disableForCalls": "Dezaktive transkripsyon pou apèl mwen yo",
+    "allowOptOut": "Pèmèt volontè yo dezaktive transkripsyon",
+    "allowOptOutDescription": "Lè dezaktive, volontè yo pa ka refize transkripsyon apèl",
+    "managedByAdmin": "Transkripsyon jere pa administratè w la"
   },
   "shifts": {
     "title": "Orè Ouvèti",

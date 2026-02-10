@@ -123,7 +123,10 @@
     "enabledGlobal": "النسخ مفعل (المسؤول)",
     "disabledGlobal": "النسخ معطل من قبل المسؤول",
     "enableForCalls": "تفعيل النسخ لمكالماتي",
-    "disableForCalls": "تعطيل النسخ لمكالماتي"
+    "disableForCalls": "تعطيل النسخ لمكالماتي",
+    "allowOptOut": "السماح للمتطوعين بتعطيل النسخ",
+    "allowOptOutDescription": "عند التعطيل، لا يمكن للمتطوعين إلغاء الاشتراك في نسخ المكالمات",
+    "managedByAdmin": "يتم إدارة النسخ بواسطة المسؤول"
   },
   "shifts": {
     "title": "جدول المناوبات",

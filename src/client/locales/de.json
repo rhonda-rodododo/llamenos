@@ -123,7 +123,10 @@
     "enabledGlobal": "Transkription aktiviert (Admin)",
     "disabledGlobal": "Transkription vom Admin deaktiviert",
     "enableForCalls": "Transkription für meine Anrufe aktivieren",
-    "disableForCalls": "Transkription für meine Anrufe deaktivieren"
+    "disableForCalls": "Transkription für meine Anrufe deaktivieren",
+    "allowOptOut": "Freiwilligen erlauben, die Transkription zu deaktivieren",
+    "allowOptOutDescription": "Wenn deaktiviert, können Freiwillige die Anruftranskription nicht abwählen",
+    "managedByAdmin": "Die Transkription wird von Ihrem Administrator verwaltet"
   },
   "shifts": {
     "title": "Schichtplan",

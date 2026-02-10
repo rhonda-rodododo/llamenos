@@ -276,11 +276,11 @@ export async function updateIvrLanguages(data: { enabledLanguages: string[] }) {
 // --- Transcription Settings ---
 
 export async function getTranscriptionSettings() {
-  return request<{ globalEnabled: boolean }>('/settings/transcription')
+  return request<{ globalEnabled: boolean; allowVolunteerOptOut: boolean }>('/settings/transcription')
 }
 
-export async function updateTranscriptionSettings(data: { globalEnabled: boolean }) {
-  return request<{ globalEnabled: boolean }>('/settings/transcription', {
+export async function updateTranscriptionSettings(data: { globalEnabled?: boolean; allowVolunteerOptOut?: boolean }) {
+  return request<{ globalEnabled: boolean; allowVolunteerOptOut: boolean }>('/settings/transcription', {
     method: 'PATCH',
     body: JSON.stringify(data),
   })
