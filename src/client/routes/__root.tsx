@@ -112,7 +112,7 @@ const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'frid
 function AuthenticatedLayout() {
   const { t } = useTranslation()
   const { isAdmin, signOut, name, role, sessionExpiring, sessionExpired, renewSession } = useAuth()
-  const { hotlineName } = useConfig()
+  const { hotlineName, hotlineNumber } = useConfig()
   const { theme, setTheme } = useTheme()
   const navigate = useNavigate()
   const location = useLocation()
@@ -175,7 +175,7 @@ function AuthenticatedLayout() {
               {/* Shift status indicator */}
               {!currentCall && (
                 <div className="flex items-center gap-1.5 px-2">
-                  <span className={`h-2 w-2 rounded-full ${onShift ? 'bg-green-500' : 'bg-gray-400'}`} />
+                  <span className={`h-2 w-2 shrink-0 rounded-full ${onShift ? 'bg-green-500' : 'bg-gray-400'}`} />
                   <span className="text-xs text-muted-foreground">
                     {onShift && currentShift
                       ? `${currentShift.name} — ${t('shifts.until')} ${currentShift.endTime}`
@@ -184,6 +184,13 @@ function AuthenticatedLayout() {
                         : t('shifts.noShiftsAssigned')
                     }
                   </span>
+                </div>
+              )}
+              {/* Hotline number */}
+              {hotlineNumber && (
+                <div className="flex items-center gap-1.5 px-2">
+                  <PhoneIncoming className="h-3 w-3 shrink-0 text-muted-foreground" />
+                  <span className="font-mono text-xs text-muted-foreground">{hotlineNumber}</span>
                 </div>
               )}
             </div>
@@ -211,10 +218,10 @@ function AuthenticatedLayout() {
           <NavLink to="/settings" icon={<Settings className="h-4 w-4" />}>{t('nav.settings')}</NavLink>
         </div>
 
-        <div className="border-t border-border p-3 space-y-2">
-          <LanguageSelect size="sm" />
-          <div className="flex items-center gap-1.5">
-            {theme === 'dark' ? <Moon className="h-3.5 w-3.5 text-muted-foreground" /> : theme === 'light' ? <Sun className="h-3.5 w-3.5 text-muted-foreground" /> : <Monitor className="h-3.5 w-3.5 text-muted-foreground" />}
+        <div className="border-t border-border p-3 space-y-1">
+          <LanguageSelect size="sm" fullWidth />
+          <div className="flex items-center gap-2 rounded-md px-3 py-2">
+            {theme === 'dark' ? <Moon className="h-4 w-4 text-muted-foreground" /> : theme === 'light' ? <Sun className="h-4 w-4 text-muted-foreground" /> : <Monitor className="h-4 w-4 text-muted-foreground" />}
             <div className="flex gap-0.5">
               {([['system', Monitor], ['light', Sun], ['dark', Moon]] as const).map(([value, Icon]) => (
                 <button
@@ -223,7 +230,7 @@ function AuthenticatedLayout() {
                   className={`rounded px-1.5 py-0.5 text-xs transition-colors ${theme === value ? 'bg-primary/20 text-primary font-medium' : 'text-muted-foreground hover:text-foreground'}`}
                   aria-label={t(`a11y.theme${value.charAt(0).toUpperCase() + value.slice(1)}`)}
                 >
-                  <Icon className="h-3 w-3" />
+                  <Icon className="h-3.5 w-3.5" />
                 </button>
               ))}
             </div>

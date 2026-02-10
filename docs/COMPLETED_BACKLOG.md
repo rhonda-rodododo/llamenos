@@ -1,5 +1,27 @@
 # Completed Backlog
 
+## 2026-02-09: Sidebar & Shifts UX Improvements
+
+### Volunteer Autocomplete Multi-Select
+- [x] Created `VolunteerMultiSelect` component using Popover + Command + Badge chips
+- [x] Searchable by name, phone, or pubkey fragment (cmdk fuzzy matching)
+- [x] Tag-style display with X to remove, accessible keyboard interaction
+- [x] Installed shadcn/ui Popover component (Radix)
+- [x] Replaced checkbox-based volunteer selection in ShiftForm and Fallback Group
+- [x] i18n: `searchVolunteers`, `noVolunteersFound`, `selectedCount`, `removeVolunteer` in all 13 locales
+
+### Hotline Number in Sidebar
+- [x] Exposed `TWILIO_PHONE_NUMBER` via `/config` API endpoint as `hotlineNumber`
+- [x] Added `hotlineNumber` to ConfigProvider context
+- [x] Displayed hotline number below shift status indicator in sidebar (visible to all authenticated users)
+
+### Sidebar Bottom Section Alignment
+- [x] Unified icon sizes to `h-4 w-4` across theme row, command palette, and logout
+- [x] Aligned theme switcher row with consistent `px-3 py-2 gap-2` padding matching other rows
+- [x] Made LanguageSelect full-width in sidebar via `fullWidth` prop
+- [x] Tightened vertical spacing from `space-y-2` to `space-y-1` for compact layout
+- [x] All 103 E2E tests passing (0 regressions)
+
 ## 2026-02-09: Epic 31 — Custom Note Fields
 
 ### Epic 31: Admin-Configurable Custom Fields for Call Notes

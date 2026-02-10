@@ -55,8 +55,8 @@ export class ApiError extends Error {
 
 export async function getConfig() {
   const res = await fetch(`${API_BASE}/config`)
-  if (!res.ok) return { hotlineName: 'Hotline' }
-  return res.json() as Promise<{ hotlineName: string }>
+  if (!res.ok) return { hotlineName: 'Hotline', hotlineNumber: '' }
+  return res.json() as Promise<{ hotlineName: string; hotlineNumber: string }>
 }
 
 // --- Auth ---

@@ -123,7 +123,7 @@ export default {
 
     // --- Public config (no auth) ---
     if (path === '/config' && method === 'GET') {
-      return json({ hotlineName: env.HOTLINE_NAME || 'Hotline' })
+      return json({ hotlineName: env.HOTLINE_NAME || 'Hotline', hotlineNumber: env.TWILIO_PHONE_NUMBER || '' })
     }
 
     // --- Telephony Webhooks (no auth — validated by Twilio signature) ---

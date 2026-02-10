@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/select'
 import { Globe } from 'lucide-react'
 
-export function LanguageSelect({ size = 'default' }: { size?: 'sm' | 'default' }) {
+export function LanguageSelect({ size = 'default', fullWidth = false }: { size?: 'sm' | 'default'; fullWidth?: boolean }) {
   const { i18n, t } = useTranslation()
   const current = LANGUAGE_MAP[i18n.language]
 
@@ -18,7 +18,7 @@ export function LanguageSelect({ size = 'default' }: { size?: 'sm' | 'default' }
     <Select value={i18n.language} onValueChange={setLanguage}>
       <SelectTrigger
         size={size}
-        className="gap-1.5"
+        className={`gap-1.5 ${fullWidth ? 'w-full' : ''}`}
         aria-label={t('a11y.switchToLanguage', { language: current?.label ?? 'English' })}
       >
         <Globe className="h-3.5 w-3.5 text-muted-foreground" />
