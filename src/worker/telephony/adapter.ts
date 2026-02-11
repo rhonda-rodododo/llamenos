@@ -10,7 +10,7 @@ export interface WebhookDigits {
 }
 
 export interface WebhookCallStatus {
-  status: 'completed' | 'busy' | 'no-answer' | 'failed'
+  status: 'initiated' | 'ringing' | 'answered' | 'completed' | 'busy' | 'no-answer' | 'failed'
 }
 
 export interface WebhookQueueResult {

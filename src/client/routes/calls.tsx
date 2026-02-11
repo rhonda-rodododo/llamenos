@@ -209,14 +209,18 @@ function CallHistoryPage() {
                   )}
                   <div className="flex items-center gap-1.5">
                     {call.hasVoicemail && (
-                      <Badge variant="secondary" className="gap-1">
-                        <Voicemail className="h-3 w-3" />
-                      </Badge>
+                      <Link to="/notes" search={{ page: 1, callId: call.id, search: '' }}>
+                        <Badge variant="secondary" className="gap-1 cursor-pointer hover:bg-muted">
+                          <Voicemail className="h-3 w-3" />
+                        </Badge>
+                      </Link>
                     )}
                     {call.hasTranscription && (
-                      <Badge variant="secondary" className="gap-1">
-                        <Mic className="h-3 w-3" />
-                      </Badge>
+                      <Link to="/notes" search={{ page: 1, callId: call.id, search: '' }}>
+                        <Badge variant="secondary" className="gap-1 cursor-pointer hover:bg-muted">
+                          <Mic className="h-3 w-3" />
+                        </Badge>
+                      </Link>
                     )}
                   </div>
                   <span className="flex-1 text-right text-xs text-muted-foreground">

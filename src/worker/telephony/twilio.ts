@@ -564,10 +564,14 @@ export class TwilioAdapter implements TelephonyAdapter {
     const form = await request.clone().formData()
     const raw = form.get('CallStatus') as string
     const STATUS_MAP: Record<string, WebhookCallStatus['status']> = {
+      initiated: 'initiated',
+      ringing: 'ringing',
+      'in-progress': 'answered',
       completed: 'completed',
       busy: 'busy',
       'no-answer': 'no-answer',
       failed: 'failed',
+      canceled: 'failed',
     }
     return { status: STATUS_MAP[raw] ?? 'failed' }
   }

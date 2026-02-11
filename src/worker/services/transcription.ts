@@ -3,6 +3,15 @@ import type { DurableObjects } from '../lib/do-access'
 import { getTelephony } from '../lib/do-access'
 import { encryptForPublicKey } from '../lib/crypto'
 
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer)
+  let binary = ''
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i])
+  }
+  return btoa(binary)
+}
+
 export async function maybeTranscribe(
   parentCallSid: string,
   recordingSid: string,
@@ -27,10 +36,11 @@ export async function maybeTranscribe(
   if (!audio) return
 
   try {
-    // Transcribe using Cloudflare Workers AI (Whisper)
-    const result = await env.AI.run('@cf/openai/whisper', {
-      audio: [...new Uint8Array(audio)],
-    })
+    // Transcribe using Cloudflare Workers AI (Whisper large-v3-turbo)
+    const base64Audio = arrayBufferToBase64(audio)
+    const result = await env.AI.run('@cf/openai/whisper-large-v3-turbo', {
+      audio: base64Audio,
+    }) as { text?: string }
 
     if (result.text) {
       // ECIES: encrypt transcription for the volunteer's public key
@@ -63,8 +73,8 @@ export async function maybeTranscribe(
         body: JSON.stringify({ hasTranscription: true }),
       }))
     }
-  } catch {
-    // Transcription failed — not critical
+  } catch (err) {
+    console.error('[transcription] maybeTranscribe failed:', err)
   }
 }
 
@@ -84,9 +94,10 @@ export async function transcribeVoicemail(
   if (!audio) return
 
   try {
-    const result = await env.AI.run('@cf/openai/whisper', {
-      audio: [...new Uint8Array(audio)],
-    })
+    const base64Audio = arrayBufferToBase64(audio)
+    const result = await env.AI.run('@cf/openai/whisper-large-v3-turbo', {
+      audio: base64Audio,
+    }) as { text?: string }
 
     if (result.text) {
       // Voicemails are encrypted only for admin (no volunteer answered)
@@ -107,7 +118,7 @@ export async function transcribeVoicemail(
         body: JSON.stringify({ hasTranscription: true }),
       }))
     }
-  } catch {
-    // Voicemail transcription failed — not critical
+  } catch (err) {
+    console.error('[transcription] transcribeVoicemail failed:', err)
   }
 }
