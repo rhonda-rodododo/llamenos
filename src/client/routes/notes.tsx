@@ -1,8 +1,8 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, useNavigate, Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth'
-import { useEffect, useState, useCallback } from 'react'
-import { listNotes, createNote, updateNote, getCallHistory, getCustomFields, type EncryptedNote, type CallRecord, type CustomFieldDefinition } from '@/lib/api'
+import { useEffect, useState, useCallback, useMemo } from 'react'
+import { listNotes, createNote, updateNote, getCallHistory, listVolunteers, getCustomFields, type EncryptedNote, type CallRecord, type CustomFieldDefinition, type Volunteer } from '@/lib/api'
 import { useCalls } from '@/lib/hooks'
 import { encryptNote, decryptNote, decryptTranscription, encryptExport } from '@/lib/crypto'
 import { useToast } from '@/lib/toast'
@@ -55,6 +55,9 @@ function NotesPage() {
   const [recentCalls, setRecentCalls] = useState<CallRecord[]>([])
   const [searchInput, setSearchInput] = useState(search)
   const [customFields, setCustomFields] = useState<CustomFieldDefinition[]>([])
+  const [volunteers, setVolunteers] = useState<Volunteer[]>([])
+  const [editFields, setEditFields] = useState<Record<string, string | number | boolean>>({})
+  const [newNoteFields, setNewNoteFields] = useState<Record<string, string | number | boolean>>({})
   const limit = 50
 
   // Auto-fill call ID from active call
@@ -64,13 +67,26 @@ function NotesPage() {
     }
   }, [currentCall])
 
-  // Load recent calls for the dropdown and custom fields
+  // Load recent calls for the dropdown, custom fields, and volunteer names
   useEffect(() => {
     getCustomFields().then(r => setCustomFields(r.fields)).catch(() => {})
     if (isAdmin) {
-      getCallHistory({ limit: 20 }).then(r => setRecentCalls(r.calls)).catch(() => {})
+      getCallHistory({ limit: 100 }).then(r => setRecentCalls(r.calls)).catch(() => {})
+      listVolunteers().then(r => setVolunteers(r.volunteers)).catch(() => {})
     }
   }, [isAdmin])
+
+  const nameMap = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const v of volunteers) map.set(v.pubkey, v.name)
+    return map
+  }, [volunteers])
+
+  const callInfoMap = useMemo(() => {
+    const map = new Map<string, CallRecord>()
+    for (const c of recentCalls) map.set(c.id, c)
+    return map
+  }, [recentCalls])
 
   const loadNotes = useCallback(() => {
     setLoading(true)
@@ -112,11 +128,9 @@ function NotesPage() {
     if (!keyPair || !editText.trim()) return
     setSaving(true)
     try {
-      // Preserve existing custom field values when editing text inline
-      const existingNote = notes.find(n => n.id === noteId)
       const payload: NotePayload = { text: editText }
-      if (existingNote?.payload.fields) {
-        payload.fields = existingNote.payload.fields
+      if (Object.keys(editFields).length > 0) {
+        payload.fields = editFields
       }
       const encrypted = encryptNote(payload, keyPair.secretKey)
       const res = await updateNote(noteId, { encryptedContent: encrypted })
@@ -137,6 +151,9 @@ function NotesPage() {
     setSaving(true)
     try {
       const payload: NotePayload = { text: newNoteText }
+      if (Object.keys(newNoteFields).length > 0) {
+        payload.fields = newNoteFields
+      }
       const encrypted = encryptNote(payload, keyPair.secretKey)
       const res = await createNote({ callId: newNoteCallId, encryptedContent: encrypted })
       setNotes(prev => [
@@ -146,6 +163,7 @@ function NotesPage() {
       setTotal(prev => prev + 1)
       setNewNoteText('')
       setNewNoteCallId('')
+      setNewNoteFields({})
       setShowNewNote(false)
     } catch {
       toast(t('common.error'), 'error')
@@ -329,6 +347,61 @@ function NotesPage() {
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
+            {visibleFields.length > 0 && (
+              <div className="space-y-3 border-t pt-3">
+                {visibleFields.map(field => (
+                  <div key={field.id} className="space-y-1">
+                    <Label className="text-xs">{field.label}{field.required ? ' *' : ''}</Label>
+                    {field.type === 'text' && (
+                      <Input
+                        value={String(newNoteFields[field.id] ?? '')}
+                        onChange={e => setNewNoteFields(prev => ({ ...prev, [field.id]: e.target.value }))}
+                      />
+                    )}
+                    {field.type === 'number' && (
+                      <Input
+                        type="number"
+                        value={newNoteFields[field.id] !== undefined ? String(newNoteFields[field.id]) : ''}
+                        onChange={e => setNewNoteFields(prev => ({ ...prev, [field.id]: e.target.value ? Number(e.target.value) : '' }))}
+                      />
+                    )}
+                    {field.type === 'textarea' && (
+                      <textarea
+                        value={String(newNoteFields[field.id] ?? '')}
+                        onChange={e => setNewNoteFields(prev => ({ ...prev, [field.id]: e.target.value }))}
+                        rows={3}
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      />
+                    )}
+                    {field.type === 'select' && (
+                      <Select
+                        value={String(newNoteFields[field.id] ?? '')}
+                        onValueChange={v => setNewNoteFields(prev => ({ ...prev, [field.id]: v }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {field.options?.map(opt => (
+                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    {field.type === 'checkbox' && (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(newNoteFields[field.id])}
+                          onChange={e => setNewNoteFields(prev => ({ ...prev, [field.id]: e.target.checked }))}
+                          className="h-4 w-4 rounded border-input"
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="flex gap-2">
               <Button onClick={handleCreateNote} disabled={saving || !newNoteText.trim() || !newNoteCallId.trim() || newNoteCallId === '__manual'}>
                 <Save className="h-4 w-4" />
@@ -368,7 +441,39 @@ function NotesPage() {
           {Object.entries(notesByCall).map(([cId, callNotes]) => (
             <Card key={cId}>
               <CardHeader className="border-b py-3">
-                <CardTitle className="text-sm">{t('notes.callWith', { number: cId.slice(0, 20) })}</CardTitle>
+                <CardTitle className="text-sm">
+                  {(() => {
+                    const callInfo = callInfoMap.get(cId)
+                    if (!callInfo) return t('notes.callWith', { number: cId.slice(0, 12) + '...' })
+                    const volunteerName = callInfo.answeredBy ? nameMap.get(callInfo.answeredBy) : null
+                    const phone = callInfo.callerLast4 ? `***${callInfo.callerLast4}` : ''
+                    return (
+                      <span className="flex flex-wrap items-center gap-1.5">
+                        {callInfo.status === 'unanswered' ? (
+                          <span className="text-destructive">{t('callHistory.unanswered')}</span>
+                        ) : volunteerName && isAdmin ? (
+                          <Link to="/volunteers/$pubkey" params={{ pubkey: callInfo.answeredBy }} className="text-primary hover:underline">
+                            {volunteerName}
+                          </Link>
+                        ) : volunteerName ? (
+                          <span>{volunteerName}</span>
+                        ) : (
+                          <span>{t('callHistory.answeredBy')}</span>
+                        )}
+                        {phone && (
+                          <>
+                            <span className="text-muted-foreground">&middot;</span>
+                            <code className="text-xs font-mono text-muted-foreground">{phone}</code>
+                          </>
+                        )}
+                        <span className="text-muted-foreground">&middot;</span>
+                        <span className="text-xs text-muted-foreground font-normal">
+                          {new Date(callInfo.startedAt).toLocaleString()}
+                        </span>
+                      </span>
+                    )
+                  })()}
+                </CardTitle>
               </CardHeader>
               <CardContent className="p-0 divide-y divide-border">
                 {callNotes.map(note => (
@@ -387,19 +492,74 @@ function NotesPage() {
                           )}
                         </div>
                         {editingId === note.id ? (
-                          <div className="mt-2 space-y-2">
+                          <div className="mt-2 space-y-3">
                             <textarea
                               value={editText}
                               onChange={e => setEditText(e.target.value)}
                               rows={6}
                               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                             />
+                            {visibleFields.length > 0 && (
+                              <div className="space-y-3 border-t pt-3">
+                                {visibleFields.map(field => (
+                                  <div key={field.id} className="space-y-1">
+                                    <Label className="text-xs">{field.label}{field.required ? ' *' : ''}</Label>
+                                    {field.type === 'text' && (
+                                      <Input
+                                        value={String(editFields[field.id] ?? '')}
+                                        onChange={e => setEditFields(prev => ({ ...prev, [field.id]: e.target.value }))}
+                                      />
+                                    )}
+                                    {field.type === 'number' && (
+                                      <Input
+                                        type="number"
+                                        value={editFields[field.id] !== undefined ? String(editFields[field.id]) : ''}
+                                        onChange={e => setEditFields(prev => ({ ...prev, [field.id]: e.target.value ? Number(e.target.value) : '' }))}
+                                      />
+                                    )}
+                                    {field.type === 'textarea' && (
+                                      <textarea
+                                        value={String(editFields[field.id] ?? '')}
+                                        onChange={e => setEditFields(prev => ({ ...prev, [field.id]: e.target.value }))}
+                                        rows={3}
+                                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                                      />
+                                    )}
+                                    {field.type === 'select' && (
+                                      <Select
+                                        value={String(editFields[field.id] ?? '')}
+                                        onValueChange={v => setEditFields(prev => ({ ...prev, [field.id]: v }))}
+                                      >
+                                        <SelectTrigger>
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {field.options?.map(opt => (
+                                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    )}
+                                    {field.type === 'checkbox' && (
+                                      <div className="flex items-center gap-2">
+                                        <input
+                                          type="checkbox"
+                                          checked={Boolean(editFields[field.id])}
+                                          onChange={e => setEditFields(prev => ({ ...prev, [field.id]: e.target.checked }))}
+                                          className="h-4 w-4 rounded border-input"
+                                        />
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                             <div className="flex gap-2">
                               <Button size="sm" onClick={() => handleSaveEdit(note.id)} disabled={saving}>
                                 <Save className="h-3.5 w-3.5" />
                                 {saving ? t('common.loading') : t('common.save')}
                               </Button>
-                              <Button size="sm" variant="outline" onClick={() => { setEditingId(null); setEditText('') }}>
+                              <Button size="sm" variant="outline" onClick={() => { setEditingId(null); setEditText(''); setEditFields({}) }}>
                                 <X className="h-3.5 w-3.5" />
                                 {t('common.cancel')}
                               </Button>
@@ -432,7 +592,7 @@ function NotesPage() {
                         <Button
                           variant="ghost"
                           size="icon-xs"
-                          onClick={() => { setEditingId(note.id); setEditText(note.decrypted) }}
+                          onClick={() => { setEditingId(note.id); setEditText(note.decrypted); setEditFields(note.payload.fields || {}) }}
                           aria-label={t('a11y.editItem')}
                         >
                           <Pencil className="h-3 w-3" />
