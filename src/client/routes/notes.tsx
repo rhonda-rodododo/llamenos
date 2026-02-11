@@ -351,15 +351,17 @@ function NotesPage() {
               <div className="space-y-3 border-t pt-3">
                 {visibleFields.map(field => (
                   <div key={field.id} className="space-y-1">
-                    <Label className="text-xs">{field.label}{field.required ? ' *' : ''}</Label>
+                    <Label htmlFor={`new-field-${field.name}`} className="text-xs">{field.label}{field.required ? ' *' : ''}</Label>
                     {field.type === 'text' && (
                       <Input
+                        id={`new-field-${field.name}`}
                         value={String(newNoteFields[field.id] ?? '')}
                         onChange={e => setNewNoteFields(prev => ({ ...prev, [field.id]: e.target.value }))}
                       />
                     )}
                     {field.type === 'number' && (
                       <Input
+                        id={`new-field-${field.name}`}
                         type="number"
                         value={newNoteFields[field.id] !== undefined ? String(newNoteFields[field.id]) : ''}
                         onChange={e => setNewNoteFields(prev => ({ ...prev, [field.id]: e.target.value ? Number(e.target.value) : '' }))}
@@ -367,6 +369,7 @@ function NotesPage() {
                     )}
                     {field.type === 'textarea' && (
                       <textarea
+                        id={`new-field-${field.name}`}
                         value={String(newNoteFields[field.id] ?? '')}
                         onChange={e => setNewNoteFields(prev => ({ ...prev, [field.id]: e.target.value }))}
                         rows={3}
@@ -378,7 +381,7 @@ function NotesPage() {
                         value={String(newNoteFields[field.id] ?? '')}
                         onValueChange={v => setNewNoteFields(prev => ({ ...prev, [field.id]: v }))}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger id={`new-field-${field.name}`}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -391,6 +394,7 @@ function NotesPage() {
                     {field.type === 'checkbox' && (
                       <div className="flex items-center gap-2">
                         <input
+                          id={`new-field-${field.name}`}
                           type="checkbox"
                           checked={Boolean(newNoteFields[field.id])}
                           onChange={e => setNewNoteFields(prev => ({ ...prev, [field.id]: e.target.checked }))}
@@ -503,15 +507,17 @@ function NotesPage() {
                               <div className="space-y-3 border-t pt-3">
                                 {visibleFields.map(field => (
                                   <div key={field.id} className="space-y-1">
-                                    <Label className="text-xs">{field.label}{field.required ? ' *' : ''}</Label>
+                                    <Label htmlFor={`edit-field-${field.name}`} className="text-xs">{field.label}{field.required ? ' *' : ''}</Label>
                                     {field.type === 'text' && (
                                       <Input
+                                        id={`edit-field-${field.name}`}
                                         value={String(editFields[field.id] ?? '')}
                                         onChange={e => setEditFields(prev => ({ ...prev, [field.id]: e.target.value }))}
                                       />
                                     )}
                                     {field.type === 'number' && (
                                       <Input
+                                        id={`edit-field-${field.name}`}
                                         type="number"
                                         value={editFields[field.id] !== undefined ? String(editFields[field.id]) : ''}
                                         onChange={e => setEditFields(prev => ({ ...prev, [field.id]: e.target.value ? Number(e.target.value) : '' }))}
@@ -519,6 +525,7 @@ function NotesPage() {
                                     )}
                                     {field.type === 'textarea' && (
                                       <textarea
+                                        id={`edit-field-${field.name}`}
                                         value={String(editFields[field.id] ?? '')}
                                         onChange={e => setEditFields(prev => ({ ...prev, [field.id]: e.target.value }))}
                                         rows={3}
@@ -530,7 +537,7 @@ function NotesPage() {
                                         value={String(editFields[field.id] ?? '')}
                                         onValueChange={v => setEditFields(prev => ({ ...prev, [field.id]: v }))}
                                       >
-                                        <SelectTrigger>
+                                        <SelectTrigger id={`edit-field-${field.name}`}>
                                           <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -543,6 +550,7 @@ function NotesPage() {
                                     {field.type === 'checkbox' && (
                                       <div className="flex items-center gap-2">
                                         <input
+                                          id={`edit-field-${field.name}`}
                                           type="checkbox"
                                           checked={Boolean(editFields[field.id])}
                                           onChange={e => setEditFields(prev => ({ ...prev, [field.id]: e.target.checked }))}

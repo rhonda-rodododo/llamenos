@@ -99,6 +99,7 @@ bun run bootstrap-admin                  # Generate admin keypair
 ## Claude Code Working Style
 
 - Implement features completely — no stubs, no shortcuts, no TODOs left behind.
+- **Every feature or fix must include E2E tests.** If you add or change UI behavior, add Playwright tests covering the new functionality. If modifying existing features, update the relevant test files. A feature is not complete until its tests are written and passing. Check `tests/` for existing test files that may need updating.
 - Edit files in place; never create copies. Git history is the backup. Commit regularly when work is complete, don't worry about accidentally committing unrelated changes.
 - Keep the file tree lean. Use git commits frequently to checkpoint progress.
 - No legacy fallbacks or migration code until this file notes the app is in production.

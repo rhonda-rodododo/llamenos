@@ -55,8 +55,8 @@ test.describe('Notes CRUD', () => {
     await page.getByRole('button', { name: /save/i }).click()
     await expect(page.locator('p').filter({ hasText: 'Second note' })).toBeVisible()
 
-    // Both notes should be under the same call heading
-    const callCard = page.locator('div').filter({ hasText: callId.slice(0, 20) }).first()
+    // Both notes should be under the same call heading (truncated to 12 chars + "...")
+    const callCard = page.locator('div').filter({ hasText: callId.slice(0, 12) }).first()
     await expect(callCard).toBeVisible()
   })
 
