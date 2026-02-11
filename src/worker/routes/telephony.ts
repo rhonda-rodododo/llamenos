@@ -166,10 +166,7 @@ telephony.post('/call-status', async (c) => {
   if (callStatus === 'completed' || callStatus === 'busy' || callStatus === 'no-answer' || callStatus === 'failed') {
     const pubkey = url.searchParams.get('pubkey') || ''
     if (callStatus === 'completed') {
-      const [preCallRes] = await Promise.all([
-        dos.calls.fetch(new Request('http://do/calls/active')),
-        pubkey ? dos.session.fetch(new Request(`http://do/volunteer/${pubkey}`)) : Promise.resolve(null),
-      ])
+      const preCallRes = await dos.calls.fetch(new Request('http://do/calls/active'))
       const { calls: preCalls } = await preCallRes.json() as { calls: Array<{ id: string; callerLast4?: string; startedAt: string }> }
       const preCall = preCalls.find(call => call.id === parentCallSid)
       console.log(`[call-status] ending call ${parentCallSid}, found in active: ${!!preCall}`)
@@ -177,13 +174,16 @@ telephony.post('/call-status', async (c) => {
       const endRes = await dos.calls.fetch(new Request(`http://do/calls/${parentCallSid}/end`, { method: 'POST' }))
       console.log(`[call-status] end result: ${endRes.status}`)
 
-      const duration = preCall
-        ? Math.floor((Date.now() - new Date(preCall.startedAt).getTime()) / 1000)
-        : undefined
-      await audit(dos.session, 'callEnded', pubkey, {
-        callerLast4: preCall?.callerLast4 || '',
-        duration,
-      })
+      // Only audit if we actually ended the call (not already ended by /call-recording)
+      if (endRes.status === 200) {
+        const duration = preCall
+          ? Math.floor((Date.now() - new Date(preCall.startedAt).getTime()) / 1000)
+          : undefined
+        await audit(dos.session, 'callEnded', pubkey, {
+          callerLast4: preCall?.callerLast4 || '',
+          duration,
+        })
+      }
     }
   }
 
@@ -257,10 +257,28 @@ telephony.post('/call-recording', async (c) => {
   const parentCallSid = url.searchParams.get('parentCallSid') || ''
   const pubkey = url.searchParams.get('pubkey') || ''
 
-  if (recordingStatus === 'completed' && recordingSid && parentCallSid) {
-    c.executionCtx.waitUntil(
-      maybeTranscribe(parentCallSid, recordingSid, pubkey, c.env, dos)
-    )
+  if (recordingStatus === 'completed' && parentCallSid) {
+    // Get call info before ending (for audit)
+    const activeRes = await dos.calls.fetch(new Request('http://do/calls/active'))
+    const { calls: activeCalls } = await activeRes.json() as { calls: Array<{ id: string; callerLast4?: string; startedAt: string }> }
+    const callRecord = activeCalls.find(call => call.id === parentCallSid)
+
+    // Recording completed means the bridge ended — end the call in the DO
+    // (safety net in case /call-status doesn't fire)
+    const endRes = await dos.calls.fetch(new Request(`http://do/calls/${parentCallSid}/end`, { method: 'POST' }))
+    console.log(`[call-recording] ended call ${parentCallSid}: ${endRes.status}`)
+
+    if (pubkey) {
+      await audit(dos.session, 'callEnded', pubkey, {
+        callerLast4: callRecord?.callerLast4 || '',
+      })
+    }
+
+    if (recordingSid) {
+      c.executionCtx.waitUntil(
+        maybeTranscribe(parentCallSid, recordingSid, pubkey, c.env, dos)
+      )
+    }
   }
 
   return telephonyResponse(adapter.emptyResponse())

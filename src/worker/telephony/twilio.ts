@@ -417,10 +417,14 @@ export class TwilioAdapter implements TelephonyAdapter {
           From: this.phoneNumber,
           Url: `${params.callbackUrl}/api/telephony/volunteer-answer?parentCallSid=${params.callSid}&pubkey=${vol.pubkey}`,
           StatusCallback: `${params.callbackUrl}/api/telephony/call-status?parentCallSid=${params.callSid}&pubkey=${vol.pubkey}`,
-          StatusCallbackEvent: 'initiated ringing answered completed',
           Timeout: '30',
           MachineDetection: 'Enable',
         })
+        // Twilio REST API requires separate params per event (not space-separated)
+        body.append('StatusCallbackEvent', 'initiated')
+        body.append('StatusCallbackEvent', 'ringing')
+        body.append('StatusCallbackEvent', 'answered')
+        body.append('StatusCallbackEvent', 'completed')
 
         const res = await this.twilioApi('/Calls.json', {
           method: 'POST',
