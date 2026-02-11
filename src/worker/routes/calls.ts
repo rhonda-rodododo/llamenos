@@ -38,4 +38,11 @@ calls.get('/history', adminGuard, async (c) => {
   return dos.calls.fetch(new Request(`http://do/calls/history?${params}`))
 })
 
+// Admin-only diagnostic endpoint — shows DO storage state
+calls.get('/debug', adminGuard, async (c) => {
+  const dos = getDOs(c.env)
+  const res = await dos.calls.fetch(new Request('http://do/calls/debug'))
+  return res
+})
+
 export default calls

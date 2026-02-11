@@ -21,7 +21,10 @@ export async function startParallelRinging(
       onShiftPubkeys = fallback.volunteers
     }
 
+    console.log(`[ringing] callSid=${callSid} onShift=${onShiftPubkeys.length}`)
+
     if (onShiftPubkeys.length === 0) {
+      console.log('[ringing] no volunteers on shift or in fallback — skipping')
       return
     }
 
@@ -34,8 +37,11 @@ export async function startParallelRinging(
       .map(v => ({ pubkey: v.pubkey, phone: v.phone }))
 
     if (toRing.length === 0) {
+      console.log('[ringing] no available volunteers with phones — skipping')
       return
     }
+
+    console.log(`[ringing] ringing ${toRing.length} volunteers for callSid=${callSid}`)
 
     // Notify CallRouter DO of the incoming call
     await dos.calls.fetch(new Request('http://do/calls/incoming', {
@@ -55,7 +61,7 @@ export async function startParallelRinging(
       volunteers: toRing,
       callbackUrl: origin,
     })
-  } catch {
-    // Ringing failed — logged in audit trail, not console
+  } catch (err) {
+    console.error('[ringing] startParallelRinging failed:', err)
   }
 }

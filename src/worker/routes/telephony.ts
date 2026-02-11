@@ -33,6 +33,7 @@ telephony.post('/incoming', async (c) => {
   const dos = getDOs(c.env)
   const adapter = getTelephony(c.env)
   const { callSid, callerNumber } = await adapter.parseIncomingWebhook(c.req.raw)
+  console.log(`[telephony] /incoming callSid=${callSid} caller=***${callerNumber.slice(-4)}`)
 
   const banCheck = await dos.session.fetch(new Request(`http://do/bans/check/${encodeURIComponent(callerNumber)}`))
   const { banned } = await banCheck.json() as { banned: boolean }
@@ -96,6 +97,7 @@ telephony.post('/language-selected', async (c) => {
 
   if (!rateLimited && !spamSettings.voiceCaptchaEnabled) {
     const origin = new URL(c.req.url).origin
+    console.log(`[telephony] /language-selected starting parallel ringing callSid=${callSid} origin=${origin}`)
     c.executionCtx.waitUntil(startParallelRinging(callSid, callerNumber, origin, c.env, dos))
   }
 

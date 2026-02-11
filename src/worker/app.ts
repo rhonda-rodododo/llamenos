@@ -63,6 +63,9 @@ app.route('/api', api)
 // Static assets with security headers
 app.use('*', securityHeaders)
 app.all('*', async (c) => {
+  if (!c.env.ASSETS) {
+    return new Response('Not Found', { status: 404 })
+  }
   const assetResponse = await c.env.ASSETS.fetch(c.req.raw)
   return assetResponse
 })

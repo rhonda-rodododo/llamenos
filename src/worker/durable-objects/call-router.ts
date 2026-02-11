@@ -88,6 +88,34 @@ export class CallRouterDO extends DurableObject<Env> {
       return this.handleReportSpam(callId, await request.json())
     }
 
+    // Debug endpoint — shows DO storage state
+    if (path === '/calls/debug' && method === 'GET') {
+      const activeCalls = await this.ctx.storage.get<CallRecord[]>('activeCalls') || []
+      const history = await this.ctx.storage.get<CallRecord[]>('callHistory') || []
+      return Response.json({
+        activeCount: activeCalls.length,
+        historyCount: history.length,
+        activeCalls: activeCalls.map(c => ({
+          id: c.id,
+          status: c.status,
+          startedAt: c.startedAt,
+          answeredBy: c.answeredBy,
+          callerLast4: c.callerLast4,
+        })),
+        recentHistory: history.slice(0, 5).map(c => ({
+          id: c.id,
+          status: c.status,
+          startedAt: c.startedAt,
+          endedAt: c.endedAt,
+          duration: c.duration,
+          answeredBy: c.answeredBy,
+          callerLast4: c.callerLast4,
+          hasTranscription: c.hasTranscription,
+          hasVoicemail: c.hasVoicemail,
+        })),
+      })
+    }
+
     // --- Test Reset (development only) ---
     if (path === '/reset' && method === 'POST') {
       // Close all WebSocket connections
