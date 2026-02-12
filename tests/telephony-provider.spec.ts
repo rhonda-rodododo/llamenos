@@ -63,15 +63,16 @@ test.describe('Telephony Provider Settings', () => {
     await expect(page.getByText('Application ID')).toBeVisible()
     // Should NOT show Twilio fields
     await expect(page.getByText('Account SID')).not.toBeVisible()
-    // Should show not-implemented warning
-    await expect(page.getByText(/not yet implemented/i)).toBeVisible()
+    // Vonage is now implemented — no warning
+    await expect(page.getByText(/not yet implemented/i)).not.toBeVisible()
 
     // Switch to Plivo
     await select.selectOption('plivo')
     await expect(page.getByText('Auth ID')).toBeVisible()
-    await expect(page.getByText(/not yet implemented/i)).toBeVisible()
+    // Plivo is now implemented — no warning
+    await expect(page.getByText(/not yet implemented/i)).not.toBeVisible()
 
-    // Switch to Asterisk
+    // Switch to Asterisk — still not implemented
     await select.selectOption('asterisk')
     await expect(page.getByText('ARI URL')).toBeVisible()
     await expect(page.getByText('ARI Username')).toBeVisible()

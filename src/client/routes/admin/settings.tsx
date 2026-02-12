@@ -263,7 +263,7 @@ function AdminSettingsPage() {
             </p>
           </div>
 
-          {(providerDraft.type === 'vonage' || providerDraft.type === 'plivo' || providerDraft.type === 'asterisk') && (
+          {providerDraft.type === 'asterisk' && (
             <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3">
               <p className="text-xs text-yellow-700 dark:text-yellow-400">{t('telephonyProvider.notImplemented')}</p>
             </div>

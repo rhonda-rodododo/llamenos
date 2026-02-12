@@ -2,6 +2,9 @@ import type { Env } from '../types'
 import type { TelephonyAdapter } from '../telephony/adapter'
 import type { TelephonyProviderConfig } from '../../shared/types'
 import { TwilioAdapter } from '../telephony/twilio'
+import { SignalWireAdapter } from '../telephony/signalwire'
+import { VonageAdapter } from '../telephony/vonage'
+import { PlivoAdapter } from '../telephony/plivo'
 
 const SESSION_ID = 'global-session'
 const SHIFT_ID = 'global-shifts'
@@ -44,23 +47,23 @@ export async function getTelephony(env: Env, dos: DurableObjects): Promise<Telep
 }
 
 /**
- * Create adapter from saved config. Only Twilio is implemented now;
- * other providers will be added in Epic 33.
+ * Create adapter from saved config.
+ * Supports Twilio, SignalWire, Vonage, and Plivo.
+ * Asterisk requires the ARI bridge (Epic 35).
  */
 function createAdapterFromConfig(config: TelephonyProviderConfig): TelephonyAdapter {
   switch (config.type) {
     case 'twilio':
       return new TwilioAdapter(config.accountSid!, config.authToken!, config.phoneNumber)
     case 'signalwire':
-      // SignalWire extends TwilioAdapter with different URLs — will be added in Epic 33
-      // For now, fall through to Twilio (SignalWire is API-compatible)
-      return new TwilioAdapter(config.accountSid!, config.authToken!, config.phoneNumber)
+      return new SignalWireAdapter(config.accountSid!, config.authToken!, config.phoneNumber, config.signalwireSpace!)
     case 'vonage':
+      return new VonageAdapter(config.apiKey!, config.apiSecret!, config.applicationId!, config.phoneNumber, config.privateKey)
     case 'plivo':
+      return new PlivoAdapter(config.authId!, config.authToken!, config.phoneNumber)
     case 'asterisk':
-      // These adapters will be implemented in Epic 33/35.
-      // Config can be saved now; adapter creation will fail gracefully.
-      throw new Error(`Provider "${config.type}" is not yet implemented. Please configure Twilio or SignalWire.`)
+      // Asterisk ARI adapter will be implemented in Epic 35.
+      throw new Error(`Provider "asterisk" requires the ARI bridge service. See docs for setup.`)
     default:
       return new TwilioAdapter(config.accountSid!, config.authToken!, config.phoneNumber)
   }
