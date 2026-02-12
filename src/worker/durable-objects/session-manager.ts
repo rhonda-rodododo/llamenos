@@ -1,7 +1,7 @@
 import { DurableObject } from 'cloudflare:workers'
 import type { Env, Volunteer, BanEntry, EncryptedNote, AuditLogEntry, SpamSettings, CallSettings, InviteCode, WebAuthnCredential, WebAuthnSettings, ServerSession } from '../types'
-import type { CustomFieldDefinition } from '../../shared/types'
-import { MAX_CUSTOM_FIELDS, MAX_SELECT_OPTIONS, MAX_FIELD_NAME_LENGTH, FIELD_NAME_REGEX } from '../../shared/types'
+import type { CustomFieldDefinition, TelephonyProviderConfig } from '../../shared/types'
+import { MAX_CUSTOM_FIELDS, MAX_SELECT_OPTIONS, MAX_FIELD_NAME_LENGTH, FIELD_NAME_REGEX, PROVIDER_REQUIRED_FIELDS } from '../../shared/types'
 import { IVR_LANGUAGES } from '../../shared/languages'
 import { hashPhone } from '../lib/crypto'
 
@@ -219,6 +219,14 @@ export class SessionManagerDO extends DurableObject<Env> {
       const parts = path.replace('/settings/ivr-audio/', '').split('/')
       if (parts.length !== 2) return new Response('Invalid path', { status: 400 })
       return this.deleteIvrAudio(parts[0], parts[1])
+    }
+
+    // --- Telephony Provider ---
+    if (path === '/settings/telephony-provider' && method === 'GET') {
+      return this.getTelephonyProvider()
+    }
+    if (path === '/settings/telephony-provider' && method === 'PATCH') {
+      return this.updateTelephonyProvider(await request.json())
     }
 
     // --- Rate Limiting ---
@@ -864,6 +872,40 @@ export class SessionManagerDO extends DurableObject<Env> {
     const normalized = fields.map((f, i) => ({ ...f, order: i }))
     await this.ctx.storage.put('customFields', normalized)
     return Response.json({ fields: normalized })
+  }
+
+  // --- Telephony Provider Methods ---
+
+  private async getTelephonyProvider(): Promise<Response> {
+    const config = await this.ctx.storage.get<TelephonyProviderConfig>('telephonyProvider')
+    return Response.json(config || null)
+  }
+
+  private async updateTelephonyProvider(data: unknown): Promise<Response> {
+    if (!data || typeof data !== 'object') {
+      return new Response(JSON.stringify({ error: 'Invalid request body' }), { status: 400 })
+    }
+    const config = data as TelephonyProviderConfig
+    if (!config.type) {
+      return new Response(JSON.stringify({ error: 'Provider type is required' }), { status: 400 })
+    }
+    const validTypes = ['twilio', 'signalwire', 'vonage', 'plivo', 'asterisk']
+    if (!validTypes.includes(config.type)) {
+      return new Response(JSON.stringify({ error: `Invalid provider type: ${config.type}` }), { status: 400 })
+    }
+    // Validate required fields for the provider type
+    const required = PROVIDER_REQUIRED_FIELDS[config.type]
+    for (const field of required) {
+      if (!config[field]) {
+        return new Response(JSON.stringify({ error: `Missing required field: ${field}` }), { status: 400 })
+      }
+    }
+    // Validate phoneNumber is E.164
+    if (config.phoneNumber && !/^\+\d{7,15}$/.test(config.phoneNumber)) {
+      return new Response(JSON.stringify({ error: 'Phone number must be in E.164 format' }), { status: 400 })
+    }
+    await this.ctx.storage.put('telephonyProvider', config)
+    return Response.json(config)
   }
 
   // --- IVR Audio Methods ---

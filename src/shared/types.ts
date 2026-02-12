@@ -1,3 +1,52 @@
+// --- Telephony Provider Config ---
+
+export type TelephonyProviderType = 'twilio' | 'signalwire' | 'vonage' | 'plivo' | 'asterisk'
+
+export const TELEPHONY_PROVIDER_LABELS: Record<TelephonyProviderType, string> = {
+  twilio: 'Twilio',
+  signalwire: 'SignalWire',
+  vonage: 'Vonage',
+  plivo: 'Plivo',
+  asterisk: 'Asterisk (Self-Hosted)',
+}
+
+export interface TelephonyProviderConfig {
+  type: TelephonyProviderType
+  phoneNumber: string      // E.164 hotline number
+
+  // Twilio / SignalWire
+  accountSid?: string
+  authToken?: string
+  signalwireSpace?: string  // SignalWire only: {space}.signalwire.com
+
+  // Vonage
+  apiKey?: string
+  apiSecret?: string
+  applicationId?: string
+  privateKey?: string       // Vonage Application private key (PEM)
+
+  // Plivo
+  authId?: string
+  // authToken shared with Twilio field
+
+  // Asterisk ARI
+  ariUrl?: string           // e.g. https://asterisk.example.com:8089/ari
+  ariUsername?: string
+  ariPassword?: string
+  bridgeCallbackUrl?: string // URL the ARI bridge posts webhooks to
+}
+
+/** Which credential fields each provider requires */
+export const PROVIDER_REQUIRED_FIELDS: Record<TelephonyProviderType, (keyof TelephonyProviderConfig)[]> = {
+  twilio: ['accountSid', 'authToken', 'phoneNumber'],
+  signalwire: ['accountSid', 'authToken', 'signalwireSpace', 'phoneNumber'],
+  vonage: ['apiKey', 'apiSecret', 'applicationId', 'phoneNumber'],
+  plivo: ['authId', 'authToken', 'phoneNumber'],
+  asterisk: ['ariUrl', 'ariUsername', 'ariPassword', 'phoneNumber'],
+}
+
+// --- Custom Fields ---
+
 /** Custom field definition — stored as config in SessionManager DO */
 export interface CustomFieldDefinition {
   id: string               // unique UUID

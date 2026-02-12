@@ -54,7 +54,7 @@ export async function startParallelRinging(
     }))
 
     // Ring all volunteers via telephony adapter
-    const adapter = getTelephony(env)
+    const adapter = await getTelephony(env, dos)
     await adapter.ringVolunteers({
       callSid,
       callerNumber,

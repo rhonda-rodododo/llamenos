@@ -252,9 +252,9 @@ function sayOrPlay(promptKey: string, lang: string, audioUrls?: AudioUrlMap, tex
  * TwilioAdapter — Twilio implementation of TelephonyAdapter.
  */
 export class TwilioAdapter implements TelephonyAdapter {
-  private accountSid: string
-  private authToken: string
-  private phoneNumber: string
+  protected accountSid: string
+  protected authToken: string
+  protected phoneNumber: string
 
   constructor(accountSid: string, authToken: string, phoneNumber: string) {
     this.accountSid = accountSid
@@ -508,7 +508,7 @@ export class TwilioAdapter implements TelephonyAdapter {
 
     const recordingSid = data.recordings[0].sid
     const audioRes = await fetch(
-      `https://api.twilio.com/2010-04-01/Accounts/${this.accountSid}/Recordings/${recordingSid}.wav`,
+      `${this.getRecordingBaseUrl()}/Recordings/${recordingSid}.wav`,
       {
         headers: {
           'Authorization': 'Basic ' + btoa(`${this.accountSid}:${this.authToken}`),
@@ -522,7 +522,7 @@ export class TwilioAdapter implements TelephonyAdapter {
 
   async getRecordingAudio(recordingSid: string): Promise<ArrayBuffer | null> {
     const audioRes = await fetch(
-      `https://api.twilio.com/2010-04-01/Accounts/${this.accountSid}/Recordings/${recordingSid}.wav`,
+      `${this.getRecordingBaseUrl()}/Recordings/${recordingSid}.wav`,
       {
         headers: {
           'Authorization': 'Basic ' + btoa(`${this.accountSid}:${this.authToken}`),
@@ -624,16 +624,24 @@ export class TwilioAdapter implements TelephonyAdapter {
 
   // --- Helpers ---
 
-  private twiml(xml: string): TelephonyResponse {
+  protected twiml(xml: string): TelephonyResponse {
     return {
       contentType: 'text/xml',
       body: xml.trim(),
     }
   }
 
-  private async twilioApi(path: string, init: RequestInit): Promise<Response> {
+  protected getApiBaseUrl(): string {
+    return `https://api.twilio.com/2010-04-01/Accounts/${this.accountSid}`
+  }
+
+  protected getRecordingBaseUrl(): string {
+    return `https://api.twilio.com/2010-04-01/Accounts/${this.accountSid}`
+  }
+
+  protected async twilioApi(path: string, init: RequestInit): Promise<Response> {
     return fetch(
-      `https://api.twilio.com/2010-04-01/Accounts/${this.accountSid}${path}`,
+      `${this.getApiBaseUrl()}${path}`,
       {
         ...init,
         headers: {

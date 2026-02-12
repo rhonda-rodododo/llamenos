@@ -17,14 +17,19 @@ import {
   getIvrAudioUrl,
   getCustomFields,
   updateCustomFields,
+  getTelephonyProvider,
+  updateTelephonyProvider,
+  testTelephonyProvider,
   type SpamSettings,
   type CallSettings,
   type IvrAudioRecording,
   type CustomFieldDefinition,
+  type TelephonyProviderConfig,
+  type TelephonyProviderType,
 } from '@/lib/api'
-import { MAX_CUSTOM_FIELDS } from '@shared/types'
+import { MAX_CUSTOM_FIELDS, TELEPHONY_PROVIDER_LABELS, PROVIDER_REQUIRED_FIELDS } from '@shared/types'
 import { useToast } from '@/lib/toast'
-import { Settings2, Mic, ShieldAlert, Bot, Timer, Shield, Globe, Phone, Volume2, PhoneForwarded, Fingerprint, Trash2, Plus, StickyNote, ChevronUp, ChevronDown, Save } from 'lucide-react'
+import { Settings2, Mic, ShieldAlert, Bot, Timer, Shield, Globe, Phone, Volume2, PhoneForwarded, Fingerprint, Trash2, Plus, StickyNote, ChevronUp, ChevronDown, Save, Radio } from 'lucide-react'
 import { getWebAuthnSettings, updateWebAuthnSettings, type WebAuthnSettings } from '@/lib/api'
 import { AudioRecorder } from '@/components/audio-recorder'
 import { LANGUAGES, IVR_LANGUAGES, LANGUAGE_MAP, ivrIndexToDigit } from '@shared/languages'
@@ -61,6 +66,11 @@ function AdminSettingsPage() {
   const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDefinition[]>([])
   const [editingField, setEditingField] = useState<Partial<CustomFieldDefinition> | null>(null)
   const [fieldSaving, setFieldSaving] = useState(false)
+  const [providerConfig, setProviderConfig] = useState<TelephonyProviderConfig | null>(null)
+  const [providerDraft, setProviderDraft] = useState<Partial<TelephonyProviderConfig>>({ type: 'twilio' })
+  const [providerTesting, setProviderTesting] = useState(false)
+  const [providerTestResult, setProviderTestResult] = useState<{ ok: boolean; error?: string } | null>(null)
+  const [providerSaving, setProviderSaving] = useState(false)
 
   // Collapsible state — first section expanded by default, plus any deep-linked section
   const [expanded, setExpanded] = useState<Set<string>>(() => {
@@ -95,6 +105,12 @@ function AdminSettingsPage() {
       listIvrAudio().then(r => setIvrAudio(r.recordings)),
       getWebAuthnSettings().then(setWebauthnSettings).catch(() => {}),
       getCustomFields().then(r => setCustomFieldDefs(r.fields)).catch(() => {}),
+      getTelephonyProvider().then(config => {
+        if (config) {
+          setProviderConfig(config)
+          setProviderDraft(config)
+        }
+      }).catch(() => {}),
     ]
     Promise.all(promises)
       .catch(() => toast(t('common.error'), 'error'))
@@ -203,6 +219,243 @@ function AdminSettingsPage() {
           </div>
         </SettingsSection>
       )}
+
+      {/* Telephony Provider */}
+      <SettingsSection
+        id="telephony-provider"
+        title={t('telephonyProvider.title')}
+        description={t('telephonyProvider.description')}
+        icon={<Radio className="h-5 w-5 text-muted-foreground" />}
+        expanded={expanded.has('telephony-provider')}
+        onToggle={(open) => toggleSection('telephony-provider', open)}
+        basePath="/admin/settings"
+      >
+        {providerConfig && (
+          <div className="rounded-lg border border-border bg-muted/50 p-3">
+            <p className="text-xs text-muted-foreground">
+              {t('telephonyProvider.currentProvider')}: <span className="font-medium text-foreground">{TELEPHONY_PROVIDER_LABELS[providerConfig.type]}</span>
+            </p>
+          </div>
+        )}
+        {!providerConfig && (
+          <div className="rounded-lg border border-border bg-muted/50 p-3">
+            <p className="text-xs text-muted-foreground">{t('telephonyProvider.envFallback')}</p>
+          </div>
+        )}
+
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <Label>{t('telephonyProvider.provider')}</Label>
+            <select
+              value={providerDraft.type || 'twilio'}
+              onChange={e => {
+                setProviderDraft({ type: e.target.value as TelephonyProviderType })
+                setProviderTestResult(null)
+              }}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              {(Object.entries(TELEPHONY_PROVIDER_LABELS) as [TelephonyProviderType, string][]).map(([key, label]) => (
+                <option key={key} value={key}>{label}</option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">
+              {t(`telephonyProvider.providerDescriptions.${providerDraft.type || 'twilio'}`)}
+            </p>
+          </div>
+
+          {(providerDraft.type === 'vonage' || providerDraft.type === 'plivo' || providerDraft.type === 'asterisk') && (
+            <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3">
+              <p className="text-xs text-yellow-700 dark:text-yellow-400">{t('telephonyProvider.notImplemented')}</p>
+            </div>
+          )}
+
+          {/* Common: Phone Number */}
+          <div className="space-y-1">
+            <Label>{t('telephonyProvider.phoneNumber')}</Label>
+            <p className="text-xs text-muted-foreground">{t('telephonyProvider.phoneNumberHelp')}</p>
+            <Input
+              value={providerDraft.phoneNumber || ''}
+              onChange={e => setProviderDraft(prev => ({ ...prev, phoneNumber: e.target.value }))}
+              placeholder="+12125551234"
+            />
+          </div>
+
+          {/* Twilio / SignalWire fields */}
+          {(providerDraft.type === 'twilio' || providerDraft.type === 'signalwire') && (
+            <>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label>{t('telephonyProvider.accountSid')}</Label>
+                  <Input
+                    value={providerDraft.accountSid || ''}
+                    onChange={e => setProviderDraft(prev => ({ ...prev, accountSid: e.target.value }))}
+                    placeholder="AC..."
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>{t('telephonyProvider.authToken')}</Label>
+                  <Input
+                    type="password"
+                    value={providerDraft.authToken || ''}
+                    onChange={e => setProviderDraft(prev => ({ ...prev, authToken: e.target.value }))}
+                  />
+                </div>
+              </div>
+              {providerDraft.type === 'signalwire' && (
+                <div className="space-y-1">
+                  <Label>{t('telephonyProvider.signalwireSpace')}</Label>
+                  <p className="text-xs text-muted-foreground">{t('telephonyProvider.signalwireSpaceHelp')}</p>
+                  <Input
+                    value={providerDraft.signalwireSpace || ''}
+                    onChange={e => setProviderDraft(prev => ({ ...prev, signalwireSpace: e.target.value }))}
+                    placeholder="myspace"
+                  />
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Vonage fields */}
+          {providerDraft.type === 'vonage' && (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label>{t('telephonyProvider.apiKey')}</Label>
+                <Input
+                  value={providerDraft.apiKey || ''}
+                  onChange={e => setProviderDraft(prev => ({ ...prev, apiKey: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>{t('telephonyProvider.apiSecret')}</Label>
+                <Input
+                  type="password"
+                  value={providerDraft.apiSecret || ''}
+                  onChange={e => setProviderDraft(prev => ({ ...prev, apiSecret: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>{t('telephonyProvider.applicationId')}</Label>
+                <Input
+                  value={providerDraft.applicationId || ''}
+                  onChange={e => setProviderDraft(prev => ({ ...prev, applicationId: e.target.value }))}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Plivo fields */}
+          {providerDraft.type === 'plivo' && (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label>{t('telephonyProvider.authId')}</Label>
+                <Input
+                  value={providerDraft.authId || ''}
+                  onChange={e => setProviderDraft(prev => ({ ...prev, authId: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>{t('telephonyProvider.authToken')}</Label>
+                <Input
+                  type="password"
+                  value={providerDraft.authToken || ''}
+                  onChange={e => setProviderDraft(prev => ({ ...prev, authToken: e.target.value }))}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Asterisk fields */}
+          {providerDraft.type === 'asterisk' && (
+            <>
+              <div className="space-y-1">
+                <Label>{t('telephonyProvider.ariUrl')}</Label>
+                <p className="text-xs text-muted-foreground">{t('telephonyProvider.ariUrlHelp')}</p>
+                <Input
+                  value={providerDraft.ariUrl || ''}
+                  onChange={e => setProviderDraft(prev => ({ ...prev, ariUrl: e.target.value }))}
+                  placeholder="https://asterisk.example.com:8089/ari"
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label>{t('telephonyProvider.ariUsername')}</Label>
+                  <Input
+                    value={providerDraft.ariUsername || ''}
+                    onChange={e => setProviderDraft(prev => ({ ...prev, ariUsername: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>{t('telephonyProvider.ariPassword')}</Label>
+                  <Input
+                    type="password"
+                    value={providerDraft.ariPassword || ''}
+                    onChange={e => setProviderDraft(prev => ({ ...prev, ariPassword: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label>{t('telephonyProvider.bridgeCallbackUrl')}</Label>
+                <p className="text-xs text-muted-foreground">{t('telephonyProvider.bridgeCallbackUrlHelp')}</p>
+                <Input
+                  value={providerDraft.bridgeCallbackUrl || ''}
+                  onChange={e => setProviderDraft(prev => ({ ...prev, bridgeCallbackUrl: e.target.value }))}
+                />
+              </div>
+            </>
+          )}
+
+          {/* Test result */}
+          {providerTestResult && (
+            <div className={`rounded-lg border p-3 ${providerTestResult.ok ? 'border-green-500/30 bg-green-500/10' : 'border-destructive/30 bg-destructive/10'}`}>
+              <p className={`text-xs ${providerTestResult.ok ? 'text-green-700 dark:text-green-400' : 'text-destructive'}`}>
+                {providerTestResult.ok ? t('telephonyProvider.testSuccess') : `${t('telephonyProvider.testFailed')}: ${providerTestResult.error || ''}`}
+              </p>
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              disabled={providerTesting}
+              onClick={async () => {
+                setProviderTesting(true)
+                setProviderTestResult(null)
+                try {
+                  const result = await testTelephonyProvider(providerDraft as TelephonyProviderConfig)
+                  setProviderTestResult(result)
+                } catch (err) {
+                  setProviderTestResult({ ok: false, error: String(err) })
+                } finally {
+                  setProviderTesting(false)
+                }
+              }}
+            >
+              {providerTesting ? t('telephonyProvider.testing') : t('telephonyProvider.testConnection')}
+            </Button>
+            <Button
+              disabled={providerSaving || !providerDraft.phoneNumber}
+              onClick={async () => {
+                setProviderSaving(true)
+                try {
+                  const config = providerDraft as TelephonyProviderConfig
+                  const saved = await updateTelephonyProvider(config)
+                  setProviderConfig(saved)
+                  setProviderDraft(saved)
+                  toast(t('telephonyProvider.saved'), 'success')
+                } catch (err) {
+                  toast(String(err), 'error')
+                } finally {
+                  setProviderSaving(false)
+                }
+              }}
+            >
+              <Save className="h-4 w-4" />
+              {providerSaving ? t('common.loading') : t('telephonyProvider.saveProvider')}
+            </Button>
+          </div>
+        </div>
+      </SettingsSection>
 
       {/* Transcription (global toggle) */}
       <SettingsSection

@@ -243,7 +243,8 @@
       "ivrLanguagesUpdated": "تم تحديث لغات IVR",
       "ivrAudioUploaded": "تم رفع صوت IVR",
       "ivrAudioDeleted": "تم حذف صوت IVR",
-      "voicemailReceived": "تم استلام بريد صوتي"
+      "voicemailReceived": "تم استلام بريد صوتي",
+      "telephonyProviderChanged": "Telephony Provider Changed"
     }
   },
   "ivrAudio": {
@@ -371,6 +372,45 @@
     "rateLimitTitle": "تغيير تحديد المعدل",
     "rateLimitEnable": "تفعيل تحديد المعدل؟ سيتم حظر المكالمات المتكررة من نفس الرقم مؤقتاً.",
     "rateLimitDisable": "تعطيل تحديد المعدل؟ لن يكون هناك حد للمكالمات المتكررة من نفس الرقم."
+  },
+  "telephonyProvider": {
+    "title": "Telephony Provider",
+    "description": "Configure the telephony provider used for handling calls",
+    "provider": "Provider",
+    "selectProvider": "Select a provider",
+    "currentProvider": "Current provider",
+    "envFallback": "Using environment variable defaults (Twilio)",
+    "phoneNumber": "Hotline Phone Number",
+    "phoneNumberHelp": "The phone number callers dial (E.164 format)",
+    "accountSid": "Account SID",
+    "authToken": "Auth Token",
+    "signalwireSpace": "SignalWire Space",
+    "signalwireSpaceHelp": "Your SignalWire space name (e.g. example.signalwire.com)",
+    "apiKey": "API Key",
+    "apiSecret": "API Secret",
+    "applicationId": "Application ID",
+    "privateKey": "Private Key",
+    "authId": "Auth ID",
+    "ariUrl": "ARI URL",
+    "ariUrlHelp": "Asterisk REST Interface URL (e.g. https://asterisk.example.com:8089/ari)",
+    "ariUsername": "ARI Username",
+    "ariPassword": "ARI Password",
+    "bridgeCallbackUrl": "Bridge Callback URL",
+    "bridgeCallbackUrlHelp": "URL where the ARI bridge sends webhooks to this app",
+    "testConnection": "Test Connection",
+    "testing": "Testing...",
+    "testSuccess": "Connection successful",
+    "testFailed": "Connection failed",
+    "saveProvider": "Save Provider",
+    "saved": "Telephony provider saved",
+    "providerDescriptions": {
+      "twilio": "Industry-standard cloud telephony. Easiest to set up with excellent documentation.",
+      "signalwire": "Twilio-compatible API at lower cost. Drop-in replacement for most use cases.",
+      "vonage": "Global telephony provider with strong international coverage and competitive pricing.",
+      "plivo": "Cost-effective cloud telephony with a clean API. Good for budget-conscious deployments.",
+      "asterisk": "Self-hosted PBX for maximum control and lowest per-minute cost. Requires server setup."
+    },
+    "notImplemented": "This provider is not yet implemented. Please use Twilio or SignalWire."
   },
   "customFields": {
     "title": "حقول الملاحظات المخصصة",

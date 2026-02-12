@@ -243,7 +243,8 @@
       "ivrLanguagesUpdated": "IVR 언어 업데이트됨",
       "ivrAudioUploaded": "IVR 오디오 업로드됨",
       "ivrAudioDeleted": "IVR 오디오 삭제됨",
-      "voicemailReceived": "음성 사서함 수신됨"
+      "voicemailReceived": "음성 사서함 수신됨",
+      "telephonyProviderChanged": "Telephony Provider Changed"
     }
   },
   "ivrAudio": {
@@ -371,6 +372,45 @@
     "rateLimitTitle": "속도 제한 변경",
     "rateLimitEnable": "속도 제한을 활성화하시겠습니까? 같은 번호에서 반복되는 통화가 일시적으로 차단됩니다.",
     "rateLimitDisable": "속도 제한을 비활성화하시겠습니까? 같은 번호에서의 반복 통화에 제한이 없어집니다."
+  },
+  "telephonyProvider": {
+    "title": "Telephony Provider",
+    "description": "Configure the telephony provider used for handling calls",
+    "provider": "Provider",
+    "selectProvider": "Select a provider",
+    "currentProvider": "Current provider",
+    "envFallback": "Using environment variable defaults (Twilio)",
+    "phoneNumber": "Hotline Phone Number",
+    "phoneNumberHelp": "The phone number callers dial (E.164 format)",
+    "accountSid": "Account SID",
+    "authToken": "Auth Token",
+    "signalwireSpace": "SignalWire Space",
+    "signalwireSpaceHelp": "Your SignalWire space name (e.g. example.signalwire.com)",
+    "apiKey": "API Key",
+    "apiSecret": "API Secret",
+    "applicationId": "Application ID",
+    "privateKey": "Private Key",
+    "authId": "Auth ID",
+    "ariUrl": "ARI URL",
+    "ariUrlHelp": "Asterisk REST Interface URL (e.g. https://asterisk.example.com:8089/ari)",
+    "ariUsername": "ARI Username",
+    "ariPassword": "ARI Password",
+    "bridgeCallbackUrl": "Bridge Callback URL",
+    "bridgeCallbackUrlHelp": "URL where the ARI bridge sends webhooks to this app",
+    "testConnection": "Test Connection",
+    "testing": "Testing...",
+    "testSuccess": "Connection successful",
+    "testFailed": "Connection failed",
+    "saveProvider": "Save Provider",
+    "saved": "Telephony provider saved",
+    "providerDescriptions": {
+      "twilio": "Industry-standard cloud telephony. Easiest to set up with excellent documentation.",
+      "signalwire": "Twilio-compatible API at lower cost. Drop-in replacement for most use cases.",
+      "vonage": "Global telephony provider with strong international coverage and competitive pricing.",
+      "plivo": "Cost-effective cloud telephony with a clean API. Good for budget-conscious deployments.",
+      "asterisk": "Self-hosted PBX for maximum control and lowest per-minute cost. Requires server setup."
+    },
+    "notImplemented": "This provider is not yet implemented. Please use Twilio or SignalWire."
   },
   "customFields": {
     "title": "사용자 정의 메모 필드",

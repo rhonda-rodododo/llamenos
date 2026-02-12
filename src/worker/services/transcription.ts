@@ -22,7 +22,7 @@ export async function maybeTranscribe(
   if (!volunteer.transcriptionEnabled) return
 
   // Get recording audio directly by recording SID
-  const adapter = getTelephony(env)
+  const adapter = await getTelephony(env, dos)
   const audio = await adapter.getRecordingAudio(recordingSid)
   if (!audio) return
 
@@ -78,8 +78,8 @@ export async function transcribeVoicemail(
   const { globalEnabled } = await transRes.json() as { globalEnabled: boolean }
   if (!globalEnabled) return
 
-  // Get voicemail recording from Twilio
-  const adapter = getTelephony(env)
+  // Get voicemail recording from telephony provider
+  const adapter = await getTelephony(env, dos)
   const audio = await adapter.getCallRecording(callSid)
   if (!audio) return
 

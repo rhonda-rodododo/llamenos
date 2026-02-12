@@ -243,7 +243,8 @@
       "ivrLanguagesUpdated": "Idiomas IVR actualizados",
       "ivrAudioUploaded": "Audio IVR cargado",
       "ivrAudioDeleted": "Audio IVR eliminado",
-      "voicemailReceived": "Buzón de Voz Recibido"
+      "voicemailReceived": "Buzón de Voz Recibido",
+      "telephonyProviderChanged": "Proveedor de Telefonía Cambiado"
     }
   },
   "ivrAudio": {
@@ -371,6 +372,45 @@
     "rateLimitTitle": "Cambiar Límite de Frecuencia",
     "rateLimitEnable": "¿Habilitar el límite de frecuencia? Las llamadas repetidas del mismo número serán bloqueadas temporalmente.",
     "rateLimitDisable": "¿Deshabilitar el límite de frecuencia? No habrá límite en las llamadas repetidas del mismo número."
+  },
+  "telephonyProvider": {
+    "title": "Proveedor de Telefonía",
+    "description": "Configure el proveedor de telefonía utilizado para gestionar las llamadas",
+    "provider": "Proveedor",
+    "selectProvider": "Seleccionar un proveedor",
+    "currentProvider": "Proveedor actual",
+    "envFallback": "Usando valores predeterminados de variable de entorno (Twilio)",
+    "phoneNumber": "Número de Teléfono de la Línea",
+    "phoneNumberHelp": "El número de teléfono que marcan los llamantes (formato E.164)",
+    "accountSid": "Account SID",
+    "authToken": "Auth Token",
+    "signalwireSpace": "SignalWire Space",
+    "signalwireSpaceHelp": "El nombre de su espacio SignalWire (ej. ejemplo.signalwire.com)",
+    "apiKey": "API Key",
+    "apiSecret": "API Secret",
+    "applicationId": "Application ID",
+    "privateKey": "Private Key",
+    "authId": "Auth ID",
+    "ariUrl": "ARI URL",
+    "ariUrlHelp": "URL de la interfaz REST de Asterisk (ej. https://asterisk.ejemplo.com:8089/ari)",
+    "ariUsername": "ARI Username",
+    "ariPassword": "ARI Password",
+    "bridgeCallbackUrl": "Bridge Callback URL",
+    "bridgeCallbackUrlHelp": "URL donde el puente ARI envía webhooks a esta aplicación",
+    "testConnection": "Probar Conexión",
+    "testing": "Probando...",
+    "testSuccess": "Conexión exitosa",
+    "testFailed": "Conexión fallida",
+    "saveProvider": "Guardar Proveedor",
+    "saved": "Proveedor de telefonía guardado",
+    "providerDescriptions": {
+      "twilio": "Telefonía en la nube estándar de la industria. La más fácil de configurar con excelente documentación.",
+      "signalwire": "API compatible con Twilio a menor costo. Reemplazo directo para la mayoría de los casos.",
+      "vonage": "Proveedor de telefonía global con fuerte cobertura internacional y precios competitivos.",
+      "plivo": "Telefonía en la nube económica con una API limpia. Ideal para implementaciones con presupuesto limitado.",
+      "asterisk": "PBX autoalojado para máximo control y menor costo por minuto. Requiere configuración de servidor."
+    },
+    "notImplemented": "Este proveedor aún no está implementado. Por favor use Twilio o SignalWire."
   },
   "customFields": {
     "title": "Campos de Nota Personalizados",

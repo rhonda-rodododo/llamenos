@@ -1,5 +1,22 @@
 # Completed Backlog
 
+## 2026-02-11: Epic 32 — Multi-Provider Telephony Configuration
+
+### Epic 32: Provider Configuration System
+- [x] Shared types: `TelephonyProviderConfig`, `TelephonyProviderType`, `PROVIDER_REQUIRED_FIELDS`, `TELEPHONY_PROVIDER_LABELS`
+- [x] Refactored `getTelephony()` from sync to async — reads provider config from SessionManagerDO, falls back to Twilio env vars
+- [x] TwilioAdapter: made fields/methods `protected`, added `getApiBaseUrl()` / `getRecordingBaseUrl()` for SignalWire inheritance
+- [x] Updated all `getTelephony()` call sites (telephony routes, ringing service, transcription service)
+- [x] SessionManagerDO: `settings:telephony-provider` storage with validation (provider type, required fields, E.164 phone)
+- [x] API routes: `GET/PATCH /settings/telephony-provider`, `POST /settings/telephony-provider/test` (connection test)
+- [x] Admin settings UI: provider dropdown, per-provider credential forms, test connection button, save button
+- [x] Not-implemented warnings for vonage/plivo/asterisk (awaiting Epic 33)
+- [x] Deep link support: `?section=telephony-provider` auto-expands section
+- [x] i18n: `telephonyProvider.*` (30+ keys) + `telephonyProviderChanged` audit event in all 13 locales
+- [x] 11 new E2E tests: section visibility, env fallback, provider dropdown, field switching, save/reload persistence, connection test, deep link
+- [x] 119 total E2E tests passing (0 regressions)
+- [x] Epic docs created: `docs/epics/epic-32` through `epic-36` for full multi-provider plan
+
 ## 2026-02-11: Marketing Site + Docs (Cloudflare Pages)
 
 ### Marketing Site at llamenos-hotline.com

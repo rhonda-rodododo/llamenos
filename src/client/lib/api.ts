@@ -399,6 +399,29 @@ export async function updateCustomFields(fields: CustomFieldDefinition[]) {
   })
 }
 
+// --- Telephony Provider Settings ---
+
+export type { TelephonyProviderConfig, TelephonyProviderType } from '@shared/types'
+import type { TelephonyProviderConfig } from '@shared/types'
+
+export async function getTelephonyProvider() {
+  return request<TelephonyProviderConfig | null>('/settings/telephony-provider')
+}
+
+export async function updateTelephonyProvider(config: TelephonyProviderConfig) {
+  return request<TelephonyProviderConfig>('/settings/telephony-provider', {
+    method: 'PATCH',
+    body: JSON.stringify(config),
+  })
+}
+
+export async function testTelephonyProvider(config: Partial<TelephonyProviderConfig> & { type: string }) {
+  return request<{ ok: boolean; error?: string }>('/settings/telephony-provider/test', {
+    method: 'POST',
+    body: JSON.stringify(config),
+  })
+}
+
 // --- WebAuthn Settings ---
 
 export interface WebAuthnSettings {

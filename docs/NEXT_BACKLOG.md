@@ -16,8 +16,13 @@
 - [ ] Consider re-auth step-up for sensitive actions (e.g., unmasking volunteer phone numbers)
 - [ ] Auth token nonce-based replay protection (currently mitigated by HTTPS + Schnorr signatures + 5min window)
 
+## Multi-Provider Telephony (Epics 33–36)
+- [x] Epic 32: Provider Configuration System (admin UI, API, DO storage, connection test)
+- [ ] Epic 33: Cloud Provider Adapters (SignalWire extends TwilioAdapter, Vonage, Plivo)
+- [ ] Epic 34: WebRTC Volunteer Calling (in-browser call answer, provider-specific SDKs)
+- [ ] Epic 35: Asterisk ARI Adapter (self-hosted SIP, ARI bridge service)
+- [ ] Epic 36: Telephony Documentation (provider comparison, setup guides, in-app help)
+
 ## Low Priority (Post-Launch)
 - [ ] Add call recording playback in notes view
-- [ ] Investigate SIP trunk integration as TelephonyAdapter alternative
-- [ ] Add WebRTC-based in-browser calling for volunteers (no phone needed)
 - [x] Marketing site + docs at llamenos-hotline.com (Astro + Cloudflare Pages)
