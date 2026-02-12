@@ -1,5 +1,25 @@
 # Completed Backlog
 
+## 2026-02-11: Marketing Site + Docs (Cloudflare Pages)
+
+### Marketing Site at llamenos-hotline.com
+- [x] Scaffolded Astro static site in `site/` with Tailwind v4 (via `@tailwindcss/vite`)
+- [x] Dark theme design derived from app's oklch palette — bg, card, accent, green/amber/red semantic colors
+- [x] **Home page**: Hero with tagline, 6 feature highlight cards, security callout, CTA section
+- [x] **Features page**: 7 category sections (Call Routing, Encrypted Notes, AI Transcription, Spam Mitigation, Admin Dashboard, Multi-Language & Mobile, Authentication) with 25+ feature descriptions
+- [x] **Security page**: Honest security model with color-coded disclosure cards — green (encrypted), amber (limitations), blue (future roadmap). Covers E2EE details, honest limitations (Twilio voice path, transient audio access), threat model (nation states, extremist groups, private hacking firms), and future goals (WebRTC, client-side transcription)
+- [x] **Docs hub**: Overview with architecture table, roles table, links to guides
+- [x] **Getting Started guide**: Prerequisites, clone, bootstrap admin, configure secrets, Twilio webhooks, local dev, deploy
+- [x] **Admin Guide**: Login, volunteer management, shifts, bans, call settings, custom fields, voice prompts, WebAuthn, audit log, call history
+- [x] **Volunteer Guide**: Credentials, login, dashboard, receiving calls, notes, transcription, break toggle, keyboard shortcuts
+- [x] Responsive layouts — BaseLayout (marketing pages) + DocsLayout (sidebar + content)
+- [x] Mobile hamburger menu, responsive grids, sticky doc sidebar
+- [x] Reusable components: Header, Footer, Hero, FeatureCard, SecurityDisclosure
+- [x] Cloudflare Pages deployment config (`site/wrangler.jsonc`)
+- [x] Root `package.json` scripts: `site:dev`, `site:build`, `site:deploy`
+- [x] `.gitignore` updated for `site/dist/`, `site/node_modules/`, `site/.astro/`
+- [x] 7 static HTML pages, 236KB total build output
+
 ## 2026-02-09: Sidebar & Shifts UX Improvements
 
 ### Volunteer Autocomplete Multi-Select

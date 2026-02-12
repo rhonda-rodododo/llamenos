@@ -1,0 +1,18 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import HomeContent from '../../components/pages/HomeContent.astro';
+import { type Lang, nonDefaultLocales } from '../../i18n/config';
+import { getTranslation } from '../../i18n/utils';
+import { home } from '../../i18n/translations/home';
+
+export function getStaticPaths() {
+  return nonDefaultLocales.map(lang => ({ params: { lang } }));
+}
+
+const lang = Astro.params.lang as Lang;
+const t = getTranslation(home, lang);
+---
+
+<BaseLayout title={t.hero.titleAccent} lang={lang}>
+  <HomeContent lang={lang} />
+</BaseLayout>

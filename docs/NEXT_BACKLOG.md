@@ -20,3 +20,4 @@
 - [ ] Add call recording playback in notes view
 - [ ] Investigate SIP trunk integration as TelephonyAdapter alternative
 - [ ] Add WebRTC-based in-browser calling for volunteers (no phone needed)
+- [x] Marketing site + docs at llamenos-hotline.com (Astro + Cloudflare Pages)

@@ -11,7 +11,10 @@
     "typecheck": "bunx tsc --noEmit",
     "bootstrap-admin": "bun run scripts/bootstrap-admin.ts",
     "test": "bunx playwright test",
-    "test:ui": "bunx playwright test --ui"
+    "test:ui": "bunx playwright test --ui",
+    "site:dev": "cd site && bun run dev",
+    "site:build": "cd site && bun run build",
+    "site:deploy": "cd site && bun run build && bunx wrangler pages deploy dist --project-name llamenos-site"
   },
   "dependencies": {
     "@noble/ciphers": "^2.1.1",

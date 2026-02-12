@@ -1,0 +1,87 @@
+---
+import Hero from '../Hero.astro';
+import FeatureCard from '../FeatureCard.astro';
+import { type Lang, defaultLang } from '../../i18n/config';
+import { getTranslation } from '../../i18n/utils';
+import { home } from '../../i18n/translations/home';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = getTranslation(home, lang);
+
+function lp(path: string) {
+  return lang === defaultLang ? path : `/${lang}${path}`;
+}
+---
+
+<Hero
+  badge={t.hero.badge}
+  title={t.hero.title}
+  titleAccent={t.hero.titleAccent}
+  description={t.hero.description}
+  cta={t.hero.cta}
+  ctaSecondary={t.hero.ctaSecondary}
+  ctaHref={lp('/docs/getting-started')}
+  ctaSecondaryHref={lp('/security')}
+/>
+
+<!-- Features grid -->
+<section class="py-20 border-t border-border">
+  <div class="mx-auto max-w-6xl px-6">
+    <div class="max-w-2xl mb-12">
+      <h2 class="text-2xl font-bold tracking-tight text-fg sm:text-3xl">{t.features.heading}</h2>
+      <p class="mt-3 text-fg-muted">{t.features.subtitle}</p>
+    </div>
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {t.features.items.map(f => (
+        <FeatureCard title={f.title} description={f.description} icon={f.icon} />
+      ))}
+    </div>
+  </div>
+</section>
+
+<!-- Security callout -->
+<section class="py-20 border-t border-border">
+  <div class="mx-auto max-w-6xl px-6">
+    <div class="rounded-2xl border border-border bg-bg-card p-8 md:p-12">
+      <div class="max-w-2xl">
+        <h2 class="text-2xl font-bold tracking-tight text-fg sm:text-3xl mb-4">{t.security.heading}</h2>
+        <p class="text-fg-muted leading-relaxed mb-6">{t.security.description}</p>
+        <a
+          href={lp('/security')}
+          class="inline-flex items-center gap-2 text-accent-bright font-medium text-sm hover:text-accent transition-colors"
+        >
+          {t.security.link}
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="py-20 border-t border-border">
+  <div class="mx-auto max-w-6xl px-6 text-center">
+    <h2 class="text-2xl font-bold tracking-tight text-fg sm:text-3xl mb-4">{t.deploy.heading}</h2>
+    <p class="text-fg-muted max-w-xl mx-auto mb-8">{t.deploy.description}</p>
+    <div class="flex flex-col sm:flex-row gap-4 justify-center">
+      <a
+        href={lp('/docs/getting-started')}
+        class="inline-flex items-center justify-center rounded-lg bg-accent px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-accent-bright"
+      >
+        {t.deploy.cta}
+      </a>
+      <a
+        href="https://github.com/rikki-llamenos/llamenos"
+        class="inline-flex items-center justify-center rounded-lg border border-border bg-bg-soft px-6 py-3 text-sm font-medium text-fg transition-colors hover:bg-bg-card"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        {t.deploy.github}
+      </a>
+    </div>
+  </div>
+</section>

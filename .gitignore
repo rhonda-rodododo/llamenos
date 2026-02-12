@@ -10,3 +10,6 @@ test-results/
 playwright-report/
 .playwright-mcp/
 audit/
+site/dist/
+site/node_modules/
+site/.astro/

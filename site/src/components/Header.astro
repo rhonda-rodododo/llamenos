@@ -1,0 +1,111 @@
+---
+import { type Lang, defaultLang } from '../i18n/config';
+import { getTranslation, getLocalizedPath } from '../i18n/utils';
+import { common } from '../i18n/translations/common';
+import LanguageSwitcher from './LanguageSwitcher.astro';
+
+interface Props {
+  lang?: Lang;
+}
+
+const { lang = defaultLang } = Astro.props;
+const t = getTranslation(common, lang);
+const currentPath = Astro.url.pathname;
+
+function lp(path: string) {
+  return getLocalizedPath('/', lang) === '/' && lang === defaultLang
+    ? path
+    : `/${lang}${path}`;
+}
+
+const navItems = [
+  { href: lp('/features'), label: t.nav.features },
+  { href: lp('/security'), label: t.nav.security },
+  { href: lp('/docs'), label: t.nav.docs },
+];
+---
+
+<header class="fixed top-0 left-0 right-0 z-50 border-b border-border bg-bg/80 backdrop-blur-xl">
+  <nav class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+    <a href={lang === defaultLang ? '/' : `/${lang}`} class="flex items-center gap-2.5 text-fg font-semibold text-lg tracking-tight">
+      <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-white text-sm font-bold">L</span>
+      Llámenos
+    </a>
+
+    <!-- Desktop nav -->
+    <div class="hidden md:flex items-center gap-1">
+      {navItems.map(item => (
+        <a
+          href={item.href}
+          class:list={[
+            'px-3.5 py-2 rounded-lg text-sm font-medium transition-colors',
+            currentPath.startsWith(item.href)
+              ? 'text-fg bg-bg-soft'
+              : 'text-fg-muted hover:text-fg hover:bg-bg-soft/50'
+          ]}
+        >
+          {item.label}
+        </a>
+      ))}
+      <div class="ml-3">
+        <LanguageSwitcher lang={lang} />
+      </div>
+      <a
+        href="https://github.com/rikki-llamenos/llamenos"
+        class="ml-2 inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-bright"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        {t.nav.github}
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+      </a>
+    </div>
+
+    <!-- Mobile menu button -->
+    <button
+      id="mobile-menu-btn"
+      class="md:hidden p-2 rounded-lg text-fg-muted hover:text-fg hover:bg-bg-soft"
+      aria-label="Toggle menu"
+    >
+      <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+  </nav>
+
+  <!-- Mobile nav -->
+  <div id="mobile-menu" class="hidden md:hidden border-t border-border bg-bg/95 backdrop-blur-xl">
+    <div class="flex flex-col px-6 py-4 gap-1">
+      {navItems.map(item => (
+        <a
+          href={item.href}
+          class:list={[
+            'px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+            currentPath.startsWith(item.href)
+              ? 'text-fg bg-bg-soft'
+              : 'text-fg-muted hover:text-fg hover:bg-bg-soft/50'
+          ]}
+        >
+          {item.label}
+        </a>
+      ))}
+      <div class="mt-2 px-3">
+        <LanguageSwitcher lang={lang} />
+      </div>
+      <a
+        href="https://github.com/rikki-llamenos/llamenos"
+        class="mt-2 inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        {t.nav.github}
+      </a>
+    </div>
+  </div>
+</header>
+
+<script>
+  const btn = document.getElementById('mobile-menu-btn');
+  const menu = document.getElementById('mobile-menu');
+  btn?.addEventListener('click', () => {
+    menu?.classList.toggle('hidden');
+  });
+</script>

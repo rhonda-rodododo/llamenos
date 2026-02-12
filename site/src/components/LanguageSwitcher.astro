@@ -1,0 +1,39 @@
+---
+import { languages, type Lang } from '../i18n/config';
+import { getLocalizedPath } from '../i18n/utils';
+import { common } from '../i18n/translations/common';
+import { getTranslation } from '../i18n/utils';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = getTranslation(common, lang);
+const currentPath = Astro.url.pathname;
+---
+
+<div class="relative">
+  <select
+    aria-label={t.languageSwitcher}
+    class="lang-select appearance-none bg-bg-soft border border-border rounded-lg pl-3 pr-8 py-1.5 text-xs text-fg-muted cursor-pointer hover:border-border-bright hover:text-fg transition-colors focus:outline-none focus:ring-1 focus:ring-accent"
+  >
+    {Object.entries(languages).map(([code, meta]) => (
+      <option
+        value={getLocalizedPath(currentPath, code as Lang)}
+        selected={code === lang}
+      >
+        {meta.label}
+      </option>
+    ))}
+  </select>
+  <svg class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-fg-dim" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+</div>
+
+<script>
+  document.querySelectorAll('.lang-select').forEach(select => {
+    select.addEventListener('change', () => {
+      window.location.href = (select as HTMLSelectElement).value;
+    });
+  });
+</script>

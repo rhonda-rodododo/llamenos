@@ -1,0 +1,56 @@
+---
+import { type Lang, defaultLang } from '../i18n/config';
+import { getTranslation, getLocalizedPath } from '../i18n/utils';
+import { common } from '../i18n/translations/common';
+
+interface Props {
+  lang?: Lang;
+}
+
+const { lang = defaultLang } = Astro.props;
+const t = getTranslation(common, lang);
+const year = new Date().getFullYear();
+
+function lp(path: string) {
+  return lang === defaultLang ? path : `/${lang}${path}`;
+}
+---
+
+<footer class="border-t border-border bg-bg">
+  <div class="mx-auto max-w-6xl px-6 py-12">
+    <div class="grid grid-cols-1 gap-8 sm:grid-cols-3">
+      <div>
+        <div class="flex items-center gap-2.5 text-fg font-semibold text-lg tracking-tight mb-3">
+          <span class="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-white text-xs font-bold">L</span>
+          Llámenos
+        </div>
+        <p class="text-sm text-fg-muted max-w-xs">{t.footer.tagline}</p>
+      </div>
+
+      <div>
+        <h3 class="text-sm font-semibold text-fg mb-3">{t.footer.projectHeading}</h3>
+        <ul class="space-y-2 text-sm">
+          <li><a href={lp('/features')} class="text-fg-muted hover:text-fg transition-colors">{t.nav.features}</a></li>
+          <li><a href={lp('/security')} class="text-fg-muted hover:text-fg transition-colors">{t.footer.securityModel}</a></li>
+          <li><a href="https://github.com/rikki-llamenos/llamenos" class="text-fg-muted hover:text-fg transition-colors" target="_blank" rel="noopener noreferrer">{t.nav.github}</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h3 class="text-sm font-semibold text-fg mb-3">{t.footer.docsHeading}</h3>
+        <ul class="space-y-2 text-sm">
+          <li><a href={lp('/docs/getting-started')} class="text-fg-muted hover:text-fg transition-colors">{t.footer.gettingStarted}</a></li>
+          <li><a href={lp('/docs/admin-guide')} class="text-fg-muted hover:text-fg transition-colors">{t.footer.adminGuide}</a></li>
+          <li><a href={lp('/docs/volunteer-guide')} class="text-fg-muted hover:text-fg transition-colors">{t.footer.volunteerGuide}</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="mt-10 border-t border-border pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <p class="text-xs text-fg-dim">&copy; {year} {t.footer.copyright}</p>
+      <p class="text-xs text-fg-dim">
+        {t.footer.deployedOn} <a href="https://pages.cloudflare.com" class="text-fg-muted hover:text-fg" target="_blank" rel="noopener noreferrer">Cloudflare Pages</a>
+      </p>
+    </div>
+  </div>
+</footer>

@@ -1,0 +1,56 @@
+---
+import { type Lang, defaultLang } from '../i18n/config';
+
+interface Props {
+  badge: string;
+  title: string;
+  titleAccent: string;
+  description: string;
+  cta: string;
+  ctaSecondary: string;
+  ctaHref: string;
+  ctaSecondaryHref: string;
+}
+
+const { badge, title, titleAccent, description, cta, ctaSecondary, ctaHref, ctaSecondaryHref } = Astro.props;
+---
+
+<section class="relative overflow-hidden pt-32 pb-20 md:pt-40 md:pb-28">
+  <div class="absolute inset-0 -z-10">
+    <div class="absolute top-1/4 left-1/2 -translate-x-1/2 w-[800px] h-[500px] rounded-full bg-accent/5 blur-3xl"></div>
+  </div>
+
+  <div class="mx-auto max-w-6xl px-6">
+    <div class="max-w-3xl">
+      <div class="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-bg-soft px-3.5 py-1.5 text-xs text-fg-muted">
+        <span class="h-1.5 w-1.5 rounded-full bg-green animate-pulse"></span>
+        {badge}
+      </div>
+
+      <h1 class="text-4xl font-bold tracking-tight text-fg sm:text-5xl lg:text-6xl">
+        {title}<br />
+        <span class="text-accent-bright">{titleAccent}</span>
+      </h1>
+
+      <p class="mt-6 text-lg text-fg-muted max-w-2xl leading-relaxed">
+        {description}
+      </p>
+
+      <div class="mt-10 flex flex-col sm:flex-row gap-4">
+        <a
+          href={ctaHref}
+          class="inline-flex items-center justify-center rounded-lg bg-accent px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-accent-bright"
+        >
+          {cta}
+          <svg class="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+        </a>
+        <a
+          href={ctaSecondaryHref}
+          class="inline-flex items-center justify-center rounded-lg border border-border bg-bg-soft px-6 py-3 text-sm font-medium text-fg transition-colors hover:bg-bg-card hover:border-border-bright"
+        >
+          {ctaSecondary}
+        </a>
+      </div>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,81 @@
+---
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import '../styles/global.css';
+import { type Lang, defaultLang, languages } from '../i18n/config';
+import { getTranslation } from '../i18n/utils';
+import { common } from '../i18n/translations/common';
+
+interface Props {
+  title: string;
+  description?: string;
+  lang?: Lang;
+}
+
+const { title, description = 'Llámenos documentation', lang = defaultLang } = Astro.props;
+const dir = languages[lang].dir;
+const t = getTranslation(common, lang);
+
+function lp(path: string) {
+  return lang === defaultLang ? path : `/${lang}${path}`;
+}
+
+const sidebarItems = [
+  { href: lp('/docs'), label: t.docs.overview },
+  { href: lp('/docs/getting-started'), label: t.docs.gettingStarted },
+  { href: lp('/docs/admin-guide'), label: t.docs.adminGuide },
+  { href: lp('/docs/volunteer-guide'), label: t.docs.volunteerGuide },
+];
+
+const currentPath = Astro.url.pathname.replace(/\/$/, '') || '/docs';
+---
+
+<!DOCTYPE html>
+<html lang={lang} dir={dir}>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content={description} />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <title>{title} | Llámenos Docs</title>
+</head>
+<body class="min-h-screen flex flex-col">
+  <Header lang={lang} />
+  <div class="flex-1 pt-20">
+    <div class="mx-auto max-w-6xl px-6 py-10 lg:flex lg:gap-10">
+      <!-- Sidebar -->
+      <aside class="mb-8 lg:mb-0 lg:w-56 lg:shrink-0">
+        <nav class="lg:sticky lg:top-24">
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-fg-dim mb-3">{t.docs.sidebarTitle}</h2>
+          <ul class="space-y-1">
+            {sidebarItems.map(item => (
+              <li>
+                <a
+                  href={item.href}
+                  class:list={[
+                    'block px-3 py-2 rounded-lg text-sm transition-colors',
+                    currentPath === item.href.replace(/\/$/, '')
+                      ? 'text-fg bg-bg-soft font-medium'
+                      : 'text-fg-muted hover:text-fg hover:bg-bg-soft/50'
+                  ]}
+                >
+                  {item.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </aside>
+
+      <!-- Content -->
+      <article class="prose min-w-0 flex-1">
+        <slot />
+      </article>
+    </div>
+  </div>
+  <Footer lang={lang} />
+</body>
+</html>

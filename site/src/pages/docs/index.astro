@@ -1,0 +1,24 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro';
+import { getEntry, render } from 'astro:content';
+
+const entry = (await getEntry('docs', 'en'))!;
+const { Content } = await render(entry);
+---
+
+<DocsLayout title={entry.data.title}>
+  <h1>{entry.data.title}</h1>
+  <p>{entry.data.description}</p>
+
+  <h2>Guides</h2>
+  <div class="not-prose grid grid-cols-1 gap-4 sm:grid-cols-2">
+    {entry.data.guides?.map(guide => (
+      <a href={guide.href} class="rounded-xl border border-border bg-bg-card p-5 transition-colors hover:border-border-bright group">
+        <h3 class="text-base font-semibold text-fg mb-1 group-hover:text-accent-bright transition-colors">{guide.title}</h3>
+        <p class="text-sm text-fg-muted">{guide.description}</p>
+      </a>
+    ))}
+  </div>
+
+  <Content />
+</DocsLayout>
