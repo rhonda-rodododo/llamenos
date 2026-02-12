@@ -1,19 +1,20 @@
 ---
 title: Documentacion
 description: Aprende a desplegar, configurar y usar Llamenos.
+guidesHeading: Guías
 guides:
   - title: Primeros Pasos
     description: Requisitos previos, instalacion, configuracion de Twilio y tu primer despliegue.
-    href: /es/docs/getting-started
+    href: /docs/getting-started
   - title: Guia de Administrador
     description: Gestiona voluntarios, turnos, listas de bloqueo, campos personalizados y configuracion.
-    href: /es/docs/admin-guide
+    href: /docs/admin-guide
   - title: Guia de Voluntario
     description: Inicia sesion, recibe llamadas, escribe notas y usa la transcripcion.
-    href: /es/docs/volunteer-guide
+    href: /docs/volunteer-guide
   - title: Modelo de Seguridad
     description: Entiende que esta cifrado, que no lo esta y el modelo de amenazas.
-    href: /es/security
+    href: /security
 ---
 
 ## Arquitectura general

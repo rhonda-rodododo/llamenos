@@ -7,6 +7,7 @@ const docs = defineCollection({
   schema: z.object({
     title: z.string(),
     description: z.string().optional(),
+    guidesHeading: z.string().optional(),
     guides: z.array(z.object({
       title: z.string(),
       description: z.string(),

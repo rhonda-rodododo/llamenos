@@ -1,6 +1,7 @@
 ---
 title: Documentation
 description: Learn how to deploy, configure, and use Llamenos.
+guidesHeading: Guides
 guides:
   - title: Getting Started
     description: Prerequisites, installation, Twilio setup, and your first deployment.
