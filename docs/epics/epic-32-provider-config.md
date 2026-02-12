@@ -1,7 +1,7 @@
 # Epic 32: Provider Configuration System
 
 ## Problem
-Llámenos only supports Twilio. Admins need to select and configure alternative telephony providers (SignalWire, Vonage, Plivo, Asterisk) from the settings UI.
+Llámenos currently only supports Twilio. Admins need to select and configure alternative telephony providers (SignalWire, Vonage, Plivo, Asterisk) from the settings UI.
 
 ## Goals
 1. Admin can select a telephony provider and configure credentials from settings
