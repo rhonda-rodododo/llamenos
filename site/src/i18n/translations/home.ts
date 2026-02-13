@@ -47,7 +47,7 @@ export const home: Record<string, {
     },
     security: {
       heading: 'Honest about security',
-      description: "We publish exactly what is encrypted, what isn't, and what the server can see. No hand-waving. Voice calls still traverse Twilio's infrastructure, and we say so upfront. Read the full security model to understand the threat landscape and our roadmap for closing gaps.",
+      description: "We publish exactly what is encrypted, what isn't, and what the server can see. No hand-waving. Voice calls still traverse your telephony provider's infrastructure (unless you self-host with Asterisk), and we say so upfront. Read the full security model to understand the threat landscape and our roadmap for closing gaps.",
       link: 'Read the security model',
     },
     deploy: {
@@ -80,7 +80,7 @@ export const home: Record<string, {
     },
     security: {
       heading: 'Honestos sobre la seguridad',
-      description: 'Publicamos exactamente qué está cifrado, qué no lo está y qué puede ver el servidor. Sin ambigüedades. Las llamadas de voz pasan por la infraestructura de Twilio, y lo decimos abiertamente. Lee el modelo de seguridad completo para entender el panorama de amenazas y nuestra hoja de ruta.',
+      description: 'Publicamos exactamente qué está cifrado, qué no lo está y qué puede ver el servidor. Sin ambigüedades. Las llamadas de voz pasan por la infraestructura de tu proveedor de telefonía (a menos que autoalojes con Asterisk), y lo decimos abiertamente. Lee el modelo de seguridad completo para entender el panorama de amenazas y nuestra hoja de ruta.',
       link: 'Leer el modelo de seguridad',
     },
     deploy: {
@@ -113,7 +113,7 @@ export const home: Record<string, {
     },
     security: {
       heading: '坦诚的安全声明',
-      description: '我们准确公布哪些内容已加密、哪些未加密以及服务器能看到什么。绝不含糊。语音通话仍经过 Twilio 基础设施，我们坦言这一点。阅读完整的安全模型以了解威胁格局和我们的改进路线图。',
+      description: '我们准确公布哪些内容已加密、哪些未加密以及服务器能看到什么。绝不含糊。语音通话仍经过您的电话服务提供商的基础设施（除非您使用 Asterisk 自建），我们坦言这一点。阅读完整的安全模型以了解威胁格局和我们的改进路线图。',
       link: '阅读安全模型',
     },
     deploy: {
@@ -146,7 +146,7 @@ export const home: Record<string, {
     },
     security: {
       heading: 'Tapat tungkol sa seguridad',
-      description: 'Inilalathala namin nang eksakto kung ano ang naka-encrypt, ano ang hindi, at ano ang nakikita ng server. Walang pambubulag. Ang mga voice call ay dumadaan pa rin sa imprastruktura ng Twilio, at sinasabi namin ito nang tapat.',
+      description: 'Inilalathala namin nang eksakto kung ano ang naka-encrypt, ano ang hindi, at ano ang nakikita ng server. Walang pambubulag. Ang mga voice call ay dumadaan pa rin sa imprastruktura ng iyong telephony provider (maliban kung self-host ka gamit ang Asterisk), at sinasabi namin ito nang tapat.',
       link: 'Basahin ang modelo ng seguridad',
     },
     deploy: {
@@ -179,7 +179,7 @@ export const home: Record<string, {
     },
     security: {
       heading: 'Trung thực về bảo mật',
-      description: 'Chúng tôi công bố chính xác những gì được mã hóa, những gì không và những gì máy chủ có thể thấy. Không mập mờ. Cuộc gọi thoại vẫn đi qua hạ tầng Twilio, và chúng tôi nói rõ điều này.',
+      description: 'Chúng tôi công bố chính xác những gì được mã hóa, những gì không và những gì máy chủ có thể thấy. Không mập mờ. Cuộc gọi thoại vẫn đi qua hạ tầng nhà cung cấp điện thoại của bạn (trừ khi bạn tự lưu trữ với Asterisk), và chúng tôi nói rõ điều này.',
       link: 'Đọc mô hình bảo mật',
     },
     deploy: {
@@ -212,7 +212,7 @@ export const home: Record<string, {
     },
     security: {
       heading: 'صادقون بشأن الأمان',
-      description: 'ننشر بالضبط ما هو مشفر وما ليس كذلك وما يمكن للخادم رؤيته. بلا غموض. المكالمات الصوتية لا تزال تمر عبر بنية Twilio التحتية، ونقول ذلك صراحة.',
+      description: 'ننشر بالضبط ما هو مشفر وما ليس كذلك وما يمكن للخادم رؤيته. بلا غموض. المكالمات الصوتية لا تزال تمر عبر البنية التحتية لمزود الهاتف الخاص بك (ما لم تستضيف ذاتياً باستخدام Asterisk)، ونقول ذلك صراحة.',
       link: 'اقرأ نموذج الأمان',
     },
     deploy: {
@@ -245,7 +245,7 @@ export const home: Record<string, {
     },
     security: {
       heading: 'Honnêtes sur la sécurité',
-      description: "Nous publions exactement ce qui est chiffré, ce qui ne l'est pas et ce que le serveur peut voir. Sans ambiguïté. Les appels vocaux passent toujours par l'infrastructure de Twilio, et nous le disons clairement.",
+      description: "Nous publions exactement ce qui est chiffré, ce qui ne l'est pas et ce que le serveur peut voir. Sans ambiguïté. Les appels vocaux passent toujours par l'infrastructure de votre fournisseur de téléphonie (sauf si vous hébergez vous-même avec Asterisk), et nous le disons clairement.",
       link: 'Lire le modèle de sécurité',
     },
     deploy: {
@@ -278,7 +278,7 @@ export const home: Record<string, {
     },
     security: {
       heading: 'Onèt sou sekirite',
-      description: 'Nou pibliye egzakteman sa ki chifre, sa ki pa chifre, ak sa sèvè a ka wè. San dezòd. Apèl vwa yo toujou pase nan enfrastrikti Twilio, epi nou di sa klèman.',
+      description: 'Nou pibliye egzakteman sa ki chifre, sa ki pa chifre, ak sa sèvè a ka wè. San dezòd. Apèl vwa yo toujou pase nan enfrastrikti founisè telefòn ou a (sof si ou fè self-host ak Asterisk), epi nou di sa klèman.',
       link: 'Li modèl sekirite a',
     },
     deploy: {
@@ -311,7 +311,7 @@ export const home: Record<string, {
     },
     security: {
       heading: '보안에 대해 솔직하게',
-      description: '무엇이 암호화되고, 무엇이 되지 않으며, 서버가 무엇을 볼 수 있는지 정확히 공개합니다. 모호함 없이. 음성 통화는 여전히 Twilio 인프라를 통과하며, 이를 솔직히 말합니다.',
+      description: '무엇이 암호화되고, 무엇이 되지 않으며, 서버가 무엇을 볼 수 있는지 정확히 공개합니다. 모호함 없이. 음성 통화는 여전히 전화 서비스 제공업체의 인프라를 통과하며(Asterisk로 자체 호스팅하지 않는 한), 이를 솔직히 말합니다.',
       link: '보안 모델 읽기',
     },
     deploy: {
@@ -344,7 +344,7 @@ export const home: Record<string, {
     },
     security: {
       heading: 'Честно о безопасности',
-      description: 'Мы публикуем точно, что зашифровано, что нет, и что видит сервер. Без двусмысленности. Голосовые звонки по-прежнему проходят через инфраструктуру Twilio, и мы говорим об этом открыто.',
+      description: 'Мы публикуем точно, что зашифровано, что нет, и что видит сервер. Без двусмысленности. Голосовые звонки по-прежнему проходят через инфраструктуру вашего провайдера телефонии (если вы не используете Asterisk на своём сервере), и мы говорим об этом открыто.',
       link: 'Прочитать модель безопасности',
     },
     deploy: {
@@ -377,7 +377,7 @@ export const home: Record<string, {
     },
     security: {
       heading: 'सुरक्षा के बारे में ईमानदार',
-      description: 'हम सटीक रूप से प्रकाशित करते हैं कि क्या एन्क्रिप्टेड है, क्या नहीं है, और सर्वर क्या देख सकता है। बिना अस्पष्टता के। वॉइस कॉल अभी भी Twilio के इंफ्रास्ट्रक्चर से गुज़रती हैं, और हम यह खुलकर कहते हैं।',
+      description: 'हम सटीक रूप से प्रकाशित करते हैं कि क्या एन्क्रिप्टेड है, क्या नहीं है, और सर्वर क्या देख सकता है। बिना अस्पष्टता के। वॉइस कॉल अभी भी आपके टेलीफोनी प्रदाता के इंफ्रास्ट्रक्चर से गुज़रती हैं (जब तक आप Asterisk के साथ सेल्फ-होस्ट नहीं करते), और हम यह खुलकर कहते हैं।',
       link: 'सुरक्षा मॉडल पढ़ें',
     },
     deploy: {
@@ -410,7 +410,7 @@ export const home: Record<string, {
     },
     security: {
       heading: 'Honestos sobre segurança',
-      description: 'Publicamos exatamente o que está criptografado, o que não está e o que o servidor pode ver. Sem ambiguidade. Chamadas de voz ainda passam pela infraestrutura do Twilio, e dizemos isso abertamente.',
+      description: 'Publicamos exatamente o que está criptografado, o que não está e o que o servidor pode ver. Sem ambiguidade. Chamadas de voz ainda passam pela infraestrutura do seu provedor de telefonia (a menos que você hospede com Asterisk), e dizemos isso abertamente.',
       link: 'Ler o modelo de segurança',
     },
     deploy: {
@@ -443,7 +443,7 @@ export const home: Record<string, {
     },
     security: {
       heading: 'Ehrlich über Sicherheit',
-      description: 'Wir veröffentlichen genau, was verschlüsselt ist, was nicht und was der Server sehen kann. Ohne Verschleierung. Sprachanrufe laufen weiterhin über die Twilio-Infrastruktur, und das sagen wir offen.',
+      description: 'Wir veröffentlichen genau, was verschlüsselt ist, was nicht und was der Server sehen kann. Ohne Verschleierung. Sprachanrufe laufen weiterhin über die Infrastruktur Ihres Telefonieanbieter (es sei denn, Sie hosten selbst mit Asterisk), und das sagen wir offen.',
       link: 'Sicherheitsmodell lesen',
     },
     deploy: {

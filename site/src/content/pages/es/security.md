@@ -43,9 +43,9 @@ Las notas en progreso se guardan automaticamente como borradores cifrados en el 
 ## Limitaciones honestas
 
 <details>
-<summary><strong>Las llamadas de voz pasan por la PSTN y Twilio</strong></summary>
+<summary><strong>Las llamadas de voz pasan por la PSTN y tu proveedor de telefonia</strong></summary>
 
-Llamenos enruta las llamadas a traves de la red telefonica publica conmutada (PSTN) via Twilio. Esto significa que la infraestructura de Twilio procesa el audio de las llamadas en tiempo real. El proveedor de telefonia puede tecnicamente acceder al audio de la llamada durante el transito. Esta es una limitacion inherente de los sistemas basados en PSTN.
+Cuando se usa un proveedor en la nube (Twilio, SignalWire, Vonage o Plivo), Llamenos enruta las llamadas a traves de la red telefonica publica conmutada (PSTN) via la infraestructura de ese proveedor. Esto significa que el proveedor procesa el audio de las llamadas en tiempo real y puede tecnicamente acceder a el durante el transito. Esta es una limitacion inherente de la telefonia en la nube basada en PSTN. Para maxima privacidad, Llamenos tambien soporta Asterisk autoalojado con troncales SIP, lo que elimina al proveedor tercero por completo.
 
 </details>
 
@@ -80,7 +80,7 @@ Ningun sistema es perfectamente seguro. El objetivo es minimizar la superficie d
 <details>
 <summary><strong>Llamadas en el navegador con WebRTC</strong></summary>
 
-Migrar las llamadas de voz de PSTN/Twilio a WebRTC permitiria audio directo de navegador a navegador, eliminando al proveedor de telefonia de la ruta de voz por completo. Esto haria que el audio de las llamadas sea verdaderamente cifrado de extremo a extremo.
+Migrar las llamadas de voz de PSTN/proveedores en la nube a WebRTC permite audio directo de navegador a navegador, eliminando al proveedor de telefonia de la ruta de voz por completo. Llamenos ya soporta llamadas WebRTC para voluntarios — combinado con una instalacion de Asterisk autoalojado, toda la ruta de voz puede evitar la infraestructura de terceros.
 
 </details>
 

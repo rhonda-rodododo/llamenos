@@ -43,9 +43,9 @@ In-progress notes are auto-saved as encrypted drafts in the browser's localStora
 ## Honest limitations
 
 <details>
-<summary><strong>Voice calls traverse the PSTN and Twilio</strong></summary>
+<summary><strong>Voice calls traverse the PSTN and your telephony provider</strong></summary>
 
-Llamenos routes calls through the public switched telephone network (PSTN) via Twilio. This means Twilio's infrastructure processes call audio in real time. The telephony provider can technically access call audio during transit. This is an inherent limitation of PSTN-based systems.
+When using a cloud provider (Twilio, SignalWire, Vonage, or Plivo), Llamenos routes calls through the public switched telephone network (PSTN) via that provider's infrastructure. This means the provider processes call audio in real time and can technically access it during transit. This is an inherent limitation of PSTN-based cloud telephony. For maximum privacy, Llamenos also supports self-hosted Asterisk with SIP trunks, which eliminates the third-party provider entirely.
 
 </details>
 
@@ -80,7 +80,7 @@ No system is perfectly secure. The goal is to minimize the trust surface and be 
 <details>
 <summary><strong>WebRTC in-browser calling</strong></summary>
 
-Moving voice calls from PSTN/Twilio to WebRTC would allow direct browser-to-browser audio, eliminating the telephony provider from the voice path entirely. This would make call audio truly end-to-end encrypted.
+Moving voice calls from PSTN/cloud providers to WebRTC allows direct browser-to-browser audio, eliminating the telephony provider from the voice path entirely. Llamenos already supports WebRTC calling for volunteers — when combined with a self-hosted Asterisk setup, the entire voice path can bypass third-party infrastructure.
 
 </details>
 

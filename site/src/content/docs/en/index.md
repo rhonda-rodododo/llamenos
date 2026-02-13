@@ -4,7 +4,7 @@ description: Learn how to deploy, configure, and use Llamenos.
 guidesHeading: Guides
 guides:
   - title: Getting Started
-    description: Prerequisites, installation, Twilio setup, and your first deployment.
+    description: Prerequisites, installation, telephony setup, and your first deployment.
     href: /docs/getting-started
   - title: Admin Guide
     description: Manage volunteers, shifts, ban lists, custom fields, and settings.
@@ -46,7 +46,7 @@ Llamenos is a single-page application (SPA) backed by Cloudflare Workers and Dur
 |---|---|
 | Frontend | Vite + React + TanStack Router |
 | Backend | Cloudflare Workers + Durable Objects |
-| Telephony | Twilio (via TelephonyAdapter interface) |
+| Telephony | Twilio, SignalWire, Vonage, Plivo, or Asterisk (via TelephonyAdapter interface) |
 | Auth | Nostr keypairs (BIP-340 Schnorr) + WebAuthn |
 | Encryption | ECIES (secp256k1 + XChaCha20-Poly1305) |
 | Transcription | Cloudflare Workers AI (Whisper) |

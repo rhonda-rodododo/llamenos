@@ -4,7 +4,7 @@ description: Aprende a desplegar, configurar y usar Llamenos.
 guidesHeading: Guías
 guides:
   - title: Primeros Pasos
-    description: Requisitos previos, instalacion, configuracion de Twilio y tu primer despliegue.
+    description: Requisitos previos, instalacion, configuracion de telefonia y tu primer despliegue.
     href: /docs/getting-started
   - title: Guia de Administrador
     description: Gestiona voluntarios, turnos, listas de bloqueo, campos personalizados y configuracion.
@@ -46,7 +46,7 @@ Llamenos es una aplicacion de pagina unica (SPA) respaldada por Cloudflare Worke
 |---|---|
 | Frontend | Vite + React + TanStack Router |
 | Backend | Cloudflare Workers + Durable Objects |
-| Telefonia | Twilio (via interfaz TelephonyAdapter) |
+| Telefonia | Twilio, SignalWire, Vonage, Plivo o Asterisk (via interfaz TelephonyAdapter) |
 | Autenticacion | Claves Nostr (BIP-340 Schnorr) + WebAuthn |
 | Cifrado | ECIES (secp256k1 + XChaCha20-Poly1305) |
 | Transcripcion | Cloudflare Workers AI (Whisper) |
