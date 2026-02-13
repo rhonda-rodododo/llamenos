@@ -2,6 +2,7 @@ import { generateSecretKey, getPublicKey, nip19 } from 'nostr-tools'
 import { secp256k1, schnorr } from '@noble/curves/secp256k1.js'
 import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
 import { sha256 } from '@noble/hashes/sha2.js'
+import { hkdf } from '@noble/hashes/hkdf.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import type { NotePayload } from '@shared/types'
@@ -64,12 +65,8 @@ export function isValidNsec(nsec: string): boolean {
 // Admin can also decrypt because they generated and stored the private key.
 
 function deriveEncryptionKey(secretKey: Uint8Array, context: string): Uint8Array {
-  // Derive a domain-separated key using SHA-256
-  const contextBytes = utf8ToBytes(`llamenos:${context}`)
-  const combined = new Uint8Array(secretKey.length + contextBytes.length)
-  combined.set(secretKey)
-  combined.set(contextBytes, secretKey.length)
-  return sha256(combined)
+  // Derive a domain-separated key using HKDF-SHA256
+  return hkdf(sha256, secretKey, undefined, utf8ToBytes(`llamenos:${context}`), 32)
 }
 
 export function encryptNote(payload: NotePayload, secretKey: Uint8Array): string {

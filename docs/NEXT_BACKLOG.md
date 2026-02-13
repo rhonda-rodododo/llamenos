@@ -1,9 +1,9 @@
 # Next Backlog
 
 ## High Priority (Pre-Launch)
-- [ ] Set up Cloudflare Tunnel for local dev with Twilio webhooks
-- [ ] Configure production wrangler secrets (TWILIO_*, ADMIN_PUBKEY)
-- [ ] Test full call flow end-to-end: incoming call -> CAPTCHA -> parallel ring -> answer -> notes -> hang up
+- [ ] Set up Cloudflare Tunnel for local dev with telephony webhooks
+- [x] Configure production wrangler secrets (TWILIO_*, ADMIN_PUBKEY) — deployed and running
+- [ ] Test full call flow end-to-end: incoming call -> CAPTCHA -> parallel ring -> answer -> notes -> hang up *(requires real phone + telephony account)*
 
 ## Security Audit Findings (Remaining)
 

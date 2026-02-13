@@ -94,8 +94,10 @@ export class SessionManagerDO extends DurableObject<Env> {
       return this.getVolunteer(pubkey)
     }
     if (path.startsWith('/volunteers/') && method === 'PATCH') {
-      const pubkey = path.split('/volunteers/')[1]
-      return this.updateVolunteer(pubkey, await request.json())
+      const rawPubkey = path.split('/volunteers/')[1]
+      const pubkey = rawPubkey.split('?')[0]
+      const isAdmin = url.searchParams.get('admin') === 'true'
+      return this.updateVolunteer(pubkey, await request.json(), isAdmin)
     }
     if (path.startsWith('/volunteers/') && method === 'DELETE') {
       const pubkey = path.split('/volunteers/')[1]
@@ -348,11 +350,30 @@ export class SessionManagerDO extends DurableObject<Env> {
     return Response.json({ volunteer: { ...volunteer, encryptedSecretKey: undefined } })
   }
 
-  private async updateVolunteer(pubkey: string, data: Partial<Volunteer>): Promise<Response> {
+  // Fields that any volunteer can update on their own profile
+  private static readonly VOLUNTEER_SAFE_FIELDS = new Set([
+    'name', 'phone', 'spokenLanguages', 'uiLanguage', 'profileCompleted',
+    'transcriptionEnabled', 'onBreak', 'callPreference',
+  ])
+
+  private async updateVolunteer(pubkey: string, data: Partial<Volunteer>, isAdmin = false): Promise<Response> {
     const volunteers = await this.ctx.storage.get<Record<string, Volunteer>>('volunteers') || {}
     const vol = volunteers[pubkey]
     if (!vol) return new Response('Not found', { status: 404 })
-    Object.assign(vol, data, { pubkey }) // Don't allow changing pubkey
+
+    if (isAdmin) {
+      // Admins can update any field except pubkey
+      Object.assign(vol, data, { pubkey })
+    } else {
+      // Volunteers can only update safe fields — prevents privilege escalation
+      const safeData: Partial<Volunteer> = {}
+      for (const key of Object.keys(data) as Array<keyof Volunteer>) {
+        if (SessionManagerDO.VOLUNTEER_SAFE_FIELDS.has(key)) {
+          (safeData as Record<string, unknown>)[key] = data[key]
+        }
+      }
+      Object.assign(vol, safeData, { pubkey })
+    }
     volunteers[pubkey] = vol
     await this.ctx.storage.put('volunteers', volunteers)
     return Response.json({ volunteer: { ...vol, encryptedSecretKey: undefined } })

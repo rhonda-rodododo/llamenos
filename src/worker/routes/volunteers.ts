@@ -50,7 +50,7 @@ volunteers.patch('/:targetPubkey', async (c) => {
   const pubkey = c.get('pubkey')
   const targetPubkey = c.req.param('targetPubkey')
   const body = await c.req.json()
-  const res = await dos.session.fetch(new Request(`http://do/volunteers/${targetPubkey}`, {
+  const res = await dos.session.fetch(new Request(`http://do/volunteers/${targetPubkey}?admin=true`, {
     method: 'PATCH',
     body: JSON.stringify(body),
   }))

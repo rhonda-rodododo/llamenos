@@ -157,9 +157,37 @@ export class CallRouterDO extends DurableObject<Env> {
     })
   }
 
+  /** Rate limit tracking: message count per WebSocket in the current window */
+  private wsMessageCounts = new WeakMap<WebSocket, { count: number; windowStart: number }>()
+  private static readonly WS_RATE_LIMIT = 30 // max messages per 10 seconds
+  private static readonly WS_RATE_WINDOW = 10_000 // 10 seconds
+
+  private checkWsRateLimit(ws: WebSocket): boolean {
+    const now = Date.now()
+    let tracker = this.wsMessageCounts.get(ws)
+    if (!tracker || now - tracker.windowStart > CallRouterDO.WS_RATE_WINDOW) {
+      tracker = { count: 0, windowStart: now }
+    }
+    tracker.count++
+    this.wsMessageCounts.set(ws, tracker)
+    return tracker.count > CallRouterDO.WS_RATE_LIMIT
+  }
+
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
     try {
+      // Rate limit: close connection if flooding
+      if (this.checkWsRateLimit(ws)) {
+        ws.close(1008, 'Rate limit exceeded')
+        return
+      }
+
       const msg = JSON.parse(message as string)
+
+      // Validate message structure — reject prototype pollution and non-string fields
+      if (typeof msg !== 'object' || msg === null || Array.isArray(msg)) return
+      if ('__proto__' in msg || 'constructor' in msg || 'prototype' in msg) return
+      if (typeof msg.type !== 'string') return
+      if (msg.callId !== undefined && typeof msg.callId !== 'string') return
 
       const tags = this.ctx.getTags(ws)
       const pubkey = tags[0]
@@ -176,12 +204,11 @@ export class CallRouterDO extends DurableObject<Env> {
       }
 
       // Volunteer reports spam via WebSocket
-      if (msg.type === 'call:reportSpam' && msg.callId) {
-        const result = await this.handleReportSpam(msg.callId, { pubkey })
-        // Send back the caller number so the UI can confirm
+      if (msg.type === 'call:reportSpam' && typeof msg.callId === 'string') {
+        await this.handleReportSpam(msg.callId, { pubkey })
+        // Only confirm success — never leak callerNumber to volunteers
         if (ws.readyState === WebSocket.OPEN) {
-          const data = await result.json() as Record<string, unknown>
-          ws.send(JSON.stringify({ type: 'spam:reported', ...data }))
+          ws.send(JSON.stringify({ type: 'spam:reported', callId: msg.callId, success: true }))
         }
       }
     } catch {

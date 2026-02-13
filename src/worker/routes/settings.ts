@@ -141,32 +141,64 @@ settings.post('/telephony-provider/test', adminGuard, async (c) => {
         testUrl = `https://api.twilio.com/2010-04-01/Accounts/${body.accountSid}.json`
         testHeaders['Authorization'] = 'Basic ' + btoa(`${body.accountSid}:${body.authToken}`)
         break
-      case 'signalwire':
+      case 'signalwire': {
+        // Validate space name is alphanumeric to prevent URL injection
+        if (!body.signalwireSpace || !/^[a-zA-Z0-9_-]+$/.test(body.signalwireSpace)) {
+          return Response.json({ ok: false, error: 'Invalid SignalWire space name' }, { status: 400 })
+        }
         testUrl = `https://${body.signalwireSpace}.signalwire.com/api/relay/rest/phone_numbers`
         testHeaders['Authorization'] = 'Basic ' + btoa(`${body.accountSid}:${body.authToken}`)
         break
+      }
       case 'vonage':
-        testUrl = `https://rest.nexmo.com/account/get-balance?api_key=${body.apiKey}&api_secret=${body.apiSecret}`
+        testUrl = `https://rest.nexmo.com/account/get-balance?api_key=${encodeURIComponent(body.apiKey || '')}&api_secret=${encodeURIComponent(body.apiSecret || '')}`
         break
       case 'plivo':
-        testUrl = `https://api.plivo.com/v1/Account/${body.authId}/`
+        testUrl = `https://api.plivo.com/v1/Account/${encodeURIComponent(body.authId || '')}/`
         testHeaders['Authorization'] = 'Basic ' + btoa(`${body.authId}:${body.authToken}`)
         break
-      case 'asterisk':
+      case 'asterisk': {
+        // Validate ARI URL: must be HTTPS (or HTTP for local dev) and not an internal/loopback address
+        if (!body.ariUrl) {
+          return Response.json({ ok: false, error: 'ARI URL is required' }, { status: 400 })
+        }
+        let ariParsed: URL
+        try { ariParsed = new URL(body.ariUrl) } catch {
+          return Response.json({ ok: false, error: 'Invalid ARI URL' }, { status: 400 })
+        }
+        // Block internal IPs and loopback
+        const hostname = ariParsed.hostname
+        if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' ||
+            hostname.startsWith('10.') || hostname.startsWith('172.') || hostname.startsWith('192.168.') ||
+            hostname === '169.254.169.254' || hostname === '0.0.0.0') {
+          return Response.json({ ok: false, error: 'ARI URL must not point to internal/loopback addresses' }, { status: 400 })
+        }
+        if (ariParsed.protocol !== 'https:' && ariParsed.protocol !== 'http:') {
+          return Response.json({ ok: false, error: 'ARI URL must use HTTPS' }, { status: 400 })
+        }
         testUrl = `${body.ariUrl}/api/asterisk/info`
         testHeaders['Authorization'] = 'Basic ' + btoa(`${body.ariUsername}:${body.ariPassword}`)
         break
+      }
       default:
         return Response.json({ ok: false, error: 'Unknown provider type' }, { status: 400 })
     }
 
-    const testRes = await fetch(testUrl, { headers: testHeaders })
-    if (testRes.ok) {
-      return Response.json({ ok: true })
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 10000) // 10s timeout
+    try {
+      const testRes = await fetch(testUrl, { headers: testHeaders, signal: controller.signal })
+      clearTimeout(timeout)
+      if (testRes.ok) {
+        return Response.json({ ok: true })
+      }
+      return Response.json({ ok: false, error: `Provider returned ${testRes.status}` }, { status: 400 })
+    } finally {
+      clearTimeout(timeout)
     }
-    return Response.json({ ok: false, error: `Provider returned ${testRes.status}` }, { status: 400 })
   } catch (err) {
-    return Response.json({ ok: false, error: String(err) }, { status: 400 })
+    const message = err instanceof Error ? err.message : 'Connection failed'
+    return Response.json({ ok: false, error: message }, { status: 400 })
   }
 })
 

@@ -350,12 +350,57 @@ export class VonageAdapter implements TelephonyAdapter {
     )
   }
 
-  async validateWebhook(_request: Request): Promise<boolean> {
-    // Vonage webhook validation uses JWT in Authorization header
-    // The JWT contains payload_hash claim that should match SHA-256 of request body
-    // For now, accept all webhooks (can be enhanced with JWT verification later)
-    // In production, validate the JWT signature using the Vonage signature secret
-    return true
+  async validateWebhook(request: Request): Promise<boolean> {
+    // Vonage signs webhooks using a signature secret (HMAC-SHA256)
+    // The signature is sent in the Authorization header or as a query parameter
+    // We validate using the apiSecret as the signing key
+    const url = new URL(request.url)
+    const sig = url.searchParams.get('sig')
+    if (!sig) {
+      // If no signature parameter, validate using body-based HMAC
+      // Vonage sends signed webhooks with timestamp + sig params
+      const timestamp = url.searchParams.get('timestamp')
+      if (!timestamp) return false
+
+      // Verify timestamp is within 5 minutes
+      const ts = parseInt(timestamp, 10)
+      if (isNaN(ts) || Math.abs(Date.now() / 1000 - ts) > 300) return false
+    }
+
+    // Reconstruct signing input: sort all query params (excluding sig), concatenate
+    const params = Array.from(url.searchParams.entries())
+      .filter(([key]) => key !== 'sig')
+      .sort(([a], [b]) => a.localeCompare(b))
+
+    let sigInput = ''
+    for (const [key, value] of params) {
+      sigInput += `&${key}=${value}`
+    }
+
+    const encoder = new TextEncoder()
+    const key = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(this.apiSecret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    )
+    const signed = await crypto.subtle.sign('HMAC', key, encoder.encode(sigInput))
+    const expected = Array.from(new Uint8Array(signed))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('')
+
+    if (!sig) return false
+
+    // Constant-time comparison
+    if (sig.length !== expected.length) return false
+    const aBuf = encoder.encode(sig.toLowerCase())
+    const bBuf = encoder.encode(expected)
+    let result = 0
+    for (let i = 0; i < aBuf.length; i++) {
+      result |= aBuf[i] ^ bBuf[i]
+    }
+    return result === 0
   }
 
   async getCallRecording(callSid: string): Promise<ArrayBuffer | null> {
