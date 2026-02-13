@@ -25,6 +25,7 @@ export interface Volunteer {
   uiLanguage: string         // Preferred UI language
   profileCompleted: boolean  // Whether first-login setup is done
   onBreak: boolean           // Temporarily unavailable (still on shift)
+  callPreference: 'phone' | 'browser' | 'both'  // How to receive calls (default: 'phone')
 }
 
 export interface Shift {

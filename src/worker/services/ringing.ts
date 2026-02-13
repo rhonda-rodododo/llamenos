@@ -28,39 +28,60 @@ export async function startParallelRinging(
       return
     }
 
-    // Get volunteer phone numbers
+    // Get volunteer details (including call preference)
     const volRes = await dos.session.fetch(new Request('http://do/volunteers'))
-    const { volunteers: allVolunteers } = await volRes.json() as { volunteers: Array<{ pubkey: string; phone: string; active: boolean; onBreak?: boolean }> }
+    const { volunteers: allVolunteers } = await volRes.json() as {
+      volunteers: Array<{
+        pubkey: string
+        phone: string
+        active: boolean
+        onBreak?: boolean
+        callPreference?: 'phone' | 'browser' | 'both'
+      }>
+    }
 
-    const toRing = allVolunteers
-      .filter(v => onShiftPubkeys.includes(v.pubkey) && v.active && v.phone && !v.onBreak)
+    // All available on-shift volunteers (for WebSocket notification)
+    const available = allVolunteers
+      .filter(v => onShiftPubkeys.includes(v.pubkey) && v.active && !v.onBreak)
+
+    // Only ring phones for volunteers with phone or both preference (and who have a phone number)
+    const toRingPhone = available
+      .filter(v => {
+        const pref = v.callPreference ?? 'phone'
+        return (pref === 'phone' || pref === 'both') && v.phone
+      })
       .map(v => ({ pubkey: v.pubkey, phone: v.phone }))
 
-    if (toRing.length === 0) {
-      console.log('[ringing] no available volunteers with phones — skipping')
+    // Browser-only volunteers still get notified via WebSocket (handled by CallRouterDO)
+    const browserOnly = available.filter(v => (v.callPreference ?? 'phone') === 'browser')
+
+    if (available.length === 0) {
+      console.log('[ringing] no available volunteers — skipping')
       return
     }
 
-    console.log(`[ringing] ringing ${toRing.length} volunteers for callSid=${callSid}`)
+    console.log(`[ringing] callSid=${callSid} total=${available.length} phone=${toRingPhone.length} browser=${browserOnly.length}`)
 
-    // Notify CallRouter DO of the incoming call
+    // Notify CallRouter DO of the incoming call (includes all available volunteers for WebSocket)
     await dos.calls.fetch(new Request('http://do/calls/incoming', {
       method: 'POST',
       body: JSON.stringify({
         callSid,
         callerNumber,
-        volunteerPubkeys: toRing.map(v => v.pubkey),
+        volunteerPubkeys: available.map(v => v.pubkey),
       }),
     }))
 
-    // Ring all volunteers via telephony adapter
-    const adapter = await getTelephony(env, dos)
-    await adapter.ringVolunteers({
-      callSid,
-      callerNumber,
-      volunteers: toRing,
-      callbackUrl: origin,
-    })
+    // Ring phone volunteers via telephony adapter (skip if no one needs phone ringing)
+    if (toRingPhone.length > 0) {
+      const adapter = await getTelephony(env, dos)
+      await adapter.ringVolunteers({
+        callSid,
+        callerNumber,
+        volunteers: toRingPhone,
+        callbackUrl: origin,
+      })
+    }
   } catch (err) {
     console.error('[ringing] startParallelRinging failed:', err)
   }

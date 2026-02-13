@@ -330,7 +330,16 @@
     "browserNotifications": "Notifications du navigateur",
     "browserNotificationsDescription": "Afficher une notification système pour les appels entrants",
     "copyLink": "Copier le lien vers cette section",
-    "linkCopied": "Lien copié"
+    "linkCopied": "Lien copié",
+    "callPreference": "Préférence d'appel",
+    "callPreferenceDescription": "Choisissez comment vous recevez les appels entrants",
+    "callPrefPhone": "Téléphone uniquement",
+    "callPrefPhoneDesc": "Recevoir les appels sur votre numéro de téléphone",
+    "callPrefBrowser": "Navigateur uniquement",
+    "callPrefBrowserDesc": "Répondre aux appels directement dans votre navigateur via WebRTC",
+    "callPrefBoth": "Téléphone + Navigateur",
+    "callPrefBothDesc": "Faire sonner à la fois votre téléphone et votre navigateur simultanément",
+    "webrtcNotConfigured": "Les appels via le navigateur ne sont pas disponibles. Votre administrateur doit activer WebRTC dans les paramètres du fournisseur de téléphonie."
   },
   "session": {
     "expiringWarning": "Votre session est sur le point d'expirer.",
@@ -410,7 +419,15 @@
       "plivo": "Cost-effective cloud telephony with a clean API. Good for budget-conscious deployments.",
       "asterisk": "Self-hosted PBX for maximum control and lowest per-minute cost. Requires server setup."
     },
-    "notImplemented": "This provider is not yet implemented. Please use Twilio or SignalWire."
+    "notImplemented": "This provider is not yet implemented. Please use Twilio or SignalWire.",
+    "webrtcConfig": "Configuration WebRTC",
+    "webrtcConfigHelp": "Activer les appels via le navigateur pour les bénévoles. Nécessite des identifiants supplémentaires.",
+    "enableWebrtc": "Activer WebRTC",
+    "apiKeySid": "API Key SID",
+    "apiKeySidHelp": "Générez une clé API dans votre console Twilio/SignalWire",
+    "apiKeySecret": "API Key Secret",
+    "twimlAppSid": "TwiML App SID",
+    "twimlAppSidHelp": "Créez une TwiML App avec l'URL vocale pointant vers votre webhook"
   },
   "customFields": {
     "title": "Champs de note personnalisés",

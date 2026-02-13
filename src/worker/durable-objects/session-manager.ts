@@ -39,6 +39,7 @@ export class SessionManagerDO extends DurableObject<Env> {
         uiLanguage: 'en',
         profileCompleted: true,
         onBreak: false,
+        callPreference: 'phone',
       }
       await this.ctx.storage.put('volunteers', volunteers)
     }
@@ -340,6 +341,7 @@ export class SessionManagerDO extends DurableObject<Env> {
       uiLanguage: 'en',
       profileCompleted: false,
       onBreak: false,
+      callPreference: 'phone',
     }
     volunteers[data.pubkey] = volunteer
     await this.ctx.storage.put('volunteers', volunteers)
@@ -550,6 +552,7 @@ export class SessionManagerDO extends DurableObject<Env> {
       uiLanguage: 'en',
       profileCompleted: false,
       onBreak: false,
+      callPreference: 'phone',
     }
     volunteers[data.pubkey] = volunteer
     await this.ctx.storage.put('volunteers', volunteers)

@@ -404,6 +404,52 @@ function AdminSettingsPage() {
             </>
           )}
 
+          {/* WebRTC Config (not for Asterisk) */}
+          {providerDraft.type !== 'asterisk' && (
+            <div className="space-y-3 rounded-lg border border-border p-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="text-sm font-medium">{t('telephonyProvider.webrtcConfig')}</Label>
+                  <p className="text-xs text-muted-foreground">{t('telephonyProvider.webrtcConfigHelp')}</p>
+                </div>
+                <Switch
+                  checked={providerDraft.webrtcEnabled || false}
+                  onCheckedChange={checked => setProviderDraft(prev => ({ ...prev, webrtcEnabled: checked }))}
+                />
+              </div>
+              {providerDraft.webrtcEnabled && (providerDraft.type === 'twilio' || providerDraft.type === 'signalwire') && (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label>{t('telephonyProvider.apiKeySid')}</Label>
+                    <p className="text-xs text-muted-foreground">{t('telephonyProvider.apiKeySidHelp')}</p>
+                    <Input
+                      value={providerDraft.apiKeySid || ''}
+                      onChange={e => setProviderDraft(prev => ({ ...prev, apiKeySid: e.target.value }))}
+                      placeholder="SK..."
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>{t('telephonyProvider.apiKeySecret')}</Label>
+                    <Input
+                      type="password"
+                      value={providerDraft.apiKeySecret || ''}
+                      onChange={e => setProviderDraft(prev => ({ ...prev, apiKeySecret: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1 sm:col-span-2">
+                    <Label>{t('telephonyProvider.twimlAppSid')}</Label>
+                    <p className="text-xs text-muted-foreground">{t('telephonyProvider.twimlAppSidHelp')}</p>
+                    <Input
+                      value={providerDraft.twimlAppSid || ''}
+                      onChange={e => setProviderDraft(prev => ({ ...prev, twimlAppSid: e.target.value }))}
+                      placeholder="AP..."
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Test result */}
           {providerTestResult && (
             <div className={`rounded-lg border p-3 ${providerTestResult.ok ? 'border-green-500/30 bg-green-500/10' : 'border-destructive/30 bg-destructive/10'}`}>

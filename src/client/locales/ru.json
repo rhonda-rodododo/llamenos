@@ -330,7 +330,16 @@
     "browserNotifications": "Уведомления браузера",
     "browserNotificationsDescription": "Показывать системное уведомление для входящих звонков",
     "copyLink": "Скопировать ссылку на этот раздел",
-    "linkCopied": "Ссылка скопирована"
+    "linkCopied": "Ссылка скопирована",
+    "callPreference": "Предпочтение звонков",
+    "callPreferenceDescription": "Выберите, как вы получаете входящие звонки",
+    "callPrefPhone": "Только телефон",
+    "callPrefPhoneDesc": "Принимать звонки на ваш номер телефона",
+    "callPrefBrowser": "Только браузер",
+    "callPrefBrowserDesc": "Отвечать на звонки прямо в браузере через WebRTC",
+    "callPrefBoth": "Телефон + Браузер",
+    "callPrefBothDesc": "Звонить одновременно на телефон и в браузер",
+    "webrtcNotConfigured": "Звонки через браузер недоступны. Вашему администратору необходимо включить WebRTC в настройках провайдера телефонии."
   },
   "session": {
     "expiringWarning": "Ваша сессия скоро истечёт.",
@@ -410,7 +419,15 @@
       "plivo": "Cost-effective cloud telephony with a clean API. Good for budget-conscious deployments.",
       "asterisk": "Self-hosted PBX for maximum control and lowest per-minute cost. Requires server setup."
     },
-    "notImplemented": "This provider is not yet implemented. Please use Twilio or SignalWire."
+    "notImplemented": "This provider is not yet implemented. Please use Twilio or SignalWire.",
+    "webrtcConfig": "Настройка WebRTC",
+    "webrtcConfigHelp": "Включить звонки через браузер для волонтёров. Требуются дополнительные учётные данные.",
+    "enableWebrtc": "Включить WebRTC",
+    "apiKeySid": "API Key SID",
+    "apiKeySidHelp": "Сгенерируйте API Key в консоли Twilio/SignalWire",
+    "apiKeySecret": "API Key Secret",
+    "twimlAppSid": "TwiML App SID",
+    "twimlAppSidHelp": "Создайте TwiML App с URL голосовой связи, указывающим на ваш webhook"
   },
   "customFields": {
     "title": "Пользовательские поля заметок",

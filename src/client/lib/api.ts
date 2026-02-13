@@ -69,7 +69,7 @@ export async function login(pubkey: string, token: string) {
 }
 
 export async function getMe() {
-  return request<{ pubkey: string; role: 'volunteer' | 'admin'; name: string; transcriptionEnabled: boolean; spokenLanguages: string[]; uiLanguage: string; profileCompleted: boolean; onBreak: boolean; webauthnRequired: boolean; webauthnRegistered: boolean }>('/auth/me')
+  return request<{ pubkey: string; role: 'volunteer' | 'admin'; name: string; transcriptionEnabled: boolean; spokenLanguages: string[]; uiLanguage: string; profileCompleted: boolean; onBreak: boolean; callPreference: 'phone' | 'browser' | 'both'; webauthnRequired: boolean; webauthnRegistered: boolean }>('/auth/me')
 }
 
 // --- Volunteers (admin only) ---
@@ -293,7 +293,7 @@ export async function updateMyTranscriptionPreference(enabled: boolean) {
   })
 }
 
-export async function updateMyProfile(data: { name?: string; phone?: string; spokenLanguages?: string[]; uiLanguage?: string; profileCompleted?: boolean }) {
+export async function updateMyProfile(data: { name?: string; phone?: string; spokenLanguages?: string[]; uiLanguage?: string; profileCompleted?: boolean; callPreference?: 'phone' | 'browser' | 'both' }) {
   return request<{ ok: true }>('/auth/me/profile', {
     method: 'PATCH',
     body: JSON.stringify(data),
@@ -422,6 +422,16 @@ export async function testTelephonyProvider(config: Partial<TelephonyProviderCon
   })
 }
 
+// --- WebRTC Token ---
+
+export async function getWebRtcToken() {
+  return request<{ token: string; provider: string; identity: string }>('/telephony/webrtc-token')
+}
+
+export async function getWebRtcStatus() {
+  return request<{ available: boolean; provider: string | null }>('/telephony/webrtc-status')
+}
+
 // --- WebAuthn Settings ---
 
 export interface WebAuthnSettings {
@@ -451,6 +461,7 @@ export interface Volunteer {
   createdAt: string
   transcriptionEnabled: boolean
   onBreak: boolean
+  callPreference: 'phone' | 'browser' | 'both'
 }
 
 export interface Shift {

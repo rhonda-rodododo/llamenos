@@ -330,7 +330,16 @@
     "browserNotifications": "브라우저 알림",
     "browserNotificationsDescription": "수신 전화 시 시스템 알림을 표시합니다",
     "copyLink": "이 섹션 링크 복사",
-    "linkCopied": "링크 복사됨"
+    "linkCopied": "링크 복사됨",
+    "callPreference": "통화 수신 방식",
+    "callPreferenceDescription": "수신 전화를 받는 방법을 선택하세요",
+    "callPrefPhone": "전화만",
+    "callPrefPhoneDesc": "전화번호로 통화를 수신합니다",
+    "callPrefBrowser": "브라우저만",
+    "callPrefBrowserDesc": "WebRTC를 통해 브라우저에서 직접 전화를 받습니다",
+    "callPrefBoth": "전화 + 브라우저",
+    "callPrefBothDesc": "전화와 브라우저 모두 동시에 벨이 울립니다",
+    "webrtcNotConfigured": "브라우저 통화를 사용할 수 없습니다. 관리자가 전화 서비스 제공업체 설정에서 WebRTC를 활성화해야 합니다."
   },
   "session": {
     "expiringWarning": "세션이 곧 만료됩니다.",
@@ -410,7 +419,15 @@
       "plivo": "Cost-effective cloud telephony with a clean API. Good for budget-conscious deployments.",
       "asterisk": "Self-hosted PBX for maximum control and lowest per-minute cost. Requires server setup."
     },
-    "notImplemented": "This provider is not yet implemented. Please use Twilio or SignalWire."
+    "notImplemented": "This provider is not yet implemented. Please use Twilio or SignalWire.",
+    "webrtcConfig": "WebRTC 구성",
+    "webrtcConfigHelp": "자원봉사자를 위한 브라우저 기반 통화를 활성화합니다. 추가 자격 증명이 필요합니다.",
+    "enableWebrtc": "WebRTC 활성화",
+    "apiKeySid": "API Key SID",
+    "apiKeySidHelp": "Twilio/SignalWire 콘솔에서 API Key를 생성하세요",
+    "apiKeySecret": "API Key Secret",
+    "twimlAppSid": "TwiML App SID",
+    "twimlAppSidHelp": "음성 URL이 웹훅을 가리키는 TwiML App을 생성하세요"
   },
   "customFields": {
     "title": "사용자 정의 메모 필드",

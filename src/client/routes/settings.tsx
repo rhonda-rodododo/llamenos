@@ -6,11 +6,12 @@ import {
   updateMyTranscriptionPreference,
   updateMyProfile,
   getTranscriptionSettings,
+  getWebRtcStatus,
 } from '@/lib/api'
 import { getStoredSession, keyPairFromNsec } from '@/lib/crypto'
 import { nip19 } from 'nostr-tools'
 import { useToast } from '@/lib/toast'
-import { Settings2, Mic, Bell, User, Globe, Fingerprint, KeyRound, Trash2, Plus } from 'lucide-react'
+import { Settings2, Mic, Bell, User, Globe, Fingerprint, KeyRound, Trash2, Plus, Phone, Monitor, PhoneCall } from 'lucide-react'
 import { isWebAuthnAvailable, registerCredential, listCredentials, deleteCredential, type WebAuthnCredentialInfo } from '@/lib/webauthn'
 import { PhoneInput } from '@/components/phone-input'
 import { getNotificationPrefs, setNotificationPrefs } from '@/lib/notifications'
@@ -32,7 +33,7 @@ export const Route = createFileRoute('/settings')({
 function SettingsPage() {
   const { t } = useTranslation()
   const { section } = useSearch({ from: '/settings' })
-  const { transcriptionEnabled, name: authName, spokenLanguages, refreshProfile } = useAuth()
+  const { transcriptionEnabled, name: authName, spokenLanguages, callPreference, refreshProfile } = useAuth()
   const { toast } = useToast()
   const [myTranscription, setMyTranscription] = useState(transcriptionEnabled)
   const [notifPrefs, setNotifPrefs] = useState(getNotificationPrefs)
@@ -42,6 +43,8 @@ function SettingsPage() {
   const [webauthnLabel, setWebauthnLabel] = useState('')
   const [webauthnRegistering, setWebauthnRegistering] = useState(false)
   const webauthnAvailable = isWebAuthnAvailable()
+  const [currentCallPref, setCurrentCallPref] = useState<'phone' | 'browser' | 'both'>(callPreference)
+  const [webrtcAvailable, setWebrtcAvailable] = useState(false)
 
   // Collapsible state — profile expanded by default, plus any deep-linked section
   const [expanded, setExpanded] = useState<Set<string>>(() => {
@@ -79,6 +82,9 @@ function SettingsPage() {
       getTranscriptionSettings().then(r => {
         setCanOptOut(r.allowVolunteerOptOut)
       }).catch(() => {}),
+      getWebRtcStatus().then(r => {
+        setWebrtcAvailable(r.available)
+      }).catch(() => {}),
     ]
     // Load WebAuthn credentials for all users
     if (webauthnAvailable) {
@@ -106,6 +112,10 @@ function SettingsPage() {
   useEffect(() => {
     setSelectedLanguages(spokenLanguages || ['en'])
   }, [spokenLanguages])
+
+  useEffect(() => {
+    setCurrentCallPref(callPreference)
+  }, [callPreference])
 
   async function handleUpdateProfile() {
     setProfileError('')
@@ -354,6 +364,67 @@ function SettingsPage() {
         ) : (
           <p className="text-sm text-muted-foreground">{t('transcription.managedByAdmin')}</p>
         )}
+      </SettingsSection>
+
+      {/* Call Preference (WebRTC) */}
+      <SettingsSection
+        id="call-preference"
+        title={t('settings.callPreference')}
+        description={t('settings.callPreferenceDescription')}
+        icon={<PhoneCall className="h-5 w-5 text-muted-foreground" />}
+        expanded={expanded.has('call-preference')}
+        onToggle={(open) => toggleSection('call-preference', open)}
+      >
+        {!webrtcAvailable && (
+          <p className="text-sm text-muted-foreground">
+            {t('settings.webrtcNotConfigured')}
+          </p>
+        )}
+        <div className="space-y-2">
+          {([
+            { value: 'phone' as const, icon: Phone, label: t('settings.callPrefPhone'), desc: t('settings.callPrefPhoneDesc') },
+            { value: 'browser' as const, icon: Monitor, label: t('settings.callPrefBrowser'), desc: t('settings.callPrefBrowserDesc') },
+            { value: 'both' as const, icon: PhoneCall, label: t('settings.callPrefBoth'), desc: t('settings.callPrefBothDesc') },
+          ]).map(option => (
+            <button
+              key={option.value}
+              disabled={option.value !== 'phone' && !webrtcAvailable}
+              onClick={async () => {
+                try {
+                  setCurrentCallPref(option.value)
+                  await updateMyProfile({ callPreference: option.value })
+                  await refreshProfile()
+                  toast(t('common.success'), 'success')
+                } catch {
+                  setCurrentCallPref(callPreference) // revert
+                  toast(t('common.error'), 'error')
+                }
+              }}
+              className={`flex w-full items-center gap-3 rounded-lg border p-4 text-left transition-colors ${
+                currentCallPref === option.value
+                  ? 'border-primary bg-primary/5'
+                  : option.value !== 'phone' && !webrtcAvailable
+                    ? 'cursor-not-allowed border-border opacity-50'
+                    : 'border-border hover:border-primary/50'
+              }`}
+            >
+              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+                currentCallPref === option.value ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+              }`}>
+                <option.icon className="h-5 w-5" />
+              </div>
+              <div className="flex-1">
+                <p className={`text-sm font-medium ${currentCallPref === option.value ? 'text-primary' : ''}`}>
+                  {option.label}
+                </p>
+                <p className="text-xs text-muted-foreground">{option.desc}</p>
+              </div>
+              {currentCallPref === option.value && (
+                <div className="h-2.5 w-2.5 rounded-full bg-primary" />
+              )}
+            </button>
+          ))}
+        </div>
       </SettingsSection>
 
       {/* Call Notifications */}

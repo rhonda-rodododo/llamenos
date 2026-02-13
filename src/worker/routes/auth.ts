@@ -52,6 +52,7 @@ auth.get('/me', async (c) => {
     uiLanguage: volunteer.uiLanguage || 'en',
     profileCompleted: volunteer.profileCompleted ?? true,
     onBreak: volunteer.onBreak ?? false,
+    callPreference: volunteer.callPreference ?? 'phone',
     webauthnRequired,
     webauthnRegistered: webauthnCreds.length > 0,
   })
@@ -60,7 +61,7 @@ auth.get('/me', async (c) => {
 auth.patch('/me/profile', async (c) => {
   const dos = getDOs(c.env)
   const pubkey = c.get('pubkey')
-  const body = await c.req.json() as { name?: string; phone?: string; spokenLanguages?: string[]; uiLanguage?: string; profileCompleted?: boolean }
+  const body = await c.req.json() as { name?: string; phone?: string; spokenLanguages?: string[]; uiLanguage?: string; profileCompleted?: boolean; callPreference?: 'phone' | 'browser' | 'both' }
   if (body.phone && !isValidE164(body.phone)) {
     return c.json({ error: 'Invalid phone number. Use E.164 format (e.g. +12125551234)' }, 400)
   }

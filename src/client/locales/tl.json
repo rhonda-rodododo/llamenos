@@ -330,7 +330,16 @@
     "browserNotifications": "Mga notipikasyon ng browser",
     "browserNotificationsDescription": "Magpakita ng notipikasyon ng system para sa papasok na tawag",
     "copyLink": "Kopyahin ang link sa seksyong ito",
-    "linkCopied": "Nakopya ang link"
+    "linkCopied": "Nakopya ang link",
+    "callPreference": "Kagustuhan sa Tawag",
+    "callPreferenceDescription": "Piliin kung paano ka makakatanggap ng mga papasok na tawag",
+    "callPrefPhone": "Telepono Lamang",
+    "callPrefPhoneDesc": "Tumanggap ng mga tawag sa iyong numero ng telepono",
+    "callPrefBrowser": "Browser Lamang",
+    "callPrefBrowserDesc": "Sagutin ang mga tawag direkta sa iyong browser gamit ang WebRTC",
+    "callPrefBoth": "Telepono + Browser",
+    "callPrefBothDesc": "Patunugin ang parehong telepono at browser nang sabay",
+    "webrtcNotConfigured": "Hindi available ang pagtawag sa browser. Kailangang i-enable ng iyong admin ang WebRTC sa mga setting ng telephony provider."
   },
   "session": {
     "expiringWarning": "Malapit nang mag-expire ang iyong session.",
@@ -410,7 +419,15 @@
       "plivo": "Cost-effective cloud telephony with a clean API. Good for budget-conscious deployments.",
       "asterisk": "Self-hosted PBX for maximum control and lowest per-minute cost. Requires server setup."
     },
-    "notImplemented": "This provider is not yet implemented. Please use Twilio or SignalWire."
+    "notImplemented": "This provider is not yet implemented. Please use Twilio or SignalWire.",
+    "webrtcConfig": "Konfigurasyong WebRTC",
+    "webrtcConfigHelp": "I-enable ang pagtawag gamit ang browser para sa mga boluntaryo. Nangangailangan ng karagdagang mga kredensyal.",
+    "enableWebrtc": "I-enable ang WebRTC",
+    "apiKeySid": "API Key SID",
+    "apiKeySidHelp": "Bumuo ng API Key sa iyong Twilio/SignalWire console",
+    "apiKeySecret": "API Key Secret",
+    "twimlAppSid": "TwiML App SID",
+    "twimlAppSidHelp": "Gumawa ng TwiML App na may voice URL na nakaturo sa iyong webhook"
   },
   "customFields": {
     "title": "Mga Custom na Field ng Tala",

@@ -24,6 +24,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { WebRtcStatus, WebRtcCallControls } from '@/components/webrtc-call'
 
 export const Route = createFileRoute('/')({
   component: DashboardPage,
@@ -72,7 +73,10 @@ function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-bold sm:text-2xl">{t('dashboard.title')}</h1>
+      <div className="flex items-center gap-3">
+        <h1 className="text-xl font-bold sm:text-2xl">{t('dashboard.title')}</h1>
+        <WebRtcStatus />
+      </div>
 
       {/* Status cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -373,6 +377,7 @@ function ActiveCallPanel({ call, onHangup, onReportSpam, onBanNumber, secretKey 
 
         {/* Call actions */}
         <div className="flex flex-wrap gap-2 border-t border-border pt-4">
+          <WebRtcCallControls />
           <Button variant="destructive" onClick={onHangup}>
             <PhoneOff className="h-4 w-4" />
             {t('calls.hangUp')}

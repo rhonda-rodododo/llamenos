@@ -330,7 +330,16 @@
     "browserNotifications": "Thông báo trình duyệt",
     "browserNotificationsDescription": "Hiển thị thông báo hệ thống cho cuộc gọi đến",
     "copyLink": "Sao chép liên kết đến phần này",
-    "linkCopied": "Đã sao chép liên kết"
+    "linkCopied": "Đã sao chép liên kết",
+    "callPreference": "Tùy chọn cuộc gọi",
+    "callPreferenceDescription": "Chọn cách bạn nhận cuộc gọi đến",
+    "callPrefPhone": "Chỉ điện thoại",
+    "callPrefPhoneDesc": "Nhận cuộc gọi trên số điện thoại của bạn",
+    "callPrefBrowser": "Chỉ trình duyệt",
+    "callPrefBrowserDesc": "Trả lời cuộc gọi trực tiếp trong trình duyệt qua WebRTC",
+    "callPrefBoth": "Điện thoại + Trình duyệt",
+    "callPrefBothDesc": "Đổ chuông cả điện thoại và trình duyệt đồng thời",
+    "webrtcNotConfigured": "Gọi qua trình duyệt không khả dụng. Quản trị viên cần bật WebRTC trong cài đặt nhà cung cấp điện thoại."
   },
   "session": {
     "expiringWarning": "Phiên của bạn sắp hết hạn.",
@@ -410,7 +419,15 @@
       "plivo": "Cost-effective cloud telephony with a clean API. Good for budget-conscious deployments.",
       "asterisk": "Self-hosted PBX for maximum control and lowest per-minute cost. Requires server setup."
     },
-    "notImplemented": "This provider is not yet implemented. Please use Twilio or SignalWire."
+    "notImplemented": "This provider is not yet implemented. Please use Twilio or SignalWire.",
+    "webrtcConfig": "Cấu hình WebRTC",
+    "webrtcConfigHelp": "Bật gọi qua trình duyệt cho tình nguyện viên. Yêu cầu thông tin xác thực bổ sung.",
+    "enableWebrtc": "Bật WebRTC",
+    "apiKeySid": "API Key SID",
+    "apiKeySidHelp": "Tạo API Key trong bảng điều khiển Twilio/SignalWire của bạn",
+    "apiKeySecret": "API Key Secret",
+    "twimlAppSid": "TwiML App SID",
+    "twimlAppSidHelp": "Tạo TwiML App với URL giọng nói trỏ đến webhook của bạn"
   },
   "customFields": {
     "title": "Trường ghi chú tùy chỉnh",

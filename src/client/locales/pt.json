@@ -330,7 +330,16 @@
     "browserNotifications": "Notificações do navegador",
     "browserNotificationsDescription": "Exibir uma notificação do sistema para chamadas recebidas",
     "copyLink": "Copiar link desta seção",
-    "linkCopied": "Link copiado"
+    "linkCopied": "Link copiado",
+    "callPreference": "Preferência de chamada",
+    "callPreferenceDescription": "Escolha como você recebe chamadas recebidas",
+    "callPrefPhone": "Somente telefone",
+    "callPrefPhoneDesc": "Receber chamadas no seu número de telefone",
+    "callPrefBrowser": "Somente navegador",
+    "callPrefBrowserDesc": "Atender chamadas diretamente no seu navegador via WebRTC",
+    "callPrefBoth": "Telefone + Navegador",
+    "callPrefBothDesc": "Tocar no telefone e no navegador simultaneamente",
+    "webrtcNotConfigured": "Chamadas pelo navegador não estão disponíveis. Seu administrador precisa ativar WebRTC nas configurações do provedor de telefonia."
   },
   "session": {
     "expiringWarning": "Sua sessão está prestes a expirar.",
@@ -410,7 +419,15 @@
       "plivo": "Cost-effective cloud telephony with a clean API. Good for budget-conscious deployments.",
       "asterisk": "Self-hosted PBX for maximum control and lowest per-minute cost. Requires server setup."
     },
-    "notImplemented": "This provider is not yet implemented. Please use Twilio or SignalWire."
+    "notImplemented": "This provider is not yet implemented. Please use Twilio or SignalWire.",
+    "webrtcConfig": "Configuração WebRTC",
+    "webrtcConfigHelp": "Ativar chamadas baseadas em navegador para voluntários. Requer credenciais adicionais.",
+    "enableWebrtc": "Ativar WebRTC",
+    "apiKeySid": "API Key SID",
+    "apiKeySidHelp": "Gere uma API Key no seu console Twilio/SignalWire",
+    "apiKeySecret": "API Key Secret",
+    "twimlAppSid": "TwiML App SID",
+    "twimlAppSidHelp": "Crie um TwiML App com a URL de voz apontando para seu webhook"
   },
   "customFields": {
     "title": "Campos Personalizados de Notas",

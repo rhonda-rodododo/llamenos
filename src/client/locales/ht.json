@@ -330,7 +330,16 @@
     "browserNotifications": "Notifikasyon navigatè",
     "browserNotificationsDescription": "Montre yon notifikasyon sistèm pou apèl ki antre",
     "copyLink": "Kopye lyen seksyon sa a",
-    "linkCopied": "Lyen kopye"
+    "linkCopied": "Lyen kopye",
+    "callPreference": "Preferans Apèl",
+    "callPreferenceDescription": "Chwazi kijan ou resevwa apèl ki antre",
+    "callPrefPhone": "Telefòn Sèlman",
+    "callPrefPhoneDesc": "Resevwa apèl sou nimewo telefòn ou",
+    "callPrefBrowser": "Navigatè Sèlman",
+    "callPrefBrowserDesc": "Reponn apèl dirèkteman nan navigatè ou via WebRTC",
+    "callPrefBoth": "Telefòn + Navigatè",
+    "callPrefBothDesc": "Sonnen ni telefòn ni navigatè an menm tan",
+    "webrtcNotConfigured": "Apèl nan navigatè pa disponib. Admin ou bezwen aktive WebRTC nan paramèt founisè telefoni a."
   },
   "session": {
     "expiringWarning": "Sesyon ou prèske expire.",
@@ -410,7 +419,15 @@
       "plivo": "Cost-effective cloud telephony with a clean API. Good for budget-conscious deployments.",
       "asterisk": "Self-hosted PBX for maximum control and lowest per-minute cost. Requires server setup."
     },
-    "notImplemented": "This provider is not yet implemented. Please use Twilio or SignalWire."
+    "notImplemented": "This provider is not yet implemented. Please use Twilio or SignalWire.",
+    "webrtcConfig": "Konfigirasyon WebRTC",
+    "webrtcConfigHelp": "Aktive apèl nan navigatè pou volontè yo. Mande plis enfòmasyon koneksyon.",
+    "enableWebrtc": "Aktive WebRTC",
+    "apiKeySid": "API Key SID",
+    "apiKeySidHelp": "Jenere yon API Key nan konsol Twilio/SignalWire ou",
+    "apiKeySecret": "API Key Secret",
+    "twimlAppSid": "TwiML App SID",
+    "twimlAppSidHelp": "Kreye yon TwiML App avèk URL vwa ki dirije nan webhook ou"
   },
   "customFields": {
     "title": "Chan Nòt Pèsonalize",

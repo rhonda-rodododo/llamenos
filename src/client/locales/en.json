@@ -335,6 +335,15 @@
     "transcriptionDescription": "Uses AI to transcribe calls. Can be disabled per-volunteer.",
     "language": "Language",
     "theme": "Theme",
+    "callPreference": "Call Preference",
+    "callPreferenceDescription": "Choose how you receive incoming calls",
+    "callPrefPhone": "Phone Only",
+    "callPrefPhoneDesc": "Receive calls on your phone number",
+    "callPrefBrowser": "Browser Only",
+    "callPrefBrowserDesc": "Answer calls directly in your browser via WebRTC",
+    "callPrefBoth": "Phone + Browser",
+    "callPrefBothDesc": "Ring both your phone and browser simultaneously",
+    "webrtcNotConfigured": "Browser calling is not available. Your admin needs to enable WebRTC in the telephony provider settings.",
     "notifications": "Call Notifications",
     "notificationsDescription": "Configure how you receive incoming call alerts",
     "playRingtone": "Play ringtone for incoming calls",
@@ -469,7 +478,15 @@
       "plivo": "Cost-effective cloud telephony with a clean API. Good for budget-conscious deployments.",
       "asterisk": "Self-hosted PBX for maximum control and lowest per-minute cost. Requires server setup."
     },
-    "notImplemented": "This provider is not yet implemented. Please use Twilio or SignalWire."
+    "notImplemented": "This provider is not yet implemented. Please use Twilio or SignalWire.",
+    "webrtcConfig": "WebRTC Configuration",
+    "webrtcConfigHelp": "Enable browser-based calling for volunteers. Requires additional credentials.",
+    "enableWebrtc": "Enable WebRTC",
+    "apiKeySid": "API Key SID",
+    "apiKeySidHelp": "Generate an API Key in your Twilio/SignalWire console",
+    "apiKeySecret": "API Key Secret",
+    "twimlAppSid": "TwiML App SID",
+    "twimlAppSidHelp": "Create a TwiML App with voice URL pointing to your webhook"
   },
   "customFields": {
     "title": "Custom Note Fields",

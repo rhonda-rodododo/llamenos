@@ -330,7 +330,16 @@
     "browserNotifications": "Notificaciones del navegador",
     "browserNotificationsDescription": "Mostrar una notificación del sistema para llamadas entrantes",
     "copyLink": "Copiar enlace a esta sección",
-    "linkCopied": "Enlace copiado"
+    "linkCopied": "Enlace copiado",
+    "callPreference": "Preferencia de llamada",
+    "callPreferenceDescription": "Elige cómo recibes las llamadas entrantes",
+    "callPrefPhone": "Solo teléfono",
+    "callPrefPhoneDesc": "Recibe llamadas en tu número de teléfono",
+    "callPrefBrowser": "Solo navegador",
+    "callPrefBrowserDesc": "Contesta llamadas directamente en tu navegador via WebRTC",
+    "callPrefBoth": "Teléfono + Navegador",
+    "callPrefBothDesc": "Suena tanto en tu teléfono como en el navegador simultáneamente",
+    "webrtcNotConfigured": "Las llamadas por navegador no están disponibles. Tu administrador necesita habilitar WebRTC en la configuración del proveedor de telefonía."
   },
   "session": {
     "expiringWarning": "Tu sesión está a punto de expirar.",
@@ -410,7 +419,15 @@
       "plivo": "Telefonía en la nube económica con una API limpia. Ideal para implementaciones con presupuesto limitado.",
       "asterisk": "PBX autoalojado para máximo control y menor costo por minuto. Requiere configuración de servidor."
     },
-    "notImplemented": "Este proveedor aún no está implementado. Por favor use Twilio o SignalWire."
+    "notImplemented": "Este proveedor aún no está implementado. Por favor use Twilio o SignalWire.",
+    "webrtcConfig": "Configuración de WebRTC",
+    "webrtcConfigHelp": "Habilitar llamadas basadas en navegador para voluntarios. Requiere credenciales adicionales.",
+    "enableWebrtc": "Habilitar WebRTC",
+    "apiKeySid": "API Key SID",
+    "apiKeySidHelp": "Genera una API Key en tu consola de Twilio/SignalWire",
+    "apiKeySecret": "API Key Secret",
+    "twimlAppSid": "TwiML App SID",
+    "twimlAppSidHelp": "Crea una TwiML App con la URL de voz apuntando a tu webhook"
   },
   "customFields": {
     "title": "Campos de Nota Personalizados",

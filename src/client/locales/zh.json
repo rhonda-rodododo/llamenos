@@ -330,7 +330,16 @@
     "browserNotifications": "浏览器通知",
     "browserNotificationsDescription": "来电时显示系统通知",
     "copyLink": "复制此部分链接",
-    "linkCopied": "链接已复制"
+    "linkCopied": "链接已复制",
+    "callPreference": "通话偏好",
+    "callPreferenceDescription": "选择您接收来电的方式",
+    "callPrefPhone": "仅电话",
+    "callPrefPhoneDesc": "通过您的电话号码接听来电",
+    "callPrefBrowser": "仅浏览器",
+    "callPrefBrowserDesc": "通过WebRTC直接在浏览器中接听来电",
+    "callPrefBoth": "电话 + 浏览器",
+    "callPrefBothDesc": "同时在电话和浏览器上响铃",
+    "webrtcNotConfigured": "浏览器通话不可用。您的管理员需要在电话服务提供商设置中启用WebRTC。"
   },
   "session": {
     "expiringWarning": "您的会话即将过期。",
@@ -410,7 +419,15 @@
       "plivo": "Cost-effective cloud telephony with a clean API. Good for budget-conscious deployments.",
       "asterisk": "Self-hosted PBX for maximum control and lowest per-minute cost. Requires server setup."
     },
-    "notImplemented": "This provider is not yet implemented. Please use Twilio or SignalWire."
+    "notImplemented": "This provider is not yet implemented. Please use Twilio or SignalWire.",
+    "webrtcConfig": "WebRTC 配置",
+    "webrtcConfigHelp": "为志愿者启用基于浏览器的通话。需要额外的凭据。",
+    "enableWebrtc": "启用 WebRTC",
+    "apiKeySid": "API Key SID",
+    "apiKeySidHelp": "在您的 Twilio/SignalWire 控制台中生成 API Key",
+    "apiKeySecret": "API Key Secret",
+    "twimlAppSid": "TwiML App SID",
+    "twimlAppSidHelp": "创建一个 TwiML App，将语音 URL 指向您的 webhook"
   },
   "customFields": {
     "title": "自定义笔记字段",

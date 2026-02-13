@@ -330,7 +330,16 @@
     "browserNotifications": "إشعارات المتصفح",
     "browserNotificationsDescription": "عرض إشعار النظام للمكالمات الواردة",
     "copyLink": "نسخ رابط هذا القسم",
-    "linkCopied": "تم نسخ الرابط"
+    "linkCopied": "تم نسخ الرابط",
+    "callPreference": "تفضيل المكالمات",
+    "callPreferenceDescription": "اختر كيفية تلقي المكالمات الواردة",
+    "callPrefPhone": "الهاتف فقط",
+    "callPrefPhoneDesc": "تلقي المكالمات على رقم هاتفك",
+    "callPrefBrowser": "المتصفح فقط",
+    "callPrefBrowserDesc": "الرد على المكالمات مباشرة في المتصفح عبر WebRTC",
+    "callPrefBoth": "الهاتف + المتصفح",
+    "callPrefBothDesc": "الرنين على كل من الهاتف والمتصفح في آن واحد",
+    "webrtcNotConfigured": "الاتصال عبر المتصفح غير متاح. يحتاج المسؤول إلى تفعيل WebRTC في إعدادات مزود الاتصالات."
   },
   "session": {
     "expiringWarning": "جلستك على وشك الانتهاء.",
@@ -410,7 +419,15 @@
       "plivo": "Cost-effective cloud telephony with a clean API. Good for budget-conscious deployments.",
       "asterisk": "Self-hosted PBX for maximum control and lowest per-minute cost. Requires server setup."
     },
-    "notImplemented": "This provider is not yet implemented. Please use Twilio or SignalWire."
+    "notImplemented": "This provider is not yet implemented. Please use Twilio or SignalWire.",
+    "webrtcConfig": "تكوين WebRTC",
+    "webrtcConfigHelp": "تفعيل الاتصال عبر المتصفح للمتطوعين. يتطلب بيانات اعتماد إضافية.",
+    "enableWebrtc": "تفعيل WebRTC",
+    "apiKeySid": "API Key SID",
+    "apiKeySidHelp": "أنشئ مفتاح API في وحدة تحكم Twilio/SignalWire",
+    "apiKeySecret": "API Key Secret",
+    "twimlAppSid": "TwiML App SID",
+    "twimlAppSidHelp": "أنشئ تطبيق TwiML مع توجيه عنوان URL الصوتي إلى webhook الخاص بك"
   },
   "customFields": {
     "title": "حقول الملاحظات المخصصة",

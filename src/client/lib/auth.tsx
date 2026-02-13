@@ -14,6 +14,7 @@ interface AuthState {
   uiLanguage: string
   profileCompleted: boolean
   onBreak: boolean
+  callPreference: 'phone' | 'browser' | 'both'
   sessionExpiring: boolean
   sessionExpired: boolean
 }
@@ -44,6 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     uiLanguage: 'en',
     profileCompleted: true,
     onBreak: false,
+    callPreference: 'phone',
     sessionExpiring: false,
     sessionExpired: false,
   })
@@ -112,6 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               uiLanguage: me.uiLanguage || 'en',
               profileCompleted: me.profileCompleted ?? true,
               onBreak: me.onBreak ?? false,
+              callPreference: me.callPreference ?? 'phone',
               sessionExpiring: false,
               sessionExpired: false,
             })
@@ -140,6 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             uiLanguage: me.uiLanguage || 'en',
             profileCompleted: me.profileCompleted ?? true,
             onBreak: me.onBreak ?? false,
+              callPreference: me.callPreference ?? 'phone',
             sessionExpiring: false,
             sessionExpired: false,
           })
@@ -178,6 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         uiLanguage: me.uiLanguage || 'en',
         profileCompleted: me.profileCompleted ?? true,
         onBreak: me.onBreak ?? false,
+              callPreference: me.callPreference ?? 'phone',
         sessionExpiring: false,
         sessionExpired: false,
       })
@@ -209,6 +214,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         uiLanguage: me.uiLanguage || 'en',
         profileCompleted: me.profileCompleted ?? true,
         onBreak: me.onBreak ?? false,
+              callPreference: me.callPreference ?? 'phone',
         sessionExpiring: false,
         sessionExpired: false,
       })
@@ -234,6 +240,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         uiLanguage: me.uiLanguage || 'en',
         profileCompleted: me.profileCompleted ?? true,
         onBreak: me.onBreak ?? false,
+              callPreference: me.callPreference ?? 'phone',
         sessionExpiring: false,
         sessionExpired: false,
       }))
@@ -258,6 +265,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         uiLanguage: me.uiLanguage || 'en',
         profileCompleted: me.profileCompleted ?? true,
         onBreak: me.onBreak ?? false,
+              callPreference: me.callPreference ?? 'phone',
         sessionExpiring: false,
         sessionExpired: false,
       }))
@@ -295,6 +303,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       uiLanguage: 'en',
       profileCompleted: true,
       onBreak: false,
+      callPreference: 'phone',
       sessionExpiring: false,
       sessionExpired: false,
     })

@@ -34,7 +34,17 @@ export interface TelephonyProviderConfig {
   ariUsername?: string
   ariPassword?: string
   bridgeCallbackUrl?: string // URL the ARI bridge posts webhooks to
+
+  // WebRTC (Twilio/SignalWire require extra API keys; Vonage/Plivo use existing creds)
+  webrtcEnabled?: boolean
+  apiKeySid?: string        // Twilio/SignalWire API Key SID for Access Token generation
+  apiKeySecret?: string     // Twilio/SignalWire API Key Secret
+  twimlAppSid?: string      // Twilio/SignalWire TwiML App SID for browser calls
 }
+
+// --- Call Preference ---
+
+export type CallPreference = 'phone' | 'browser' | 'both'
 
 /** Which credential fields each provider requires */
 export const PROVIDER_REQUIRED_FIELDS: Record<TelephonyProviderType, (keyof TelephonyProviderConfig)[]> = {

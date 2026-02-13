@@ -330,7 +330,16 @@
     "browserNotifications": "ब्राउज़र सूचनाएं",
     "browserNotificationsDescription": "आने वाली कॉल के लिए सिस्टम सूचना दिखाएं",
     "copyLink": "इस अनुभाग का लिंक कॉपी करें",
-    "linkCopied": "लिंक कॉपी किया गया"
+    "linkCopied": "लिंक कॉपी किया गया",
+    "callPreference": "कॉल प्राथमिकता",
+    "callPreferenceDescription": "चुनें कि आप आने वाली कॉल कैसे प्राप्त करें",
+    "callPrefPhone": "केवल फ़ोन",
+    "callPrefPhoneDesc": "अपने फ़ोन नंबर पर कॉल प्राप्त करें",
+    "callPrefBrowser": "केवल ब्राउज़र",
+    "callPrefBrowserDesc": "WebRTC के माध्यम से सीधे अपने ब्राउज़र में कॉल का उत्तर दें",
+    "callPrefBoth": "फ़ोन + ब्राउज़र",
+    "callPrefBothDesc": "फ़ोन और ब्राउज़र दोनों पर एक साथ रिंग करें",
+    "webrtcNotConfigured": "ब्राउज़र कॉलिंग उपलब्ध नहीं है। आपके एडमिन को टेलीफ़ोनी प्रदाता सेटिंग्स में WebRTC सक्षम करना होगा।"
   },
   "session": {
     "expiringWarning": "आपका सत्र समाप्त होने वाला है।",
@@ -410,7 +419,15 @@
       "plivo": "Cost-effective cloud telephony with a clean API. Good for budget-conscious deployments.",
       "asterisk": "Self-hosted PBX for maximum control and lowest per-minute cost. Requires server setup."
     },
-    "notImplemented": "This provider is not yet implemented. Please use Twilio or SignalWire."
+    "notImplemented": "This provider is not yet implemented. Please use Twilio or SignalWire.",
+    "webrtcConfig": "WebRTC कॉन्फ़िगरेशन",
+    "webrtcConfigHelp": "स्वयंसेवकों के लिए ब्राउज़र-आधारित कॉलिंग सक्षम करें। अतिरिक्त क्रेडेंशियल आवश्यक हैं।",
+    "enableWebrtc": "WebRTC सक्षम करें",
+    "apiKeySid": "API Key SID",
+    "apiKeySidHelp": "अपने Twilio/SignalWire कंसोल में API Key जनरेट करें",
+    "apiKeySecret": "API Key Secret",
+    "twimlAppSid": "TwiML App SID",
+    "twimlAppSidHelp": "अपने webhook की ओर इशारा करते हुए वॉइस URL के साथ एक TwiML App बनाएं"
   },
   "customFields": {
     "title": "कस्टम नोट फ़ील्ड",
