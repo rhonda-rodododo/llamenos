@@ -5,9 +5,24 @@
 - [x] Configure production wrangler secrets (TWILIO_*, ADMIN_PUBKEY) — deployed and running
 - [ ] Test full call flow end-to-end: incoming call -> CAPTCHA -> parallel ring -> answer -> notes -> hang up *(requires real phone + telephony account)*
 
-## Security Audit Findings (Remaining)
+## Security Audit Findings (2026-02-12)
 
-### Medium
+### Fixed (committed ddc95ec)
+- [x] **CRITICAL**: Vonage webhook validation was `return true` — now HMAC-SHA256
+- [x] **CRITICAL**: Caller phone hash leaked in spam report WS response
+- [x] **HIGH**: Mass assignment — volunteer self-update now restricted to safe fields allowlist
+- [x] **HIGH**: SSRF in provider test — ARI URL validation, internal IP blocking, fetch timeout
+- [x] **HIGH**: WebSocket flooding — rate limit 30 msgs/10s with auto-disconnect
+- [x] **HIGH**: WebSocket prototype pollution — reject `__proto__`/`constructor`/`prototype`
+- [x] **HIGH**: Weak KDF — upgraded SHA-256 concat to HKDF-SHA256 for note encryption
+- [x] **HIGH**: Security headers — COOP, no-referrer, expanded CSP and Permissions-Policy
+
+### Medium (remaining)
+- [ ] Session token revocation: no server-side logout/invalidation mechanism
+- [ ] WebSocket call authorization: verify volunteer is assigned to the call they're answering/hanging up
+- [ ] Invite code rate limit: reduce from 10 to 5 per minute
+- [ ] Custom field label/option length validation (prevent oversized payloads)
+- [ ] Presence broadcast leaks volunteer count to all connected clients
 - [ ] Encrypt/hash note metadata (callId, authorPubkey) to prevent correlation analysis — *trade-off: breaks server-side filtering/grouping; notes content is already E2EE*
 
 ### Low / Future
