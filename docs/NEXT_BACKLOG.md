@@ -17,12 +17,12 @@
 - [x] **HIGH**: Weak KDF — upgraded SHA-256 concat to HKDF-SHA256 for note encryption
 - [x] **HIGH**: Security headers — COOP, no-referrer, expanded CSP and Permissions-Policy
 
-### Medium (remaining)
-- [ ] Session token revocation: no server-side logout/invalidation mechanism
-- [ ] WebSocket call authorization: verify volunteer is assigned to the call they're answering/hanging up
-- [ ] Invite code rate limit: reduce from 10 to 5 per minute
-- [ ] Custom field label/option length validation (prevent oversized payloads)
-- [ ] Presence broadcast leaks volunteer count to all connected clients
+### Medium (fixed in 6d3deac)
+- [x] Session token revocation: logout API + server-side session delete
+- [x] WebSocket call authorization: verify call state + volunteer ownership for answer/hangup/spam
+- [x] Invite code rate limit: reduced from 10 to 5 per minute
+- [x] Custom field label/option length validation: 200 char max
+- [x] Presence broadcast: volunteers get `{ hasAvailable }` only, admins get full counts
 - [ ] Encrypt/hash note metadata (callId, authorPubkey) to prevent correlation analysis — *trade-off: breaks server-side filtering/grouping; notes content is already E2EE*
 
 ### Low / Future
