@@ -16,12 +16,12 @@
 - [ ] Consider re-auth step-up for sensitive actions (e.g., unmasking volunteer phone numbers)
 - [ ] Auth token nonce-based replay protection (currently mitigated by HTTPS + Schnorr signatures + 5min window)
 
-## Multi-Provider Telephony (Epics 33–36)
+## Multi-Provider Telephony (Epics 32–36) — COMPLETE
 - [x] Epic 32: Provider Configuration System (admin UI, API, DO storage, connection test)
-- [ ] Epic 33: Cloud Provider Adapters (SignalWire extends TwilioAdapter, Vonage, Plivo)
-- [ ] Epic 34: WebRTC Volunteer Calling (in-browser call answer, provider-specific SDKs)
-- [ ] Epic 35: Asterisk ARI Adapter (self-hosted SIP, ARI bridge service)
-- [ ] Epic 36: Telephony Documentation (provider comparison, setup guides, in-app help)
+- [x] Epic 33: Cloud Provider Adapters (SignalWire extends TwilioAdapter, Vonage, Plivo)
+- [x] Epic 34: WebRTC Volunteer Calling (in-browser call answer, provider-specific SDKs)
+- [x] Epic 35: Asterisk ARI Adapter (self-hosted SIP, ARI bridge service)
+- [x] Epic 36: Telephony Documentation (provider comparison, setup guides, in-app help)
 
 ## Low Priority (Post-Launch)
 - [ ] Add call recording playback in notes view

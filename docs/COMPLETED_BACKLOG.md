@@ -17,6 +17,62 @@
 - [x] 119 total E2E tests passing (0 regressions)
 - [x] Epic docs created: `docs/epics/epic-32` through `epic-36` for full multi-provider plan
 
+## 2026-02-12: Epics 33–36 — Multi-Provider Telephony (Cloud Adapters, WebRTC, Asterisk, Docs)
+
+### Epic 33: Cloud Provider Adapters
+- [x] SignalWire adapter — extends TwilioAdapter with Space URL override and custom auth
+- [x] Vonage adapter — NCCO JSON format, JWT auth, Nexmo API endpoints
+- [x] Plivo adapter — Plivo XML format, Auth ID/Token, Plivo API endpoints
+- [x] All adapters implement full TelephonyAdapter interface (IVR, CAPTCHA, recording, voicemail, queue, parallel ringing)
+- [x] Factory switch in `getTelephony()` instantiates correct adapter based on provider config
+- [x] Provider-specific webhook parsing and validation
+
+### Epic 34: WebRTC Volunteer Calling
+- [x] WebRTC token generation API (`POST /api/telephony/webrtc-token`) with provider-specific tokens
+- [x] Twilio, SignalWire, Vonage, Plivo token generation implementations
+- [x] Volunteer call preference model: `callPreference: 'phone' | 'webrtc' | 'both'`
+- [x] Call preference UI in volunteer settings with radio buttons + descriptions
+- [x] WebRTC configuration section in admin telephony provider settings (API Key SID, Secret, TwiML App SID)
+- [x] WebRTC toggle enables/disables browser calling per provider
+- [x] Disabled browser/both options when admin hasn't configured WebRTC
+- [x] `webrtc.ts` client library with provider abstraction (init, accept, hangup, mute, status)
+- [x] `webrtc-call.tsx` component with answer/hangup/mute buttons and call timer
+- [x] i18n: `callPreference`, `webrtcConfig`, `enableWebrtc`, API key labels in all 13 locales
+- [x] 10 new E2E tests: preference section, default selection, disabled options, deep link, WebRTC config toggle, per-provider fields, persistence
+- [x] 131 total E2E tests passing
+
+### Epic 35: Asterisk ARI Adapter
+- [x] Asterisk adapter (`src/worker/telephony/asterisk.ts`) — JSON command format for ARI bridge
+- [x] Maps IVR/CAPTCHA/recording/voicemail flows to ARI commands (speak, play, gather, queue, bridge, record, hangup)
+- [x] HMAC-SHA256 webhook validation between bridge and Worker
+- [x] Channel state mapping (ARI states → agnostic statuses)
+- [x] ARI bridge service (`asterisk-bridge/`) — 2,200+ lines, zero runtime dependencies
+  - [x] ARI WebSocket client with reconnection and exponential backoff
+  - [x] ARI REST client for channel/bridge/recording/playback operations
+  - [x] Webhook sender with HMAC-SHA256 signing (Twilio-compatible form-urlencoded format)
+  - [x] Command handler: translates Worker responses to ARI calls (playback, gather, bridge, queue, ring, record)
+  - [x] HTTP server with signed endpoints (/command, /ring, /cancel-ringing, /hangup, /recordings)
+  - [x] Comprehensive type definitions for ARI events, resources, webhook payloads, and bridge commands
+  - [x] Dockerfile for deployment alongside Asterisk
+  - [x] Sample Asterisk configs (ari.conf, http.conf, extensions.conf, pjsip.conf)
+- [x] Removed "not implemented" warning from admin UI for Asterisk provider
+
+### Epic 36: Telephony Documentation
+- [x] Provider comparison page (`telephony-providers.md`) with pricing, features, and setup difficulty tables
+- [x] Twilio setup guide (`setup-twilio.md`) — account, webhooks, admin config, WebRTC (API Key + TwiML App)
+- [x] SignalWire setup guide (`setup-signalwire.md`) — Space name, LaML compatibility, differences from Twilio
+- [x] Vonage setup guide (`setup-vonage.md`) — Application model, NCCO, private key auth
+- [x] Plivo setup guide (`setup-plivo.md`) — Auth ID/Token, XML Application, endpoints
+- [x] Asterisk setup guide (`setup-asterisk.md`) — server install, SIP trunk, ARI, dialplan, bridge deployment, security
+- [x] WebRTC calling guide (`webrtc-calling.md`) — per-provider setup, volunteer preferences, browser compatibility, troubleshooting
+- [x] All 7 guides translated to Spanish (es)
+- [x] Astro route pages for all docs (7 default + 7 localized = 14 route files)
+- [x] Docs index pages updated with guide links (en + es)
+- [x] DEVELOPMENT.md — comprehensive development guide (setup, structure, architecture, testing)
+- [x] README.md updated with multi-provider support and provider comparison table
+- [x] Marketing site grows from 91 to 182 pages
+- [x] 131 E2E tests passing (0 regressions)
+
 ## 2026-02-11: Marketing Site + Docs (Cloudflare Pages)
 
 ### Marketing Site at llamenos-hotline.com
