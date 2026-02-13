@@ -72,13 +72,14 @@ test.describe('Telephony Provider Settings', () => {
     // Plivo is now implemented — no warning
     await expect(page.getByText(/not yet implemented/i)).not.toBeVisible()
 
-    // Switch to Asterisk — still not implemented
+    // Switch to Asterisk
     await select.selectOption('asterisk')
     await expect(page.getByText('ARI URL')).toBeVisible()
     await expect(page.getByText('ARI Username')).toBeVisible()
     await expect(page.getByText('ARI Password')).toBeVisible()
     await expect(page.getByText('Bridge Callback URL')).toBeVisible()
-    await expect(page.getByText(/not yet implemented/i)).toBeVisible()
+    // Asterisk is now implemented — no warning
+    await expect(page.getByText(/not yet implemented/i)).not.toBeVisible()
   })
 
   test('save button disabled when phone number is empty', async ({ page }) => {

@@ -7,23 +7,27 @@ Built for organizations that need to protect the identity of both callers and vo
 ## Features
 
 - **End-to-end encrypted notes and transcriptions** — the server never sees plaintext
+- **Multi-provider telephony** — Twilio, SignalWire, Vonage, Plivo, or self-hosted Asterisk
+- **WebRTC browser calling** — volunteers can answer calls directly in the browser
 - **Parallel ringing** — all on-shift volunteers ring at once; first pickup wins
 - **Automated shift scheduling** — recurring schedules with fallback ring groups
 - **Call spam mitigation** — real-time ban lists, voice CAPTCHA, rate limiting
 - **AI transcription** — Cloudflare Workers AI (Whisper), E2EE with dual-key encryption
+- **Voicemail** — automatic fallback when no volunteers are available
+- **Custom note fields** — admin-configurable fields (text, number, select, checkbox)
 - **12 languages** — English, Spanish, Chinese, Tagalog, Vietnamese, Arabic, French, Haitian Creole, Korean, Russian, Hindi, Portuguese
-- **Mobile responsive** — works on desktop and phone browsers
+- **Mobile responsive PWA** — works on desktop and phone browsers, installable
 - **Accessibility** — skip nav, ARIA labels, RTL support, screen reader friendly
 - **Audit log** — every call and note action tracked for admin review
 - **GDPR compliant** — designed for EU-based organizations
 
-## Prerequisites
+## Quick Start
+
+### Prerequisites
 
 - [Bun](https://bun.sh/) (v1.0+)
 - A [Cloudflare](https://cloudflare.com/) account (free tier works for development)
-- A [Twilio](https://twilio.com/) account with a phone number
-
-## Quick Start
+- A telephony provider account (see [Telephony Providers](#telephony-providers))
 
 ### 1. Clone and install
 
@@ -53,14 +57,16 @@ Copy the example env file and fill in your values:
 cp .dev.vars.example .dev.vars
 ```
 
-Edit `.dev.vars`:
+Edit `.dev.vars` with your admin public key and telephony credentials:
 
 ```env
+ADMIN_PUBKEY=hex_public_key_from_step_2
 TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 TWILIO_AUTH_TOKEN=your_auth_token_here
 TWILIO_PHONE_NUMBER=+1234567890
-ADMIN_PUBKEY=hex_public_key_from_step_2
 ```
+
+> **Note:** Twilio env vars are the default fallback. You can configure any provider from the admin settings UI after deploying.
 
 ### 4. Run locally
 
@@ -71,15 +77,15 @@ bun run dev:worker   # Backend dev server (Wrangler)
 
 The app runs at `http://localhost:8787`. Log in with the admin nsec from step 2.
 
-### 5. Set up Twilio webhooks
+### 5. Set up webhooks
 
-In your Twilio console, point your phone number's voice webhook to:
+Point your telephony provider's voice webhook to:
 
 ```
 https://your-domain.com/api/telephony/incoming
 ```
 
-For local development, use [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) to expose your local worker:
+For local development, use [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/):
 
 ```bash
 cloudflared tunnel --url http://localhost:8787
@@ -87,36 +93,38 @@ cloudflared tunnel --url http://localhost:8787
 
 ## Deploy to Cloudflare
 
-### 1. Set secrets
-
 ```bash
+# Set secrets
 bunx wrangler secret put ADMIN_PUBKEY
 bunx wrangler secret put TWILIO_ACCOUNT_SID
 bunx wrangler secret put TWILIO_AUTH_TOKEN
 bunx wrangler secret put TWILIO_PHONE_NUMBER
-```
 
-### 2. Deploy
-
-```bash
+# Deploy
 bun run deploy
 ```
 
-This builds the frontend and deploys everything to Cloudflare Workers. The deploy script runs `vite build` then `wrangler deploy`.
+After deploying, update your telephony provider's webhook URL to point to your Workers URL.
 
-### 3. Update Twilio webhook
+## Telephony Providers
 
-Point your Twilio phone number's voice webhook to your Workers URL:
+Llámenos supports 5 telephony providers. Configure your provider in **Admin Settings > Telephony Provider**.
 
-```
-https://your-app.your-subdomain.workers.dev/api/telephony/incoming
-```
+| Provider | Type | Pricing | Setup | Best For |
+|----------|------|---------|-------|----------|
+| **Twilio** | Cloud | Per-minute | Easy | Getting started quickly |
+| **SignalWire** | Cloud | Per-minute (cheaper) | Easy | Cost-conscious orgs |
+| **Vonage** | Cloud | Per-minute | Medium | International coverage |
+| **Plivo** | Cloud | Per-minute | Medium | Budget cloud option |
+| **Asterisk** | Self-hosted | SIP trunk only | Advanced | Maximum privacy, at-scale |
+
+See the [setup guides](https://llamenos-hotline.com/docs) for detailed instructions per provider.
 
 ## Customization
 
 ### Hotline name
 
-Set the `HOTLINE_NAME` variable in `wrangler.jsonc` to change the name shown in the UI and caller greetings:
+Set `HOTLINE_NAME` in `wrangler.jsonc`:
 
 ```jsonc
 "vars": {
@@ -126,15 +134,7 @@ Set the `HOTLINE_NAME` variable in `wrangler.jsonc` to change the name shown in 
 
 ### Languages
 
-The app ships with 12 languages. Translation files are in `src/client/i18n/`. To add a new language:
-
-1. Add the language config to `src/shared/languages.ts`
-2. Create a translation file in `src/client/i18n/`
-3. Add voice prompts in `src/worker/telephony/twilio.ts`
-
-### Telephony provider
-
-Twilio is the default provider, but the telephony layer is abstracted behind a `TelephonyAdapter` interface. To use a different provider (e.g., SIP trunks), implement the adapter interface in `src/worker/telephony/`.
+Translation files are in `src/client/locales/`. Language config is centralized in `src/shared/languages.ts`.
 
 ## Architecture
 
@@ -143,23 +143,22 @@ src/
   client/          # React SPA (Vite + TanStack Router)
     routes/        # File-based routing
     components/    # shadcn/ui components
-    i18n/          # Translation files (13 locales)
-    lib/           # Auth, crypto, API client
+    locales/       # Translation files (13 locales)
+    lib/           # Auth, crypto, WebRTC, API client
   worker/          # Cloudflare Worker backend
-    api/           # REST API routes
     durable-objects/
-      session.ts   # Auth sessions, WebSocket connections, presence
-      shift.ts     # Shift scheduling, volunteer management
-      call-router.ts  # Call routing, notes, audit log
-    telephony/     # TelephonyAdapter + Twilio implementation
+      session-manager.ts  # Auth, settings, WebSocket, presence
+      shift-manager.ts    # Shift scheduling, volunteer management
+      call-router.ts      # Call routing, notes, audit log
+    telephony/     # Provider adapters (Twilio, SignalWire, Vonage, Plivo, Asterisk)
   shared/          # Code shared between client and worker
 ```
 
 ### Security model
 
-- **Authentication**: Nostr keypairs (nsec/npub) — no passwords, no email
+- **Authentication**: Nostr keypairs (BIP-340 Schnorr) + WebAuthn passkeys
 - **Note encryption**: XChaCha20-Poly1305 client-side encryption
-- **Transcription encryption**: ECIES (ephemeral ECDH + XChaCha20-Poly1305) with dual keys — one copy for the volunteer, one for the admin
+- **Transcription encryption**: ECIES (ephemeral ECDH + XChaCha20-Poly1305) dual-key
 - **Zero-knowledge server**: the Worker never sees plaintext notes or transcriptions
 - **Volunteer privacy**: personal info visible only to admins
 
@@ -169,9 +168,11 @@ src/
 |------|---------|--------|
 | Caller | Nothing (GSM phone) | Call the hotline |
 | Volunteer | Own notes only | Answer calls, write notes |
-| Admin | All notes, audit logs, active calls | Manage volunteers, shifts, bans, settings |
+| Admin | All notes, audit logs, active calls | Manage everything |
 
 ## Development
+
+See [DEVELOPMENT.md](DEVELOPMENT.md) for the full development guide.
 
 ```bash
 bun run dev          # Vite dev server
@@ -179,8 +180,7 @@ bun run dev:worker   # Wrangler dev server
 bun run build        # Build frontend
 bun run deploy       # Build + deploy to Cloudflare
 bun run typecheck    # TypeScript type checking
-bun run test         # Run Playwright E2E tests
-bun run test:ui      # Playwright test UI
+bunx playwright test # Run E2E tests
 ```
 
 ## License

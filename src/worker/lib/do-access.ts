@@ -5,6 +5,7 @@ import { TwilioAdapter } from '../telephony/twilio'
 import { SignalWireAdapter } from '../telephony/signalwire'
 import { VonageAdapter } from '../telephony/vonage'
 import { PlivoAdapter } from '../telephony/plivo'
+import { AsteriskAdapter } from '../telephony/asterisk'
 
 const SESSION_ID = 'global-session'
 const SHIFT_ID = 'global-shifts'
@@ -48,8 +49,7 @@ export async function getTelephony(env: Env, dos: DurableObjects): Promise<Telep
 
 /**
  * Create adapter from saved config.
- * Supports Twilio, SignalWire, Vonage, and Plivo.
- * Asterisk requires the ARI bridge (Epic 35).
+ * Supports Twilio, SignalWire, Vonage, Plivo, and Asterisk (self-hosted).
  */
 function createAdapterFromConfig(config: TelephonyProviderConfig): TelephonyAdapter {
   switch (config.type) {
@@ -62,8 +62,14 @@ function createAdapterFromConfig(config: TelephonyProviderConfig): TelephonyAdap
     case 'plivo':
       return new PlivoAdapter(config.authId!, config.authToken!, config.phoneNumber)
     case 'asterisk':
-      // Asterisk ARI adapter will be implemented in Epic 35.
-      throw new Error(`Provider "asterisk" requires the ARI bridge service. See docs for setup.`)
+      return new AsteriskAdapter(
+        config.ariUrl!,
+        config.ariUsername!,
+        config.ariPassword!,
+        config.phoneNumber,
+        config.bridgeCallbackUrl!,
+        config.ariPassword!, // Bridge secret uses ARI password as shared secret
+      )
     default:
       return new TwilioAdapter(config.accountSid!, config.authToken!, config.phoneNumber)
   }
