@@ -68,6 +68,10 @@ export async function login(pubkey: string, token: string) {
   })
 }
 
+export async function logout() {
+  return request<{ ok: true }>('/auth/me/logout', { method: 'POST' }).catch(() => {})
+}
+
 export async function getMe() {
   return request<{ pubkey: string; role: 'volunteer' | 'admin'; name: string; transcriptionEnabled: boolean; spokenLanguages: string[]; uiLanguage: string; profileCompleted: boolean; onBreak: boolean; callPreference: 'phone' | 'browser' | 'both'; webauthnRequired: boolean; webauthnRegistered: boolean }>('/auth/me')
 }

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import { type KeyPair, keyPairFromNsec, getStoredSession, storeSession, clearSession, createAuthToken } from './crypto'
-import { getMe, login, updateMyAvailability, setOnAuthExpired, setOnApiActivity } from './api'
+import { getMe, login, logout as apiLogout, updateMyAvailability, setOnAuthExpired, setOnApiActivity } from './api'
 import { loginWithPasskey as webauthnLogin } from './webauthn'
 
 interface AuthState {
@@ -287,6 +287,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [state.onBreak])
 
   const signOut = useCallback(() => {
+    // Revoke server-side session token before clearing local state
+    apiLogout()
     clearSession()
     sessionStorage.removeItem('llamenos-session-token')
     // Clean up encrypted drafts from localStorage

@@ -58,6 +58,19 @@ auth.get('/me', async (c) => {
   })
 })
 
+auth.post('/me/logout', async (c) => {
+  const dos = getDOs(c.env)
+  const pubkey = c.get('pubkey')
+  const authHeader = c.req.header('Authorization') || ''
+  // Revoke the session token if using session-based auth
+  if (authHeader.startsWith('Session ')) {
+    const token = authHeader.slice(8).trim()
+    await dos.session.fetch(new Request(`http://do/sessions/revoke/${token}`, { method: 'DELETE' }))
+  }
+  await audit(dos.session, 'logout', pubkey)
+  return c.json({ ok: true })
+})
+
 auth.patch('/me/profile', async (c) => {
   const dos = getDOs(c.env)
   const pubkey = c.get('pubkey')

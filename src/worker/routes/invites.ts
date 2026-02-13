@@ -16,7 +16,7 @@ invites.get('/validate/:code', async (c) => {
   const code = c.req.param('code')
   // Rate limit invite validation to prevent enumeration
   const clientIp = c.req.header('CF-Connecting-IP') || 'unknown'
-  const limited = await checkRateLimit(dos.session, `invite-validate:${hashIP(clientIp)}`, 10)
+  const limited = await checkRateLimit(dos.session, `invite-validate:${hashIP(clientIp)}`, 5)
   if (limited) return c.json({ error: 'Too many requests' }, 429)
   return dos.session.fetch(new Request(`http://do/invites/validate/${code}`))
 })

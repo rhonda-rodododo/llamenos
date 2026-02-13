@@ -44,12 +44,14 @@ websocket.get('/ws', async (c) => {
   if (!wsPubkey) return c.json({ error: 'Unauthorized' }, 401)
   const volRes = await dos.session.fetch(new Request(`http://do/volunteer/${wsPubkey}`))
   if (!volRes.ok) return c.json({ error: 'Unknown user' }, 401)
+  const vol = await volRes.json() as { role: string }
 
-  // Forward to CallRouter DO with pubkey (clean URL, no auth in query)
+  // Forward to CallRouter DO with pubkey and role (clean URL, no auth in query)
   const wsUrl = new URL(c.req.url)
   wsUrl.pathname = '/ws'
   wsUrl.search = ''
   wsUrl.searchParams.set('pubkey', wsPubkey)
+  wsUrl.searchParams.set('role', vol.role)
   return dos.calls.fetch(new Request(wsUrl.toString(), c.req.raw))
 })
 

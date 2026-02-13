@@ -86,4 +86,6 @@ export interface NotePayload {
 export const MAX_CUSTOM_FIELDS = 20
 export const MAX_SELECT_OPTIONS = 50
 export const MAX_FIELD_NAME_LENGTH = 50
+export const MAX_FIELD_LABEL_LENGTH = 200
+export const MAX_OPTION_LENGTH = 200
 export const FIELD_NAME_REGEX = /^[a-zA-Z0-9_]+$/

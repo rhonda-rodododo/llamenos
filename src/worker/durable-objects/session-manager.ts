@@ -1,7 +1,7 @@
 import { DurableObject } from 'cloudflare:workers'
 import type { Env, Volunteer, BanEntry, EncryptedNote, AuditLogEntry, SpamSettings, CallSettings, InviteCode, WebAuthnCredential, WebAuthnSettings, ServerSession } from '../types'
 import type { CustomFieldDefinition, TelephonyProviderConfig } from '../../shared/types'
-import { MAX_CUSTOM_FIELDS, MAX_SELECT_OPTIONS, MAX_FIELD_NAME_LENGTH, FIELD_NAME_REGEX, PROVIDER_REQUIRED_FIELDS } from '../../shared/types'
+import { MAX_CUSTOM_FIELDS, MAX_SELECT_OPTIONS, MAX_FIELD_NAME_LENGTH, MAX_FIELD_LABEL_LENGTH, MAX_OPTION_LENGTH, FIELD_NAME_REGEX, PROVIDER_REQUIRED_FIELDS } from '../../shared/types'
 import { IVR_LANGUAGES } from '../../shared/languages'
 import { hashPhone } from '../lib/crypto'
 
@@ -293,6 +293,15 @@ export class SessionManagerDO extends DurableObject<Env> {
     if (path.startsWith('/sessions/validate/') && method === 'GET') {
       const token = path.split('/sessions/validate/')[1]
       return this.validateSession(token)
+    }
+    if (path.startsWith('/sessions/revoke/') && method === 'DELETE') {
+      const token = path.split('/sessions/revoke/')[1]
+      return this.revokeSession(token)
+    }
+    if (path === '/sessions/revoke-all' && method === 'DELETE') {
+      const pubkey = url.searchParams.get('pubkey')
+      if (!pubkey) return new Response('Missing pubkey', { status: 400 })
+      return this.revokeAllSessions(pubkey)
     }
 
     // --- Test Reset (development only) ---
@@ -806,6 +815,24 @@ export class SessionManagerDO extends DurableObject<Env> {
     return Response.json(session)
   }
 
+  private async revokeSession(token: string): Promise<Response> {
+    await this.ctx.storage.delete(`session:${token}`)
+    return Response.json({ ok: true })
+  }
+
+  private async revokeAllSessions(pubkey: string): Promise<Response> {
+    const sessionKeys = await this.ctx.storage.list({ prefix: 'session:' })
+    let count = 0
+    for (const [key, value] of sessionKeys) {
+      const session = value as ServerSession
+      if (session.pubkey === pubkey) {
+        await this.ctx.storage.delete(key)
+        count++
+      }
+    }
+    return Response.json({ ok: true, revoked: count })
+  }
+
   // --- Alarm handler for cleaning up expired data ---
 
   override async alarm() {
@@ -875,6 +902,9 @@ export class SessionManagerDO extends DurableObject<Env> {
       if (field.name.length > MAX_FIELD_NAME_LENGTH) {
         return new Response(JSON.stringify({ error: `Field name too long: ${field.name}` }), { status: 400 })
       }
+      if (field.label.length > MAX_FIELD_LABEL_LENGTH) {
+        return new Response(JSON.stringify({ error: `Field label too long (max ${MAX_FIELD_LABEL_LENGTH} chars)` }), { status: 400 })
+      }
       if (names.has(field.name)) {
         return new Response(JSON.stringify({ error: `Duplicate field name: ${field.name}` }), { status: 400 })
       }
@@ -888,6 +918,11 @@ export class SessionManagerDO extends DurableObject<Env> {
         }
         if (field.options.length > MAX_SELECT_OPTIONS) {
           return new Response(JSON.stringify({ error: `Too many options for "${field.name}" (max ${MAX_SELECT_OPTIONS})` }), { status: 400 })
+        }
+        for (const opt of field.options) {
+          if (typeof opt !== 'string' || opt.length > MAX_OPTION_LENGTH) {
+            return new Response(JSON.stringify({ error: `Option too long in "${field.name}" (max ${MAX_OPTION_LENGTH} chars)` }), { status: 400 })
+          }
         }
       }
     }

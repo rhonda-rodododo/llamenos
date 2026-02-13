@@ -133,11 +133,12 @@ export class CallRouterDO extends DurableObject<Env> {
     const url = new URL(request.url)
     const pubkey = url.searchParams.get('pubkey')
     if (!pubkey) return new Response('Missing pubkey', { status: 400 })
+    const role = url.searchParams.get('role') || 'volunteer'
 
     const pair = new WebSocketPair()
     const [client, server] = Object.values(pair)
 
-    this.ctx.acceptWebSocket(server, [pubkey])
+    this.ctx.acceptWebSocket(server, [pubkey, role])
 
     // Notify about current active calls (redact caller numbers)
     this.getActiveCallsList().then(calls => {
@@ -195,20 +196,34 @@ export class CallRouterDO extends DurableObject<Env> {
 
       // Volunteer answers a call via WebSocket
       if (msg.type === 'call:answer' && msg.callId) {
-        await this.handleCallAnswered(msg.callId, { pubkey })
+        // Verify the call exists and is in ringing state
+        const activeCalls = await this.ctx.storage.get<CallRecord[]>('activeCalls') || []
+        const call = activeCalls.find(c => c.id === msg.callId)
+        if (call && call.status === 'ringing') {
+          await this.handleCallAnswered(msg.callId, { pubkey })
+        }
       }
 
       // Volunteer hangs up via WebSocket
       if (msg.type === 'call:hangup' && msg.callId) {
-        await this.handleCallEnded(msg.callId)
+        // Verify volunteer is the one who answered this call
+        const activeCalls = await this.ctx.storage.get<CallRecord[]>('activeCalls') || []
+        const call = activeCalls.find(c => c.id === msg.callId)
+        if (call && call.answeredBy === pubkey) {
+          await this.handleCallEnded(msg.callId)
+        }
       }
 
       // Volunteer reports spam via WebSocket
       if (msg.type === 'call:reportSpam' && typeof msg.callId === 'string') {
-        await this.handleReportSpam(msg.callId, { pubkey })
-        // Only confirm success — never leak callerNumber to volunteers
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'spam:reported', callId: msg.callId, success: true }))
+        // Verify volunteer answered this call (only they should report it)
+        const activeCalls = await this.ctx.storage.get<CallRecord[]>('activeCalls') || []
+        const call = activeCalls.find(c => c.id === msg.callId)
+        if (call && call.answeredBy === pubkey) {
+          await this.handleReportSpam(msg.callId, { pubkey })
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'spam:reported', callId: msg.callId, success: true }))
+          }
         }
       }
     } catch {
@@ -568,9 +583,25 @@ export class CallRouterDO extends DurableObject<Env> {
       else available++
     }
 
-    this.broadcastAll({
+    // Send full counts to admins only; volunteers get a minimal signal
+    // to avoid leaking staffing information to compromised accounts
+    const adminData = JSON.stringify({
       type: 'presence:update',
       counts: { available, onCall, total: seen.size },
     })
+    const volunteerData = JSON.stringify({
+      type: 'presence:update',
+      counts: { hasAvailable: available > 0 },
+    })
+
+    for (const ws of this.ctx.getWebSockets()) {
+      if (ws.readyState !== WebSocket.OPEN) continue
+      const tags = this.ctx.getTags(ws)
+      const pubkey = tags[0]
+      if (!pubkey) continue
+      // Check if this volunteer is an admin by looking at tag[1]
+      const isAdmin = tags[1] === 'admin'
+      ws.send(isAdmin ? adminData : volunteerData)
+    }
   }
 }
