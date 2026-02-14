@@ -116,15 +116,6 @@ body {
   font-size: inherit;
 }
 
-.prose a {
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.prose a:hover {
-  color: var(--color-accent);
-}
-
 .prose strong {
   color: var(--color-fg);
   font-weight: 600;

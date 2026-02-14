@@ -22,7 +22,7 @@ volunteers.post('/', async (c) => {
     return c.json({ error: 'Invalid phone number. Use E.164 format (e.g. +12125551234)' }, 400)
   }
 
-  const newPubkey = (body as any).pubkey
+  const newPubkey = body.pubkey
   if (!newPubkey) {
     return c.json({ error: 'pubkey is required — generate keypair client-side' }, 400)
   }

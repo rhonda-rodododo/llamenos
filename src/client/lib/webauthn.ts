@@ -45,12 +45,10 @@ export async function registerCredential(label: string): Promise<void> {
     body: JSON.stringify({ label }),
   })
   if (!optionsRes.ok) throw new Error('Failed to get registration options')
-  const options = await optionsRes.json() as Record<string, unknown>
-  const challengeId = options.challengeId as string
-  delete options.challengeId
+  const { challengeId, ...optionsJSON } = await optionsRes.json() as PublicKeyCredentialCreationOptionsJSON & { challengeId: string }
 
   // 2. Create credential via browser WebAuthn API
-  const attestation = await startRegistration({ optionsJSON: options as unknown as PublicKeyCredentialCreationOptionsJSON })
+  const attestation = await startRegistration({ optionsJSON })
 
   // 3. Verify with server
   const verifyRes = await fetch(`${API_BASE}/webauthn/register/verify`, {
@@ -72,12 +70,10 @@ export async function loginWithPasskey(): Promise<{ token: string; pubkey: strin
     headers: { 'Content-Type': 'application/json' },
   })
   if (!optionsRes.ok) throw new Error('Failed to get authentication options')
-  const options = await optionsRes.json() as Record<string, unknown>
-  const challengeId = options.challengeId as string
-  delete options.challengeId
+  const { challengeId, ...optionsJSON } = await optionsRes.json() as PublicKeyCredentialRequestOptionsJSON & { challengeId: string }
 
   // 2. Authenticate via browser WebAuthn API
-  const assertion = await startAuthentication({ optionsJSON: options as unknown as PublicKeyCredentialRequestOptionsJSON })
+  const assertion = await startAuthentication({ optionsJSON })
 
   // 3. Verify with server — returns session token
   const verifyRes = await fetch(`${API_BASE}/webauthn/login/verify`, {

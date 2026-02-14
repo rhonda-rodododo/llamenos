@@ -15,11 +15,11 @@ import type {
   WebhookQueueWait,
   WebhookRecordingStatus,
 } from './adapter'
-import { getPrompt } from './twilio'
 import {
   DEFAULT_LANGUAGE,
   IVR_LANGUAGES,
 } from '../../shared/languages'
+import { IVR_PROMPTS, getPrompt, getVoicemailThanks } from '../../shared/voice-prompts'
 
 /**
  * Plivo voice language codes, keyed by ISO 639-1.
@@ -43,36 +43,6 @@ const PLIVO_VOICE_CODES: Record<string, string> = {
 
 function getPlivoVoice(lang: string): string {
   return PLIVO_VOICE_CODES[lang] ?? PLIVO_VOICE_CODES[DEFAULT_LANGUAGE]
-}
-
-/** IVR prompts per language */
-const IVR_PROMPTS: Record<string, string> = {
-  es: 'Para español, marque uno.',
-  en: 'For English, press two.',
-  zh: '如需中文服务，请按三。',
-  tl: 'Para sa Tagalog, pindutin ang apat.',
-  vi: 'Tiếng Việt, nhấn năm.',
-  ar: 'للعربية، اضغط ستة.',
-  fr: 'Pour le français, appuyez sur sept.',
-  ht: 'Pou Kreyòl, peze wit.',
-  ko: '한국어는 아홉 번을 눌러주세요.',
-  ru: 'Для русского языка нажмите ноль.',
-}
-
-const VOICEMAIL_THANKS: Record<string, string> = {
-  en: 'Thank you for your message. Goodbye.',
-  es: 'Gracias por su mensaje. Adiós.',
-  zh: '感谢您的留言。再见。',
-  tl: 'Salamat sa iyong mensahe. Paalam.',
-  vi: 'Cảm ơn tin nhắn của bạn. Tạm biệt.',
-  ar: 'شكراً لرسالتك. مع السلامة.',
-  fr: 'Merci pour votre message. Au revoir.',
-  ht: 'Mèsi pou mesaj ou. Orevwa.',
-  ko: '메시지를 남겨 주셔서 감사합니다. 안녕히 계세요.',
-  ru: 'Спасибо за ваше сообщение. До свидания.',
-  hi: 'आपके संदेश के लिए धन्यवाद। अलविदा।',
-  pt: 'Obrigado pela sua mensagem. Até logo.',
-  de: 'Vielen Dank für Ihre Nachricht. Auf Wiederhören.',
 }
 
 /** Build a <Speak> element */
@@ -451,7 +421,7 @@ export class PlivoAdapter implements TelephonyAdapter {
 
   handleVoicemailComplete(lang: string): TelephonyResponse {
     return this.plivoXml(`
-      ${speak(VOICEMAIL_THANKS[lang] ?? VOICEMAIL_THANKS[DEFAULT_LANGUAGE], lang)}
+      ${speak(getVoicemailThanks(lang), lang)}
       <Hangup/>
     `)
   }

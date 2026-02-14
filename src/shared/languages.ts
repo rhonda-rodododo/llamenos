@@ -9,7 +9,7 @@
  * 1. Add entry here with all fields
  * 2. Create src/client/locales/{code}.json with all translation keys
  * 3. Import and register it in src/client/lib/i18n.ts
- * 4. Add voice prompts in src/worker/telephony/twilio.ts
+ * 4. Add voice prompts in src/shared/voice-prompts.ts
  */
 
 export interface LanguageConfig {

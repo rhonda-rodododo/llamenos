@@ -107,7 +107,7 @@ async function initTwilioWebRtc(token: string): Promise<void> {
     const device = new Device(token, {
       closeProtection: true,
       codecPreferences: ['opus', 'pcmu'],
-    }) as unknown as TwilioDevice
+    })
 
     device.on('registered', () => {
       console.log('[webrtc] Twilio Device registered')
@@ -146,7 +146,7 @@ async function initTwilioWebRtc(token: string): Promise<void> {
       setState('idle')
     })
 
-    twilioDevice = device as unknown as TwilioDevice
+    twilioDevice = device
     await device.register()
   } catch (err) {
     // If @twilio/voice-sdk is not installed, fall back to WebSocket mode

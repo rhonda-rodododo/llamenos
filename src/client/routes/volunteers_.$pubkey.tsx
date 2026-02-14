@@ -245,7 +245,7 @@ function VolunteerProfilePage() {
                     {new Date(entry.createdAt).toLocaleString()}
                   </span>
                   <Badge variant="secondary" className="text-[11px]">
-                    {t(`auditLog.events.${entry.event}` as any, { defaultValue: entry.event })}
+                    {t(`auditLog.events.${entry.event}`, { defaultValue: entry.event })}
                   </Badge>
                   <span className="flex-1 truncate text-xs text-muted-foreground">
                     {Object.entries(entry.details || {})

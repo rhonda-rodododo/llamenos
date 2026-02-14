@@ -42,7 +42,7 @@ export function VolunteerMultiSelect({
     )
   }
 
-  function remove(pubkey: string, e: React.MouseEvent) {
+  function remove(pubkey: string, e: React.SyntheticEvent) {
     e.stopPropagation()
     onSelectionChange(selected.filter(p => p !== pubkey))
   }
@@ -77,7 +77,7 @@ export function VolunteerMultiSelect({
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault()
-                      remove(vol.pubkey, e as unknown as React.MouseEvent)
+                      remove(vol.pubkey, e)
                     }
                   }}
                 >

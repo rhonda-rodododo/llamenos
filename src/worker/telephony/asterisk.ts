@@ -15,28 +15,11 @@ import type {
   WebhookQueueWait,
   WebhookRecordingStatus,
 } from './adapter'
-import { getPrompt } from './twilio'
 import {
   DEFAULT_LANGUAGE,
   IVR_LANGUAGES,
 } from '../../shared/languages'
-
-/**
- * IVR prompts — "For X, press N" in each language.
- * Each language's prompt includes its fixed IVR digit.
- */
-const IVR_PROMPTS: Record<string, string> = {
-  es: 'Para español, marque uno.',
-  en: 'For English, press two.',
-  zh: '如需中文服务，请按三。',
-  tl: 'Para sa Tagalog, pindutin ang apat.',
-  vi: 'Tiếng Việt, nhấn năm.',
-  ar: 'للعربية، اضغط ستة.',
-  fr: 'Pour le français, appuyez sur sept.',
-  ht: 'Pou Kreyòl, peze wit.',
-  ko: '한국어는 아홉 번을 눌러주세요.',
-  ru: 'Для русского языка нажмите ноль.',
-}
+import { IVR_PROMPTS, getPrompt, getVoicemailThanks } from '../../shared/voice-prompts'
 
 /**
  * AsteriskAdapter — communicates with an ARI bridge service that runs

@@ -80,7 +80,7 @@ function AuditPage() {
                     {new Date(entry.createdAt).toLocaleString()}
                   </span>
                   <Badge variant="secondary">
-                    {t(`auditLog.events.${entry.event}` as any, { defaultValue: entry.event })}
+                    {t(`auditLog.events.${entry.event}`, { defaultValue: entry.event })}
                   </Badge>
                   <ActorDisplay pubkey={entry.actorPubkey} nameMap={nameMap} />
                   <AuditDetails entry={entry} />
