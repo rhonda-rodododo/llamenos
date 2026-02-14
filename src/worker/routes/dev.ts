@@ -9,7 +9,9 @@ dev.post('/test-reset', async (c) => {
     return c.json({ error: 'Not Found' }, 404)
   }
   const dos = getDOs(c.env)
-  await dos.session.fetch(new Request('http://do/reset', { method: 'POST' }))
+  await dos.identity.fetch(new Request('http://do/reset', { method: 'POST' }))
+  await dos.settings.fetch(new Request('http://do/reset', { method: 'POST' }))
+  await dos.records.fetch(new Request('http://do/reset', { method: 'POST' }))
   await dos.shifts.fetch(new Request('http://do/reset', { method: 'POST' }))
   await dos.calls.fetch(new Request('http://do/reset', { method: 'POST' }))
   return c.json({ ok: true })

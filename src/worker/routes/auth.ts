@@ -15,14 +15,14 @@ auth.post('/login', async (c) => {
   // Rate limit login attempts by IP (skip in development for testing)
   if (c.env.ENVIRONMENT !== 'development') {
     const clientIp = c.req.header('CF-Connecting-IP') || 'unknown'
-    const limited = await checkRateLimit(dos.session, `auth:${hashIP(clientIp)}`, 10)
+    const limited = await checkRateLimit(dos.settings, `auth:${hashIP(clientIp)}`, 10)
     if (limited) {
       return c.json({ error: 'Too many login attempts. Try again later.' }, 429)
     }
   }
 
   const { pubkey } = await c.req.json() as { pubkey: string; token: string }
-  const res = await dos.session.fetch(new Request(`http://do/volunteer/${pubkey}`))
+  const res = await dos.identity.fetch(new Request(`http://do/volunteer/${pubkey}`))
   if (!res.ok) return c.json({ error: 'Unknown user' }, 401)
   const volunteer = await res.json() as { role: string }
   return c.json({ ok: true, role: volunteer.role })
@@ -38,9 +38,9 @@ auth.get('/me', async (c) => {
   const volunteer = c.get('volunteer')
   const isAdmin = c.get('isAdmin')
 
-  const credsRes = await dos.session.fetch(new Request(`http://do/webauthn/credentials?pubkey=${pubkey}`))
+  const credsRes = await dos.identity.fetch(new Request(`http://do/webauthn/credentials?pubkey=${pubkey}`))
   const { credentials: webauthnCreds } = await credsRes.json() as { credentials: WebAuthnCredential[] }
-  const settingsRes = await dos.session.fetch(new Request('http://do/settings/webauthn'))
+  const settingsRes = await dos.identity.fetch(new Request('http://do/settings/webauthn'))
   const webauthnSettings = await settingsRes.json() as { requireForAdmins: boolean; requireForVolunteers: boolean }
   const webauthnRequired = isAdmin ? webauthnSettings.requireForAdmins : webauthnSettings.requireForVolunteers
   return c.json({
@@ -65,9 +65,9 @@ auth.post('/me/logout', async (c) => {
   // Revoke the session token if using session-based auth
   if (authHeader.startsWith('Session ')) {
     const token = authHeader.slice(8).trim()
-    await dos.session.fetch(new Request(`http://do/sessions/revoke/${token}`, { method: 'DELETE' }))
+    await dos.identity.fetch(new Request(`http://do/sessions/revoke/${token}`, { method: 'DELETE' }))
   }
-  await audit(dos.session, 'logout', pubkey)
+  await audit(dos.records, 'logout', pubkey)
   return c.json({ ok: true })
 })
 
@@ -78,7 +78,7 @@ auth.patch('/me/profile', async (c) => {
   if (body.phone && !isValidE164(body.phone)) {
     return c.json({ error: 'Invalid phone number. Use E.164 format (e.g. +12125551234)' }, 400)
   }
-  await dos.session.fetch(new Request(`http://do/volunteers/${pubkey}`, {
+  await dos.identity.fetch(new Request(`http://do/volunteers/${pubkey}`, {
     method: 'PATCH',
     body: JSON.stringify(body),
   }))
@@ -89,11 +89,11 @@ auth.patch('/me/availability', async (c) => {
   const dos = getDOs(c.env)
   const pubkey = c.get('pubkey')
   const body = await c.req.json() as { onBreak: boolean }
-  await dos.session.fetch(new Request(`http://do/volunteers/${pubkey}`, {
+  await dos.identity.fetch(new Request(`http://do/volunteers/${pubkey}`, {
     method: 'PATCH',
     body: JSON.stringify({ onBreak: body.onBreak }),
   }))
-  await audit(dos.session, body.onBreak ? 'volunteerOnBreak' : 'volunteerAvailable', pubkey)
+  await audit(dos.records, body.onBreak ? 'volunteerOnBreak' : 'volunteerAvailable', pubkey)
   return c.json({ ok: true })
 })
 
@@ -104,17 +104,17 @@ auth.patch('/me/transcription', async (c) => {
   const body = await c.req.json() as { enabled: boolean }
   // If volunteer is trying to disable, check if admin allows opt-out
   if (!body.enabled && !isAdmin) {
-    const transRes = await dos.session.fetch(new Request('http://do/settings/transcription'))
+    const transRes = await dos.settings.fetch(new Request('http://do/settings/transcription'))
     const transSettings = await transRes.json() as { globalEnabled: boolean; allowVolunteerOptOut: boolean }
     if (!transSettings.allowVolunteerOptOut) {
       return c.json({ error: 'Transcription opt-out is not allowed' }, 403)
     }
   }
-  await dos.session.fetch(new Request(`http://do/volunteers/${pubkey}`, {
+  await dos.identity.fetch(new Request(`http://do/volunteers/${pubkey}`, {
     method: 'PATCH',
     body: JSON.stringify({ transcriptionEnabled: body.enabled }),
   }))
-  await audit(dos.session, 'transcriptionToggled', pubkey, { enabled: body.enabled })
+  await audit(dos.records, 'transcriptionToggled', pubkey, { enabled: body.enabled })
   return c.json({ ok: true })
 })
 

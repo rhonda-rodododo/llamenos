@@ -17,18 +17,18 @@ notes.get('/', async (c) => {
   if (!isAdmin) params.set('author', pubkey)
   params.set('page', page)
   params.set('limit', limit)
-  return dos.session.fetch(new Request(`http://do/notes?${params}`))
+  return dos.records.fetch(new Request(`http://do/notes?${params}`))
 })
 
 notes.post('/', async (c) => {
   const dos = getDOs(c.env)
   const pubkey = c.get('pubkey')
   const body = await c.req.json() as { callId: string; encryptedContent: string }
-  const res = await dos.session.fetch(new Request('http://do/notes', {
+  const res = await dos.records.fetch(new Request('http://do/notes', {
     method: 'POST',
     body: JSON.stringify({ ...body, authorPubkey: pubkey }),
   }))
-  if (res.ok) await audit(dos.session, 'noteCreated', pubkey, { callId: body.callId })
+  if (res.ok) await audit(dos.records, 'noteCreated', pubkey, { callId: body.callId })
   return res
 })
 
@@ -37,11 +37,11 @@ notes.patch('/:id', async (c) => {
   const pubkey = c.get('pubkey')
   const id = c.req.param('id')
   const body = await c.req.json() as { encryptedContent: string }
-  const res = await dos.session.fetch(new Request(`http://do/notes/${id}`, {
+  const res = await dos.records.fetch(new Request(`http://do/notes/${id}`, {
     method: 'PATCH',
     body: JSON.stringify({ ...body, authorPubkey: pubkey }),
   }))
-  if (res.ok) await audit(dos.session, 'noteEdited', pubkey, { noteId: id })
+  if (res.ok) await audit(dos.records, 'noteEdited', pubkey, { noteId: id })
   return res
 })
 

@@ -36,13 +36,13 @@ telephony.post('/incoming', async (c) => {
   const { callSid, callerNumber } = await adapter.parseIncomingWebhook(c.req.raw)
   console.log(`[telephony] /incoming callSid=${callSid} caller=***${callerNumber.slice(-4)}`)
 
-  const banCheck = await dos.session.fetch(new Request(`http://do/bans/check/${encodeURIComponent(callerNumber)}`))
+  const banCheck = await dos.records.fetch(new Request(`http://do/bans/check/${encodeURIComponent(callerNumber)}`))
   const { banned } = await banCheck.json() as { banned: boolean }
   if (banned) {
     return telephonyResponse(adapter.rejectCall())
   }
 
-  const ivrRes = await dos.session.fetch(new Request('http://do/settings/ivr-languages'))
+  const ivrRes = await dos.settings.fetch(new Request('http://do/settings/ivr-languages'))
   const { enabledLanguages } = await ivrRes.json() as { enabledLanguages: string[] }
 
   const response = await adapter.handleLanguageMenu({
@@ -72,12 +72,12 @@ telephony.post('/language-selected', async (c) => {
     callerLanguage = languageFromDigit(digits) ?? detectLanguageFromPhone(callerNumber)
   }
 
-  const spamRes = await dos.session.fetch(new Request('http://do/settings/spam'))
+  const spamRes = await dos.settings.fetch(new Request('http://do/settings/spam'))
   const spamSettings = await spamRes.json() as { voiceCaptchaEnabled: boolean; rateLimitEnabled: boolean; maxCallsPerMinute: number }
 
   let rateLimited = false
   if (spamSettings.rateLimitEnabled) {
-    const rlRes = await dos.session.fetch(new Request('http://do/rate-limit/check', {
+    const rlRes = await dos.settings.fetch(new Request('http://do/rate-limit/check', {
       method: 'POST',
       body: JSON.stringify({ key: `phone:${hashPhone(callerNumber)}`, maxPerMinute: spamSettings.maxCallsPerMinute }),
     }))
@@ -85,7 +85,7 @@ telephony.post('/language-selected', async (c) => {
     rateLimited = rlData.limited
   }
 
-  const audioUrls = await buildAudioUrlMap(dos.session, new URL(c.req.url).origin)
+  const audioUrls = await buildAudioUrlMap(dos.settings, new URL(c.req.url).origin)
   const response = await adapter.handleIncomingCall({
     callSid,
     callerNumber,
@@ -139,13 +139,13 @@ telephony.post('/volunteer-answer', async (c) => {
   }))
 
   const [volInfoRes, activeCallsRes] = await Promise.all([
-    dos.session.fetch(new Request(`http://do/volunteer/${pubkey}`)),
+    dos.identity.fetch(new Request(`http://do/volunteer/${pubkey}`)),
     dos.calls.fetch(new Request('http://do/calls/active')),
   ])
   const volInfo = volInfoRes.ok ? await volInfoRes.json() as { name?: string } : {}
   const { calls: activeCalls } = await activeCallsRes.json() as { calls: Array<{ id: string; callerLast4?: string }> }
   const callRecord = activeCalls.find(call => call.id === parentCallSid)
-  await audit(dos.session, 'callAnswered', pubkey, {
+  await audit(dos.records, 'callAnswered', pubkey, {
     callerLast4: callRecord?.callerLast4 || '',
   })
 
@@ -180,7 +180,7 @@ telephony.post('/call-status', async (c) => {
         const duration = preCall
           ? Math.floor((Date.now() - new Date(preCall.startedAt).getTime()) / 1000)
           : undefined
-        await audit(dos.session, 'callEnded', pubkey, {
+        await audit(dos.records, 'callEnded', pubkey, {
           callerLast4: preCall?.callerLast4 || '',
           duration,
         })
@@ -200,8 +200,8 @@ telephony.all('/wait-music', async (c) => {
   const queueTime = c.req.method === 'POST'
     ? (await adapter.parseQueueWaitWebhook(c.req.raw)).queueTime
     : 0
-  const audioUrls = await buildAudioUrlMap(dos.session, new URL(c.req.url).origin)
-  const callSettingsRes = await dos.session.fetch(new Request('http://do/settings/call'))
+  const audioUrls = await buildAudioUrlMap(dos.settings, new URL(c.req.url).origin)
+  const callSettingsRes = await dos.settings.fetch(new Request('http://do/settings/call'))
   const callSettings = await callSettingsRes.json() as { queueTimeoutSeconds: number; voicemailMaxSeconds: number }
   const response = await adapter.handleWaitMusic(lang, audioUrls, queueTime, callSettings.queueTimeoutSeconds)
   return telephonyResponse(response)
@@ -219,14 +219,14 @@ telephony.post('/queue-exit', async (c) => {
   if (queueResult === 'hangup') {
     // Caller hung up while in queue — end the call as unanswered
     await dos.calls.fetch(new Request(`http://do/calls/${callSid}/end`, { method: 'POST' }))
-    await audit(dos.session, 'callMissed', 'system', { callSid })
+    await audit(dos.records, 'callMissed', 'system', { callSid })
     return telephonyResponse(adapter.emptyResponse())
   }
 
   if (queueResult === 'leave' || queueResult === 'queue-full' || queueResult === 'error') {
-    const audioUrls = await buildAudioUrlMap(dos.session, new URL(c.req.url).origin)
+    const audioUrls = await buildAudioUrlMap(dos.settings, new URL(c.req.url).origin)
     const origin = new URL(c.req.url).origin
-    const callSettingsRes = await dos.session.fetch(new Request('http://do/settings/call'))
+    const callSettingsRes = await dos.settings.fetch(new Request('http://do/settings/call'))
     const callSettings = await callSettingsRes.json() as { queueTimeoutSeconds: number; voicemailMaxSeconds: number }
     const response = await adapter.handleVoicemail({
       callSid,
@@ -271,7 +271,7 @@ telephony.post('/call-recording', async (c) => {
     console.log(`[call-recording] ended call ${parentCallSid}: ${endRes.status}`)
 
     if (pubkey) {
-      await audit(dos.session, 'callEnded', pubkey, {
+      await audit(dos.records, 'callEnded', pubkey, {
         callerLast4: callRecord?.callerLast4 || '',
       })
     }
@@ -299,7 +299,7 @@ telephony.post('/voicemail-recording', async (c) => {
       method: 'POST',
     }))
 
-    await audit(dos.session, 'voicemailReceived', 'system', { callSid }, c.req.raw)
+    await audit(dos.records, 'voicemailReceived', 'system', { callSid }, c.req.raw)
 
     c.executionCtx.waitUntil(transcribeVoicemail(callSid, c.env, dos))
   }

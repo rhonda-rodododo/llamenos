@@ -11,12 +11,12 @@ export async function maybeTranscribe(
   dos: DurableObjects,
 ) {
   // Check if transcription is globally enabled
-  const transRes = await dos.session.fetch(new Request('http://do/settings/transcription'))
+  const transRes = await dos.settings.fetch(new Request('http://do/settings/transcription'))
   const { globalEnabled } = await transRes.json() as { globalEnabled: boolean }
   if (!globalEnabled) return
 
   // Check if volunteer has transcription enabled
-  const volRes = await dos.session.fetch(new Request(`http://do/volunteer/${volunteerPubkey}`))
+  const volRes = await dos.identity.fetch(new Request(`http://do/volunteer/${volunteerPubkey}`))
   if (!volRes.ok) return
   const volunteer = await volRes.json() as { transcriptionEnabled: boolean }
   if (!volunteer.transcriptionEnabled) return
@@ -35,7 +35,7 @@ export async function maybeTranscribe(
     if (result.text) {
       // ECIES: encrypt transcription for the volunteer's public key
       const { encryptedContent, ephemeralPubkey } = encryptForPublicKey(result.text, volunteerPubkey)
-      await dos.session.fetch(new Request('http://do/notes', {
+      await dos.records.fetch(new Request('http://do/notes', {
         method: 'POST',
         body: JSON.stringify({
           callId: parentCallSid,
@@ -47,7 +47,7 @@ export async function maybeTranscribe(
 
       // Also encrypt for admin so they can read transcriptions independently
       const adminEncrypted = encryptForPublicKey(result.text, env.ADMIN_PUBKEY)
-      await dos.session.fetch(new Request('http://do/notes', {
+      await dos.records.fetch(new Request('http://do/notes', {
         method: 'POST',
         body: JSON.stringify({
           callId: parentCallSid,
@@ -74,7 +74,7 @@ export async function transcribeVoicemail(
   dos: DurableObjects,
 ) {
   // Check if transcription is globally enabled
-  const transRes = await dos.session.fetch(new Request('http://do/settings/transcription'))
+  const transRes = await dos.settings.fetch(new Request('http://do/settings/transcription'))
   const { globalEnabled } = await transRes.json() as { globalEnabled: boolean }
   if (!globalEnabled) return
 
@@ -91,7 +91,7 @@ export async function transcribeVoicemail(
     if (result.text) {
       // Voicemails are encrypted only for admin (no volunteer answered)
       const adminEncrypted = encryptForPublicKey(result.text, env.ADMIN_PUBKEY)
-      await dos.session.fetch(new Request('http://do/notes', {
+      await dos.records.fetch(new Request('http://do/notes', {
         method: 'POST',
         body: JSON.stringify({
           callId: callSid,

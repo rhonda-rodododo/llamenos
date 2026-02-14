@@ -12,7 +12,7 @@ auditRoutes.get('/', async (c) => {
   params.set('page', c.req.query('page') || '1')
   params.set('limit', c.req.query('limit') || '50')
   if (c.req.query('actorPubkey')) params.set('actorPubkey', c.req.query('actorPubkey')!)
-  return dos.session.fetch(new Request(`http://do/audit?${params}`))
+  return dos.records.fetch(new Request(`http://do/audit?${params}`))
 })
 
 export default auditRoutes

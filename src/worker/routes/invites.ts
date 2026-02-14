@@ -16,15 +16,15 @@ invites.get('/validate/:code', async (c) => {
   const code = c.req.param('code')
   // Rate limit invite validation to prevent enumeration
   const clientIp = c.req.header('CF-Connecting-IP') || 'unknown'
-  const limited = await checkRateLimit(dos.session, `invite-validate:${hashIP(clientIp)}`, 5)
+  const limited = await checkRateLimit(dos.settings, `invite-validate:${hashIP(clientIp)}`, 5)
   if (limited) return c.json({ error: 'Too many requests' }, 429)
-  return dos.session.fetch(new Request(`http://do/invites/validate/${code}`))
+  return dos.identity.fetch(new Request(`http://do/invites/validate/${code}`))
 })
 
 invites.post('/redeem', async (c) => {
   const dos = getDOs(c.env)
   const body = await c.req.json() as { code: string; pubkey: string }
-  return dos.session.fetch(new Request('http://do/invites/redeem', {
+  return dos.identity.fetch(new Request('http://do/invites/redeem', {
     method: 'POST',
     body: JSON.stringify(body),
   }))
@@ -36,7 +36,7 @@ invites.use('/:code', authMiddleware, adminGuard)
 
 invites.get('/', async (c) => {
   const dos = getDOs(c.env)
-  return dos.session.fetch(new Request('http://do/invites'))
+  return dos.identity.fetch(new Request('http://do/invites'))
 })
 
 invites.post('/', async (c) => {
@@ -46,11 +46,11 @@ invites.post('/', async (c) => {
   if (body.phone && !isValidE164(body.phone)) {
     return c.json({ error: 'Invalid phone number. Use E.164 format (e.g. +12125551234)' }, 400)
   }
-  const res = await dos.session.fetch(new Request('http://do/invites', {
+  const res = await dos.identity.fetch(new Request('http://do/invites', {
     method: 'POST',
     body: JSON.stringify({ ...body, createdBy: pubkey }),
   }))
-  if (res.ok) await audit(dos.session, 'inviteCreated', pubkey, { name: body.name })
+  if (res.ok) await audit(dos.records, 'inviteCreated', pubkey, { name: body.name })
   return res
 })
 
@@ -58,8 +58,8 @@ invites.delete('/:code', async (c) => {
   const dos = getDOs(c.env)
   const pubkey = c.get('pubkey')
   const code = c.req.param('code')
-  const res = await dos.session.fetch(new Request(`http://do/invites/${code}`, { method: 'DELETE' }))
-  if (res.ok) await audit(dos.session, 'inviteRevoked', pubkey, { code })
+  const res = await dos.identity.fetch(new Request(`http://do/invites/${code}`, { method: 'DELETE' }))
+  if (res.ok) await audit(dos.records, 'inviteRevoked', pubkey, { code })
   return res
 })
 

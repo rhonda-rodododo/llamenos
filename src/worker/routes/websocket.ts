@@ -20,7 +20,7 @@ websocket.get('/ws', async (c) => {
   // Try session token first (for WebAuthn sessions)
   if (authB64.startsWith('session-')) {
     const sessionToken = authB64.slice(8)
-    const sessionRes = await dos.session.fetch(new Request(`http://do/sessions/validate/${sessionToken}`))
+    const sessionRes = await dos.identity.fetch(new Request(`http://do/sessions/validate/${sessionToken}`))
     if (sessionRes.ok) {
       const session = await sessionRes.json() as { pubkey: string }
       wsPubkey = session.pubkey
@@ -42,7 +42,7 @@ websocket.get('/ws', async (c) => {
   }
 
   if (!wsPubkey) return c.json({ error: 'Unauthorized' }, 401)
-  const volRes = await dos.session.fetch(new Request(`http://do/volunteer/${wsPubkey}`))
+  const volRes = await dos.identity.fetch(new Request(`http://do/volunteer/${wsPubkey}`))
   if (!volRes.ok) return c.json({ error: 'Unknown user' }, 401)
   const vol = await volRes.json() as { role: string }
 

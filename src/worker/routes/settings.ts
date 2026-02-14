@@ -9,18 +9,18 @@ const settings = new Hono<AppEnv>()
 // --- Transcription settings: readable by all authenticated, writable by admin ---
 settings.get('/transcription', async (c) => {
   const dos = getDOs(c.env)
-  return dos.session.fetch(new Request('http://do/settings/transcription'))
+  return dos.settings.fetch(new Request('http://do/settings/transcription'))
 })
 
 settings.patch('/transcription', adminGuard, async (c) => {
   const dos = getDOs(c.env)
   const pubkey = c.get('pubkey')
   const body = await c.req.json()
-  const res = await dos.session.fetch(new Request('http://do/settings/transcription', {
+  const res = await dos.settings.fetch(new Request('http://do/settings/transcription', {
     method: 'PATCH',
     body: JSON.stringify(body),
   }))
-  if (res.ok) await audit(dos.session, 'transcriptionToggled', pubkey, body as Record<string, unknown>)
+  if (res.ok) await audit(dos.records, 'transcriptionToggled', pubkey, body as Record<string, unknown>)
   return res
 })
 
@@ -28,105 +28,105 @@ settings.patch('/transcription', adminGuard, async (c) => {
 settings.get('/custom-fields', async (c) => {
   const dos = getDOs(c.env)
   const isAdmin = c.get('isAdmin')
-  return dos.session.fetch(new Request(`http://do/settings/custom-fields?role=${isAdmin ? 'admin' : 'volunteer'}`))
+  return dos.settings.fetch(new Request(`http://do/settings/custom-fields?role=${isAdmin ? 'admin' : 'volunteer'}`))
 })
 
 settings.put('/custom-fields', adminGuard, async (c) => {
   const dos = getDOs(c.env)
   const pubkey = c.get('pubkey')
   const body = await c.req.json()
-  const res = await dos.session.fetch(new Request('http://do/settings/custom-fields', {
+  const res = await dos.settings.fetch(new Request('http://do/settings/custom-fields', {
     method: 'PUT',
     body: JSON.stringify(body),
   }))
-  if (res.ok) await audit(dos.session, 'customFieldsUpdated', pubkey, {})
+  if (res.ok) await audit(dos.records, 'customFieldsUpdated', pubkey, {})
   return res
 })
 
 // --- All remaining settings: admin only ---
 settings.get('/spam', adminGuard, async (c) => {
   const dos = getDOs(c.env)
-  return dos.session.fetch(new Request('http://do/settings/spam'))
+  return dos.settings.fetch(new Request('http://do/settings/spam'))
 })
 
 settings.patch('/spam', adminGuard, async (c) => {
   const dos = getDOs(c.env)
   const pubkey = c.get('pubkey')
   const body = await c.req.json()
-  const res = await dos.session.fetch(new Request('http://do/settings/spam', {
+  const res = await dos.settings.fetch(new Request('http://do/settings/spam', {
     method: 'PATCH',
     body: JSON.stringify(body),
   }))
-  if (res.ok) await audit(dos.session, 'spamMitigationToggled', pubkey, body as Record<string, unknown>)
+  if (res.ok) await audit(dos.records, 'spamMitigationToggled', pubkey, body as Record<string, unknown>)
   return res
 })
 
 settings.get('/call', adminGuard, async (c) => {
   const dos = getDOs(c.env)
-  return dos.session.fetch(new Request('http://do/settings/call'))
+  return dos.settings.fetch(new Request('http://do/settings/call'))
 })
 
 settings.patch('/call', adminGuard, async (c) => {
   const dos = getDOs(c.env)
   const pubkey = c.get('pubkey')
   const body = await c.req.json()
-  const res = await dos.session.fetch(new Request('http://do/settings/call', {
+  const res = await dos.settings.fetch(new Request('http://do/settings/call', {
     method: 'PATCH',
     body: JSON.stringify(body),
   }))
-  if (res.ok) await audit(dos.session, 'callSettingsUpdated', pubkey, body as Record<string, unknown>)
+  if (res.ok) await audit(dos.records, 'callSettingsUpdated', pubkey, body as Record<string, unknown>)
   return res
 })
 
 settings.get('/ivr-languages', adminGuard, async (c) => {
   const dos = getDOs(c.env)
-  return dos.session.fetch(new Request('http://do/settings/ivr-languages'))
+  return dos.settings.fetch(new Request('http://do/settings/ivr-languages'))
 })
 
 settings.patch('/ivr-languages', adminGuard, async (c) => {
   const dos = getDOs(c.env)
   const pubkey = c.get('pubkey')
   const body = await c.req.json()
-  const res = await dos.session.fetch(new Request('http://do/settings/ivr-languages', {
+  const res = await dos.settings.fetch(new Request('http://do/settings/ivr-languages', {
     method: 'PATCH',
     body: JSON.stringify(body),
   }))
-  if (res.ok) await audit(dos.session, 'ivrLanguagesUpdated', pubkey, body as Record<string, unknown>)
+  if (res.ok) await audit(dos.records, 'ivrLanguagesUpdated', pubkey, body as Record<string, unknown>)
   return res
 })
 
 settings.get('/webauthn', adminGuard, async (c) => {
   const dos = getDOs(c.env)
-  return dos.session.fetch(new Request('http://do/settings/webauthn'))
+  return dos.identity.fetch(new Request('http://do/settings/webauthn'))
 })
 
 settings.patch('/webauthn', adminGuard, async (c) => {
   const dos = getDOs(c.env)
   const pubkey = c.get('pubkey')
   const body = await c.req.json()
-  const res = await dos.session.fetch(new Request('http://do/settings/webauthn', {
+  const res = await dos.identity.fetch(new Request('http://do/settings/webauthn', {
     method: 'PATCH',
     body: JSON.stringify(body),
   }))
-  if (res.ok) await audit(dos.session, 'webauthnSettingsUpdated', pubkey, body as Record<string, unknown>)
+  if (res.ok) await audit(dos.records, 'webauthnSettingsUpdated', pubkey, body as Record<string, unknown>)
   return res
 })
 
 // --- Telephony Provider settings: admin only ---
 settings.get('/telephony-provider', adminGuard, async (c) => {
   const dos = getDOs(c.env)
-  return dos.session.fetch(new Request('http://do/settings/telephony-provider'))
+  return dos.settings.fetch(new Request('http://do/settings/telephony-provider'))
 })
 
 settings.patch('/telephony-provider', adminGuard, async (c) => {
   const dos = getDOs(c.env)
   const pubkey = c.get('pubkey')
   const body = await c.req.json()
-  const res = await dos.session.fetch(new Request('http://do/settings/telephony-provider', {
+  const res = await dos.settings.fetch(new Request('http://do/settings/telephony-provider', {
     method: 'PATCH',
     body: JSON.stringify(body),
   }))
-  if (res.ok) await audit(dos.session, 'telephonyProviderChanged', pubkey, { type: (body as { type?: string }).type })
+  if (res.ok) await audit(dos.records, 'telephonyProviderChanged', pubkey, { type: (body as { type?: string }).type })
   return res
 })
 
@@ -204,7 +204,7 @@ settings.post('/telephony-provider/test', adminGuard, async (c) => {
 
 settings.get('/ivr-audio', adminGuard, async (c) => {
   const dos = getDOs(c.env)
-  return dos.session.fetch(new Request('http://do/settings/ivr-audio'))
+  return dos.settings.fetch(new Request('http://do/settings/ivr-audio'))
 })
 
 settings.put('/ivr-audio/:promptType/:language', adminGuard, async (c) => {
@@ -213,11 +213,11 @@ settings.put('/ivr-audio/:promptType/:language', adminGuard, async (c) => {
   const promptType = c.req.param('promptType')
   const language = c.req.param('language')
   const body = await c.req.arrayBuffer()
-  const res = await dos.session.fetch(new Request(`http://do/settings/ivr-audio/${promptType}/${language}`, {
+  const res = await dos.settings.fetch(new Request(`http://do/settings/ivr-audio/${promptType}/${language}`, {
     method: 'PUT',
     body,
   }))
-  if (res.ok) await audit(dos.session, 'ivrAudioUploaded', pubkey, { promptType, language })
+  if (res.ok) await audit(dos.records, 'ivrAudioUploaded', pubkey, { promptType, language })
   return res
 })
 
@@ -226,10 +226,10 @@ settings.delete('/ivr-audio/:promptType/:language', adminGuard, async (c) => {
   const pubkey = c.get('pubkey')
   const promptType = c.req.param('promptType')
   const language = c.req.param('language')
-  const res = await dos.session.fetch(new Request(`http://do/settings/ivr-audio/${promptType}/${language}`, {
+  const res = await dos.settings.fetch(new Request(`http://do/settings/ivr-audio/${promptType}/${language}`, {
     method: 'DELETE',
   }))
-  if (res.ok) await audit(dos.session, 'ivrAudioDeleted', pubkey, { promptType, language })
+  if (res.ok) await audit(dos.records, 'ivrAudioDeleted', pubkey, { promptType, language })
   return res
 })
 

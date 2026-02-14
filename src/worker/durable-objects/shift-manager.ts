@@ -1,45 +1,35 @@
 import { DurableObject } from 'cloudflare:workers'
 import type { Env, Shift } from '../types'
+import { DORouter } from '../lib/do-router'
 
 /**
  * ShiftManagerDO — manages shift schedules and routing.
  * Determines which volunteers should receive calls at any given time.
  */
 export class ShiftManagerDO extends DurableObject<Env> {
-  async fetch(request: Request): Promise<Response> {
-    const url = new URL(request.url)
-    const path = url.pathname
-    const method = request.method
+  private router: DORouter
 
-    if (path === '/shifts' && method === 'GET') {
-      return this.getShifts()
-    }
-    if (path === '/shifts' && method === 'POST') {
-      return this.createShift(await request.json())
-    }
-    if (path.startsWith('/shifts/') && method === 'PATCH') {
-      const id = path.split('/shifts/')[1]
-      return this.updateShift(id, await request.json())
-    }
-    if (path.startsWith('/shifts/') && method === 'DELETE') {
-      const id = path.split('/shifts/')[1]
-      return this.deleteShift(id)
-    }
-    if (path === '/current-volunteers' && method === 'GET') {
-      return this.getCurrentVolunteers()
-    }
-    if (path === '/my-status' && method === 'GET') {
-      const pubkey = url.searchParams.get('pubkey') || ''
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env)
+    this.router = new DORouter()
+
+    this.router.get('/shifts', () => this.getShifts())
+    this.router.post('/shifts', async (req) => this.createShift(await req.json()))
+    this.router.patch('/shifts/:id', async (req, { id }) => this.updateShift(id, await req.json()))
+    this.router.delete('/shifts/:id', (_req, { id }) => this.deleteShift(id))
+    this.router.get('/current-volunteers', () => this.getCurrentVolunteers())
+    this.router.get('/my-status', (req) => {
+      const pubkey = new URL(req.url).searchParams.get('pubkey') || ''
       return this.getMyStatus(pubkey)
-    }
-
-    // --- Test Reset (development only) ---
-    if (path === '/reset' && method === 'POST') {
+    })
+    this.router.post('/reset', async () => {
       await this.ctx.storage.deleteAll()
       return Response.json({ ok: true })
-    }
+    })
+  }
 
-    return new Response('Not Found', { status: 404 })
+  async fetch(request: Request): Promise<Response> {
+    return this.router.handle(request)
   }
 
   private async getShifts(): Promise<Response> {

@@ -5,7 +5,7 @@ import { getDOs } from '../lib/do-access'
 
 export const auth = createMiddleware<AppEnv>(async (c, next) => {
   const dos = getDOs(c.env)
-  const authResult = await authenticateRequest(c.req.raw, dos.session)
+  const authResult = await authenticateRequest(c.req.raw, dos.identity)
   if (!authResult) {
     return c.json({ error: 'Unauthorized' }, 401)
   }

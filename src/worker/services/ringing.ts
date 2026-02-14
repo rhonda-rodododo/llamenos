@@ -16,7 +16,7 @@ export async function startParallelRinging(
 
     // If no one is on shift, use fallback group
     if (onShiftPubkeys.length === 0) {
-      const fallbackRes = await dos.session.fetch(new Request('http://do/fallback'))
+      const fallbackRes = await dos.settings.fetch(new Request('http://do/fallback'))
       const fallback = await fallbackRes.json() as { volunteers: string[] }
       onShiftPubkeys = fallback.volunteers
     }
@@ -29,7 +29,7 @@ export async function startParallelRinging(
     }
 
     // Get volunteer details (including call preference)
-    const volRes = await dos.session.fetch(new Request('http://do/volunteers'))
+    const volRes = await dos.identity.fetch(new Request('http://do/volunteers'))
     const { volunteers: allVolunteers } = await volRes.json() as {
       volunteers: Array<{
         pubkey: string

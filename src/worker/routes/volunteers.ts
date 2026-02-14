@@ -10,7 +10,7 @@ volunteers.use('*', adminGuard)
 
 volunteers.get('/', async (c) => {
   const dos = getDOs(c.env)
-  return dos.session.fetch(new Request('http://do/volunteers'))
+  return dos.identity.fetch(new Request('http://do/volunteers'))
 })
 
 volunteers.post('/', async (c) => {
@@ -27,7 +27,7 @@ volunteers.post('/', async (c) => {
     return c.json({ error: 'pubkey is required — generate keypair client-side' }, 400)
   }
 
-  const res = await dos.session.fetch(new Request('http://do/volunteers', {
+  const res = await dos.identity.fetch(new Request('http://do/volunteers', {
     method: 'POST',
     body: JSON.stringify({
       pubkey: newPubkey,
@@ -39,7 +39,7 @@ volunteers.post('/', async (c) => {
   }))
 
   if (res.ok) {
-    await audit(dos.session, 'volunteerAdded', pubkey, { target: newPubkey, role: body.role })
+    await audit(dos.records, 'volunteerAdded', pubkey, { target: newPubkey, role: body.role })
   }
 
   return res
@@ -50,13 +50,13 @@ volunteers.patch('/:targetPubkey', async (c) => {
   const pubkey = c.get('pubkey')
   const targetPubkey = c.req.param('targetPubkey')
   const body = await c.req.json()
-  const res = await dos.session.fetch(new Request(`http://do/volunteers/${targetPubkey}?admin=true`, {
+  const res = await dos.identity.fetch(new Request(`http://do/volunteers/${targetPubkey}?admin=true`, {
     method: 'PATCH',
     body: JSON.stringify(body),
   }))
   if (res.ok) {
     const data = body as Record<string, unknown>
-    if (data.role) await audit(dos.session, data.role === 'admin' ? 'adminPromoted' : 'adminDemoted', pubkey, { target: targetPubkey })
+    if (data.role) await audit(dos.records, data.role === 'admin' ? 'adminPromoted' : 'adminDemoted', pubkey, { target: targetPubkey })
   }
   return res
 })
@@ -65,8 +65,8 @@ volunteers.delete('/:targetPubkey', async (c) => {
   const dos = getDOs(c.env)
   const pubkey = c.get('pubkey')
   const targetPubkey = c.req.param('targetPubkey')
-  const res = await dos.session.fetch(new Request(`http://do/volunteers/${targetPubkey}`, { method: 'DELETE' }))
-  if (res.ok) await audit(dos.session, 'volunteerRemoved', pubkey, { target: targetPubkey })
+  const res = await dos.identity.fetch(new Request(`http://do/volunteers/${targetPubkey}`, { method: 'DELETE' }))
+  if (res.ok) await audit(dos.records, 'volunteerRemoved', pubkey, { target: targetPubkey })
   return res
 })
 

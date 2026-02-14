@@ -30,8 +30,16 @@
         "class_name": "ShiftManagerDO"
       },
       {
-        "name": "SESSION_MANAGER",
-        "class_name": "SessionManagerDO"
+        "name": "IDENTITY_DO",
+        "class_name": "IdentityDO"
+      },
+      {
+        "name": "SETTINGS_DO",
+        "class_name": "SettingsDO"
+      },
+      {
+        "name": "RECORDS_DO",
+        "class_name": "RecordsDO"
       }
     ]
   },
@@ -41,6 +49,11 @@
     {
       "tag": "v1",
       "new_classes": ["CallRouterDO", "ShiftManagerDO", "SessionManagerDO"]
+    },
+    {
+      "tag": "v2",
+      "new_classes": ["IdentityDO", "SettingsDO", "RecordsDO"],
+      "deleted_classes": ["SessionManagerDO"]
     }
   ],
 

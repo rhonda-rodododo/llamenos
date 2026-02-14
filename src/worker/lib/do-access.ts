@@ -7,19 +7,25 @@ import { VonageAdapter } from '../telephony/vonage'
 import { PlivoAdapter } from '../telephony/plivo'
 import { AsteriskAdapter } from '../telephony/asterisk'
 
-const SESSION_ID = 'global-session'
+const IDENTITY_ID = 'global-identity'
+const SETTINGS_ID = 'global-settings'
+const RECORDS_ID = 'global-records'
 const SHIFT_ID = 'global-shifts'
 const CALL_ID = 'global-calls'
 
 export interface DurableObjects {
-  session: DurableObjectStub
+  identity: DurableObjectStub
+  settings: DurableObjectStub
+  records: DurableObjectStub
   shifts: DurableObjectStub
   calls: DurableObjectStub
 }
 
 export function getDOs(env: Env): DurableObjects {
   return {
-    session: env.SESSION_MANAGER.get(env.SESSION_MANAGER.idFromName(SESSION_ID)),
+    identity: env.IDENTITY_DO.get(env.IDENTITY_DO.idFromName(IDENTITY_ID)),
+    settings: env.SETTINGS_DO.get(env.SETTINGS_DO.idFromName(SETTINGS_ID)),
+    records: env.RECORDS_DO.get(env.RECORDS_DO.idFromName(RECORDS_ID)),
     shifts: env.SHIFT_MANAGER.get(env.SHIFT_MANAGER.idFromName(SHIFT_ID)),
     calls: env.CALL_ROUTER.get(env.CALL_ROUTER.idFromName(CALL_ID)),
   }
@@ -27,12 +33,11 @@ export function getDOs(env: Env): DurableObjects {
 
 /**
  * Create a TelephonyAdapter from provider config.
- * Reads config from SessionManagerDO; falls back to env vars for Twilio.
+ * Reads config from SettingsDO; falls back to env vars for Twilio.
  */
 export async function getTelephony(env: Env, dos: DurableObjects): Promise<TelephonyAdapter> {
-  // Try reading provider config from DO
   try {
-    const res = await dos.session.fetch(new Request('http://do/settings/telephony-provider'))
+    const res = await dos.settings.fetch(new Request('http://do/settings/telephony-provider'))
     if (res.ok) {
       const config = await res.json() as TelephonyProviderConfig | null
       if (config) {
@@ -43,7 +48,6 @@ export async function getTelephony(env: Env, dos: DurableObjects): Promise<Telep
     // Fall through to env var defaults
   }
 
-  // Fallback to Twilio env vars
   return new TwilioAdapter(env.TWILIO_ACCOUNT_SID, env.TWILIO_AUTH_TOKEN, env.TWILIO_PHONE_NUMBER)
 }
 

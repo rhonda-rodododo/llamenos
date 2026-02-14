@@ -43,18 +43,18 @@ export async function verifyAuthToken(auth: AuthPayload): Promise<boolean> {
 
 export async function authenticateRequest(
   request: Request,
-  sessionManager: DurableObjectStub
+  identityDO: DurableObjectStub
 ): Promise<{ pubkey: string; volunteer: Volunteer } | null> {
   const authHeader = request.headers.get('Authorization')
 
   // Try session token auth first (WebAuthn-based sessions)
   const sessionToken = parseSessionHeader(authHeader)
   if (sessionToken) {
-    const sessionRes = await sessionManager.fetch(new Request(`http://do/sessions/validate/${sessionToken}`))
+    const sessionRes = await identityDO.fetch(new Request(`http://do/sessions/validate/${sessionToken}`))
     if (!sessionRes.ok) return null
     const session = await sessionRes.json() as ServerSession
     // Look up volunteer
-    const volRes = await sessionManager.fetch(new Request('http://do/volunteer/' + session.pubkey))
+    const volRes = await identityDO.fetch(new Request('http://do/volunteer/' + session.pubkey))
     if (!volRes.ok) return null
     const volunteer = await volRes.json() as Volunteer
     return { pubkey: session.pubkey, volunteer }
@@ -65,8 +65,8 @@ export async function authenticateRequest(
   if (!auth) return null
   if (!(await verifyAuthToken(auth))) return null
 
-  // Look up volunteer in session manager
-  const res = await sessionManager.fetch(new Request('http://do/volunteer/' + auth.pubkey))
+  // Look up volunteer in identity DO
+  const res = await identityDO.fetch(new Request('http://do/volunteer/' + auth.pubkey))
   if (!res.ok) return null
   const volunteer = await res.json() as Volunteer
   return { pubkey: auth.pubkey, volunteer }

@@ -42,7 +42,7 @@ api.get('/ivr-audio/:promptType/:language', async (c) => {
   const dos = getDOs(c.env)
   const promptType = c.req.param('promptType')
   const language = c.req.param('language')
-  return dos.session.fetch(new Request(`http://do/settings/ivr-audio/${promptType}/${language}`))
+  return dos.settings.fetch(new Request(`http://do/settings/ivr-audio/${promptType}/${language}`))
 })
 
 // Authenticated routes

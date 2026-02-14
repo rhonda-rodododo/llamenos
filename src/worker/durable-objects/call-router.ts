@@ -1,6 +1,7 @@
 import { DurableObject } from 'cloudflare:workers'
 import type { Env, CallRecord } from '../types'
 import { hashPhone } from '../lib/crypto'
+import { DORouter } from '../lib/do-router'
 
 /**
  * CallRouterDO — manages real-time call state and WebSocket connections.
@@ -14,34 +15,17 @@ import { hashPhone } from '../lib/crypto'
  * - Call history
  */
 export class CallRouterDO extends DurableObject<Env> {
+  private router: DORouter
 
-  async fetch(request: Request): Promise<Response> {
-    const url = new URL(request.url)
-    const path = url.pathname
-    const method = request.method
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env)
+    this.router = new DORouter()
 
-    // WebSocket upgrade
-    if (path === '/ws' && request.headers.get('Upgrade') === 'websocket') {
-      return this.handleWebSocket(request)
-    }
-
-    // Active calls
-    if (path === '/calls/active' && method === 'GET') {
-      return this.getActiveCalls()
-    }
-
-    // Volunteer presence (admin only — caller must verify admin status)
-    if (path === '/calls/presence' && method === 'GET') {
-      return this.getVolunteerPresence()
-    }
-
-    // Calls today count
-    if (path === '/calls/today-count' && method === 'GET') {
-      return this.getCallsTodayCount()
-    }
-
-    // Call history
-    if (path === '/calls/history' && method === 'GET') {
+    this.router.get('/calls/active', () => this.getActiveCalls())
+    this.router.get('/calls/presence', () => this.getVolunteerPresence())
+    this.router.get('/calls/today-count', () => this.getCallsTodayCount())
+    this.router.get('/calls/history', async (req) => {
+      const url = new URL(req.url)
       const page = parseInt(url.searchParams.get('page') || '1')
       const limit = parseInt(url.searchParams.get('limit') || '50')
       const search = url.searchParams.get('search') || undefined
@@ -51,45 +35,14 @@ export class CallRouterDO extends DurableObject<Env> {
       const historyAll = await this.ctx.storage.get<CallRecord[]>('callHistory') || []
       console.log(`[call-history] active=${activeCalls.length} history=${historyAll.length}`)
       return this.getCallHistory(page, limit, { search, dateFrom, dateTo })
-    }
-
-    // Incoming call (from telephony webhook)
-    if (path === '/calls/incoming' && method === 'POST') {
-      return this.handleIncomingCall(await request.json())
-    }
-
-    // Call answered
-    if (path.startsWith('/calls/') && path.endsWith('/answer') && method === 'POST') {
-      const callId = path.split('/calls/')[1].split('/answer')[0]
-      return this.handleCallAnswered(callId, await request.json())
-    }
-
-    // Call ended
-    if (path.startsWith('/calls/') && path.endsWith('/end') && method === 'POST') {
-      const callId = path.split('/calls/')[1].split('/end')[0]
-      return this.handleCallEnded(callId)
-    }
-
-    // Voicemail left (unanswered call with recording)
-    if (path.startsWith('/calls/') && path.endsWith('/voicemail') && method === 'POST') {
-      const callId = path.split('/calls/')[1].split('/voicemail')[0]
-      return this.handleVoicemailLeft(callId)
-    }
-
-    // Update call metadata (e.g. hasTranscription)
-    if (path.startsWith('/calls/') && path.endsWith('/metadata') && method === 'PATCH') {
-      const callId = path.split('/calls/')[1].split('/metadata')[0]
-      return this.handleUpdateMetadata(callId, await request.json())
-    }
-
-    // Report spam
-    if (path.startsWith('/calls/') && path.endsWith('/spam') && method === 'POST') {
-      const callId = path.split('/calls/')[1].split('/spam')[0]
-      return this.handleReportSpam(callId, await request.json())
-    }
-
-    // Debug endpoint — shows DO storage state
-    if (path === '/calls/debug' && method === 'GET') {
+    })
+    this.router.post('/calls/incoming', async (req) => this.handleIncomingCall(await req.json()))
+    this.router.post('/calls/:callId/answer', async (req, { callId }) => this.handleCallAnswered(callId, await req.json()))
+    this.router.post('/calls/:callId/end', (_req, { callId }) => this.handleCallEnded(callId))
+    this.router.post('/calls/:callId/voicemail', (_req, { callId }) => this.handleVoicemailLeft(callId))
+    this.router.patch('/calls/:callId/metadata', async (req, { callId }) => this.handleUpdateMetadata(callId, await req.json()))
+    this.router.post('/calls/:callId/spam', async (req, { callId }) => this.handleReportSpam(callId, await req.json()))
+    this.router.get('/calls/debug', async () => {
       const activeCalls = await this.ctx.storage.get<CallRecord[]>('activeCalls') || []
       const history = await this.ctx.storage.get<CallRecord[]>('callHistory') || []
       return Response.json({
@@ -114,19 +67,23 @@ export class CallRouterDO extends DurableObject<Env> {
           hasVoicemail: c.hasVoicemail,
         })),
       })
-    }
-
-    // --- Test Reset (development only) ---
-    if (path === '/reset' && method === 'POST') {
-      // Close all WebSocket connections
+    })
+    this.router.post('/reset', async () => {
       for (const ws of this.ctx.getWebSockets()) {
         try { ws.close() } catch {}
       }
       await this.ctx.storage.deleteAll()
       return Response.json({ ok: true })
-    }
+    })
+  }
 
-    return new Response('Not Found', { status: 404 })
+  async fetch(request: Request): Promise<Response> {
+    // WebSocket upgrade bypasses router (not a standard REST route)
+    const url = new URL(request.url)
+    if (url.pathname === '/ws' && request.headers.get('Upgrade') === 'websocket') {
+      return this.handleWebSocket(request)
+    }
+    return this.router.handle(request)
   }
 
   private handleWebSocket(request: Request): Response {

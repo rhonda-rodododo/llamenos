@@ -23,7 +23,7 @@ webrtc.get('/webrtc-token', async (c) => {
   }
 
   // Get provider config
-  const res = await dos.session.fetch(new Request('http://do/settings/telephony-provider'))
+  const res = await dos.settings.fetch(new Request('http://do/settings/telephony-provider'))
   if (!res.ok) {
     return c.json({ error: 'No telephony provider configured' }, 404)
   }
@@ -49,7 +49,7 @@ webrtc.get('/webrtc-token', async (c) => {
  */
 webrtc.get('/webrtc-status', async (c) => {
   const dos = getDOs(c.env)
-  const res = await dos.session.fetch(new Request('http://do/settings/telephony-provider'))
+  const res = await dos.settings.fetch(new Request('http://do/settings/telephony-provider'))
   if (!res.ok) {
     return c.json({ available: false, provider: null })
   }

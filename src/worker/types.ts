@@ -1,7 +1,9 @@
 export interface Env {
   CALL_ROUTER: DurableObjectNamespace
   SHIFT_MANAGER: DurableObjectNamespace
-  SESSION_MANAGER: DurableObjectNamespace
+  IDENTITY_DO: DurableObjectNamespace
+  SETTINGS_DO: DurableObjectNamespace
+  RECORDS_DO: DurableObjectNamespace
   AI: Ai
   ASSETS: Fetcher
   TWILIO_ACCOUNT_SID: string
