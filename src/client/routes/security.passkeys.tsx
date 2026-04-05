@@ -142,7 +142,7 @@ function PasskeysPage() {
   if (!data) return null
 
   return (
-    <div data-testid="passkeys-page">
+    <div data-testid="passkeys-page" className="min-h-[40px]">
       {data.warning && (
         <div
           className="p-3 mb-4 bg-yellow-50 border border-yellow-300 rounded text-sm"
@@ -150,6 +150,11 @@ function PasskeysPage() {
         >
           {data.warning}
         </div>
+      )}
+      {data.credentials.length === 0 && (
+        <p className="text-muted-foreground text-sm">
+          {t('security.passkeys.empty', 'No passkeys registered yet.')}
+        </p>
       )}
       <ul className="space-y-2">
         {data.credentials.map((cred) => (
