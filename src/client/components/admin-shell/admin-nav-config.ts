@@ -64,6 +64,12 @@ export const adminNavConfig: AdminNavConfig = {
           requiredPermissions: ['settings:read'],
           testid: 'admin-sidebar-item-report-types',
         },
+        {
+          slug: 'firehose',
+          labelKey: 'adminNav.items.firehose',
+          requiredPermissions: ['settings:read'],
+          testid: 'admin-sidebar-item-firehose',
+        },
       ],
     },
     {

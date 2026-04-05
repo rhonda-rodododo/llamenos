@@ -1553,7 +1553,8 @@
       "teams": "Teams",
       "tags": "Tags",
       "customFields": "Custom Fields",
-      "reportTypes": "Report Types"
+      "reportTypes": "Report Types",
+      "firehose": "Firehose"
     }
   },
   "locationLookup": {

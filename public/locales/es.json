@@ -1280,6 +1280,7 @@
     "tags": "Tags",
       "customFields": "Custom Fields",
       "reportTypes": "Report Types",
+      "firehose": "Firehose",
     "lastInteraction": "Last Interaction",
     "displayName": "Display Name",
     "notes": "Notes",
@@ -1485,7 +1486,8 @@
       "teams": "Teams",
       "tags": "Tags",
       "customFields": "Custom Fields",
-      "reportTypes": "Report Types"
+      "reportTypes": "Report Types",
+      "firehose": "Firehose"
     }
   },
   "locationLookup": {

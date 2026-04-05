@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react'
 import { CustomFieldsSection } from './custom-fields-section'
+import { FirehoseSection } from './firehose-section'
 import { HubRolesSection } from './hub-roles-section'
 import { LocationLookupSection } from './location-lookup-section'
 import { PasskeyPolicySection } from './passkey-policy-section'
@@ -28,3 +29,4 @@ registerSection('teams', TeamsSection)
 registerSection('tags', TagsSection)
 registerSection('custom-fields', CustomFieldsSection)
 registerSection('report-types', ReportTypesSection)
+registerSection('firehose', FirehoseSection)
