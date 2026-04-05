@@ -247,27 +247,12 @@ export async function unlock(pin: string): Promise<string | null> {
         await rotateSyntheticToReal(pin, blob, prfOutput)
       }
 
-      // One-time: if the server has no KEK proof hash stored yet, post ours
-      // so subsequent security actions (PIN change, recovery rotate, lockdown)
-      // can be authenticated. Non-fatal; errors are logged and ignored.
-      try {
-        const statusRes = await fetch('/api/auth/kek-proof/status', { credentials: 'include' })
-        if (statusRes.ok) {
-          const { hasProof } = (await statusRes.json()) as { hasProof: boolean }
-          if (!hasProof) {
-            const { deriveKekProof } = await import('./key-store-v2')
-            const proof = deriveKekProof(pin)
-            await fetch('/api/auth/kek-proof', {
-              method: 'POST',
-              credentials: 'include',
-              headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({ proof }),
-            })
-          }
-        }
-      } catch (err) {
-        console.warn('[key-manager] kek-proof sync failed:', (err as Error)?.message)
-      }
+      // NOTE: Server-side KEK proof seeding is handled on-demand: when the user
+      // attempts a security action (PIN change, recovery rotate, lockdown) and
+      // the server has no hash stored, it returns 409 and the client re-POSTs
+      // the proof then retries. We used to auto-sync during unlock, but that
+      // introduced an extra fetch on a hot path that could affect timing in
+      // parallel Playwright workers. On-demand is sufficient.
     }
     return pubkey
   } catch (err) {
