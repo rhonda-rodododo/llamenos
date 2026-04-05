@@ -104,7 +104,21 @@ export function resolveEncryptedFields(
       ? (envelopes as RecipientEnvelope[]).find((e) => e.pubkey === readerPubkey)
       : (envelopes[0] as RecipientEnvelope)
 
-    if (!envelope) continue
+    if (!envelope) {
+      // No envelope for this reader — field will stay as the server's
+      // placeholder (e.g., "[encrypted]"). Surface this so stale-envelope
+      // scenarios (key rotation, device rekey) are diagnosable instead of
+      // silently showing placeholders in the UI.
+      if (readerPubkey && import.meta.env.DEV) {
+        const envelopePubkeys = (envelopes as RecipientEnvelope[]).map((e) => e.pubkey)
+        // eslint-disable-next-line no-console
+        console.warn(`[decrypt-fields] No envelope for reader on field "${key}":`, {
+          readerPubkey,
+          envelopePubkeys,
+        })
+      }
+      continue
+    }
 
     refs.push({ plaintextKey, ciphertext, envelope })
   }
@@ -154,8 +168,15 @@ export async function decryptObjectFields<T extends Record<string, unknown>>(
         )
         decryptCache.set(ciphertext, label, plaintext)
         ;(obj as Record<string, unknown>)[plaintextKey] = plaintext
-      } catch {
-        // Leave field as-is (placeholder value from server)
+      } catch (err) {
+        // Leave field as-is (placeholder value from server). Surface the
+        // failure in dev so HMAC/label mismatches, worker init races, and
+        // malformed envelopes are visible instead of producing a silent
+        // "[encrypted]" in the UI.
+        if (import.meta.env.DEV) {
+          // eslint-disable-next-line no-console
+          console.warn(`[decrypt-fields] Decryption failed for "${plaintextKey}":`, err)
+        }
       }
     })
   )
