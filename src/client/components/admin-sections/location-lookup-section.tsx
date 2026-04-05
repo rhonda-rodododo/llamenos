@@ -1,6 +1,12 @@
+import {
+  SectionActions,
+  SectionBody,
+  SectionDescription,
+  SectionField,
+  SectionToggleField,
+} from '@/components/admin-shell/section-layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -20,7 +26,7 @@ import { useToast } from '@/lib/toast'
 import { GEOCODING_PROVIDER_LABELS } from '@shared/types'
 import type { GeocodingProvider } from '@shared/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Loader2, Save, TestTube2 } from 'lucide-react'
+import { Loader2, TestTube2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -92,11 +98,10 @@ export function LocationLookupSection() {
   }
 
   return (
-    <section className="space-y-6">
-      <p className="text-sm text-muted-foreground">{t('locationLookup.description')}</p>
+    <SectionBody>
+      <SectionDescription>{t('locationLookup.description')}</SectionDescription>
 
-      <div className="space-y-2">
-        <Label htmlFor="location-lookup-provider">{t('locationLookup.provider')}</Label>
+      <SectionField label={t('locationLookup.provider')} htmlFor="location-lookup-provider">
         <Select value={selectValue} onValueChange={handleProviderChange}>
           <SelectTrigger
             id="location-lookup-provider"
@@ -113,12 +118,11 @@ export function LocationLookupSection() {
             ))}
           </SelectContent>
         </Select>
-      </div>
+      </SectionField>
 
       {draft.provider && (
         <>
-          <div className="space-y-2">
-            <Label htmlFor="location-lookup-api-key">{t('locationLookup.apiKey')}</Label>
+          <SectionField label={t('locationLookup.apiKey')} htmlFor="location-lookup-api-key">
             <Input
               id="location-lookup-api-key"
               data-testid="admin-location-lookup-api-key-input"
@@ -127,10 +131,13 @@ export function LocationLookupSection() {
               onChange={(e) => setDraft({ ...draft, apiKey: e.target.value })}
               placeholder={t('locationLookup.apiKeyPlaceholder')}
             />
-          </div>
+          </SectionField>
 
-          <div className="space-y-2">
-            <Label htmlFor="location-lookup-countries">{t('locationLookup.countries')}</Label>
+          <SectionField
+            label={t('locationLookup.countries')}
+            htmlFor="location-lookup-countries"
+            help={t('locationLookup.countriesHelp')}
+          >
             <Input
               id="location-lookup-countries"
               data-testid="admin-location-lookup-countries-input"
@@ -146,50 +153,42 @@ export function LocationLookupSection() {
               }
               placeholder={t('locationLookup.countriesPlaceholder')}
             />
-            <p className="text-xs text-muted-foreground">{t('locationLookup.countriesHelp')}</p>
-          </div>
+          </SectionField>
 
-          <div className="flex items-center justify-between">
-            <Label htmlFor="location-lookup-enabled">{t('locationLookup.enable')}</Label>
+          <SectionToggleField label={t('locationLookup.enable')} htmlFor="location-lookup-enabled">
             <Switch
               id="location-lookup-enabled"
               data-testid="admin-location-lookup-enabled-switch"
               checked={draft.enabled}
               onCheckedChange={(v) => setDraft({ ...draft, enabled: v })}
             />
-          </div>
+          </SectionToggleField>
         </>
       )}
 
-      <div className="flex gap-2">
-        <Button
-          data-testid="admin-location-lookup-save"
-          onClick={() => saveMutation.mutate(draft)}
-          disabled={saveMutation.isPending}
-        >
-          {saveMutation.isPending ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="mr-2 h-4 w-4" />
-          )}
-          {t('common.save')}
-        </Button>
-        {draft.provider && draft.apiKey && (
-          <Button
-            variant="outline"
-            data-testid="admin-location-lookup-test-button"
-            onClick={() => testMutation.mutate()}
-            disabled={testMutation.isPending}
-          >
-            {testMutation.isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <TestTube2 className="mr-2 h-4 w-4" />
-            )}
-            {t('locationLookup.testConnection')}
-          </Button>
-        )}
-      </div>
+      <SectionActions
+        slug="location-lookup"
+        onSave={() => saveMutation.mutate(draft)}
+        saving={saveMutation.isPending}
+        showSaved={showSaved}
+        extraActions={
+          draft.provider && draft.apiKey ? (
+            <Button
+              variant="outline"
+              data-testid="admin-location-lookup-test-button"
+              onClick={() => testMutation.mutate()}
+              disabled={testMutation.isPending}
+            >
+              {testMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <TestTube2 className="mr-2 h-4 w-4" />
+              )}
+              {t('locationLookup.testConnection')}
+            </Button>
+          ) : null
+        }
+      />
 
       {testResult && (
         <p
@@ -201,12 +200,6 @@ export function LocationLookupSection() {
             : testResult.error || t('locationLookup.testFailed')}
         </p>
       )}
-
-      {showSaved && (
-        <span data-testid="admin-location-lookup-save-success" className="text-sm text-green-600">
-          {t('locationLookup.saved')}
-        </span>
-      )}
-    </section>
+    </SectionBody>
   )
 }

@@ -1,5 +1,9 @@
-import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
+import {
+  SectionActions,
+  SectionBody,
+  SectionDescription,
+  SectionField,
+} from '@/components/admin-shell/section-layout'
 import {
   Select,
   SelectContent,
@@ -11,7 +15,6 @@ import { type WebAuthnSettings, getWebAuthnSettings, updateWebAuthnSettings } fr
 import { queryKeys } from '@/lib/queries/keys'
 import { useToast } from '@/lib/toast'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Loader2, Save } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -64,11 +67,14 @@ export function PasskeyPolicySection() {
   if (isLoading || draft === null) return null
 
   return (
-    <section className="space-y-6">
-      <p className="text-sm text-muted-foreground">{t('passkeyPolicy.description')}</p>
+    <SectionBody>
+      <SectionDescription>{t('passkeyPolicy.description')}</SectionDescription>
 
-      <div className="space-y-2">
-        <Label htmlFor="passkey-policy-enforcement">{t('passkeyPolicy.enforcement')}</Label>
+      <SectionField
+        label={t('passkeyPolicy.enforcement')}
+        htmlFor="passkey-policy-enforcement"
+        help={t('passkeyPolicy.enforcementHelp')}
+      >
         <Select value={draft} onValueChange={(v) => setDraft(v as Enforcement)}>
           <SelectTrigger
             id="passkey-policy-enforcement"
@@ -82,29 +88,14 @@ export function PasskeyPolicySection() {
             <SelectItem value="everyone">{t('passkeyPolicy.enforcementEveryone')}</SelectItem>
           </SelectContent>
         </Select>
-        <p className="text-xs text-muted-foreground">{t('passkeyPolicy.enforcementHelp')}</p>
-      </div>
+      </SectionField>
 
-      <div className="flex gap-2">
-        <Button
-          data-testid="admin-passkey-policy-save"
-          onClick={() => saveMutation.mutate(draft)}
-          disabled={saveMutation.isPending}
-        >
-          {saveMutation.isPending ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="mr-2 h-4 w-4" />
-          )}
-          {t('common.save')}
-        </Button>
-      </div>
-
-      {showSaved && (
-        <span data-testid="admin-passkey-policy-save-success" className="text-sm text-green-600">
-          {t('passkeyPolicy.saved')}
-        </span>
-      )}
-    </section>
+      <SectionActions
+        slug="passkey-policy"
+        onSave={() => saveMutation.mutate(draft)}
+        saving={saveMutation.isPending}
+        showSaved={showSaved}
+      />
+    </SectionBody>
   )
 }
