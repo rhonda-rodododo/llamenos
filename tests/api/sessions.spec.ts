@@ -13,7 +13,9 @@ import { hashSessionToken } from '../../src/server/lib/session-tokens'
 import { createAuthedRequest } from '../helpers/authed-request'
 
 const DATABASE_URL =
-  process.env.DATABASE_URL ?? 'postgres://llamenos:llamenos@localhost:5433/llamenos'
+  process.env.TEST_DATABASE_URL ??
+  process.env.DATABASE_URL ??
+  'postgres://llamenos:llamenos@localhost:5433/llamenos'
 
 const HMAC_SECRET =
   process.env.HMAC_SECRET ?? '0000000000000000000000000000000000000000000000000000000000000000'

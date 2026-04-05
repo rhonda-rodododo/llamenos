@@ -12,7 +12,9 @@ import postgres from 'postgres'
 import { createAuthedRequest } from '../helpers/authed-request'
 
 const DATABASE_URL =
-  process.env.DATABASE_URL ?? 'postgres://llamenos:llamenos@localhost:5433/llamenos'
+  process.env.TEST_DATABASE_URL ??
+  process.env.DATABASE_URL ??
+  'postgres://llamenos:llamenos@localhost:5433/llamenos'
 
 let sql: ReturnType<typeof postgres>
 
