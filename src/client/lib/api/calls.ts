@@ -160,6 +160,29 @@ export async function getUserStats() {
   return request<{ data: UserStatEntry[] }>(hp('/analytics/user-stats'))
 }
 
+// --- Platform (global) Analytics — super-admin only ---
+//
+// The /analytics router is mounted twice in src/server/app.ts:
+//   - `/analytics` on `authenticated` (no hubContext → hubId undefined → cross-hub)
+//   - `/hubs/:hubId/analytics` on `hubScoped` (hub-scoped)
+//
+// These `global*` variants always hit the un-prefixed `/analytics` endpoint,
+// which aggregates across every hub regardless of which hub is currently
+// active in the UI. Super-admin only.
+
+export async function getGlobalCallAnalytics(days?: number) {
+  const qs = days ? `?days=${days}` : ''
+  return request<{ data: CallVolumeDay[] }>(`/analytics/call-volume${qs}`)
+}
+
+export async function getGlobalCallHoursAnalytics() {
+  return request<{ data: CallHourBucket[] }>('/analytics/call-hours')
+}
+
+export async function getGlobalUserStats() {
+  return request<{ data: UserStatEntry[] }>('/analytics/user-stats')
+}
+
 // --- WebRTC Token ---
 
 export async function getWebRtcToken() {

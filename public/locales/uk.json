@@ -1575,7 +1575,8 @@
       "hubs": "Hubs",
       "platformRoles": "Roles",
       "bans": "Bans",
-      "audit": "Audit"
+      "audit": "Audit",
+      "analytics": "Analytics"
     }
   },
   "locationLookup": {
@@ -1637,6 +1638,32 @@
       "rangeOf": "{{start}}-{{end}} of {{total}}",
       "prev": "Prev",
       "next": "Next"
+    }
+  },
+  "analytics": {
+    "description": "Cross-hub call activity and user engagement.",
+    "range": {
+      "days7": "7 days",
+      "days30": "30 days"
+    },
+    "callVolume": {
+      "title": "Call volume",
+      "noData": "No call data for this range."
+    },
+    "hours": {
+      "title": "Hour of day",
+      "noData": "No hourly data available."
+    },
+    "users": {
+      "title": "Per-user activity",
+      "noData": "No user activity recorded.",
+      "columns": {
+        "name": "User",
+        "calls": "Calls",
+        "avgDuration": "Avg duration",
+        "lastActive": "Last active",
+        "notes": "Notes"
+      }
     }
   }
 }

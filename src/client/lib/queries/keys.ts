@@ -156,6 +156,10 @@ export const queryKeys = {
     callVolume: (days?: number) => ['analytics', 'callVolume', days ?? null] as const,
     callHours: () => ['analytics', 'callHours'] as const,
     userStats: () => ['analytics', 'userStats'] as const,
+    globalCallVolume: (days?: number) =>
+      ['analytics', 'global', 'callVolume', days ?? null] as const,
+    globalCallHours: () => ['analytics', 'global', 'callHours'] as const,
+    globalUserStats: () => ['analytics', 'global', 'userStats'] as const,
   },
 
   presence: {

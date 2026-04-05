@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react'
+import { AnalyticsSection } from './analytics-section'
 import { AuditSection } from './audit-section'
 import { BansSection } from './bans-section'
 import { CallSettingsSection } from './call-settings-section'
@@ -56,3 +57,4 @@ registerSection('hubs', HubsSection)
 registerSection('platform-roles', PlatformRolesSection)
 registerSection('bans', BansSection)
 registerSection('audit', AuditSection)
+registerSection('analytics', AnalyticsSection)

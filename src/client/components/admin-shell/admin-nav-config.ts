@@ -174,6 +174,13 @@ export const adminNavConfig: AdminNavConfig = {
           requiredRole: 'role-super-admin',
           testid: 'admin-sidebar-item-audit',
         },
+        {
+          slug: 'analytics',
+          labelKey: 'adminNav.items.analytics',
+          requiredPermissions: ['calls:read-history', 'audit:read'],
+          requiredRole: 'role-super-admin',
+          testid: 'admin-sidebar-item-analytics',
+        },
       ],
     },
   ],
