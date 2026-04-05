@@ -1,4 +1,3 @@
-import { SignalContactPrompt } from '@/components/SignalContactPrompt'
 import { LogoMark } from '@/components/logo-mark'
 import { PinInput } from '@/components/pin-input'
 import { Button } from '@/components/ui/button'
@@ -34,7 +33,7 @@ export const Route = createFileRoute('/onboarding')({
   component: OnboardingPage,
 })
 
-type Step = 'loading' | 'error' | 'welcome' | 'pin' | 'keypair' | 'backup' | 'signal' | 'done'
+type Step = 'loading' | 'error' | 'welcome' | 'pin' | 'keypair' | 'backup' | 'done'
 
 function OnboardingPage() {
   const { t, i18n } = useTranslation()
@@ -203,14 +202,10 @@ function OnboardingPage() {
         authFacadeClient.setAccessToken(redeemAccessToken)
       }
       await signIn(nsec)
-      setStep('signal')
+      navigate({ to: '/profile-setup' })
     } catch {
       toast(t('common.error'), 'error')
     }
-  }
-
-  function finishOnboarding() {
-    navigate({ to: '/profile-setup' })
   }
 
   if (step === 'loading') {
@@ -363,22 +358,6 @@ function OnboardingPage() {
               {t('onboarding.generatingKeys')}
             </div>
           </CardContent>
-        )}
-
-        {step === 'signal' && (
-          <>
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-                <ShieldCheck className="h-6 w-6 text-primary" />
-              </div>
-              <CardTitle>
-                {t('onboarding.signal.title', 'Where should we send security alerts?')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <SignalContactPrompt userPubkey={pubkey} onDone={finishOnboarding} />
-            </CardContent>
-          </>
         )}
 
         {step === 'backup' && (
