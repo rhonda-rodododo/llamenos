@@ -16,27 +16,31 @@ export function AdminShell({ currentSlug, currentLabelKey, children }: Props) {
   const [mobileOpen, setMobileOpen] = useState(false)
 
   return (
-    <div data-testid="admin-shell" className="flex min-h-screen">
+    <div data-testid="admin-shell" className="flex min-h-screen bg-background">
       {/* Desktop sidebar */}
-      <aside className="hidden w-64 shrink-0 border-r lg:block">
+      <aside className="hidden w-64 shrink-0 border-r border-sidebar-border lg:block">
         <AdminSidebar />
       </aside>
 
       {/* Mobile sheet (controlled; trigger is a plain Button outside) */}
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent side="left" data-testid="admin-sidebar-drawer" className="w-72 p-0">
+        <SheetContent
+          side="left"
+          data-testid="admin-sidebar-drawer"
+          className="w-72 border-r border-sidebar-border bg-sidebar p-0"
+        >
           <AdminSidebar onNavigate={() => setMobileOpen(false)} />
         </SheetContent>
       </Sheet>
 
       {/* Main pane */}
       <main className="flex-1 min-w-0">
-        <header className="sticky top-0 z-10 flex items-center gap-3 border-b bg-background/95 px-4 py-3 backdrop-blur lg:px-8">
+        <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-border/60 bg-background/90 px-4 py-3 backdrop-blur-md supports-[backdrop-filter]:bg-background/75 lg:px-8">
           <Button
             variant="ghost"
             size="icon"
             data-testid="admin-sidebar-toggle"
-            className="lg:hidden"
+            className="-ml-1.5 lg:hidden"
             onClick={() => setMobileOpen(true)}
             aria-label={t('adminNav.openMenu')}
             aria-expanded={mobileOpen}
@@ -45,7 +49,10 @@ export function AdminShell({ currentSlug, currentLabelKey, children }: Props) {
             <Menu className="h-5 w-5" />
           </Button>
           {currentLabelKey && (
-            <h1 data-testid="admin-section-heading" className="text-base font-semibold lg:text-lg">
+            <h1
+              data-testid="admin-section-heading"
+              className="text-[15px] font-semibold tracking-tight text-foreground lg:text-lg"
+            >
               {t(currentLabelKey)}
             </h1>
           )}
@@ -53,7 +60,7 @@ export function AdminShell({ currentSlug, currentLabelKey, children }: Props) {
         <div
           data-testid="admin-section"
           data-section={currentSlug ?? ''}
-          className="px-4 py-6 lg:px-8"
+          className="px-4 py-8 lg:px-10 lg:py-10"
         >
           {children}
         </div>

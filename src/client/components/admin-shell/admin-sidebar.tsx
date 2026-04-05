@@ -33,47 +33,56 @@ export function AdminSidebar({ onNavigate }: Props) {
 
   function renderGroup(group: AdminNavGroup) {
     return (
-      <div key={group.groupSlug} className="space-y-1">
+      <div key={group.groupSlug} className="space-y-0.5">
         <div
           data-testid={`admin-sidebar-group-${group.groupSlug}`}
-          className="px-3 pt-4 pb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+          className="px-3 pt-5 pb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-sidebar-foreground/50"
         >
           {t(group.labelKey)}
         </div>
-        {group.items.filter(canSee).map((item) => (
-          <Link
-            key={item.slug}
-            to="/admin/$section"
-            params={{ section: item.slug }}
-            data-testid={item.testid}
-            onClick={onNavigate}
-            className={cn(
-              'block rounded px-3 py-2 text-sm transition-colors',
-              activeSlug === item.slug
-                ? 'bg-accent text-accent-foreground font-medium'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-            )}
-          >
-            {t(item.labelKey)}
-          </Link>
-        ))}
+        {group.items.filter(canSee).map((item) => {
+          const active = activeSlug === item.slug
+          return (
+            <Link
+              key={item.slug}
+              to="/admin/$section"
+              params={{ section: item.slug }}
+              data-testid={item.testid}
+              onClick={onNavigate}
+              className={cn(
+                'relative block rounded-md px-3 py-1.5 text-[13px] leading-6 transition-colors',
+                active
+                  ? 'bg-sidebar-accent font-medium text-sidebar-accent-foreground before:absolute before:inset-y-1 before:left-0 before:w-[3px] before:rounded-r before:bg-sidebar-primary'
+                  : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/40 hover:text-sidebar-foreground'
+              )}
+            >
+              {t(item.labelKey)}
+            </Link>
+          )
+        })}
       </div>
     )
   }
 
   return (
-    <nav data-testid="admin-sidebar" className="flex flex-col gap-2 p-4">
+    <nav
+      data-testid="admin-sidebar"
+      className="flex h-full flex-col gap-1 overflow-y-auto bg-sidebar px-3 py-5 text-sidebar-foreground"
+    >
       {thisHubGroups.length > 0 && (
-        <div data-testid="admin-sidebar-scope-this-hub" className="space-y-1">
-          <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
+        <div data-testid="admin-sidebar-scope-this-hub" className="space-y-0.5">
+          <div className="px-3 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-sidebar-foreground/40">
             {t('adminNav.scopes.thisHub')}
           </div>
           {thisHubGroups.map(renderGroup)}
         </div>
       )}
       {platformGroups.length > 0 && (
-        <div data-testid="admin-sidebar-scope-platform" className="mt-6 space-y-1 border-t pt-4">
-          <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
+        <div
+          data-testid="admin-sidebar-scope-platform"
+          className="mt-6 space-y-0.5 border-t border-sidebar-border/60 pt-4"
+        >
+          <div className="px-3 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-sidebar-foreground/40">
             {t('adminNav.scopes.platform')}
           </div>
           {platformGroups.map(renderGroup)}

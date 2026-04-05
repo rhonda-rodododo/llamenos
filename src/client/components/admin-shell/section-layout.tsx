@@ -35,12 +35,12 @@ import { useTranslation } from 'react-i18next'
 
 /** Outer wrapper for a section's content. One per section. */
 export function SectionBody({ className, ...rest }: ComponentProps<'div'>) {
-  return <div className={cn('space-y-6 max-w-3xl', className)} {...rest} />
+  return <div className={cn('space-y-7 max-w-3xl', className)} {...rest} />
 }
 
 /** Muted intro paragraph that sets context for the section. */
 export function SectionDescription({ className, ...rest }: ComponentProps<'p'>) {
-  return <p className={cn('text-sm text-muted-foreground', className)} {...rest} />
+  return <p className={cn('text-sm leading-relaxed text-muted-foreground', className)} {...rest} />
 }
 
 interface SectionFieldProps {
@@ -149,18 +149,28 @@ export function SectionActions({
 }: SectionActionsProps) {
   const { t } = useTranslation()
   return (
-    <div className={cn('flex items-center gap-3 pt-2 border-t mt-2', className)}>
-      {extraActions}
-      <Button data-testid={`admin-${slug}-save`} onClick={onSave} disabled={saving || disabled}>
+    <div
+      className={cn(
+        'flex flex-wrap items-center gap-3 border-t border-border/60 pt-5 mt-2',
+        className
+      )}
+    >
+      <Button
+        data-testid={`admin-${slug}-save`}
+        onClick={onSave}
+        disabled={saving || disabled}
+        className="min-w-[90px]"
+      >
         {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         {saveLabel ?? t('common.save')}
       </Button>
+      {extraActions}
       {showSaved && (
         <span
           data-testid={`admin-${slug}-save-success`}
-          className="flex items-center gap-1 text-sm text-green-600"
+          className="ml-auto flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-500"
         >
-          <Check className="h-4 w-4" />
+          <Check className="h-3.5 w-3.5" />
           {t('common.saved')}
         </span>
       )}
