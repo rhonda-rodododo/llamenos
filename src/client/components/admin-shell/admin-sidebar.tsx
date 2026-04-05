@@ -19,7 +19,9 @@ export function AdminSidebar({ onNavigate }: Props) {
   function canSee(item: AdminNavItem): boolean {
     if (item.requiredRole && !auth.roles.includes(item.requiredRole)) return false
     if (item.requiredPermissions.length === 0) return true
-    return item.requiredPermissions.some((p) => auth.hasPermission(p))
+    // ALL listed permissions must be held — matches server-side gates and the
+    // spec ("hidden if the user lacks every listed permission").
+    return item.requiredPermissions.every((p) => auth.hasPermission(p))
   }
 
   function canSeeGroup(group: AdminNavGroup): boolean {

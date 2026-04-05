@@ -293,13 +293,17 @@ export function BansSection() {
                 </tr>
               </thead>
               <tbody>
-                {bans.map((ban) => {
+                {bans.map((ban, idx) => {
                   const displayPhone = ban.phone || '—'
                   const displayReason = ban.reason || '—'
                   const displayDate = ban.bannedAt ? new Date(ban.bannedAt).toLocaleString() : '—'
+                  // Stable row key: prefer the ciphertext (unique per ban even
+                  // when the key store is locked and plaintext decrypts to the
+                  // server placeholder), then raw phone, then position.
+                  const rowKey = ban.encryptedPhone || ban.phone || `idx-${idx}`
                   return (
                     <tr
-                      key={displayPhone}
+                      key={rowKey}
                       data-testid={`admin-bans-row-${displayPhone}`}
                       className="border-t border-border"
                     >

@@ -26,7 +26,9 @@ export function AdminShell({ currentSlug, currentLabelKey, children }: Props) {
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent
           side="left"
+          id="admin-sidebar-drawer"
           data-testid="admin-sidebar-drawer"
+          aria-label={t('adminNav.openMenu')}
           className="w-72 border-r border-sidebar-border bg-sidebar p-0"
         >
           <AdminSidebar onNavigate={() => setMobileOpen(false)} />

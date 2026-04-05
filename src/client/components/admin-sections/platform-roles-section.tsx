@@ -14,7 +14,6 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import type { RoleDefinition } from '@/lib/api'
 import { useConfig } from '@/lib/config'
-import { encryptHubField } from '@/lib/hub-field-crypto'
 import {
   useCreateRole,
   useDeleteRole,
@@ -123,14 +122,17 @@ export function PlatformRolesSection() {
       onError: () => toast(t('common.error', { defaultValue: 'Error' }), 'error'),
     }
 
+    // Platform roles are hubId=null — they must be readable by every
+    // super-admin regardless of which hub is active, so they are NOT
+    // encrypted with any hub key. Send plaintext only; the server's
+    // fallback path stores it in the encryptedName column as plaintext,
+    // and decryptHubField returns plaintext-looking values as-is.
     if (dialogMode === 'create') {
       createRole.mutate(
         {
           name: trimmedName,
           description: trimmedDesc,
           permissions: form.permissions,
-          encryptedName: encryptHubField(trimmedName, hubId),
-          encryptedDescription: trimmedDesc ? encryptHubField(trimmedDesc, hubId) : undefined,
         },
         mutationOpts
       )
@@ -142,8 +144,6 @@ export function PlatformRolesSection() {
             name: trimmedName,
             description: trimmedDesc,
             permissions: form.permissions,
-            encryptedName: encryptHubField(trimmedName, hubId),
-            encryptedDescription: trimmedDesc ? encryptHubField(trimmedDesc, hubId) : undefined,
           },
         },
         mutationOpts
