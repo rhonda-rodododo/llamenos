@@ -1270,6 +1270,7 @@
     "type": "Type",
     "riskLevel": "Risk Level",
     "tags": "Tags",
+      "customFields": "Custom Fields",
     "lastInteraction": "Last Interaction",
     "displayName": "Display Name",
     "notes": "Notes",
@@ -1473,7 +1474,8 @@
       "passkeyPolicy": "Passkey Policy",
       "hubRoles": "Hub Roles",
       "teams": "Teams",
-      "tags": "Tags"
+      "tags": "Tags",
+      "customFields": "Custom Fields"
     }
   },
   "locationLookup": {

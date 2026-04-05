@@ -1551,7 +1551,8 @@
       "passkeyPolicy": "Passkey Policy",
       "hubRoles": "Hub Roles",
       "teams": "Teams",
-      "tags": "Tags"
+      "tags": "Tags",
+      "customFields": "Custom Fields"
     }
   },
   "locationLookup": {

@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react'
+import { CustomFieldsSection } from './custom-fields-section'
 import { HubRolesSection } from './hub-roles-section'
 import { LocationLookupSection } from './location-lookup-section'
 import { PasskeyPolicySection } from './passkey-policy-section'
@@ -24,3 +25,4 @@ registerSection('passkey-policy', PasskeyPolicySection)
 registerSection('hub-roles', HubRolesSection)
 registerSection('teams', TeamsSection)
 registerSection('tags', TagsSection)
+registerSection('custom-fields', CustomFieldsSection)

@@ -51,7 +51,14 @@ export const adminNavConfig: AdminNavConfig = {
       groupSlug: 'intake',
       scope: 'this-hub',
       labelKey: 'adminNav.groups.intake',
-      items: [],
+      items: [
+        {
+          slug: 'custom-fields',
+          labelKey: 'adminNav.items.customFields',
+          requiredPermissions: ['settings:read'],
+          testid: 'admin-sidebar-item-custom-fields',
+        },
+      ],
     },
     {
       groupSlug: 'calls-voice',
