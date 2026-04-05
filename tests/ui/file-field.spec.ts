@@ -1,4 +1,5 @@
 import { type Page, expect, test } from '../fixtures/auth'
+import { navigateAfterLogin } from '../helpers'
 
 declare global {
   interface Window {
@@ -32,22 +33,17 @@ test.describe('File Custom Field', () => {
 
   /** Create a file custom field via admin settings UI */
   async function createFileCustomField(page: Page, label: string) {
-    await page.getByRole('link', { name: 'Hub Settings' }).click()
-    await expect(page.getByRole('heading', { name: 'Hub Settings', exact: true })).toBeVisible()
+    await navigateAfterLogin(page, '/admin/custom-fields')
+    await expect(page.getByTestId('admin-section')).toHaveAttribute('data-section', 'custom-fields')
 
-    // Expand Custom Note Fields section if collapsed
-    const addFieldBtn = page.getByRole('button', { name: /add field/i })
-    const btnVisible = await addFieldBtn
-      .waitFor({ state: 'visible', timeout: 3000 })
-      .then(() => true)
-      .catch(() => false)
-    if (!btnVisible) {
-      await page.getByText('Custom Note Fields').click()
-      await expect(addFieldBtn).toBeVisible({ timeout: 10000 })
-    }
+    const addFieldBtn = page.getByTestId('admin-custom-fields-add')
+    await expect(addFieldBtn).toBeVisible({ timeout: 10000 })
 
     // Skip if already exists
-    const existing = page.locator('.rounded-lg.border').filter({ hasText: label })
+    const existing = page
+      .getByTestId('admin-custom-fields-list')
+      .locator('[data-testid^="admin-custom-fields-row-"]')
+      .filter({ hasText: label })
     if (
       await existing
         .first()
@@ -59,41 +55,41 @@ test.describe('File Custom Field', () => {
     }
 
     await addFieldBtn.click()
-    await page.getByPlaceholder('e.g. Severity Rating').fill(label)
+    await page.getByTestId('admin-custom-fields-label-input').fill(label)
 
     // Change type to File
-    await page.locator('select[data-testid="custom-field-type-select"]').selectOption('file')
+    await page.getByTestId('admin-custom-fields-type-select').selectOption('file')
 
     // Save
-    await page.getByRole('button', { name: /save/i }).last().click()
-    await expect(page.getByText(/success/i)).toBeVisible({ timeout: 10000 })
-    await expect(page.locator('.rounded-lg.border').filter({ hasText: label })).toBeVisible()
+    await page.getByTestId('admin-custom-fields-save').click()
+    await expect(page.getByTestId('admin-custom-fields-save-success')).toBeVisible({
+      timeout: 10000,
+    })
+    await expect(
+      page
+        .getByTestId('admin-custom-fields-list')
+        .locator('[data-testid^="admin-custom-fields-row-"]')
+        .filter({ hasText: label })
+    ).toBeVisible()
   }
 
   test('file type appears in field type dropdown', async ({ adminPage }) => {
-    await adminPage.getByRole('link', { name: 'Hub Settings' }).click()
-    await expect(
-      adminPage.getByRole('heading', { name: 'Hub Settings', exact: true })
-    ).toBeVisible()
+    await navigateAfterLogin(adminPage, '/admin/custom-fields')
+    await expect(adminPage.getByTestId('admin-section')).toHaveAttribute(
+      'data-section',
+      'custom-fields'
+    )
 
-    // Expand Custom Note Fields section if collapsed
-    const addFieldBtn = adminPage.getByRole('button', { name: /add field/i })
-    const fieldsBtnVisible = await addFieldBtn
-      .waitFor({ state: 'visible', timeout: 3000 })
-      .then(() => true)
-      .catch(() => false)
-    if (!fieldsBtnVisible) {
-      await adminPage.getByText('Custom Note Fields').click()
-      await expect(addFieldBtn).toBeVisible({ timeout: 10000 })
-    }
+    const addFieldBtn = adminPage.getByTestId('admin-custom-fields-add')
+    await expect(addFieldBtn).toBeVisible({ timeout: 10000 })
     await addFieldBtn.click()
 
     // File option should be in the type dropdown
-    const typeSelect = adminPage.locator('select[data-testid="custom-field-type-select"]')
+    const typeSelect = adminPage.getByTestId('admin-custom-fields-type-select')
     await expect(typeSelect.locator('option[value="file"]')).toHaveCount(1)
 
     // Cancel without saving
-    await adminPage.getByRole('button', { name: /cancel/i }).click()
+    await adminPage.getByTestId('admin-custom-fields-cancel').click()
   })
 
   test('admin can create a file custom field', async ({ adminPage }) => {
@@ -101,7 +97,8 @@ test.describe('File Custom Field', () => {
     await createFileCustomField(adminPage, label)
     // Field type badge should show "File"
     const fieldRow = adminPage
-      .locator('[data-testid="custom-field-row"]')
+      .getByTestId('admin-custom-fields-list')
+      .locator('[data-testid^="admin-custom-fields-row-"]')
       .filter({ hasText: label })
     await expect(fieldRow).toBeVisible()
   })
