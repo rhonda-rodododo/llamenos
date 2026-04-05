@@ -3,6 +3,7 @@ import { CustomFieldsSection } from './custom-fields-section'
 import { HubRolesSection } from './hub-roles-section'
 import { LocationLookupSection } from './location-lookup-section'
 import { PasskeyPolicySection } from './passkey-policy-section'
+import { ReportTypesSection } from './report-types-section'
 import { TagsSection } from './tags-section'
 import { TeamsSection } from './teams-section'
 
@@ -26,3 +27,4 @@ registerSection('hub-roles', HubRolesSection)
 registerSection('teams', TeamsSection)
 registerSection('tags', TagsSection)
 registerSection('custom-fields', CustomFieldsSection)
+registerSection('report-types', ReportTypesSection)

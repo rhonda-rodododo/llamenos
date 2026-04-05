@@ -58,6 +58,12 @@ export const adminNavConfig: AdminNavConfig = {
           requiredPermissions: ['settings:read'],
           testid: 'admin-sidebar-item-custom-fields',
         },
+        {
+          slug: 'report-types',
+          labelKey: 'adminNav.items.reportTypes',
+          requiredPermissions: ['settings:read'],
+          testid: 'admin-sidebar-item-report-types',
+        },
       ],
     },
     {

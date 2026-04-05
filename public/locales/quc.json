@@ -1552,7 +1552,8 @@
       "hubRoles": "Hub Roles",
       "teams": "Teams",
       "tags": "Tags",
-      "customFields": "Custom Fields"
+      "customFields": "Custom Fields",
+      "reportTypes": "Report Types"
     }
   },
   "locationLookup": {
