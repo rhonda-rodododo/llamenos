@@ -120,6 +120,12 @@ export const adminNavConfig: AdminNavConfig = {
           requiredPermissions: ['settings:read'],
           testid: 'admin-sidebar-item-phone-provider',
         },
+        {
+          slug: 'messaging-sms',
+          labelKey: 'adminNav.items.messagingSms',
+          requiredPermissions: ['settings:read'],
+          testid: 'admin-sidebar-item-messaging-sms',
+        },
       ],
     },
     // Platform

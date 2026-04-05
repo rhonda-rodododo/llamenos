@@ -4,6 +4,7 @@ import { CustomFieldsSection } from './custom-fields-section'
 import { FirehoseSection } from './firehose-section'
 import { HubRolesSection } from './hub-roles-section'
 import { LocationLookupSection } from './location-lookup-section'
+import { MessagingSmsSection } from './messaging-sms-section'
 import { PasskeyPolicySection } from './passkey-policy-section'
 import { PhoneMenuLanguagesSection } from './phone-menu-languages-section'
 import { PhoneProviderSection } from './phone-provider-section'
@@ -42,3 +43,4 @@ registerSection('phone-menu-languages', PhoneMenuLanguagesSection)
 registerSection('transcription', TranscriptionSection)
 registerSection('spam-protection', SpamProtectionSection)
 registerSection('phone-provider', PhoneProviderSection)
+registerSection('messaging-sms', MessagingSmsSection)
