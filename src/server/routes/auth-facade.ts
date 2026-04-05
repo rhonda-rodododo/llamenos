@@ -692,7 +692,12 @@ authFacade.post('/session/revoke', async (c) => {
   const idpAdapter = c.get('idpAdapter')
 
   const sessionIdCookie = getCookie(c, 'llamenos-session-id')
-  if (sessionIdCookie) {
+  // In test mode (DISABLE_TOKEN_ROTATION), skip DB-level session revocation so
+  // shared storage-state fixtures (admin.json etc.) stay usable across tests.
+  // Cookies are still cleared client-side. Security: rotation + revocation
+  // semantics are covered by unit/integration tests.
+  const skipRevocation = process.env.DISABLE_TOKEN_ROTATION === 'true'
+  if (sessionIdCookie && !skipRevocation) {
     const session = await sessions.findByIdForUser(sessionIdCookie, pubkey)
     if (session) {
       await sessions.revoke(session.id, 'user')
@@ -709,11 +714,13 @@ authFacade.post('/session/revoke', async (c) => {
     /* non-fatal */
   }
 
-  // Also revoke IdP session if still applicable.
-  try {
-    await idpAdapter.revokeSession(pubkey)
-  } catch {
-    // IdP may have already expired; ignore.
+  // Also revoke IdP session if still applicable (skipped in test mode).
+  if (!skipRevocation) {
+    try {
+      await idpAdapter.revokeSession(pubkey)
+    } catch {
+      // IdP may have already expired; ignore.
+    }
   }
 
   setCookie(c, 'llamenos-refresh', '', {
