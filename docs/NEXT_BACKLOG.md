@@ -4,6 +4,7 @@
 - [x] Set up Cloudflare Tunnel for local dev with telephony webhooks (`scripts/dev-tunnel.sh`)
 - [x] Configure production wrangler secrets (TWILIO_*, ADMIN_PUBKEY) — deployed and running
 - [ ] Test full call flow end-to-end: incoming call -> CAPTCHA -> parallel ring -> answer -> notes -> hang up *(requires real phone + telephony account)*
+- [ ] **BUG: `[encrypted]` placeholders after crypto worker auto-lock** — When the crypto worker auto-locks (inactivity timeout or rate limit), the app continues rendering pages with `[encrypted]` placeholders instead of prompting the user to re-enter their PIN. Root cause: `restoreSession()` and `refreshProfile()` skip `decryptObjectFields()` when `keyManager.isUnlocked()` is false, then set auth state with the server's `"[encrypted]"` placeholder. No code path re-prompts for PIN. Fix: detect `isKeyUnlocked: false` after auth restore and show an inline PIN unlock overlay (similar to session-expired dialog) instead of rendering encrypted placeholders. Also add forced re-verification if the user's pubkey doesn't match their own envelope (Task #11 from admin settings UX PR). Related: `src/client/lib/auth.tsx` (restoreSession, refreshProfile, onLock listener), `src/client/lib/decrypt-fields.ts` (runtime debug flag `window.LLAMENOS_DEBUG_CRYPTO` available for diagnosis).
 
 ## Security Audit Findings (2026-02-12, Round 4)
 
