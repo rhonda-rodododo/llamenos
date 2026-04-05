@@ -1,3 +1,4 @@
+import { SectionBody, SectionDescription } from '@/components/admin-shell/section-layout'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -105,8 +106,8 @@ export function CustomFieldsSection() {
   if (isLoading) return null
 
   return (
-    <section className="space-y-4">
-      <p className="text-sm text-muted-foreground">{t('customFields.description')}</p>
+    <SectionBody className="space-y-4">
+      <SectionDescription>{t('customFields.description')}</SectionDescription>
 
       {fields.length === 0 && !editing ? (
         <p className="text-sm text-muted-foreground">{t('customFields.noFields')}</p>
@@ -498,6 +499,6 @@ export function CustomFieldsSection() {
           {t('common.success', { defaultValue: 'Saved' })}
         </span>
       )}
-    </section>
+    </SectionBody>
   )
 }

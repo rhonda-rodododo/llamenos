@@ -1,3 +1,4 @@
+import { SectionBody, SectionDescription } from '@/components/admin-shell/section-layout'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -206,11 +207,11 @@ export function FirehoseSection() {
   const activeCount = connections.filter((c) => c.status === 'active').length
 
   return (
-    <section className="space-y-4">
-      <p className="text-sm text-muted-foreground">
+    <SectionBody className="space-y-4">
+      <SectionDescription>
         Connect Signal group channels as live intake feeds. Incoming messages are extracted and
         routed as reports.
-      </p>
+      </SectionDescription>
 
       {/* Connection list */}
       {connectionsLoading ? (
@@ -602,6 +603,6 @@ export function FirehoseSection() {
           )}
         </DialogContent>
       </Dialog>
-    </section>
+    </SectionBody>
   )
 }

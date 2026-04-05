@@ -1,3 +1,4 @@
+import { SectionBody, SectionDescription } from '@/components/admin-shell/section-layout'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -235,12 +236,12 @@ export function ReportTypesSection() {
   if (isLoading) return null
 
   return (
-    <section className="space-y-4">
-      <p className="text-sm text-muted-foreground">
+    <SectionBody className="space-y-4">
+      <SectionDescription>
         {t('settings.reportTypes.description', {
           defaultValue: 'Configure report categories and bind custom fields to each type.',
         })}
-      </p>
+      </SectionDescription>
 
       {activeTypes.length === 0 && !editing ? (
         <p className="text-sm text-muted-foreground">{t('settings.reportTypes.empty')}</p>
@@ -355,6 +356,6 @@ export function ReportTypesSection() {
           {t('common.success', { defaultValue: 'Saved' })}
         </span>
       )}
-    </section>
+    </SectionBody>
   )
 }
