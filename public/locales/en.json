@@ -1277,6 +1277,12 @@
     "switchHub": "Switch hub",
     "urlLabel": "Hub URL",
     "urlPlaceholder": "https://hub.example.com",
+    "tabs": {
+      "general": "General",
+      "access": "Access",
+      "export": "Export",
+      "danger": "Danger"
+    },
     "accessControl": {
       "title": "Platform Administrator Access",
       "allowSuperAdmin": "Allow platform administrator to view this hub's data",
@@ -1573,7 +1579,8 @@
       "phoneProvider": "Phone Provider",
       "messagingSms": "Messaging / SMS",
       "rcs": "RCS",
-      "signal": "Signal"
+      "signal": "Signal",
+      "hubs": "Hubs"
     },
     "openMenu": "Open navigation menu"
   },

@@ -50,6 +50,9 @@ test.describe('Hub access control UI', () => {
     // The edit dialog should be visible
     await expect(adminPage.getByRole('dialog')).toBeVisible({ timeout: Timeouts.ELEMENT })
 
+    // Navigate to the Access tab inside the edit dialog
+    await adminPage.getByTestId('admin-hubs-edit-dialog-tab-access').click()
+
     // Find the access control section
     const accessControl = adminPage.getByTestId('hub-access-control')
     await expect(accessControl).toBeVisible({ timeout: 10000 })

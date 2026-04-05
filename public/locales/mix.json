@@ -1279,6 +1279,12 @@
       "disableConfirm": "Yóꞌo tava acceso de administrador de plataforma nu̱ú hub yóꞌo. Koo sáꞌa̱n acceso nu̱ú registro saa̱ yatni. ¿Kuaꞌan noꞌó?",
       "enabled": "Acceso de Admin Xíni̱ñúꞌú",
       "restricted": "Acceso de Admin Limitado"
+    },
+    "tabs": {
+      "general": "General",
+      "access": "Access",
+      "export": "Export",
+      "danger": "Danger"
     }
   },
   "hub": {
@@ -1565,7 +1571,8 @@
       "phoneProvider": "Phone Provider",
       "messagingSms": "Messaging / SMS",
       "rcs": "RCS",
-      "signal": "Signal"
+      "signal": "Signal",
+      "hubs": "Hubs"
     }
   },
   "locationLookup": {

@@ -1279,6 +1279,12 @@
       "disableConfirm": "ပလက်ဖောင်း စီမံခန့်ခွဲသူ၏ ဤဟပ်ဝင်ရောက်ခွင့်ကို ရုပ်သိမ်းမည်။ အနာဂတ်မှတ်တမ်းများ ဝင်ရောက်ခွင့် ချက်ချင်းဆုံးရှုံးမည်။ ဆက်လုပ်မည်လား?",
       "enabled": "စီမံခန့်ခွဲသူဝင်ရောက်ခွင့် ဖွင့်ထားသည်",
       "restricted": "စီမံခန့်ခွဲသူဝင်ရောက်ခွင့် ကန့်သတ်ထားသည်"
+    },
+    "tabs": {
+      "general": "General",
+      "access": "Access",
+      "export": "Export",
+      "danger": "Danger"
     }
   },
   "hub": {
@@ -1565,7 +1571,8 @@
       "phoneProvider": "Phone Provider",
       "messagingSms": "Messaging / SMS",
       "rcs": "RCS",
-      "signal": "Signal"
+      "signal": "Signal",
+      "hubs": "Hubs"
     }
   },
   "locationLookup": {

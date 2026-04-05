@@ -1280,6 +1280,12 @@
       "disableConfirm": "Re' kuq'at ri okem chi re ri b'anel rech ronojel pa re hub re'. Kesach ri okem pa ri k'ak'a' taq etamab'al pa ramaj. ¿Tisamajix na?",
       "enabled": "Rokem B'anel Jaqatal",
       "restricted": "Rokem B'anel Q'atal"
+    },
+    "tabs": {
+      "general": "General",
+      "access": "Access",
+      "export": "Export",
+      "danger": "Danger"
     }
   },
   "hub": {
@@ -1566,7 +1572,8 @@
       "phoneProvider": "Phone Provider",
       "messagingSms": "Messaging / SMS",
       "rcs": "RCS",
-      "signal": "Signal"
+      "signal": "Signal",
+      "hubs": "Hubs"
     }
   },
   "locationLookup": {

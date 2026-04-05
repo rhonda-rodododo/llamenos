@@ -145,7 +145,15 @@ export const adminNavConfig: AdminNavConfig = {
       groupSlug: 'platform',
       scope: 'platform',
       labelKey: 'adminNav.groups.platform',
-      items: [],
+      items: [
+        {
+          slug: 'hubs',
+          labelKey: 'adminNav.items.hubs',
+          requiredPermissions: ['system:manage-hubs'],
+          requiredRole: 'role-super-admin',
+          testid: 'admin-sidebar-item-hubs',
+        },
+      ],
     },
   ],
 }

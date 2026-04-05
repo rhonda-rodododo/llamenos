@@ -1279,6 +1279,12 @@
       "disableConfirm": "Bu, platform yöneticisinin bu merkeze erişimini iptal eder. Gelecekteki kayıtlara erişim derhal kaybedilecektir. Devam edilsin mi?",
       "enabled": "Yönetici Erişimi Etkin",
       "restricted": "Yönetici Erişimi Kısıtlı"
+    },
+    "tabs": {
+      "general": "General",
+      "access": "Access",
+      "export": "Export",
+      "danger": "Danger"
     }
   },
   "hub": {
@@ -1565,7 +1571,8 @@
       "phoneProvider": "Phone Provider",
       "messagingSms": "Messaging / SMS",
       "rcs": "RCS",
-      "signal": "Signal"
+      "signal": "Signal",
+      "hubs": "Hubs"
     }
   },
   "locationLookup": {

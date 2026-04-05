@@ -36,7 +36,6 @@ import { Route as NotesNoteIdRouteImport } from './routes/notes.$noteId'
 import { Route as ContactsContactIdRouteImport } from './routes/contacts_.$contactId'
 import { Route as CallsCallIdRouteImport } from './routes/calls.$callId'
 import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
-import { Route as AdminHubsRouteImport } from './routes/admin/hubs'
 import { Route as AdminSectionRouteImport } from './routes/admin/$section'
 
 const UsersRoute = UsersRouteImport.update({
@@ -174,11 +173,6 @@ const AdminSettingsRoute = AdminSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AdminRouteRoute,
 } as any)
-const AdminHubsRoute = AdminHubsRouteImport.update({
-  id: '/hubs',
-  path: '/hubs',
-  getParentRoute: () => AdminRouteRoute,
-} as any)
 const AdminSectionRoute = AdminSectionRouteImport.update({
   id: '/$section',
   path: '/$section',
@@ -208,7 +202,6 @@ export interface FileRoutesByFullPath {
   '/shifts': typeof ShiftsRoute
   '/users': typeof UsersRoute
   '/admin/$section': typeof AdminSectionRoute
-  '/admin/hubs': typeof AdminHubsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/calls/$callId': typeof CallsCallIdRoute
   '/contacts/$contactId': typeof ContactsContactIdRoute
@@ -238,7 +231,6 @@ export interface FileRoutesByTo {
   '/shifts': typeof ShiftsRoute
   '/users': typeof UsersRoute
   '/admin/$section': typeof AdminSectionRoute
-  '/admin/hubs': typeof AdminHubsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/calls/$callId': typeof CallsCallIdRoute
   '/contacts/$contactId': typeof ContactsContactIdRoute
@@ -270,7 +262,6 @@ export interface FileRoutesById {
   '/shifts': typeof ShiftsRoute
   '/users': typeof UsersRoute
   '/admin/$section': typeof AdminSectionRoute
-  '/admin/hubs': typeof AdminHubsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/calls/$callId': typeof CallsCallIdRoute
   '/contacts_/$contactId': typeof ContactsContactIdRoute
@@ -303,7 +294,6 @@ export interface FileRouteTypes {
     | '/shifts'
     | '/users'
     | '/admin/$section'
-    | '/admin/hubs'
     | '/admin/settings'
     | '/calls/$callId'
     | '/contacts/$contactId'
@@ -333,7 +323,6 @@ export interface FileRouteTypes {
     | '/shifts'
     | '/users'
     | '/admin/$section'
-    | '/admin/hubs'
     | '/admin/settings'
     | '/calls/$callId'
     | '/contacts/$contactId'
@@ -364,7 +353,6 @@ export interface FileRouteTypes {
     | '/shifts'
     | '/users'
     | '/admin/$section'
-    | '/admin/hubs'
     | '/admin/settings'
     | '/calls/$callId'
     | '/contacts_/$contactId'
@@ -590,13 +578,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSettingsRouteImport
       parentRoute: typeof AdminRouteRoute
     }
-    '/admin/hubs': {
-      id: '/admin/hubs'
-      path: '/hubs'
-      fullPath: '/admin/hubs'
-      preLoaderRoute: typeof AdminHubsRouteImport
-      parentRoute: typeof AdminRouteRoute
-    }
     '/admin/$section': {
       id: '/admin/$section'
       path: '/$section'
@@ -609,14 +590,12 @@ declare module '@tanstack/react-router' {
 
 interface AdminRouteRouteChildren {
   AdminSectionRoute: typeof AdminSectionRoute
-  AdminHubsRoute: typeof AdminHubsRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminSectionRoute: AdminSectionRoute,
-  AdminHubsRoute: AdminHubsRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminIndexRoute: AdminIndexRoute,
 }

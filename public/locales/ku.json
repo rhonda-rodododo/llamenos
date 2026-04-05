@@ -1279,6 +1279,12 @@
       "disableConfirm": "Ev ê gihîştina rêvebirê platformê ya vê navendê betal bike. Ew ê gihîştina tomarên pêşerojê yekser winda bike. Bidomîne?",
       "enabled": "Gihîştina Rêvebir Çalak e",
       "restricted": "Gihîştina Rêvebir Sînorkirî ye"
+    },
+    "tabs": {
+      "general": "General",
+      "access": "Access",
+      "export": "Export",
+      "danger": "Danger"
     }
   },
   "hub": {
@@ -1565,7 +1571,8 @@
       "phoneProvider": "Phone Provider",
       "messagingSms": "Messaging / SMS",
       "rcs": "RCS",
-      "signal": "Signal"
+      "signal": "Signal",
+      "hubs": "Hubs"
     }
   },
   "locationLookup": {

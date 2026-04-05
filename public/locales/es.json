@@ -1244,6 +1244,12 @@
       "disableConfirm": "This revokes the platform administrator's access to this hub. They will lose access to future records immediately. Continue?",
       "enabled": "Admin Access Enabled",
       "restricted": "Admin Access Restricted"
+    },
+    "tabs": {
+      "general": "General",
+      "access": "Access",
+      "export": "Export",
+      "danger": "Danger"
     }
   },
   "channelSettings": {
@@ -1499,7 +1505,8 @@
       "phoneProvider": "Phone Provider",
       "messagingSms": "Messaging / SMS",
       "rcs": "RCS",
-      "signal": "Signal"
+      "signal": "Signal",
+      "hubs": "Hubs"
     }
   },
   "locationLookup": {

@@ -1279,6 +1279,12 @@
       "disableConfirm": "Tani waxay ka qaadaysaa maamulaha platform-ka marintiisa xaruntaan. Diiwaannada mustaqbalka marin bay u wayday isla markiiba. Ma sii wadaa?",
       "enabled": "Marin Maamulku Waa La Shidday",
       "restricted": "Marin Maamulku Waa La Xaddidday"
+    },
+    "tabs": {
+      "general": "General",
+      "access": "Access",
+      "export": "Export",
+      "danger": "Danger"
     }
   },
   "hub": {
@@ -1565,7 +1571,8 @@
       "phoneProvider": "Phone Provider",
       "messagingSms": "Messaging / SMS",
       "rcs": "RCS",
-      "signal": "Signal"
+      "signal": "Signal",
+      "hubs": "Hubs"
     }
   },
   "locationLookup": {

@@ -1279,6 +1279,12 @@
       "disableConfirm": "ይህ የመድረክ አስተዳዳሪን ለዚህ ሃብ ተደራሽነት ይሰርዛል። ለወደፊት መዝገቦች ተደራሽነት ወዲያውኑ ያጣሉ። ይቀጥሉ?",
       "enabled": "የአስተዳዳሪ ተደራሽነት ነቅቷል",
       "restricted": "የአስተዳዳሪ ተደራሽነት ተገድቧል"
+    },
+    "tabs": {
+      "general": "General",
+      "access": "Access",
+      "export": "Export",
+      "danger": "Danger"
     }
   },
   "hub": {
@@ -1565,7 +1571,8 @@
       "phoneProvider": "Phone Provider",
       "messagingSms": "Messaging / SMS",
       "rcs": "RCS",
-      "signal": "Signal"
+      "signal": "Signal",
+      "hubs": "Hubs"
     }
   },
   "locationLookup": {

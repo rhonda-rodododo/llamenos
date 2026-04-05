@@ -3,6 +3,7 @@ import { CallSettingsSection } from './call-settings-section'
 import { CustomFieldsSection } from './custom-fields-section'
 import { FirehoseSection } from './firehose-section'
 import { HubRolesSection } from './hub-roles-section'
+import { HubsSection } from './hubs-section'
 import { LocationLookupSection } from './location-lookup-section'
 import { MessagingSmsSection } from './messaging-sms-section'
 import { PasskeyPolicySection } from './passkey-policy-section'
@@ -48,3 +49,4 @@ registerSection('phone-provider', PhoneProviderSection)
 registerSection('messaging-sms', MessagingSmsSection)
 registerSection('rcs', RcsChannelSection)
 registerSection('signal', SignalChannelSection)
+registerSection('hubs', HubsSection)

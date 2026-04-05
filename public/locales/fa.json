@@ -1279,6 +1279,12 @@
       "disableConfirm": "این دسترسی مدیر پلتفرم به این هاب را لغو می‌کند. آن‌ها دسترسی به رکوردهای آینده را فورا از دست می‌دهند. ادامه می‌دهید؟",
       "enabled": "دسترسی مدیر فعال",
       "restricted": "دسترسی مدیر محدود"
+    },
+    "tabs": {
+      "general": "General",
+      "access": "Access",
+      "export": "Export",
+      "danger": "Danger"
     }
   },
   "hub": {
@@ -1565,7 +1571,8 @@
       "phoneProvider": "Phone Provider",
       "messagingSms": "Messaging / SMS",
       "rcs": "RCS",
-      "signal": "Signal"
+      "signal": "Signal",
+      "hubs": "Hubs"
     }
   },
   "locationLookup": {
