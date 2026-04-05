@@ -72,7 +72,8 @@
     "contacts": "Contacts",
     "conversations": "Conversations",
     "help": "Help",
-    "users": "用户"
+    "users": "用户",
+    "security": "安全"
   },
   "dashboard": {
     "title": "仪表盘",
@@ -1451,5 +1452,107 @@
     "testConnection": "测试连接",
     "testSuccess": "连接成功（{{latency}}ms）",
     "testFailed": "连接测试失败"
+  },
+  "security": {
+    "title": "安全",
+    "tabs": {
+      "sessions": "活动会话",
+      "passkeys": "通行密钥",
+      "history": "历史记录",
+      "factors": "因素"
+    },
+    "history": {
+      "description": "您账户过去 90 天的安全事件。",
+      "export": "导出历史记录",
+      "report": "报告可疑",
+      "flagged": "已标记",
+      "none": "暂无事件。",
+      "eventType": {
+        "login": "已登录",
+        "login_failed": "登录失败",
+        "logout": "已登出",
+        "session_revoked": "会话已撤销",
+        "sessions_revoked_others": "已登出其他会话",
+        "passkey_added": "已添加通行密钥",
+        "passkey_removed": "已移除通行密钥",
+        "passkey_renamed": "已重命名通行密钥",
+        "pin_changed": "PIN 已更改",
+        "recovery_rotated": "恢复密钥已轮换",
+        "lockdown_triggered": "紧急锁定已触发",
+        "alert_sent": "已发送警报",
+        "signal_contact_changed": "Signal 联系方式已更新"
+      }
+    },
+    "sessions": {
+      "none": "没有活动会话。",
+      "signOutEverywhere": "在其他所有位置登出",
+      "lockdown": "紧急锁定",
+      "current": "当前",
+      "unknownBrowser": "未知浏览器",
+      "unknownLocation": "未知位置",
+      "lastSeen": "最近活动",
+      "revoke": "撤销"
+    },
+    "lockdown": {
+      "title": "紧急锁定",
+      "intro": "选择锁定范围。此操作无法撤销。",
+      "tierA": {
+        "title": "在其他所有位置登出",
+        "desc": "撤销所有其他会话。通行密钥不受影响。"
+      },
+      "tierB": {
+        "title": "移除其他设备和密钥",
+        "desc": "撤销所有其他会话,并删除除当前正在使用的通行密钥之外的所有通行密钥。"
+      },
+      "tierC": {
+        "title": "完全锁定",
+        "desc": "撤销所有会话,删除所有通行密钥,停用账户。需要管理员重新激活。"
+      },
+      "confirmLabel": "输入 LOCKDOWN 以确认",
+      "pinLabel": "输入您的 PIN",
+      "execute": "执行锁定",
+      "locking": "锁定中…",
+      "typeWord": "输入 LOCKDOWN 以确认"
+    },
+    "pin": {
+      "title": "更改 PIN",
+      "current": "当前 PIN",
+      "new": "新 PIN",
+      "confirm": "确认新 PIN",
+      "save": "更改 PIN",
+      "success": "PIN 已成功更改",
+      "mismatch": "新 PIN 不匹配",
+      "tooShort": "PIN 必须至少 6 位",
+      "locked": "账户已锁定;请先解锁"
+    },
+    "recovery": {
+      "title": "轮换恢复密钥",
+      "rotate": "轮换恢复密钥",
+      "download": "下载",
+      "warning": "立即保存此密钥。它将不会再次显示。",
+      "locked": "请先解锁"
+    },
+    "lock": {
+      "title": "自动锁定延迟",
+      "desc": "当标签页隐藏时,在此时间后锁定应用。",
+      "immediate": "立即"
+    },
+    "passkeys": {
+      "backedUp": "已同步",
+      "createdAt": "添加于",
+      "lastUsedAt": "上次使用",
+      "rename": "重命名",
+      "transport": {
+        "usb": "USB",
+        "internal": "内置",
+        "hybrid": "跨设备"
+      }
+    }
+  },
+  "cookiesRequired": {
+    "title": "需要启用 Cookie",
+    "body": "Llámenos 使用浏览器 Cookie 来保持您的登录会话。没有跟踪,没有第三方——只有此网站运行所需的 Cookie。请为此网站启用 Cookie 后重试。",
+    "retry": "我已启用 Cookie — 重试",
+    "stillBlocked": "Cookie 似乎仍被阻止。请检查此网站的浏览器设置。"
   }
 }

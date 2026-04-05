@@ -72,7 +72,8 @@
     "contacts": "Contacts",
     "conversations": "Conversations",
     "help": "Help",
-    "users": "Utilisateurs"
+    "users": "Utilisateurs",
+    "security": "Sécurité"
   },
   "dashboard": {
     "title": "Tableau de bord",
@@ -1451,5 +1452,107 @@
     "testConnection": "Tester la connexion",
     "testSuccess": "Connexion réussie ({{latency}} ms)",
     "testFailed": "Échec du test de connexion"
+  },
+  "security": {
+    "title": "Sécurité",
+    "tabs": {
+      "sessions": "Sessions actives",
+      "passkeys": "Clés d'accès",
+      "history": "Historique",
+      "factors": "Facteurs"
+    },
+    "history": {
+      "description": "Événements de sécurité sur votre compte des 90 derniers jours.",
+      "export": "Exporter l'historique",
+      "report": "Signaler comme suspect",
+      "flagged": "Signalé",
+      "none": "Aucun événement pour le moment.",
+      "eventType": {
+        "login": "Connexion",
+        "login_failed": "Connexion échouée",
+        "logout": "Déconnexion",
+        "session_revoked": "Session révoquée",
+        "sessions_revoked_others": "Autres sessions déconnectées",
+        "passkey_added": "Clé d'accès ajoutée",
+        "passkey_removed": "Clé d'accès supprimée",
+        "passkey_renamed": "Clé d'accès renommée",
+        "pin_changed": "Code PIN modifié",
+        "recovery_rotated": "Clé de récupération renouvelée",
+        "lockdown_triggered": "Verrouillage d'urgence déclenché",
+        "alert_sent": "Alerte envoyée",
+        "signal_contact_changed": "Contact Signal mis à jour"
+      }
+    },
+    "sessions": {
+      "none": "Aucune session active.",
+      "signOutEverywhere": "Déconnecter partout ailleurs",
+      "lockdown": "Verrouillage d'urgence",
+      "current": "Actuelle",
+      "unknownBrowser": "Navigateur inconnu",
+      "unknownLocation": "Emplacement inconnu",
+      "lastSeen": "Dernière activité",
+      "revoke": "Révoquer"
+    },
+    "lockdown": {
+      "title": "Verrouillage d'urgence",
+      "intro": "Choisissez la portée du verrouillage. Cette action est irréversible.",
+      "tierA": {
+        "title": "Déconnecter partout ailleurs",
+        "desc": "Révoquer toutes les autres sessions. Les clés d'accès sont conservées."
+      },
+      "tierB": {
+        "title": "Supprimer autres appareils + clés",
+        "desc": "Révoquer toutes les autres sessions et supprimer toutes les clés d'accès sauf celle en cours d'utilisation."
+      },
+      "tierC": {
+        "title": "Verrouillage total",
+        "desc": "Révoquer TOUTES les sessions, supprimer TOUTES les clés d'accès, désactiver le compte. Un administrateur doit le réactiver."
+      },
+      "confirmLabel": "Tapez LOCKDOWN pour confirmer",
+      "pinLabel": "Entrez votre code PIN",
+      "execute": "Exécuter le verrouillage",
+      "locking": "Verrouillage…",
+      "typeWord": "Tapez LOCKDOWN pour confirmer"
+    },
+    "pin": {
+      "title": "Changer le code PIN",
+      "current": "Code PIN actuel",
+      "new": "Nouveau code PIN",
+      "confirm": "Confirmer le nouveau code PIN",
+      "save": "Changer le code PIN",
+      "success": "Code PIN modifié avec succès",
+      "mismatch": "Les nouveaux codes PIN ne correspondent pas",
+      "tooShort": "Le code PIN doit contenir au moins 6 chiffres",
+      "locked": "Le compte est verrouillé ; déverrouillez-le d'abord"
+    },
+    "recovery": {
+      "title": "Renouveler la clé de récupération",
+      "rotate": "Renouveler la clé de récupération",
+      "download": "Télécharger",
+      "warning": "Enregistrez cette clé maintenant. Elle ne sera plus affichée.",
+      "locked": "Déverrouillez d'abord"
+    },
+    "lock": {
+      "title": "Délai de verrouillage automatique",
+      "desc": "Verrouiller l'application après ce délai lorsque l'onglet est masqué.",
+      "immediate": "Immédiat"
+    },
+    "passkeys": {
+      "backedUp": "Synchronisée",
+      "createdAt": "Ajoutée",
+      "lastUsedAt": "Dernière utilisation",
+      "rename": "Renommer",
+      "transport": {
+        "usb": "USB",
+        "internal": "Intégrée",
+        "hybrid": "Multi-appareils"
+      }
+    }
+  },
+  "cookiesRequired": {
+    "title": "Les cookies sont requis",
+    "body": "Llámenos utilise des cookies de navigateur pour maintenir votre session connectée. Aucun suivi, aucun tiers — uniquement les cookies nécessaires au fonctionnement de ce site. Veuillez activer les cookies pour ce site et réessayer.",
+    "retry": "J'ai activé les cookies — réessayer",
+    "stillBlocked": "Les cookies semblent toujours bloqués. Vérifiez les paramètres de votre navigateur pour ce site."
   }
 }
