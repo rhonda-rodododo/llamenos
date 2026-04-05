@@ -1,5 +1,8 @@
 import type { User } from '../types'
 import { verifyAccessToken } from './jwt'
+import { createLogger } from './logger'
+
+const log = createLogger('lib.auth')
 
 export async function authenticateRequest(
   request: Request,
@@ -25,7 +28,7 @@ export async function authenticateRequest(
         return null
       }
     } else {
-      console.warn('[auth] JWT missing jti claim — cannot check revocation')
+      log.warn('JWT missing jti claim — cannot check revocation')
     }
     const user = await identity.getUser(payload.sub)
     if (!user) return null

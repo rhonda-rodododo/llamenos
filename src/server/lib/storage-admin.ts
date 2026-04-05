@@ -8,6 +8,9 @@
  * degrades gracefully: `available()` returns false. Callers should check before invoking.
  */
 import { createHmac } from 'node:crypto'
+import { createLogger } from './logger'
+
+const log = createLogger('lib.storage-admin')
 
 export interface StorageAdminClient {
   /** Whether the admin API is reachable */
@@ -114,7 +117,7 @@ export function createStorageAdmin(opts: {
           'DELETE'
         )
         if (!res.ok && res.status !== 404) {
-          console.warn(`[storage-admin] Failed to delete user ${accessKey}: ${res.status}`)
+          log.warn('Failed to delete user', { accessKey, status: res.status })
         }
       } catch {
         // Idempotent — user may already be gone
@@ -139,7 +142,7 @@ export function createStorageAdmin(opts: {
           'DELETE'
         )
         if (!res.ok && res.status !== 404) {
-          console.warn(`[storage-admin] Failed to delete policy ${name}: ${res.status}`)
+          log.warn('Failed to delete policy', { name, status: res.status })
         }
       } catch {
         // Idempotent

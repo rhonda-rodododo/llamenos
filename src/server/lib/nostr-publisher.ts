@@ -16,6 +16,9 @@ import { hexToBytes } from '@noble/hashes/utils.js'
 import { LABEL_SERVER_NOSTR_KEY, LABEL_SERVER_NOSTR_KEY_INFO } from '@shared/crypto-labels'
 import type { EventTemplate, VerifiedEvent } from 'nostr-tools/core'
 import { finalizeEvent, getPublicKey } from 'nostr-tools/pure'
+import { createLogger } from './logger'
+
+const log = createLogger('lib.nostr-publisher')
 
 /**
  * NostrPublisher interface — all platform implementations must satisfy this.
@@ -192,13 +195,13 @@ export class NodeNostrPublisher implements NostrPublisher {
     // Bounded queue — drop oldest if at capacity
     if (this.pendingEvents.length >= NodeNostrPublisher.MAX_PENDING) {
       this.pendingEvents.shift()
-      console.warn('[nostr-publisher] Queue full, dropping oldest event')
+      log.warn('Queue full, dropping oldest event')
     }
     this.pendingEvents.push(event)
 
     if (!this.ws || this.ws.readyState === WebSocket.CLOSED) {
       this.connect().catch((err) => {
-        console.error('[nostr-publisher] Failed to connect:', err)
+        log.error('Failed to connect', err)
       })
     }
   }
@@ -234,10 +237,10 @@ export class NodeNostrPublisher implements NostrPublisher {
           } else if (data[0] === 'OK') {
             // Event accepted — data[1] is event ID, data[2] is boolean, data[3] is message
             if (!data[2]) {
-              console.warn(`[nostr-publisher] Event ${data[1]} rejected: ${data[3]}`)
+              log.warn('Event rejected by relay', { eventId: data[1], reason: data[3] })
             }
           } else if (data[0] === 'NOTICE') {
-            console.warn(`[nostr-publisher] Relay notice: ${data[1]}`)
+            log.warn('Relay notice', { notice: data[1] })
           }
         }
       } catch {
@@ -258,7 +261,7 @@ export class NodeNostrPublisher implements NostrPublisher {
     })
 
     ws.addEventListener('error', (err) => {
-      console.error('[nostr-publisher] WebSocket error:', err)
+      log.error('WebSocket error', err)
     })
 
     // If no AUTH challenge arrives within 2s, assume open relay
@@ -310,7 +313,7 @@ export class NodeNostrPublisher implements NostrPublisher {
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null
       this.connect().catch((err) => {
-        console.error('[nostr-publisher] Reconnect failed:', err)
+        log.error('Reconnect failed', err)
       })
     }, delay)
   }

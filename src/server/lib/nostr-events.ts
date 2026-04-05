@@ -1,6 +1,9 @@
 import type { AppEnv } from '../types'
 import { getNostrPublisher } from './adapters'
 import { deriveServerEventKey, encryptHubEvent } from './hub-event-crypto'
+import { createLogger } from './logger'
+
+const log = createLogger('lib.nostr-events')
 
 /** Cached event key — derived once per isolate lifetime */
 let cachedEventKey: Uint8Array | null = null
@@ -36,7 +39,7 @@ export function publishNostrEvent(
         ],
         content: eventContent,
       })
-      .catch((err) => console.error('[nostr] event publish failed:', err))
+      .catch((err) => log.error('Event publish failed', err))
   } catch {
     // Nostr not configured
   }

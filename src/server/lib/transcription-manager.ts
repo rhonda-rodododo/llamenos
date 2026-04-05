@@ -2,6 +2,9 @@ import { LABEL_MESSAGE, LABEL_VOICEMAIL_TRANSCRIPT } from '@shared/crypto-labels
 import type { Services } from '../services'
 import type { Env } from '../types'
 import { getTelephony } from './adapters'
+import { createLogger } from './logger'
+
+const log = createLogger('lib.transcription-manager')
 
 export async function maybeTranscribe(
   parentCallSid: string,
@@ -39,7 +42,7 @@ export async function maybeTranscribe(
       // Envelope encryption: single ciphertext, wrapped key for user + admin
       const adminPubkey = env.ADMIN_DECRYPTION_PUBKEY || env.ADMIN_PUBKEY
       if (!adminPubkey) {
-        console.error('[transcription] ADMIN_PUBKEY not configured — cannot encrypt transcription')
+        log.error('ADMIN_PUBKEY not configured — cannot encrypt transcription')
         return
       }
       const readerPubkeys = [userPubkey]
@@ -66,7 +69,7 @@ export async function maybeTranscribe(
       })
     }
   } catch (err) {
-    console.error('[transcription] maybeTranscribe failed:', err)
+    log.error('maybeTranscribe failed', err)
   }
 }
 
@@ -99,7 +102,7 @@ export async function transcribeVoicemail(
       // Voicemails: envelope encryption for admin only
       const adminPubkey = env.ADMIN_DECRYPTION_PUBKEY || env.ADMIN_PUBKEY
       if (!adminPubkey) {
-        console.error('[transcription] ADMIN_PUBKEY not configured — cannot encrypt voicemail')
+        log.error('ADMIN_PUBKEY not configured — cannot encrypt voicemail')
         return
       }
       const { encrypted, envelopes } = services.crypto.envelopeEncrypt(
@@ -121,6 +124,6 @@ export async function transcribeVoicemail(
       })
     }
   } catch (err) {
-    console.error('[transcription] transcribeVoicemail failed:', err)
+    log.error('transcribeVoicemail failed', err)
   }
 }
