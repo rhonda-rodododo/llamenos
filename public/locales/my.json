@@ -1574,7 +1574,8 @@
       "signal": "Signal",
       "hubs": "Hubs",
       "platformRoles": "Roles",
-      "bans": "Bans"
+      "bans": "Bans",
+      "audit": "Audit"
     }
   },
   "locationLookup": {
@@ -1605,5 +1606,37 @@
   "phoneMenuLanguages": {
     "description": "Choose which languages callers hear in the phone menu. Disabled languages are skipped; digit mappings stay fixed.",
     "atLeastOne": "At least one language must be enabled"
+  },
+  "audit": {
+    "description": "Review every administrative action across all hubs.",
+    "empty": "No audit entries match these filters.",
+    "filters": {
+      "eventType": "Event type",
+      "dateFrom": "From",
+      "dateTo": "To",
+      "search": "Search",
+      "searchPlaceholder": "Event, actor, details…",
+      "clear": "Clear filters"
+    },
+    "eventTypes": {
+      "authentication": "Authentication",
+      "users": "Users",
+      "calls": "Calls",
+      "settings": "Settings",
+      "shifts": "Shifts",
+      "notes": "Notes",
+      "messaging": "Messaging"
+    },
+    "columns": {
+      "timestamp": "Timestamp",
+      "actor": "Actor",
+      "event": "Event",
+      "details": "Details"
+    },
+    "pagination": {
+      "rangeOf": "{{start}}-{{end}} of {{total}}",
+      "prev": "Prev",
+      "next": "Next"
+    }
   }
 }

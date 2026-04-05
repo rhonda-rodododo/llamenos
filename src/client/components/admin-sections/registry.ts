@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react'
+import { AuditSection } from './audit-section'
 import { BansSection } from './bans-section'
 import { CallSettingsSection } from './call-settings-section'
 import { CustomFieldsSection } from './custom-fields-section'
@@ -54,3 +55,4 @@ registerSection('signal', SignalChannelSection)
 registerSection('hubs', HubsSection)
 registerSection('platform-roles', PlatformRolesSection)
 registerSection('bans', BansSection)
+registerSection('audit', AuditSection)

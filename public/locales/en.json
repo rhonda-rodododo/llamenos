@@ -1320,6 +1320,38 @@
       "actions": "Actions"
     }
   },
+  "audit": {
+    "description": "Review every administrative action across all hubs.",
+    "empty": "No audit entries match these filters.",
+    "filters": {
+      "eventType": "Event type",
+      "dateFrom": "From",
+      "dateTo": "To",
+      "search": "Search",
+      "searchPlaceholder": "Event, actor, details…",
+      "clear": "Clear filters"
+    },
+    "eventTypes": {
+      "authentication": "Authentication",
+      "users": "Users",
+      "calls": "Calls",
+      "settings": "Settings",
+      "shifts": "Shifts",
+      "notes": "Notes",
+      "messaging": "Messaging"
+    },
+    "columns": {
+      "timestamp": "Timestamp",
+      "actor": "Actor",
+      "event": "Event",
+      "details": "Details"
+    },
+    "pagination": {
+      "rangeOf": "{{start}}-{{end}} of {{total}}",
+      "prev": "Prev",
+      "next": "Next"
+    }
+  },
   "bans": {
     "description": "Block phone numbers from calling the hotline across all hubs.",
     "addTitle": "Ban a number",
@@ -1639,7 +1671,8 @@
       "signal": "Signal",
       "hubs": "Hubs",
       "platformRoles": "Roles",
-      "bans": "Bans"
+      "bans": "Bans",
+      "audit": "Audit"
     },
     "openMenu": "Open navigation menu"
   },

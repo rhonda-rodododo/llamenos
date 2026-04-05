@@ -82,6 +82,15 @@ export const queryKeys = {
       dateTo?: string
       search?: string
     }) => ['audit', 'list', filters ?? {}] as const,
+    globalList: (filters?: {
+      page?: number
+      limit?: number
+      actorPubkey?: string
+      eventType?: string
+      dateFrom?: string
+      dateTo?: string
+      search?: string
+    }) => ['audit', 'global', 'list', filters ?? {}] as const,
   },
 
   reports: {
