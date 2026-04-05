@@ -1498,7 +1498,8 @@
       "messagingSms": "Messaging / SMS",
       "rcs": "RCS",
       "signal": "Signal",
-      "hubs": "Hubs"
+      "hubs": "Hubs",
+      "platformRoles": "Roles"
     }
   },
   "locationLookup": {

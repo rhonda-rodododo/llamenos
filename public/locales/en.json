@@ -1293,6 +1293,33 @@
       "restricted": "Admin Access Restricted"
     }
   },
+  "platformRoles": {
+    "description": "Platform-wide roles available across all hubs. Only super admins can manage these.",
+    "create": "Create Role",
+    "createTitle": "Create Platform Role",
+    "editTitle": "Edit Platform Role",
+    "dialogDescription": "Platform roles are visible to all hubs. Use them for cross-hub responsibilities.",
+    "name": "Name",
+    "namePlaceholder": "e.g. Platform Auditor",
+    "descriptionLabel": "Description",
+    "descriptionPlaceholder": "Brief description of this role...",
+    "permissions": "Permissions",
+    "selected": "selected",
+    "system": "System",
+    "default": "Default",
+    "systemReadOnly": "System role cannot be edited",
+    "deleteTitle": "Delete Role",
+    "deleteConfirm": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone.",
+    "created": "Role created",
+    "updated": "Role updated",
+    "deleted": "Role deleted",
+    "columns": {
+      "name": "Name",
+      "description": "Description",
+      "permissions": "Permissions",
+      "actions": "Actions"
+    }
+  },
   "hub": {
     "export": {
       "title": "Export Hub Data",
@@ -1580,7 +1607,8 @@
       "messagingSms": "Messaging / SMS",
       "rcs": "RCS",
       "signal": "Signal",
-      "hubs": "Hubs"
+      "hubs": "Hubs",
+      "platformRoles": "Roles"
     },
     "openMenu": "Open navigation menu"
   },

@@ -9,6 +9,7 @@ import { MessagingSmsSection } from './messaging-sms-section'
 import { PasskeyPolicySection } from './passkey-policy-section'
 import { PhoneMenuLanguagesSection } from './phone-menu-languages-section'
 import { PhoneProviderSection } from './phone-provider-section'
+import { PlatformRolesSection } from './platform-roles-section'
 import { RcsChannelSection } from './rcs-channel-section'
 import { ReportTypesSection } from './report-types-section'
 import { SignalChannelSection } from './signal-channel-section'
@@ -50,3 +51,4 @@ registerSection('messaging-sms', MessagingSmsSection)
 registerSection('rcs', RcsChannelSection)
 registerSection('signal', SignalChannelSection)
 registerSection('hubs', HubsSection)
+registerSection('platform-roles', PlatformRolesSection)
