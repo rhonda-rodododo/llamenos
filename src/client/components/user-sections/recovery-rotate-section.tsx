@@ -1,6 +1,11 @@
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import {
+  SectionActions,
+  SectionBanner,
+  SectionBody,
+  SectionField,
+} from '@/components/user-shell/section-layout'
 import { authFacadeClient } from '@/lib/auth-facade-client'
 import { generateRecoveryKey } from '@/lib/backup'
 import { isUnlocked } from '@/lib/key-manager'
@@ -9,7 +14,7 @@ import { useRotateRecovery } from '@/lib/queries/security-actions'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-export function RecoveryRotateForm() {
+export function RecoveryRotateSection() {
   const { t } = useTranslation()
   const [pin, setPin] = useState('')
   const [newKey, setNewKey] = useState<string | null>(null)
@@ -60,48 +65,57 @@ export function RecoveryRotateForm() {
   }
 
   return (
-    <div className="space-y-3 max-w-md" data-testid="recovery-rotate-form">
-      <h3 className="text-lg font-semibold">
+    <div>
+      <h3 className="text-lg font-semibold mb-3">
         {t('security.recovery.title', 'Rotate recovery key')}
       </h3>
-      {newKey ? (
-        <div className="space-y-3">
-          <div className="p-3 bg-yellow-50 border border-yellow-300 rounded text-sm">
-            {t('security.recovery.warning', 'Save this key now. It will not be shown again.')}
-          </div>
-          <code
-            className="block p-3 bg-muted rounded font-mono text-sm break-all"
-            data-testid="new-recovery-key"
-          >
-            {newKey}
-          </code>
-          <Button onClick={downloadKey} data-testid="download-recovery-key">
-            {t('security.recovery.download', 'Download')}
-          </Button>
-        </div>
-      ) : (
-        <>
-          <div className="space-y-2">
-            <Label>{t('security.pin.current', 'Current PIN')}</Label>
-            <Input
-              type="password"
-              value={pin}
-              onChange={(e) => setPin(e.target.value)}
-              data-testid="recovery-pin"
+      <SectionBody data-testid="recovery-rotate-form">
+        {newKey ? (
+          <>
+            <SectionBanner tone="warn">
+              {t('security.recovery.warning', 'Save this key now. It will not be shown again.')}
+            </SectionBanner>
+            <code
+              className="block p-3 bg-muted rounded font-mono text-sm break-all"
+              data-testid="new-recovery-key"
+            >
+              {newKey}
+            </code>
+            <Button onClick={downloadKey} data-testid="download-recovery-key">
+              {t('security.recovery.download', 'Download')}
+            </Button>
+          </>
+        ) : (
+          <>
+            <SectionField label={t('security.pin.current', 'Current PIN')} htmlFor="recovery-pin">
+              <Input
+                id="recovery-pin"
+                type="password"
+                value={pin}
+                onChange={(e) => setPin(e.target.value)}
+                data-testid="recovery-pin"
+              />
+            </SectionField>
+            {error && (
+              <p className="text-sm text-red-600" data-testid="recovery-error">
+                {error}
+              </p>
+            )}
+            <SectionActions
+              slug="recovery"
+              saveButtonTestId="submit-rotate"
+              onSave={submit}
+              saving={rotate.isPending}
+              disabled={!pin}
+              saveLabel={
+                rotate.isPending
+                  ? t('common.generating', 'Generating…')
+                  : t('security.recovery.rotate', 'Rotate recovery key')
+              }
             />
-          </div>
-          {error && (
-            <div className="text-sm text-red-600" data-testid="recovery-error">
-              {error}
-            </div>
-          )}
-          <Button onClick={submit} disabled={rotate.isPending || !pin} data-testid="submit-rotate">
-            {rotate.isPending
-              ? t('common.generating', 'Generating…')
-              : t('security.recovery.rotate', 'Rotate recovery key')}
-          </Button>
-        </>
-      )}
+          </>
+        )}
+      </SectionBody>
     </div>
   )
 }

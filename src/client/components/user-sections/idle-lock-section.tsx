@@ -1,3 +1,4 @@
+import { SectionBody, SectionDescription } from '@/components/user-shell/section-layout'
 import { setLockDelay } from '@/lib/key-manager'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
@@ -7,7 +8,7 @@ interface Prefs {
   lockDelayMs: number
 }
 
-export function IdleLockSlider() {
+export function IdleLockSection() {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const { data: prefs } = useQuery<Prefs>({
@@ -48,29 +49,31 @@ export function IdleLockSlider() {
   }
 
   return (
-    <div className="space-y-2 max-w-md" data-testid="idle-lock-slider">
-      <h3 className="text-lg font-semibold">{t('security.lock.title', 'Auto-lock delay')}</h3>
-      <p className="text-sm text-muted-foreground">
-        {t('security.lock.desc', 'Lock the app after this long when the tab is hidden.')}
-      </p>
-      <div className="flex items-center gap-3">
-        <input
-          type="range"
-          min={0}
-          max={600_000}
-          step={10_000}
-          value={draft}
-          onChange={(e) => setDraft(Number(e.target.value))}
-          onMouseUp={(e) => update.mutate(Number((e.target as HTMLInputElement).value))}
-          onKeyUp={(e) => update.mutate(Number((e.target as HTMLInputElement).value))}
-          onTouchEnd={(e) => update.mutate(Number((e.target as HTMLInputElement).value))}
-          className="flex-1"
-          data-testid="lock-slider"
-        />
-        <span className="text-sm w-16 text-right" data-testid="lock-value">
-          {format(draft)}
-        </span>
-      </div>
+    <div>
+      <h3 className="text-lg font-semibold mb-3">{t('security.lock.title', 'Auto-lock delay')}</h3>
+      <SectionBody data-testid="idle-lock-slider">
+        <SectionDescription>
+          {t('security.lock.desc', 'Lock the app after this long when the tab is hidden.')}
+        </SectionDescription>
+        <div className="flex items-center gap-3">
+          <input
+            type="range"
+            min={0}
+            max={600_000}
+            step={10_000}
+            value={draft}
+            onChange={(e) => setDraft(Number(e.target.value))}
+            onMouseUp={(e) => update.mutate(Number((e.target as HTMLInputElement).value))}
+            onKeyUp={(e) => update.mutate(Number((e.target as HTMLInputElement).value))}
+            onTouchEnd={(e) => update.mutate(Number((e.target as HTMLInputElement).value))}
+            className="flex-1"
+            data-testid="lock-slider"
+          />
+          <span className="text-sm w-16 text-right" data-testid="lock-value">
+            {format(draft)}
+          </span>
+        </div>
+      </SectionBody>
     </div>
   )
 }

@@ -1,6 +1,5 @@
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { SectionActions, SectionBody, SectionField } from '@/components/user-shell/section-layout'
 import { authFacadeClient } from '@/lib/auth-facade-client'
 import { isUnlocked } from '@/lib/key-manager'
 import {
@@ -13,7 +12,7 @@ import { useChangePin } from '@/lib/queries/security-actions'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-export function PinChangeForm() {
+export function PinChangeSection() {
   const { t } = useTranslation()
   const [currentPin, setCurrentPin] = useState('')
   const [newPin, setNewPin] = useState('')
@@ -67,48 +66,54 @@ export function PinChangeForm() {
   }
 
   return (
-    <div className="space-y-3 max-w-md" data-testid="pin-change-form">
-      <h3 className="text-lg font-semibold">{t('security.pin.title', 'Change PIN')}</h3>
-      <div className="space-y-2">
-        <Label>{t('security.pin.current', 'Current PIN')}</Label>
-        <Input
-          type="password"
-          value={currentPin}
-          onChange={(e) => setCurrentPin(e.target.value)}
-          data-testid="current-pin"
+    <div>
+      <h3 className="text-lg font-semibold mb-3">{t('security.pin.title', 'Change PIN')}</h3>
+      <SectionBody data-testid="pin-change-form">
+        <SectionField label={t('security.pin.current', 'Current PIN')} htmlFor="pin-current">
+          <Input
+            id="pin-current"
+            type="password"
+            value={currentPin}
+            onChange={(e) => setCurrentPin(e.target.value)}
+            data-testid="current-pin"
+          />
+        </SectionField>
+        <SectionField label={t('security.pin.new', 'New PIN')} htmlFor="pin-new">
+          <Input
+            id="pin-new"
+            type="password"
+            value={newPin}
+            onChange={(e) => setNewPin(e.target.value)}
+            data-testid="new-pin"
+          />
+        </SectionField>
+        <SectionField label={t('security.pin.confirm', 'Confirm new PIN')} htmlFor="pin-confirm">
+          <Input
+            id="pin-confirm"
+            type="password"
+            value={confirmPin}
+            onChange={(e) => setConfirmPin(e.target.value)}
+            data-testid="confirm-pin"
+          />
+        </SectionField>
+        {error && (
+          <p className="text-sm text-red-600" data-testid="pin-error">
+            {error}
+          </p>
+        )}
+        <SectionActions
+          slug="pin"
+          saveButtonTestId="submit-pin"
+          onSave={submit}
+          saving={change.isPending}
+          saveLabel={t('security.pin.save', 'Change PIN')}
         />
-      </div>
-      <div className="space-y-2">
-        <Label>{t('security.pin.new', 'New PIN')}</Label>
-        <Input
-          type="password"
-          value={newPin}
-          onChange={(e) => setNewPin(e.target.value)}
-          data-testid="new-pin"
-        />
-      </div>
-      <div className="space-y-2">
-        <Label>{t('security.pin.confirm', 'Confirm new PIN')}</Label>
-        <Input
-          type="password"
-          value={confirmPin}
-          onChange={(e) => setConfirmPin(e.target.value)}
-          data-testid="confirm-pin"
-        />
-      </div>
-      {error && (
-        <div className="text-sm text-red-600" data-testid="pin-error">
-          {error}
-        </div>
-      )}
-      {success && (
-        <div className="text-sm text-green-600" data-testid="pin-success">
-          {t('security.pin.success', 'PIN changed successfully')}
-        </div>
-      )}
-      <Button onClick={submit} disabled={change.isPending} data-testid="submit-pin">
-        {change.isPending ? t('common.saving', 'Saving…') : t('security.pin.save', 'Change PIN')}
-      </Button>
+        {success && (
+          <p className="text-sm text-green-600" data-testid="pin-success">
+            {t('security.pin.success', 'PIN changed successfully')}
+          </p>
+        )}
+      </SectionBody>
     </div>
   )
 }

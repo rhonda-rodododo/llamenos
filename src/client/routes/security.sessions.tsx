@@ -1,5 +1,6 @@
 import { LockdownModal } from '@/components/LockdownModal'
 import { Button } from '@/components/ui/button'
+import { SectionBody, SectionDescription } from '@/components/user-shell/section-layout'
 import { useRevokeOtherSessions, useRevokeSession, useSessions } from '@/lib/queries/security'
 import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
@@ -31,8 +32,14 @@ function SessionsPage() {
   if (isLoading) return <div>{t('common.loading', 'Loading...')}</div>
   if (!sessions || sessions.length === 0) {
     return (
-      <>
-        <div className="flex justify-end mb-4">
+      <SectionBody data-testid="sessions-page">
+        <SectionDescription>
+          {t(
+            'security.sessions.description',
+            'Browsers and devices currently signed in to your account.'
+          )}
+        </SectionDescription>
+        <div className="flex justify-end">
           <Button
             variant="destructive"
             onClick={() => setLockdownOpen(true)}
@@ -41,17 +48,23 @@ function SessionsPage() {
             {t('security.sessions.lockdown', 'Emergency lockdown')}
           </Button>
         </div>
-        <div>{t('security.sessions.none', 'No active sessions.')}</div>
+        <p className="text-sm">{t('security.sessions.none', 'No active sessions.')}</p>
         <LockdownModal open={lockdownOpen} onClose={() => setLockdownOpen(false)} />
-      </>
+      </SectionBody>
     )
   }
 
   const hasOthers = sessions.some((s) => !s.isCurrent)
 
   return (
-    <div data-testid="sessions-page">
-      <div className="flex justify-end gap-2 mb-4">
+    <SectionBody data-testid="sessions-page">
+      <SectionDescription>
+        {t(
+          'security.sessions.description',
+          'Browsers and devices currently signed in to your account.'
+        )}
+      </SectionDescription>
+      <div className="flex justify-end gap-2">
         <Button
           variant="destructive"
           disabled={!hasOthers || revokeOthers.isPending}
@@ -107,6 +120,6 @@ function SessionsPage() {
         ))}
       </ul>
       <LockdownModal open={lockdownOpen} onClose={() => setLockdownOpen(false)} />
-    </div>
+    </SectionBody>
   )
 }

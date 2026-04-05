@@ -393,3 +393,7 @@ These items were identified during brainstorming but deferred as follow-up effor
 - [ ] **WebAuthn-as-KEK-factor add/remove** — Add/remove WebAuthn as a KEK factor (distinct from passkey-as-login-credential). Requires re-wrapping KEK when factor set changes. key-store-v2 already supports 3-factor PRF mode so plumbing exists; needs UX + rotation flow.
 - [ ] **Trusted browser / "remember this device"** — Per-session trust marking with different TTLs for trusted vs. untrusted sessions. Cuts across login flow + session UI. Depends on sessions table landing first.
 - [ ] **Step-up re-auth for sensitive actions** — Re-tap passkey (or re-enter PIN) before admin operations. Requires tagging sensitive endpoints + freshness claim on tokens + UX interruption pattern. Cross-cutting.
+
+## Dedupe section-layout primitives (2026-04-05)
+
+- [ ] **Dedupe user-shell + admin-shell `section-layout.tsx`** — PR #43 and PR #44 landed parallel copies. Once both merge, move the primitives to `src/client/components/section-layout/` (or `section-ui/`), update imports in both admin-sections/* and user-sections/*, delete the duplicates. APIs are identical except user-shell's `SectionActions` has a `saveButtonTestId` prop for legacy E2E selectors — keep that in the shared copy.
