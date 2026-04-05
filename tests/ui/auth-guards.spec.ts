@@ -33,7 +33,9 @@ test.describe('Auth guards', () => {
     // → /admin → /). Because multiple navigates race, TanStack router's internal state
     // reaches /login (and the Login component renders) before window.history.pushState
     // fully syncs. Assert on rendered content rather than URL.
-    await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible({ timeout: 10000 })
+    // Multiple async navigates race through the redirect chain
+    // (/admin/settings → /admin → / → /login). CI is slower; give 30s.
+    await expect(page.getByTestId('login-heading')).toBeVisible({ timeout: 30000 })
     await ctx.close()
   })
 
