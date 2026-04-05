@@ -433,6 +433,27 @@ test.describe('Global Setup: Provision Test Accounts', () => {
 
     // Save admin storage state
     await page.context().storageState({ path: `${STORAGE_DIR}/admin.json` })
+
+    // Save admin pubkey alongside storage — opaque refresh tokens don't contain
+    // the pubkey anymore, so we can't decode it from the cookie like we could
+    // with stateless JWTs. Query the DB directly.
+    const postgres = (await import('postgres')).default
+    const dbUrl =
+      process.env.TEST_DATABASE_URL ??
+      process.env.DATABASE_URL ??
+      'postgres://llamenos:llamenos@localhost:5433/llamenos'
+    const sql = postgres(dbUrl, { max: 1 })
+    try {
+      const rows = await sql<Array<{ pubkey: string }>>`
+        SELECT pubkey FROM users WHERE roles::text LIKE '%"role-super-admin"%' LIMIT 1
+      `
+      if (rows[0]) {
+        const fs = await import('node:fs')
+        fs.writeFileSync(`${STORAGE_DIR}/admin-pubkey.txt`, rows[0].pubkey)
+      }
+    } finally {
+      await sql.end()
+    }
   })
 
   test('create hub-admin account via invite', async ({ browser }) => {
