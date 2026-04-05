@@ -132,6 +132,12 @@ export const adminNavConfig: AdminNavConfig = {
           requiredPermissions: ['settings:read'],
           testid: 'admin-sidebar-item-rcs',
         },
+        {
+          slug: 'signal',
+          labelKey: 'adminNav.items.signal',
+          requiredPermissions: ['settings:read'],
+          testid: 'admin-sidebar-item-signal',
+        },
       ],
     },
     // Platform

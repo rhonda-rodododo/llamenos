@@ -10,6 +10,7 @@ import { PhoneMenuLanguagesSection } from './phone-menu-languages-section'
 import { PhoneProviderSection } from './phone-provider-section'
 import { RcsChannelSection } from './rcs-channel-section'
 import { ReportTypesSection } from './report-types-section'
+import { SignalChannelSection } from './signal-channel-section'
 import { SpamProtectionSection } from './spam-section'
 import { TagsSection } from './tags-section'
 import { TeamsSection } from './teams-section'
@@ -46,3 +47,4 @@ registerSection('spam-protection', SpamProtectionSection)
 registerSection('phone-provider', PhoneProviderSection)
 registerSection('messaging-sms', MessagingSmsSection)
 registerSection('rcs', RcsChannelSection)
+registerSection('signal', SignalChannelSection)
