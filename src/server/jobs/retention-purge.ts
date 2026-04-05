@@ -8,7 +8,10 @@
  *   import { runRetentionPurge } from './jobs/retention-purge'
  *   await runRetentionPurge(services)
  */
+import { createLogger } from '../lib/logger'
 import type { Services } from '../services'
+
+const log = createLogger('jobs.retention-purge')
 
 export async function runRetentionPurge(services: Services): Promise<void> {
   const settings = await services.gdpr.getRetentionSettings()
@@ -20,7 +23,7 @@ export async function runRetentionPurge(services: Services): Promise<void> {
     summary.messagesDeleted +
     summary.auditLogDeleted
 
-  console.log('[gdpr] Retention purge complete:', summary)
+  log.info('Retention purge complete', { summary })
 
   // Only audit-log if something was deleted (avoid noise on empty runs)
   if (totalDeleted > 0) {
@@ -53,11 +56,11 @@ export function scheduleRetentionPurge(services: Services): NodeJS.Timeout {
   // First fire at next 03:00 UTC, then every 24h
   const timeoutId = setTimeout(async () => {
     await runRetentionPurge(services).catch((err) => {
-      console.error('[gdpr] Retention purge failed:', err)
+      log.error('Retention purge failed', err)
     })
     intervalId = setInterval(async () => {
       await runRetentionPurge(services).catch((err) => {
-        console.error('[gdpr] Retention purge failed:', err)
+        log.error('Retention purge failed', err)
       })
     }, MS_PER_DAY)
   }, msUntilNextRun())
