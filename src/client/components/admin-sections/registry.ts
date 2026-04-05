@@ -6,6 +6,7 @@ import { HubRolesSection } from './hub-roles-section'
 import { LocationLookupSection } from './location-lookup-section'
 import { PasskeyPolicySection } from './passkey-policy-section'
 import { PhoneMenuLanguagesSection } from './phone-menu-languages-section'
+import { PhoneProviderSection } from './phone-provider-section'
 import { ReportTypesSection } from './report-types-section'
 import { SpamProtectionSection } from './spam-section'
 import { TagsSection } from './tags-section'
@@ -40,3 +41,4 @@ registerSection('voice-prompts', VoicePromptsSection)
 registerSection('phone-menu-languages', PhoneMenuLanguagesSection)
 registerSection('transcription', TranscriptionSection)
 registerSection('spam-protection', SpamProtectionSection)
+registerSection('phone-provider', PhoneProviderSection)

@@ -1569,7 +1569,11 @@
       "voicePrompts": "Voice Prompts",
       "phoneMenuLanguages": "Phone Menu Languages",
       "transcription": "Transcription",
-      "spamProtection": "Spam Protection"
+      "spamProtection": "Spam Protection",
+      "phoneProvider": "Phone Provider",
+      "messagingSms": "Messaging / SMS",
+      "rcs": "RCS",
+      "signal": "Signal"
     },
     "openMenu": "Open navigation menu"
   },

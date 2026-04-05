@@ -113,7 +113,14 @@ export const adminNavConfig: AdminNavConfig = {
       groupSlug: 'channels',
       scope: 'this-hub',
       labelKey: 'adminNav.groups.channels',
-      items: [],
+      items: [
+        {
+          slug: 'phone-provider',
+          labelKey: 'adminNav.items.phoneProvider',
+          requiredPermissions: ['settings:read'],
+          testid: 'admin-sidebar-item-phone-provider',
+        },
+      ],
     },
     // Platform
     {
