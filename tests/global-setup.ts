@@ -29,36 +29,52 @@ async function unlockAndNavigateToDashboard(page: import('@playwright/test').Pag
   const dashboard = page.getByRole('heading', { name: 'Dashboard', exact: true })
   const profileSetup = page.getByRole('heading', { name: 'Welcome!' })
 
-  // Wait for one of: PIN screen, dashboard, or profile-setup
-  const firstVisible = await Promise.race([
-    pinInput.waitFor({ state: 'visible', timeout: 30000 }).then(() => 'pin' as const),
-    dashboard.waitFor({ state: 'visible', timeout: 30000 }).then(() => 'dashboard' as const),
-    profileSetup.waitFor({ state: 'visible', timeout: 30000 }).then(() => 'profile' as const),
-  ])
-
-  if (firstVisible === 'pin') {
-    // Use focus+type for login PIN (lighter component than bootstrap)
-    const firstPinInput = page.locator('input[aria-label="PIN digit 1"]')
-    await firstPinInput.focus()
-    await page.keyboard.type(TEST_PIN, { delay: 80 })
-    await page.keyboard.press('Enter')
-    // After PIN entry: PBKDF2 600K runs synchronously (~30s), then navigates
-    const wrongPin = page.getByText('Wrong PIN')
-    const afterPin = await Promise.race([
-      dashboard.waitFor({ state: 'visible', timeout: 90000 }).then(() => 'dashboard' as const),
-      profileSetup.waitFor({ state: 'visible', timeout: 90000 }).then(() => 'profile' as const),
-      wrongPin.waitFor({ state: 'visible', timeout: 90000 }).then(() => 'wrong-pin' as const),
+  const MAX_ATTEMPTS = 2
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    // Wait for one of: PIN screen, dashboard, or profile-setup
+    const firstVisible = await Promise.race([
+      pinInput.waitFor({ state: 'visible', timeout: 30000 }).then(() => 'pin' as const),
+      dashboard.waitFor({ state: 'visible', timeout: 30000 }).then(() => 'dashboard' as const),
+      profileSetup.waitFor({ state: 'visible', timeout: 30000 }).then(() => 'profile' as const),
     ])
-    if (afterPin === 'wrong-pin') throw new Error('Wrong PIN entered during admin unlock')
-    if (afterPin === 'profile') {
+
+    if (firstVisible === 'pin') {
+      const firstPinInput = page.locator('input[aria-label="PIN digit 1"]')
+      await firstPinInput.focus()
+      await page.keyboard.type(TEST_PIN, { delay: 80 })
+      await page.keyboard.press('Enter')
+      // After PIN entry: PBKDF2 600K runs synchronously (~30s), then navigates
+      const wrongPin = page.getByText('Wrong PIN')
+      const afterPin = await Promise.race([
+        dashboard.waitFor({ state: 'visible', timeout: 90000 }).then(() => 'dashboard' as const),
+        profileSetup.waitFor({ state: 'visible', timeout: 90000 }).then(() => 'profile' as const),
+        wrongPin.waitFor({ state: 'visible', timeout: 90000 }).then(() => 'wrong-pin' as const),
+      ])
+      if (afterPin === 'wrong-pin') {
+        // Transient race: admin's access token may not yet be refreshed from the
+        // HttpOnly cookie, so unlock returns false before PBKDF2 runs. Wait +
+        // reload once before giving up.
+        if (attempt < MAX_ATTEMPTS) {
+          await page.waitForTimeout(1500)
+          await page.reload({ waitUntil: 'domcontentloaded' })
+          continue
+        }
+        throw new Error('Wrong PIN entered during admin unlock')
+      }
+      if (afterPin === 'profile') {
+        await page.getByRole('button', { name: /complete setup/i }).click()
+        await expect(dashboard).toBeVisible({ timeout: 15000 })
+      }
+      return
+    }
+    if (firstVisible === 'profile') {
       await page.getByRole('button', { name: /complete setup/i }).click()
       await expect(dashboard).toBeVisible({ timeout: 15000 })
+      return
     }
-  } else if (firstVisible === 'profile') {
-    await page.getByRole('button', { name: /complete setup/i }).click()
-    await expect(dashboard).toBeVisible({ timeout: 15000 })
+    // 'dashboard' — already there
+    return
   }
-  // If 'dashboard', we're already there
 }
 
 /**
