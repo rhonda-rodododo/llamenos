@@ -12,8 +12,18 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  Object.defineProperty(g, 'navigator', { configurable: true, value: originalNavigator })
-  Object.defineProperty(g, 'document', { configurable: true, value: originalDocument })
+  // Restore as writable so subsequent test files (e.g. panic-wipe.test.ts) can
+  // assign globalThis.document = { ... } without hitting a readonly property error.
+  Object.defineProperty(g, 'navigator', {
+    configurable: true,
+    writable: true,
+    value: originalNavigator,
+  })
+  Object.defineProperty(g, 'document', {
+    configurable: true,
+    writable: true,
+    value: originalDocument,
+  })
 })
 
 function installFakeCookieJar(): { set: (v: string) => void; clear: () => void } {

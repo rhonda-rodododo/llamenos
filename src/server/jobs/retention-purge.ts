@@ -14,10 +14,11 @@ export async function runRetentionPurge(services: Services): Promise<void> {
   const settings = await services.gdpr.getRetentionSettings()
   const summary = await services.gdpr.purgeExpiredData(settings)
 
-  // Purge auth events older than 90 days (user-scoped security history)
+  // Purge auth events older than 90 days (user-scoped security history).
+  // Guard: authEvents may not exist in test environments where Services is mocked.
   let authEventsDeleted = 0
   try {
-    authEventsDeleted = await services.authEvents.purgeOld()
+    authEventsDeleted = (await services.authEvents?.purgeOld()) ?? 0
   } catch (err) {
     console.error('[gdpr] Auth events purge failed:', err)
   }
