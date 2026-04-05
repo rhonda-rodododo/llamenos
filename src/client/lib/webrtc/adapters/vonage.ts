@@ -9,7 +9,7 @@
 import { createDebugLog } from '../../debug-log'
 import type { WebRTCAdapter, WebRtcEvent, WebRtcEventHandler } from '../types'
 
-const log = createDebugLog('VonageWebRTCAdapter')
+const log = createDebugLog('llamenos:webrtc:vonage')
 
 // Minimal types from @vonage/client-sdk
 interface VonageClientInstance {
@@ -68,7 +68,7 @@ export class VonageWebRTCAdapter implements WebRTCAdapter {
     client.on('callInvite', (...args: unknown[]) => {
       const callId = args[0] as string
       const from = args[1] as string
-      log('Incoming call', callId, 'from', from)
+      log('Incoming call', callId, 'from-present:', !!from)
       this.#activeCallId = callId
       this.#muted = false
       this.#emit('incoming', callId)
@@ -128,7 +128,7 @@ export class VonageWebRTCAdapter implements WebRTCAdapter {
     this.#muted = false
     // Fire-and-forget; errors logged but not surfaced (disconnect is best-effort)
     this.#client.hangup(callId).catch((err: unknown) => {
-      console.error('[VonageWebRTCAdapter] hangup error', err)
+      log('hangup error', err instanceof Error ? err.message : 'unknown')
     })
   }
 
@@ -138,7 +138,7 @@ export class VonageWebRTCAdapter implements WebRTCAdapter {
     this.#muted = muted
     const op = muted ? this.#client.mute(callId) : this.#client.unmute(callId)
     op.catch((err: unknown) => {
-      console.error('[VonageWebRTCAdapter] setMuted error', err)
+      log('setMuted error', err instanceof Error ? err.message : 'unknown')
     })
   }
 

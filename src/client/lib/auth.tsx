@@ -1,4 +1,5 @@
 import { ConsentGate } from '@/components/consent-gate'
+import { createDebugLog } from '@/lib/debug-log'
 import { decryptObjectFields } from '@/lib/decrypt-fields'
 import { permissionGranted } from '@shared/permissions'
 import {
@@ -22,6 +23,8 @@ import { clearHubKeyCache, loadHubKeysForUser } from './hub-key-cache'
 import * as keyManager from './key-manager'
 import { invalidateEncryptedQueries } from './query-client'
 import { loginWithPasskey as webauthnLogin } from './webauthn'
+
+const log = createDebugLog('llamenos:auth')
 
 interface AuthState {
   isKeyUnlocked: boolean
@@ -417,7 +420,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       )
       return true
     } catch (err) {
-      console.error('[auth] completePasskeyKeySetup failed:', err)
+      log('completePasskeyKeySetup failed:', err instanceof Error ? err.message : 'unknown')
       setState((s) => ({
         ...s,
         error: err instanceof Error ? err.message : 'Key setup failed',

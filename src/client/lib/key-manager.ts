@@ -30,7 +30,7 @@ import {
   syntheticIdpValue,
 } from './key-store-v2'
 
-const log = createDebugLog('key-manager')
+const log = createDebugLog('llamenos:keys')
 
 // --- Auto-lock ---
 let idleTimer: ReturnType<typeof setTimeout> | null = null
@@ -201,11 +201,11 @@ export async function unlock(pin: string): Promise<string | null> {
         userInfo = await authFacadeClient.getUserInfo()
         log('getUserInfo after refresh:', !!userInfo)
       } catch (err) {
-        console.error('[key-manager] refresh failed:', (err as Error)?.message)
+        log('refresh failed:', (err as Error)?.message)
       }
     }
     if (!userInfo) {
-      console.error('[key-manager] no userInfo available — cannot derive KEK')
+      log('no userInfo available — cannot derive KEK')
       return null
     }
     idpValue = userInfo.nsecSecret
@@ -249,7 +249,7 @@ export async function unlock(pin: string): Promise<string | null> {
     }
     return pubkey
   } catch (err) {
-    console.error('[key-manager] unlock failed:', err)
+    log('unlock failed:', err instanceof Error ? err.message : 'unknown')
     return null
   }
 }

@@ -9,7 +9,7 @@
 import { createDebugLog } from '../../debug-log'
 import type { WebRTCAdapter, WebRtcEvent, WebRtcEventHandler } from '../types'
 
-const log = createDebugLog('TwilioWebRTCAdapter')
+const log = createDebugLog('llamenos:webrtc:twilio')
 
 // Minimal types we need from @twilio/voice-sdk
 interface TwilioDevice {
@@ -88,7 +88,7 @@ export class TwilioWebRTCAdapter implements WebRTCAdapter {
 
     device.on('error', (...args: unknown[]) => {
       const err = args[0] as { message?: string } | undefined
-      console.error('[TwilioWebRTCAdapter] Device error:', err)
+      log('Device error:', err?.message)
       this.#emit('error', new Error(err?.message ?? 'Twilio Device error'))
     })
 
