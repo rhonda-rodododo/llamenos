@@ -220,7 +220,8 @@ Use the `test-writer` skill for guidance on writing tests. Use the `test-runner`
 
 - **Unit tests** (`.test.ts` colocated): Pure functions, services with mocked deps. Fast, no services needed.
 - **API E2E** (`tests/api/`): Endpoint behavior through HTTP. Use `authed-request.ts` helper. No browser.
-- **UI E2E** (`tests/ui/`): Full browser interaction. Use `data-testid` selectors. Use auth fixtures from `tests/fixtures/auth.ts`.
+- **UI E2E** (`tests/ui/`): Full browser interaction. Use auth fixtures from `tests/fixtures/auth.ts`.
+- **Selectors in E2E tests — stable testids, NOT text:** Use `getByTestId()` for every interactive or locatable element. **Do NOT use** `getByText()`, `getByRole('heading', { name: ... })`, `getByRole('link', { name: ... })`, `getByRole('button', { name: ... })` — these break whenever a label, heading, or copy string changes (including i18n renames and section renames). If the element you need to target doesn't have a testid, **add one to the component** in the same commit as the test. The only acceptable exceptions are: (a) Radix Select/Combobox options that don't expose per-option testids — use `getByRole('option', { name })`; (b) asserting that a decrypted value actually rendered — `getByTestId('row-x').getByText('DecryptedName')` is fine because the text assertion IS the test's purpose; (c) asserting a toast/error message content when the message itself is under test. When migrating a test that uses text selectors, the fix is to add a testid to the component and reference it — not to find a more-specific text pattern.
 - **Run tests iteratively**: Don't wait until the end. Run affected suites after each logical chunk of implementation.
 - **Hub-encrypted data in tests**: After creating hub-encrypted data (shifts, roles, report types, custom fields), remember that the React Query cache must be invalidated for other pages to see the new data.
 
