@@ -1,50 +1,49 @@
 ---
 name: logging
-description: Use when adding log statements, editing files that log, or debugging log output. Enforces the project's scoped structured logging rules (no console.*, no PII, namespaces, createLogger/createDebugLog).
+description: Use when adding log statements, editing files that log, debugging log output, or reviewing PRs/code that touches logging. Enforces scoped structured logging (no console.*, no PII in logs, namespaces, createLogger/createDebugLog). Also use this when reviewing diffs — check for console.* usage, PII leaks in log extras, wrong logger primitive, or missing namespace conventions.
 ---
 
-# Logging Rules (llamenos-hotline)
+# Logging Rules
 
-## Server
+## Server — `createLogger`
 
-- **Always use `createLogger('category.subcategory')`** from `@server/lib/logger` at module top. One logger per file.
-- **Never use `console.*`.** Biome blocks it via the `noConsole` rule.
-- **Namespaces are dot-separated**: `telephony.twilio`, `auth.webauthn`, `services.files`.
-- **Levels**: `debug` (noisy, dev), `info` (normal flow), `warn` (degraded but handled), `error` (failures).
-- **Error helper**: `log.error(msg, err, extra?)` — pass the `Error` as 2nd arg. Do NOT spread errors into `extra`.
-- **Request context (reqId, hubId, userId, traceId) auto-attaches** via AsyncLocalStorage. Don't re-add it to every call.
+- **One logger per file** at module top: `import { createLogger } from '../lib/logger'` → `const log = createLogger('domain.file')`
+- **Namespaces are dot-separated**: `telephony.twilio`, `routes.bans`, `services.files`, `jobs.retention-purge`
+- **Levels**: `debug` (noisy dev), `info` (normal flow), `warn` (degraded but handled), `error` (failures)
+- **Error helper**: `log.error(msg, err, extra?)` — pass the `Error` as 2nd arg. Never `{ err }` in extras.
+- **Request context auto-attaches** via AsyncLocalStorage (`reqId`, `hubId`, `userId`, `traceId`). Don't re-add these manually.
+- **Never use `console.*`.** Biome `noConsole` rule blocks it.
 
-### Banned in log extras (type-gate enforced)
+## Client — `createDebugLog`
 
-`Ciphertext`, `HmacHash` branded types. The TS compiler rejects them at the call site via the `Loggable<T>` type.
+- **One logger per file**: `import { createDebugLog } from '@/lib/debug-log'` → `const log = createDebugLog('llamenos:area')`
+- **Namespace starts with `llamenos:`**: `llamenos:webrtc:quality`, `llamenos:auth`, `llamenos:nostr`
+- **Single callable** — no `.info`/`.warn` methods. Just `log(msg, data)`.
+- **DEV-only.** Production bundle has zero logs (zero-knowledge). Vite strips everything.
+- **Never use `console.*`.** Biome blocks it AND Vite strips it.
+- Errors that need user visibility: use error boundary / toasts, not logs.
 
-### Runtime-redacted keys (belt-and-braces)
+## PII Rules (critical for zero-knowledge)
 
-Any extra-field key matching these patterns is replaced with `"[redacted]"`:
-- Case-insensitive partials: `phone`, `email`, `nsec`, `secret`, `token`, `ciphertext`, `encrypted`, `content`, `recovery`, `password`, `credential`
-- Exact `pin`
-- Name patterns: `name`, `firstName`, `lastName`, `fullName`, `displayName`, `userName`
+**Never log at the call site:**
+- Phone numbers, email addresses, names (first/last/full/display)
+- Message content/body, ciphertext, nsec, pubkeys, recovery keys, PINs, tokens, passwords
 
-This is a safety net — DO NOT rely on it. Still avoid logging these fields.
+**Instead log safe derivatives:**
+- `messageId`, `conversationId`, `hubId` (opaque IDs)
+- `contentLength`, `recipientCount`, `hasSender: !!phone` (summaries/booleans)
+- `callerLast4` (existing pattern, use sparingly)
 
-### Config (server env vars)
+The runtime redactor catches keys matching `/phone|email|nsec|secret|token|ciphertext|encrypted|content|recovery|password|credential/i` but do NOT rely on it — avoid logging these fields in the first place.
 
-- `LOG_LEVEL=debug|info|warn|error` (default `info`)
-- `LOG_NAMESPACES=telephony.*,auth` (default `*`)
-- `LOG_RATE_LIMITS='{"info":500}'` (JSON; defaults: debug 50/s, info 200/s, warn 500/s, error unlimited)
-- `LOG_STACKS=true` to include stack traces (default false)
+The `Loggable<T>` type gate blocks branded `Ciphertext`/`HmacHash` types at compile time.
 
-## Client
+## Code Review Checklist
 
-- **Always use `createDebugLog('llamenos:area')`** from `@/lib/debug-log`.
-- **Never use `console.*`.** Biome blocks it AND Vite strips it from the prod bundle.
-- **Client logs are DEV-only.** Production bundle contains zero logs (zero-knowledge requirement).
-- **Runtime scoping** (DEV): `localStorage.setItem('debug', 'llamenos:crypto,llamenos:webrtc:*')`.
-- No level distinction on the client — all logs go through the one `log()` callable.
-- Errors that need user-visible surfacing: throw them or use the error boundary / toast. Do not rely on logs.
-
-## When in doubt
-
-- Adding a new module? Use `createLogger('<domain>.<file>')` with dot-separated namespace.
-- Logging an error? `log.error(msg, err)`.
-- Logging sensitive user data? **Don't.** Log an ID, count, or boolean-presence marker instead.
+When reviewing a diff, flag:
+1. Any `console.*` call (must be `createLogger` or `createDebugLog`)
+2. PII in log extras (phone, name, email, content, ciphertext)
+3. Error spread into extras instead of 2nd arg (`{ err }` → `log.error(msg, err)`)
+4. Missing or wrong namespace (should match `domain.file` server-side, `llamenos:area` client-side)
+5. Client code using `createLogger` (should be `createDebugLog`) or vice versa
+6. Manual `reqId`/`hubId` in extras (auto-attaches via ALS)

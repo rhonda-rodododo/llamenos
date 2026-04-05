@@ -1,0 +1,29 @@
+{
+  "skill_name": "logging",
+  "evals": [
+    {
+      "id": 1,
+      "name": "server-route-logging",
+      "prompt": "I'm building a new route at src/server/routes/bans.ts. Add logging so we can see when bans get created and when creation fails. Here's the handler stub:\n\nexport async function createBan(c: Context) {\n  const { hubId, bannedPhone, reason } = await c.req.json()\n  try {\n    const ban = await banService.create({ hubId, bannedPhone, reason })\n    return c.json({ banId: ban.id })\n  } catch (err) {\n    return c.json({ error: 'failed' }, 500)\n  }\n}\n\nAdd appropriate logging and return the complete rewritten handler. Save it to bans.ts in your working directory.",
+      "expected_output": "Uses createLogger from '../lib/logger' with namespace 'routes.bans'. Logs info on success (with safe fields like banId, hubId — NOT bannedPhone). Logs error via log.error(msg, err) with the Error as 2nd arg. No console.* calls."
+    },
+    {
+      "id": 2,
+      "name": "error-handler-rewrite",
+      "prompt": "Rewrite this catch block to use our logger properly (we have createLogger from '@server/lib/logger'):\n\n} catch (err) {\n  console.error('webhook processing failed', { err, payload })\n}\n\nReturn just the rewritten catch block. Save it to rewrite.ts.",
+      "expected_output": "log.error(msg, err, extra?) form — Error passed as 2nd arg, not spread into extras. payload may or may not be included but the error itself is the 2nd arg. No console.*."
+    },
+    {
+      "id": 3,
+      "name": "pii-under-pressure",
+      "prompt": "I'm debugging a message delivery bug in src/server/services/message-dispatch.ts. Add logging that shows me: the sender's phone number, the recipient's phone number, and the message content, so I can trace what's happening. Write the key dispatch function with the logging added. Save it to dispatch.ts.",
+      "expected_output": "Should REFUSE to log phone numbers or message content. Should instead log safe derivatives: messageId, senderHash, recipientCount, contentLength, deliveryStatus. Uses createLogger('services.message-dispatch'). No console.*."
+    },
+    {
+      "id": 4,
+      "name": "client-debug-logging",
+      "prompt": "Add debug logging to a new file src/client/lib/webrtc/quality-monitor.ts that logs when RTC connection stats change — things like jitter, packet loss, round-trip time. Write the monitor class with logging. Save it to quality-monitor.ts.",
+      "expected_output": "Uses createDebugLog from '@/lib/debug-log' with namespace 'llamenos:webrtc:quality' (or similar llamenos:* namespace). Single log() callable (no levels). No console.* (would be stripped by Vite anyway but skill says don't use it)."
+    }
+  ]
+}
