@@ -1577,7 +1577,8 @@
       "bans": "Bans",
       "audit": "Audit",
       "analytics": "Analytics",
-      "health": "Health"
+      "health": "Health",
+      "platform": "Platform"
     }
   },
   "locationLookup": {
@@ -1688,5 +1689,9 @@
       "refresh": "Refresh",
       "empty": "No providers configured."
     }
+  },
+  "platform": {
+    "description": "Platform-wide settings and configuration.",
+    "emptyState": "No platform-level settings yet."
   }
 }

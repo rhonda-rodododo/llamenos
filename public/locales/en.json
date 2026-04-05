@@ -1722,7 +1722,8 @@
       "bans": "Bans",
       "audit": "Audit",
       "analytics": "Analytics",
-      "health": "Health"
+      "health": "Health",
+      "platform": "Platform"
     },
     "openMenu": "Open navigation menu"
   },
@@ -1750,5 +1751,9 @@
     "requireForAdmins": "Require for admins",
     "requireForUsers": "Require for users",
     "saved": "Saved"
+  },
+  "platform": {
+    "description": "Platform-wide settings and configuration.",
+    "emptyState": "No platform-level settings yet."
   }
 }

@@ -14,6 +14,7 @@ import { PasskeyPolicySection } from './passkey-policy-section'
 import { PhoneMenuLanguagesSection } from './phone-menu-languages-section'
 import { PhoneProviderSection } from './phone-provider-section'
 import { PlatformRolesSection } from './platform-roles-section'
+import { PlatformSection } from './platform-section'
 import { RcsChannelSection } from './rcs-channel-section'
 import { ReportTypesSection } from './report-types-section'
 import { SignalChannelSection } from './signal-channel-section'
@@ -60,3 +61,4 @@ registerSection('bans', BansSection)
 registerSection('audit', AuditSection)
 registerSection('analytics', AnalyticsSection)
 registerSection('health', HealthSection)
+registerSection('platform', PlatformSection)

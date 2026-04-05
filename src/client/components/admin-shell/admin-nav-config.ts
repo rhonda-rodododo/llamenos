@@ -188,6 +188,13 @@ export const adminNavConfig: AdminNavConfig = {
           requiredRole: 'role-super-admin',
           testid: 'admin-sidebar-item-health',
         },
+        {
+          slug: 'platform',
+          labelKey: 'adminNav.items.platform',
+          requiredPermissions: [],
+          requiredRole: 'role-super-admin',
+          testid: 'admin-sidebar-item-platform',
+        },
       ],
     },
   ],
