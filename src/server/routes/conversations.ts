@@ -3,9 +3,12 @@ import { KIND_CONVERSATION_ASSIGNED, KIND_MESSAGE_NEW } from '../../shared/nostr
 import { canClaimChannel, getClaimableChannels } from '../../shared/permissions'
 import type { MessagingChannelType, RecipientEnvelope } from '../../shared/types'
 import { getMessagingAdapter, getNostrPublisher } from '../lib/adapters'
+import { createLogger } from '../lib/logger'
 import { createRouter } from '../lib/openapi'
 import { checkPermission } from '../middleware/permission-guard'
 import type { AppEnv } from '../types'
+
+const log = createLogger('routes.conversations')
 
 const conversations = createRouter()
 
@@ -37,7 +40,7 @@ function publishConversationEvent(
         ],
         content: JSON.stringify(content),
       })
-      .catch((err) => console.error('[nostr] conversation event publish failed:', err))
+      .catch((err) => log.error('Nostr conversation event publish failed', err))
   } catch {
     // Nostr not configured
   }
@@ -360,7 +363,7 @@ conversations.openapi(sendMessageRoute, async (c) => {
         messageFailureReason = result.error
       }
     } catch (err) {
-      console.error(`[conversations] Failed to send outbound message via ${conv.channelType}:`, err)
+      log.error('Failed to send outbound message', err, { channelType: conv.channelType })
       messageStatus = 'failed'
       messageFailureReason = err instanceof Error ? err.message : 'Unknown error'
     }

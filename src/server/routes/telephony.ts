@@ -9,6 +9,7 @@ import {
 import { permissionGranted, resolvePermissions } from '../../shared/permissions'
 import { getTelephony } from '../lib/adapters'
 import { telephonyResponse } from '../lib/helpers'
+import { createLogger } from '../lib/logger'
 import { publishNostrEvent } from '../lib/nostr-events'
 import { startParallelRinging } from '../lib/ringing'
 import { maybeTranscribe, transcribeVoicemail } from '../lib/transcription-manager'
@@ -41,6 +42,8 @@ async function checkVoicemailMode(
   return { mode, hasAvailableUsers: onShift.length > 0, callSettings }
 }
 
+const log = createLogger('routes.telephony')
+
 const telephony = new Hono<AppEnv>()
 
 /** Build audio URL map from settings service */
@@ -66,7 +69,7 @@ function getHubId(url: URL): string | undefined {
 // Validate telephony webhook signature on all routes
 telephony.use('*', async (c, next) => {
   const url = new URL(c.req.url)
-  console.log(`[telephony] ${c.req.method} ${url.pathname}${url.search}`)
+  log.info('Telephony webhook received', { method: c.req.method, pathname: url.pathname })
   const services = c.get('services')
   const hubId = getHubId(url)
   const env = c.env
@@ -94,7 +97,7 @@ telephony.use('*', async (c, next) => {
   if (!isLocal) {
     const isValid = await adapter.validateWebhook(c.req.raw)
     if (!isValid) {
-      console.error(`[telephony] Webhook signature FAILED for ${url.pathname}`)
+      log.error('Webhook signature validation failed', undefined, { pathname: url.pathname })
       return new Response('Forbidden', { status: 403 })
     }
   }
@@ -117,9 +120,11 @@ telephony.post('/incoming', async (c) => {
   const { callSid, callerNumber, calledNumber } = await globalAdapter.parseIncomingWebhook(
     c.req.raw
   )
-  console.log(
-    `[telephony] /incoming callSid=${callSid} caller=***${callerNumber.slice(-4)} called=${calledNumber || 'unknown'}`
-  )
+  log.info('Incoming call', {
+    callSid,
+    callerLast4: callerNumber.slice(-4),
+    hasCalledNumber: !!calledNumber,
+  })
 
   // Look up which hub owns the called phone number
   let hubId: string | undefined
@@ -127,7 +132,7 @@ telephony.post('/incoming', async (c) => {
     const hub = await services.settings.getHubByPhone(calledNumber)
     if (hub) {
       hubId = hub.id
-      console.log(`[telephony] /incoming resolved hub=${hubId} for calledNumber=${calledNumber}`)
+      log.info('Resolved hub from called number', { hubId })
     }
   }
 
@@ -136,7 +141,7 @@ telephony.post('/incoming', async (c) => {
     const allHubs = await services.settings.getHubs()
     if (allHubs.length === 1) {
       hubId = allHubs[0].id
-      console.log(`[telephony] /incoming defaulted to sole hub=${hubId}`)
+      log.info('Defaulted to sole hub', { hubId })
     }
   }
 
@@ -239,7 +244,7 @@ telephony.post('/language-selected', async (c) => {
           status: 'voicemail',
           callerLast4: callerNumber.slice(-4),
         })
-        .catch((err) => console.error('[telephony] failed to create voicemail call record:', err))
+        .catch((err) => log.error('Failed to create voicemail call record', err))
 
       const vmResponse = await adapter.handleVoicemail({
         callSid,
@@ -258,11 +263,9 @@ telephony.post('/language-selected', async (c) => {
 
     // Normal flow — ring users
     const origin = new URL(c.req.url).origin
-    console.log(
-      `[telephony] /language-selected starting parallel ringing callSid=${callSid} origin=${origin} hub=${hubId || 'global'}`
-    )
+    log.info('Starting parallel ringing', { callSid, hubId: hubId || 'global' })
     startParallelRinging(callSid, callerNumber, origin, env, services, hubId).catch((err) =>
-      console.error('[background]', err)
+      log.error('Parallel ringing background failed', err)
     )
   }
 
@@ -335,7 +338,7 @@ telephony.post('/captcha', async (c) => {
 
     const origin = new URL(c.req.url).origin
     startParallelRinging(callSid, callerNumber, origin, env, services, hubId).catch((err) =>
-      console.error('[background]', err)
+      log.error('Parallel ringing background failed', err)
     )
   }
 
@@ -405,9 +408,7 @@ telephony.post('/call-status', async (c) => {
   const { status: callStatus } = await adapter.parseCallStatusWebhook(c.req.raw)
   const parentCallSid = url.searchParams.get('parentCallSid') || ''
 
-  console.log(
-    `[call-status] status=${callStatus} parentCallSid=${parentCallSid} hub=${hubId || 'global'}`
-  )
+  log.info('Call status update', { status: callStatus, parentCallSid, hubId: hubId || 'global' })
 
   if (
     callStatus === 'completed' ||
@@ -419,11 +420,11 @@ telephony.post('/call-status', async (c) => {
     if (callStatus === 'completed') {
       const activeCalls = await services.calls.getActiveCalls(hubId)
       const preCall = activeCalls.find((call) => call.callSid === parentCallSid)
-      console.log(`[call-status] ending call ${parentCallSid}, found in active: ${!!preCall}`)
+      log.info('Ending call', { parentCallSid, foundInActive: !!preCall })
 
       try {
         await services.calls.deleteActiveCall(parentCallSid, hubId)
-        console.log(`[call-status] ended call ${parentCallSid}`)
+        log.info('Ended call', { parentCallSid })
 
         const duration = preCall
           ? Math.floor((Date.now() - new Date(preCall.startedAt).getTime()) / 1000)
@@ -434,7 +435,7 @@ telephony.post('/call-status', async (c) => {
         })
       } catch {
         // Call may have already been ended by /call-recording
-        console.log(`[call-status] call ${parentCallSid} already ended`)
+        log.info('Call already ended', { parentCallSid })
       }
     }
   }
@@ -488,7 +489,7 @@ telephony.post('/queue-exit', async (c) => {
     // Caller hung up while in queue — end the call as unanswered
     await services.calls
       .deleteActiveCall(callSid, hubId)
-      .catch((err) => console.error('[telephony] failed to delete active call:', callSid, err))
+      .catch((err) => log.error('Failed to delete active call', err, { callSid }))
     await services.records.addAuditEntry(hubId ?? 'global', 'callMissed', 'system', { callSid })
     return telephonyResponse(adapter.emptyResponse())
   }
@@ -552,7 +553,7 @@ telephony.post('/call-recording', async (c) => {
     // (safety net in case /call-status doesn't fire)
     try {
       await services.calls.deleteActiveCall(parentCallSid, hubId)
-      console.log(`[call-recording] ended call ${parentCallSid}`)
+      log.info('Ended call via recording callback', { parentCallSid })
 
       if (pubkey) {
         await services.records.addAuditEntry(hubId ?? 'global', 'callEnded', pubkey, {
@@ -560,7 +561,7 @@ telephony.post('/call-recording', async (c) => {
         })
       }
     } catch {
-      console.log(`[call-recording] call ${parentCallSid} already ended`)
+      log.info('Call already ended via recording callback', { parentCallSid })
     }
 
     if (recordingSid) {
@@ -574,7 +575,7 @@ telephony.post('/call-recording', async (c) => {
       }
 
       maybeTranscribe(parentCallSid, recordingSid, pubkey, hubId ?? 'global', env, services).catch(
-        (err) => console.error('[background]', err)
+        (err) => log.error('Transcribe background failed', err)
       )
     }
   }
@@ -619,7 +620,7 @@ telephony.post('/voicemail-recording', async (c) => {
   if (recordingStatus === 'completed') {
     await services.calls
       .updateActiveCall(callSid, { status: 'voicemail' }, hubId)
-      .catch((err) => console.error('[telephony] failed to update voicemail status:', callSid, err))
+      .catch((err) => log.error('Failed to update voicemail status', err, { callSid }))
 
     // Persist voicemail flag and recording SID to call_records (upsert — record may not exist yet)
     if (recordingSid) {
@@ -629,9 +630,7 @@ telephony.post('/voicemail-recording', async (c) => {
           hasRecording: true,
           recordingSid,
         })
-        .catch((err) =>
-          console.error('[telephony] failed to persist voicemail record:', callSid, err)
-        )
+        .catch((err) => log.error('Failed to persist voicemail record', err, { callSid }))
     }
 
     await services.records.addAuditEntry(hubId ?? 'global', 'voicemailReceived', 'system', {
@@ -697,16 +696,16 @@ telephony.post('/voicemail-recording', async (c) => {
                 { type: 'voicemail', callSid, hubId: hubId ?? 'global' },
                 env
               )
-              .catch((err: unknown) => console.error('[push] voicemail notification failed:', err))
+              .catch((err: unknown) => log.error('Voicemail push notification failed', err))
           }
         } catch (err) {
-          console.error('[background] voicemail storage failed:', callSid, err)
+          log.error('Voicemail storage background failed', err, { callSid })
         }
       })()
     }
 
     transcribeVoicemail(callSid, hubId ?? 'global', env, services).catch((err) =>
-      console.error('[background]', err)
+      log.error('Transcribe voicemail background failed', err)
     )
   }
 

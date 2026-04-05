@@ -1,7 +1,10 @@
 import { createRoute, z } from '@hono/zod-openapi'
+import { createLogger } from '../lib/logger'
 import { createRouter } from '../lib/openapi'
 import { generateWebRtcToken, isWebRtcConfigured } from '../telephony/webrtc-tokens'
 import type { AppEnv } from '../types'
+
+const log = createLogger('routes.webrtc')
 
 const webrtc = createRouter()
 
@@ -72,7 +75,7 @@ webrtc.openapi(webrtcTokenRoute, async (c) => {
       200
     )
   } catch (err) {
-    console.error('[webrtc] Token generation failed:', err)
+    log.error('Token generation failed', err)
     return c.json({ error: 'Failed to generate WebRTC token' }, 500)
   }
 })

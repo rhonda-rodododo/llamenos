@@ -2,10 +2,13 @@ import { createRoute, z } from '@hono/zod-openapi'
 import { KIND_CONVERSATION_ASSIGNED, KIND_MESSAGE_NEW } from '../../shared/nostr-events'
 import type { RecipientEnvelope } from '../../shared/types'
 import { getNostrPublisher } from '../lib/adapters'
+import { createLogger } from '../lib/logger'
 import { createRouter } from '../lib/openapi'
 import { isReportOwner } from '../lib/report-access'
 import { checkPermission, requirePermission } from '../middleware/permission-guard'
 import type { AppEnv } from '../types'
+
+const log = createLogger('routes.reports')
 
 /** Publish a report/conversation event to the Nostr relay */
 function publishReportEvent(
@@ -26,7 +29,7 @@ function publishReportEvent(
         ],
         content: JSON.stringify(content),
       })
-      .catch((err) => console.error('[nostr] report event publish failed:', err))
+      .catch((err) => log.error('Nostr report event publish failed', err))
   } catch {
     // Nostr not configured
   }
