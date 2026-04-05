@@ -1627,5 +1627,11 @@
         "hybrid": "Cross-device"
       }
     }
+  },
+  "cookiesRequired": {
+    "title": "Cookies are required",
+    "body": "Llámenos uses browser cookies to keep your session signed in. No tracking, no third parties — just the cookies this site needs to work. Please enable cookies for this site and try again.",
+    "retry": "I enabled cookies — retry",
+    "stillBlocked": "Cookies still appear to be blocked. Check your browser settings for this site."
   }
 }
