@@ -433,7 +433,7 @@ function AuthenticatedLayout() {
                 <NavLink to="/audit" icon={<ScrollText className="h-4 w-4" />}>
                   {t('nav.auditLog')}
                 </NavLink>
-                <NavLink to="/admin/settings" icon={<Settings className="h-4 w-4" />}>
+                <NavLink to="/admin" icon={<Settings className="h-4 w-4" />}>
                   {t('nav.hubSettings', { defaultValue: 'Hub Settings' })}
                 </NavLink>
                 {hasPermission('system:manage-hubs') && (
