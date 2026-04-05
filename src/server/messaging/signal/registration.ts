@@ -1,5 +1,8 @@
 import type { MessagingConfig, SignalRegistrationPending } from '../../../shared/types'
+import { createLogger } from '../../lib/logger'
 import type { SettingsService } from '../../services/settings'
+
+const log = createLogger('messaging.signal-registration')
 
 const SIGNAL_VERIFICATION_PATTERN = /^Your Signal code: \d{6}/
 const SIGNAL_CODE_PATTERN = /Your Signal code: (\d{6})/
@@ -93,8 +96,8 @@ export async function completeSignalRegistration(
         status: 'failed',
         error: errorMsg,
       })
-    } catch {
-      console.error('[signal-registration] Failed to write error state:', errorMsg)
+    } catch (writeErr) {
+      log.error('Failed to write error state', writeErr)
     }
   }
 }

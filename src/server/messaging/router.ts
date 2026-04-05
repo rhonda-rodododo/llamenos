@@ -8,7 +8,10 @@ import {
 } from '../../shared/nostr-events'
 import type { MessagingChannelType, MessagingConfig, WhatsAppConfig } from '../../shared/types'
 import { getMessagingAdapter, getNostrPublisher } from '../lib/adapters'
+import { createLogger } from '../lib/logger'
 import type { Services } from '../services'
+
+const log = createLogger('messaging.router')
 import type { AppEnv } from '../types'
 import type { IncomingMessage, MessageStatusUpdate, MessagingAdapter } from './adapter'
 
@@ -88,7 +91,7 @@ messaging.post('/:channel/webhook', async (c) => {
   if (!isLocal) {
     const isValid = await adapter.validateWebhook(c.req.raw)
     if (!isValid) {
-      console.error(`[messaging] Webhook signature FAILED for ${channel}`)
+      log.error('Webhook signature validation failed', undefined, { channel })
       return new Response('Forbidden', { status: 403 })
     }
   }
@@ -112,7 +115,7 @@ messaging.post('/:channel/webhook', async (c) => {
   try {
     incoming = await adapter.parseIncomingMessage(c.req.raw)
   } catch (err) {
-    console.error(`[messaging] Failed to parse ${channel} webhook:`, err)
+    log.error('Failed to parse webhook', err, { channel })
     return c.json({ error: 'Failed to parse message' }, 400)
   }
 
@@ -153,9 +156,10 @@ messaging.post('/:channel/webhook', async (c) => {
           // Map sender to user — requires identity lookup by phone hash which is complex.
           // For now, log the opt-out request. Future: find user by Signal phone hash,
           // then call services.firehose.addOptout(conn.id, userId).
-          console.log(
-            `[firehose] Opt-out request for connection ${conn.id} from ${incoming.senderIdentifierHash}`
-          )
+          log.info('Firehose opt-out request', {
+            connectionId: conn.id,
+            senderHash: incoming.senderIdentifierHash,
+          })
         }
       }
 
@@ -211,7 +215,7 @@ messaging.post('/:channel/webhook', async (c) => {
         await services.contacts.linkConversation(contact.id, conversation.id, hId, 'auto')
       }
     } catch (err) {
-      console.error('[messaging] auto-link contact failed (non-fatal):', err)
+      log.error('Auto-link contact failed (non-fatal)', err)
     }
   }
 
@@ -245,7 +249,7 @@ messaging.post('/:channel/webhook', async (c) => {
   // Auto-assignment for new conversations
   if (isNew && conversation.status === 'waiting') {
     tryAutoAssign(services, c.env, conversation.id, channel, hId).catch((err) =>
-      console.error('[background]', err)
+      log.error('Auto-assign background task failed', err)
     )
   }
 
@@ -255,7 +259,7 @@ messaging.post('/:channel/webhook', async (c) => {
       channel,
       senderHash: incoming.senderIdentifierHash,
     })
-    .catch((err) => console.error('[background]', err))
+    .catch((err) => log.error('Audit entry background task failed', err))
 
   // Return 200 to acknowledge webhook (providers expect fast acknowledgment)
   return c.json({ ok: true })
@@ -280,7 +284,7 @@ async function handleStatusUpdate(
       deliveryError: statusUpdate.failureReason,
     })
   } catch (err) {
-    console.error('[messaging] Failed to update message delivery status:', err)
+    log.error('Failed to update message delivery status', err)
   }
 
   // Publish status update to Nostr relay so clients can react in real-time
@@ -302,7 +306,7 @@ async function handleStatusUpdate(
           ...(statusUpdate.failureReason ? { failureReason: statusUpdate.failureReason } : {}),
         }),
       })
-      .catch((err) => console.error('[nostr] messaging status event publish failed:', err))
+      .catch((err) => log.error('Nostr status event publish failed', err))
   } catch {
     // Nostr not configured
   }
@@ -401,17 +405,19 @@ async function tryAutoAssign(
           }),
         })
         .catch((err: unknown) => {
-          console.warn('[messaging] Nostr notify for auto-assignment failed:', err)
+          log.warn('Nostr notify for auto-assignment failed', {
+            err: err instanceof Error ? err.message : String(err),
+          })
         })
     } catch (err) {
-      console.warn('[messaging] Failed to get Nostr publisher for auto-assignment:', err)
+      log.warn('Failed to get Nostr publisher for auto-assignment', {
+        err: err instanceof Error ? err.message : String(err),
+      })
     }
 
-    console.log(
-      `[messaging] Auto-assigned conversation ${conversationId} to ${bestCandidate.slice(0, 8)}`
-    )
+    log.info('Auto-assigned conversation', { conversationId })
   } catch (err) {
-    console.error('[messaging] Auto-assignment failed:', err)
+    log.error('Auto-assignment failed', err)
   }
 }
 
@@ -437,9 +443,9 @@ async function handleFirehoseMessage(
   // Encrypt message body for the agent + admins
   const adminPubkey = env.ADMIN_DECRYPTION_PUBKEY || env.ADMIN_PUBKEY
   if (!adminPubkey) {
-    console.warn(
-      `[firehose] Cannot buffer message for connection ${connection.id}: ADMIN_DECRYPTION_PUBKEY and ADMIN_PUBKEY are both unconfigured`
-    )
+    log.warn('Cannot buffer firehose message: admin pubkeys unconfigured', {
+      connectionId: connection.id,
+    })
     return false
   }
 
@@ -495,10 +501,10 @@ async function handleFirehoseMessage(
           connectionId: connection.id,
         }),
       })
-      .catch((err) => console.error('[nostr] firehose event publish failed:', err))
+      .catch((err) => log.error('Nostr firehose event publish failed', err))
   } catch (err) {
     if (err instanceof Error && !err.message.includes('not configured')) {
-      console.error('[firehose] Unexpected Nostr error:', err)
+      log.error('Unexpected Nostr error', err)
     }
   }
 
@@ -508,7 +514,7 @@ async function handleFirehoseMessage(
       connectionId: connection.id,
       senderHash: incoming.senderIdentifierHash,
     })
-    .catch((err) => console.error('[background]', err))
+    .catch((err) => log.error('Firehose audit entry background task failed', err))
 
   return true
 }
