@@ -191,8 +191,8 @@ test.describe('Admin flow', () => {
       'data-section',
       'spam-protection'
     )
-    await expect(adminPage.getByText('Voice CAPTCHA', { exact: true })).toBeVisible()
-    await expect(adminPage.getByText('Rate Limiting', { exact: true })).toBeVisible()
+    await expect(adminPage.getByTestId('admin-spam-protection-captcha-switch')).toBeVisible()
+    await expect(adminPage.getByTestId('admin-spam-protection-rate-limit-switch')).toBeVisible()
   })
 
   test('admin transcription section exposes switches', async ({ adminPage }) => {
