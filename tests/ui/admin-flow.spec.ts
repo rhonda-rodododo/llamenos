@@ -1,5 +1,5 @@
 import { expect, test } from '../fixtures/auth'
-import { uniquePhone } from '../helpers'
+import { navigateAfterLogin, uniquePhone } from '../helpers'
 
 test.describe('Admin flow', () => {
   test('login shows dashboard with admin nav', async ({ adminPage }) => {
@@ -177,36 +177,31 @@ test.describe('Admin flow', () => {
     await adminPage.waitForTimeout(1000)
   })
 
-  test('admin settings page loads with all sections', async ({ adminPage }) => {
-    await adminPage.getByRole('link', { name: 'Hub Settings' }).click()
-    await adminPage.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {})
-    await expect(adminPage.getByRole('heading', { name: 'Hub Settings', exact: true })).toBeVisible(
-      {
-        timeout: 15000,
-      }
+  test('admin sidebar nav exposes core sections', async ({ adminPage }) => {
+    await navigateAfterLogin(adminPage, '/admin')
+    await expect(adminPage.getByTestId('admin-shell')).toBeVisible({ timeout: 15000 })
+
+    // Core sidebar items should be visible
+    await expect(adminPage.getByTestId('admin-sidebar-item-transcription')).toBeVisible()
+    await expect(adminPage.getByTestId('admin-sidebar-item-spam-protection')).toBeVisible()
+
+    // Navigate to Spam Protection and verify its content
+    await navigateAfterLogin(adminPage, '/admin/spam-protection')
+    await expect(adminPage.getByTestId('admin-section')).toHaveAttribute(
+      'data-section',
+      'spam-protection'
     )
-
-    // Section headers are always visible (in collapsible trigger)
-    await expect(adminPage.getByRole('heading', { name: 'Transcription' })).toBeVisible()
-    await expect(adminPage.getByRole('heading', { name: 'Spam Mitigation' })).toBeVisible()
-
-    // Expand Spam section to see content
-    await adminPage.getByRole('heading', { name: 'Spam Mitigation' }).click()
-    await expect(adminPage.getByText('Voice CAPTCHA')).toBeVisible()
-    await expect(adminPage.getByText('Rate Limiting')).toBeVisible()
+    await expect(adminPage.getByText('Voice CAPTCHA', { exact: true })).toBeVisible()
+    await expect(adminPage.getByText('Rate Limiting', { exact: true })).toBeVisible()
   })
 
-  test('admin settings toggles work', async ({ adminPage }) => {
-    await adminPage.getByRole('link', { name: 'Hub Settings' }).click()
-    await adminPage.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {})
-    await expect(adminPage.getByRole('heading', { name: 'Hub Settings', exact: true })).toBeVisible(
-      {
-        timeout: 15000,
-      }
+  test('admin transcription section exposes switches', async ({ adminPage }) => {
+    await navigateAfterLogin(adminPage, '/admin/transcription')
+    await expect(adminPage.getByTestId('admin-section')).toHaveAttribute(
+      'data-section',
+      'transcription'
     )
 
-    // Expand transcription section to see its switches
-    await adminPage.getByRole('heading', { name: 'Transcription' }).click()
     const switches = adminPage.getByRole('switch')
     const count = await switches.count()
     expect(count).toBeGreaterThan(0)
@@ -250,38 +245,6 @@ test.describe('Admin flow', () => {
     await adminPage.getByRole('combobox', { name: /cambiar a/i }).click()
     await adminPage.getByRole('option', { name: /english/i }).click()
     await expect(adminPage.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible()
-  })
-
-  test('admin settings shows status summaries when collapsed', async ({ adminPage }) => {
-    await adminPage.getByRole('link', { name: 'Hub Settings' }).click()
-    await adminPage.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {})
-    await expect(adminPage.getByRole('heading', { name: 'Hub Settings', exact: true })).toBeVisible(
-      {
-        timeout: 15000,
-      }
-    )
-
-    // Wait for settings to load
-    await adminPage.waitForTimeout(1000)
-
-    // Telephony section should show status summary (e.g., "Not configured" or provider name)
-    // The status text is in a span with text-xs text-muted-foreground, hidden on mobile (sm:block)
-    const telephonyCard = adminPage.locator('#telephony-provider')
-    await expect(telephonyCard).toBeVisible()
-
-    // Transcription status should show "Enabled" or "Disabled"
-    const transcriptionCard = adminPage.locator('#transcription')
-    await expect(transcriptionCard).toBeVisible()
-    const transcriptionStatus = transcriptionCard.locator('span.text-xs')
-    // At least one status text should be visible (on desktop viewports)
-    const statusCount = await adminPage
-      .locator('.text-xs.text-muted-foreground')
-      .filter({
-        hasText:
-          /(Enabled|Disabled|Not configured|Not required|languages|fields|None|CAPTCHA|Default|Customized)/i,
-      })
-      .count()
-    expect(statusCount).toBeGreaterThan(0)
   })
 
   test('logout works', async ({ adminPage }) => {
