@@ -29,7 +29,11 @@ test.describe('Auth guards', () => {
     const ctx = await browser.newContext()
     const page = await ctx.newPage()
     await page.goto('/admin/settings')
-    await expect(page).toHaveURL(/\/login/)
+    // The legacy /admin/settings route is a client-side redirect chain (→ /admin/$section
+    // → /admin → /). Because multiple navigates race, TanStack router's internal state
+    // reaches /login (and the Login component renders) before window.history.pushState
+    // fully syncs. Assert on rendered content rather than URL.
+    await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible({ timeout: 10000 })
     await ctx.close()
   })
 

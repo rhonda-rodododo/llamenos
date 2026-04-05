@@ -116,8 +116,12 @@ test.describe('Multi-hub architecture — UI', () => {
     await adminPage.getByTestId('delete-hub-confirm-input').fill(hubName)
     await expect(confirmBtn).toBeEnabled()
 
-    // Cancel without deleting
+    // Cancel without deleting — closes the inner delete-confirm dialog.
+    // The outer edit dialog (admin-hubs-edit-dialog) remains open; verify the
+    // inner confirm dialog's inputs/button are gone, then close the outer too.
     await adminPage.getByRole('button', { name: /cancel/i }).click()
+    await expect(adminPage.getByTestId('delete-hub-confirm-btn')).not.toBeVisible()
+    await adminPage.keyboard.press('Escape')
     await expect(adminPage.getByRole('dialog')).not.toBeVisible()
   })
 
