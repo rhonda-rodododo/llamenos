@@ -126,6 +126,12 @@ export const adminNavConfig: AdminNavConfig = {
           requiredPermissions: ['settings:read'],
           testid: 'admin-sidebar-item-messaging-sms',
         },
+        {
+          slug: 'rcs',
+          labelKey: 'adminNav.items.rcs',
+          requiredPermissions: ['settings:read'],
+          testid: 'admin-sidebar-item-rcs',
+        },
       ],
     },
     // Platform

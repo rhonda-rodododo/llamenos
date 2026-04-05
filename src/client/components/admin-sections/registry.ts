@@ -8,6 +8,7 @@ import { MessagingSmsSection } from './messaging-sms-section'
 import { PasskeyPolicySection } from './passkey-policy-section'
 import { PhoneMenuLanguagesSection } from './phone-menu-languages-section'
 import { PhoneProviderSection } from './phone-provider-section'
+import { RcsChannelSection } from './rcs-channel-section'
 import { ReportTypesSection } from './report-types-section'
 import { SpamProtectionSection } from './spam-section'
 import { TagsSection } from './tags-section'
@@ -44,3 +45,4 @@ registerSection('transcription', TranscriptionSection)
 registerSection('spam-protection', SpamProtectionSection)
 registerSection('phone-provider', PhoneProviderSection)
 registerSection('messaging-sms', MessagingSmsSection)
+registerSection('rcs', RcsChannelSection)
