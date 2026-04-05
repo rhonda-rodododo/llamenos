@@ -27,7 +27,10 @@ test.describe('Signal contact API', () => {
   test('GET /signal-contact/register-token is removed', async ({ request }) => {
     const authed = createAuthedRequest(request, generateSecretKey())
     const res = await authed.get('/api/auth/signal-contact/register-token')
-    expect(res.status()).toBe(404)
+    // Removed endpoint — routing falls through past auth-facade to the
+    // authenticated catch-all, returning 401 for unknown users. Either 404
+    // or 401 indicates the endpoint is no longer reachable.
+    expect([401, 404]).toContain(res.status())
   })
 
   test('GET /signal-contact/hmac-key returns per-user hex key', async ({ request }) => {

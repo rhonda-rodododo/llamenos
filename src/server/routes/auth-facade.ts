@@ -448,6 +448,8 @@ authFacade.use('/events/*', jwtAuth)
 authFacade.use('/signal-contact', jwtAuth)
 authFacade.use('/signal-contact/*', jwtAuth)
 authFacade.use('/security-prefs', jwtAuth)
+authFacade.use('/kek-proof', jwtAuth)
+authFacade.use('/kek-proof/*', jwtAuth)
 
 // POST /webauthn/register-options
 authFacade.post('/webauthn/register-options', async (c) => {
