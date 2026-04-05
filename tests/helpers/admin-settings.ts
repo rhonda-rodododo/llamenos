@@ -1,6 +1,23 @@
 import type { Page } from '@playwright/test'
 import { expect } from '@playwright/test'
 
+/**
+ * Navigate to an admin path via the in-page TanStack Router, preserving
+ * in-memory auth/key state. Use this in tests that start from an
+ * already-authenticated page fixture — avoids a full page reload (which
+ * would wipe the crypto worker's unlocked key) and avoids
+ * navigateAfterLogin's Dashboard-link probe.
+ */
+export async function gotoAdminPath(page: Page, path: string): Promise<void> {
+  await page.evaluate((p) => {
+    const router = (window as { __TEST_ROUTER?: { navigate: (opts: { to: string }) => void } })
+      .__TEST_ROUTER
+    if (!router) throw new Error('__TEST_ROUTER not exposed — app not in test mode')
+    router.navigate({ to: p })
+  }, path)
+  await page.getByTestId('admin-shell').waitFor({ state: 'visible', timeout: 10000 })
+}
+
 export async function gotoAdminSection(page: Page, slug: string) {
   await page.goto(`/admin/${slug}`)
   await expect(page.getByTestId('admin-section')).toHaveAttribute('data-section', slug)
@@ -8,7 +25,9 @@ export async function gotoAdminSection(page: Page, slug: string) {
 
 export async function expectActiveNavItem(page: Page, slug: string) {
   const item = page.getByTestId(`admin-sidebar-item-${slug}`)
-  await expect(item).toHaveClass(/bg-accent/)
+  // TanStack Router sets aria-current="page" + data-status="active" on the
+  // active Link. This is stable across styling changes, unlike class names.
+  await expect(item).toHaveAttribute('data-status', 'active')
 }
 
 export async function openMobileNav(page: Page) {
