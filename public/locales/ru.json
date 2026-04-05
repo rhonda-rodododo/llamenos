@@ -1453,5 +1453,20 @@
     "testConnection": "Проверить подключение",
     "testSuccess": "Подключение успешно ({{latency}}мс)",
     "testFailed": "Проверка подключения не удалась"
+  },
+  "adminNav": {
+    "scopes": {
+      "thisHub": "This Hub",
+      "platform": "Platform"
+    },
+    "groups": {
+      "general": "General",
+      "people": "People",
+      "intake": "Intake",
+      "callsVoice": "Calls & Voice",
+      "channels": "Channels",
+      "platform": "Platform"
+    },
+    "openMenu": "Open navigation menu"
   }
 }

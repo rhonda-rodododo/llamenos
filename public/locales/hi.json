@@ -1453,5 +1453,20 @@
     "testConnection": "कनेक्शन जाँचें",
     "testSuccess": "कनेक्शन सफल ({{latency}}ms)",
     "testFailed": "कनेक्शन परीक्षण विफल"
+  },
+  "adminNav": {
+    "scopes": {
+      "thisHub": "This Hub",
+      "platform": "Platform"
+    },
+    "groups": {
+      "general": "General",
+      "people": "People",
+      "intake": "Intake",
+      "callsVoice": "Calls & Voice",
+      "channels": "Channels",
+      "platform": "Platform"
+    },
+    "openMenu": "Open navigation menu"
   }
 }

@@ -1453,5 +1453,20 @@
     "testConnection": "Verbindung testen",
     "testSuccess": "Verbindung erfolgreich ({{latency}}ms)",
     "testFailed": "Verbindungstest fehlgeschlagen"
+  },
+  "adminNav": {
+    "scopes": {
+      "thisHub": "This Hub",
+      "platform": "Platform"
+    },
+    "groups": {
+      "general": "General",
+      "people": "People",
+      "intake": "Intake",
+      "callsVoice": "Calls & Voice",
+      "channels": "Channels",
+      "platform": "Platform"
+    },
+    "openMenu": "Open navigation menu"
   }
 }

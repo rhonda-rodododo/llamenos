@@ -1453,5 +1453,20 @@
     "testConnection": "اختبار الاتصال",
     "testSuccess": "نجح الاتصال ({{latency}} مللي ثانية)",
     "testFailed": "فشل اختبار الاتصال"
+  },
+  "adminNav": {
+    "scopes": {
+      "thisHub": "This Hub",
+      "platform": "Platform"
+    },
+    "groups": {
+      "general": "General",
+      "people": "People",
+      "intake": "Intake",
+      "callsVoice": "Calls & Voice",
+      "channels": "Channels",
+      "platform": "Platform"
+    },
+    "openMenu": "Open navigation menu"
   }
 }

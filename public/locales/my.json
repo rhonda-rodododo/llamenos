@@ -1530,5 +1530,20 @@
     "channelWeb": "ဝက်ဘ်",
     "channelsSaved": "ချန်နယ်ဆက်တင်များ သိမ်းဆည်းပြီး",
     "selectChannels": "ချန်နယ်များ ရွေးချယ်ပါ"
+  },
+  "adminNav": {
+    "scopes": {
+      "thisHub": "This Hub",
+      "platform": "Platform"
+    },
+    "groups": {
+      "general": "General",
+      "people": "People",
+      "intake": "Intake",
+      "callsVoice": "Calls & Voice",
+      "channels": "Channels",
+      "platform": "Platform"
+    },
+    "openMenu": "Open navigation menu"
   }
 }

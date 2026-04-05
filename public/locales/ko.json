@@ -1453,5 +1453,20 @@
     "testConnection": "연결 테스트",
     "testSuccess": "연결 성공 ({{latency}}ms)",
     "testFailed": "연결 테스트 실패"
+  },
+  "adminNav": {
+    "scopes": {
+      "thisHub": "This Hub",
+      "platform": "Platform"
+    },
+    "groups": {
+      "general": "General",
+      "people": "People",
+      "intake": "Intake",
+      "callsVoice": "Calls & Voice",
+      "channels": "Channels",
+      "platform": "Platform"
+    },
+    "openMenu": "Open navigation menu"
   }
 }

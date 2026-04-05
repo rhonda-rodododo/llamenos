@@ -1531,5 +1531,20 @@
     "channelWeb": "Web",
     "channelsSaved": "Ri uchojmixik taq b'eyal xyakoj",
     "selectChannels": "Kechax taq b'eyal"
+  },
+  "adminNav": {
+    "scopes": {
+      "thisHub": "This Hub",
+      "platform": "Platform"
+    },
+    "groups": {
+      "general": "General",
+      "people": "People",
+      "intake": "Intake",
+      "callsVoice": "Calls & Voice",
+      "channels": "Channels",
+      "platform": "Platform"
+    },
+    "openMenu": "Open navigation menu"
   }
 }

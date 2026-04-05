@@ -1461,5 +1461,20 @@
     "testConnection": "Probar conexión",
     "testSuccess": "Conexión exitosa ({{latency}}ms)",
     "testFailed": "La prueba de conexión falló"
+  },
+  "adminNav": {
+    "scopes": {
+      "thisHub": "This Hub",
+      "platform": "Platform"
+    },
+    "groups": {
+      "general": "General",
+      "people": "People",
+      "intake": "Intake",
+      "callsVoice": "Calls & Voice",
+      "channels": "Channels",
+      "platform": "Platform"
+    },
+    "openMenu": "Open navigation menu"
   }
 }

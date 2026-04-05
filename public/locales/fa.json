@@ -1530,5 +1530,20 @@
     "channelWeb": "وب",
     "channelsSaved": "تنظیمات کانال ذخیره شد",
     "selectChannels": "انتخاب کانال‌ها"
+  },
+  "adminNav": {
+    "scopes": {
+      "thisHub": "This Hub",
+      "platform": "Platform"
+    },
+    "groups": {
+      "general": "General",
+      "people": "People",
+      "intake": "Intake",
+      "callsVoice": "Calls & Voice",
+      "channels": "Channels",
+      "platform": "Platform"
+    },
+    "openMenu": "Open navigation menu"
   }
 }

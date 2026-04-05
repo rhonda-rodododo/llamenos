@@ -1453,5 +1453,20 @@
     "testConnection": "Subukan ang Koneksyon",
     "testSuccess": "Matagumpay ang koneksyon ({{latency}}ms)",
     "testFailed": "Nabigo ang pagsubok ng koneksyon"
+  },
+  "adminNav": {
+    "scopes": {
+      "thisHub": "This Hub",
+      "platform": "Platform"
+    },
+    "groups": {
+      "general": "General",
+      "people": "People",
+      "intake": "Intake",
+      "callsVoice": "Calls & Voice",
+      "channels": "Channels",
+      "platform": "Platform"
+    },
+    "openMenu": "Open navigation menu"
   }
 }

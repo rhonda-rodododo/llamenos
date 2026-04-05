@@ -1453,5 +1453,20 @@
     "testConnection": "Teste Koneksyon",
     "testSuccess": "Koneksyon reyisi ({{latency}}ms)",
     "testFailed": "Tès koneksyon echwe"
+  },
+  "adminNav": {
+    "scopes": {
+      "thisHub": "This Hub",
+      "platform": "Platform"
+    },
+    "groups": {
+      "general": "General",
+      "people": "People",
+      "intake": "Intake",
+      "callsVoice": "Calls & Voice",
+      "channels": "Channels",
+      "platform": "Platform"
+    },
+    "openMenu": "Open navigation menu"
   }
 }
