@@ -1,4 +1,5 @@
 import { expect, test } from '../fixtures/auth'
+import { navigateAfterLogin } from '../helpers'
 import { createAdminApiFromStorageState } from '../helpers/authed-request'
 
 test.describe('Signal Automated Registration', () => {
@@ -87,14 +88,9 @@ test.describe('Signal Automated Registration', () => {
     expect(body.error).toContain('required')
   })
 
-  test('Signal settings show registration flow when not configured', async ({ adminPage }) => {
-    await adminPage.getByRole('link', { name: 'Hub Settings' }).click()
-
-    // The settings page should load — verify the heading
-    await expect(adminPage.getByRole('heading', { name: 'Hub Settings', exact: true })).toBeVisible(
-      {
-        timeout: 10000,
-      }
-    )
+  test('Signal admin section loads', async ({ adminPage }) => {
+    await navigateAfterLogin(adminPage, '/admin/signal')
+    await expect(adminPage.getByTestId('admin-section')).toHaveAttribute('data-section', 'signal')
+    await expect(adminPage.getByTestId('admin-section-heading')).toBeVisible({ timeout: 10000 })
   })
 })
