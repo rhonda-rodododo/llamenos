@@ -1,4 +1,5 @@
 import { type Page, expect, test } from '../fixtures/auth'
+import { navigateAfterLogin } from '../helpers'
 
 /**
  * End-to-end: custom fields defined in admin settings → used in notes forms.
@@ -8,18 +9,17 @@ import { type Page, expect, test } from '../fixtures/auth'
 
 /** Create a text custom field via admin settings UI */
 async function createCustomTextField(page: Page, label: string) {
-  await page.getByRole('link', { name: 'Hub Settings' }).click()
-  await expect(page.getByRole('heading', { name: 'Hub Settings', exact: true })).toBeVisible()
+  await navigateAfterLogin(page, '/admin/custom-fields')
+  await expect(page.getByTestId('admin-section')).toHaveAttribute('data-section', 'custom-fields')
 
-  // Expand section (idempotent — won't collapse if already open via sessionStorage)
-  const addFieldBtn = page.getByRole('button', { name: /add field/i })
-  if (!(await addFieldBtn.isVisible({ timeout: 1000 }).catch(() => false))) {
-    await page.getByRole('heading', { name: /custom note fields/i }).click()
-  }
+  const addFieldBtn = page.getByTestId('admin-custom-fields-add')
   await expect(addFieldBtn).toBeVisible({ timeout: 10000 })
 
   // If a field with this label already exists, skip creation
-  const existing = page.locator('.rounded-lg.border').filter({ hasText: label })
+  const existing = page
+    .getByTestId('admin-custom-fields-list')
+    .locator('[data-testid^="admin-custom-fields-row-"]')
+    .filter({ hasText: label })
   if (
     await existing
       .first()
@@ -30,11 +30,13 @@ async function createCustomTextField(page: Page, label: string) {
   }
 
   await addFieldBtn.click()
-  const fieldNameInput = page.getByPlaceholder('e.g. Severity Rating')
+  const fieldNameInput = page.getByTestId('admin-custom-fields-label-input')
   await expect(fieldNameInput).toBeVisible({ timeout: 10000 })
   await fieldNameInput.fill(label)
-  await page.getByRole('button', { name: /save/i }).last().click()
-  await expect(page.getByText(/success/i)).toBeVisible({ timeout: 10000 })
+  await page.getByTestId('admin-custom-fields-save').click()
+  await expect(page.getByTestId('admin-custom-fields-save-success')).toBeVisible({
+    timeout: 10000,
+  })
 
   // Wait for the field to appear in the settings list before navigating away
   await expect(page.getByText(label).first()).toBeVisible({ timeout: 5000 })
