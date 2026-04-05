@@ -1,3 +1,4 @@
+import { SectionBody, SectionDescription } from '@/components/admin-shell/section-layout'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -142,12 +143,12 @@ export function TeamsSection() {
   if (teamsLoading) return null
 
   return (
-    <section className="space-y-6">
-      <p className="text-sm text-muted-foreground">
+    <SectionBody>
+      <SectionDescription>
         {t('teams.description', {
           defaultValue: 'Organize users into teams for contact assignment and shift management.',
         })}
-      </p>
+      </SectionDescription>
 
       <div className="space-y-2" data-testid="admin-teams-list">
         {teams.map((team) => (
@@ -304,7 +305,7 @@ export function TeamsSection() {
         variant="destructive"
         onConfirm={handleDelete}
       />
-    </section>
+    </SectionBody>
   )
 }
 

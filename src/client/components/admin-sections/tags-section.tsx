@@ -1,3 +1,4 @@
+import { SectionBody, SectionDescription } from '@/components/admin-shell/section-layout'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { TagBadge } from '@/components/tag-input'
 import { Button } from '@/components/ui/button'
@@ -172,13 +173,13 @@ export function TagsSection() {
   if (tagsLoading) return null
 
   return (
-    <section className="space-y-6">
-      <p className="text-sm text-muted-foreground">
+    <SectionBody>
+      <SectionDescription>
         {t('tags.description', {
           defaultValue:
             'Define tags for organizing contacts. Tag labels are encrypted with the hub key.',
         })}
-      </p>
+      </SectionDescription>
 
       <div className="space-y-2" data-testid="admin-tags-list">
         {tags.length === 0 && editingId === null && (
@@ -389,6 +390,6 @@ export function TagsSection() {
         variant="destructive"
         onConfirm={handleDelete}
       />
-    </section>
+    </SectionBody>
   )
 }

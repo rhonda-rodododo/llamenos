@@ -1,3 +1,4 @@
+import { SectionBody, SectionDescription } from '@/components/admin-shell/section-layout'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -393,13 +394,13 @@ export function HubRolesSection() {
   if (rolesLoading) return null
 
   return (
-    <section className="space-y-6">
-      <p className="text-sm text-muted-foreground">
+    <SectionBody>
+      <SectionDescription>
         {t('roles.description', {
           defaultValue:
             'Define roles and assign permissions to control access across your hotline.',
         })}
-      </p>
+      </SectionDescription>
 
       <div className="space-y-2" data-testid="admin-hub-roles-list">
         {roles.map((role) => (
@@ -620,6 +621,6 @@ export function HubRolesSection() {
         variant="destructive"
         onConfirm={handleDelete}
       />
-    </section>
+    </SectionBody>
   )
 }
