@@ -1,4 +1,3 @@
-import { SignalRegistrationFlow } from '@/components/admin-settings/signal-registration-flow'
 import { AdvancedReveal } from '@/components/admin-shell/advanced-reveal'
 import {
   SectionActions,
@@ -22,6 +21,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, Copy, Loader2, XCircle } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { SignalRegistrationFlow } from './signal-registration-flow'
 
 const SLUG = 'signal'
 
