@@ -102,64 +102,58 @@ test.describe('Role Assignment UI', () => {
 test.describe('Role Editor — Permission Metadata UI', () => {
   test.describe.configure({ mode: 'serial' })
 
-  test('Roles & Permissions section renders in Hub Settings', async ({ adminPage }) => {
-    await adminPage.getByRole('link', { name: 'Hub Settings' }).click()
-    await expect(
-      adminPage.getByRole('heading', { name: 'Hub Settings', exact: true })
-    ).toBeVisible()
-
-    // Look for the Roles section
-    await expect(adminPage.getByText('Roles & Permissions')).toBeVisible()
+  test('Hub Roles section renders at /admin/hub-roles', async ({ adminPage }) => {
+    await navigateAfterLogin(adminPage, '/admin/hub-roles')
+    await expect(adminPage.getByTestId('admin-section')).toHaveAttribute(
+      'data-section',
+      'hub-roles'
+    )
+    // Role list container should render
+    await expect(adminPage.getByTestId('admin-hub-roles-list')).toBeVisible({ timeout: 15000 })
   })
 
   test('role list includes Case Manager and Voicemail Reviewer roles', async ({ adminPage }) => {
-    await navigateAfterLogin(adminPage, '/admin/settings?section=roles')
-    await expect(
-      adminPage.getByRole('heading', { name: 'Hub Settings', exact: true })
-    ).toBeVisible()
+    await navigateAfterLogin(adminPage, '/admin/hub-roles')
+    await expect(adminPage.getByTestId('admin-section')).toHaveAttribute(
+      'data-section',
+      'hub-roles'
+    )
 
-    // Wait for roles section to expand (deepLink from ?section=roles auto-expands it)
-    // If not expanded, click to expand
-    const firstRoleRow = adminPage.getByTestId('role-row-role-case-manager')
-    if (!(await firstRoleRow.isVisible().catch(() => false))) {
-      await adminPage.getByText('Roles & Permissions').click()
-    }
+    const firstRoleRow = adminPage.getByTestId('admin-hub-roles-row-role-case-manager')
 
     // Default roles should be listed — use data-testid for reliable selection,
     // then verify decrypted names appear (hub key decryption may take time)
     await expect(firstRoleRow).toBeVisible({
       timeout: 30000,
     })
-    await expect(adminPage.getByTestId('role-row-role-voicemail-reviewer')).toBeVisible({
+    await expect(adminPage.getByTestId('admin-hub-roles-row-role-voicemail-reviewer')).toBeVisible({
       timeout: 15000,
     })
-    await expect(adminPage.getByTestId('role-row-role-volunteer')).toBeVisible({ timeout: 15000 })
-    await expect(adminPage.getByTestId('role-row-role-hub-admin')).toBeVisible({ timeout: 15000 })
+    await expect(adminPage.getByTestId('admin-hub-roles-row-role-volunteer')).toBeVisible({
+      timeout: 15000,
+    })
+    await expect(adminPage.getByTestId('admin-hub-roles-row-role-hub-admin')).toBeVisible({
+      timeout: 15000,
+    })
 
     // Verify decrypted names render (hub key must be loaded)
     await expect(
-      adminPage.getByTestId('role-row-role-case-manager').getByText('Case Manager')
+      adminPage.getByTestId('admin-hub-roles-row-role-case-manager').getByText('Case Manager')
     ).toBeVisible({ timeout: 30000 })
     await expect(
-      adminPage.getByTestId('role-row-role-hub-admin').getByText('Hub Admin')
+      adminPage.getByTestId('admin-hub-roles-row-role-hub-admin').getByText('Hub Admin')
     ).toBeVisible({ timeout: 15000 })
   })
 
   test('Create Role button opens editor with permission domains', async ({ adminPage }) => {
-    await navigateAfterLogin(adminPage, '/admin/settings?section=roles')
-    await expect(
-      adminPage.getByRole('heading', { name: 'Hub Settings', exact: true })
-    ).toBeVisible()
+    await navigateAfterLogin(adminPage, '/admin/hub-roles')
+    await expect(adminPage.getByTestId('admin-section')).toHaveAttribute(
+      'data-section',
+      'hub-roles'
+    )
 
-    // Roles section returns null while loading — wait for it to render.
-    // The ?section=roles param may auto-expand it, so only click to expand if create button isn't visible.
-    await expect(adminPage.getByText('Roles & Permissions')).toBeVisible({ timeout: 30000 })
-    const createBtn = adminPage.getByTestId('create-role-btn')
-    const alreadyExpanded = await createBtn.isVisible({ timeout: 2000 }).catch(() => false)
-    if (!alreadyExpanded) {
-      await adminPage.getByText('Roles & Permissions').click()
-      await expect(createBtn).toBeVisible({ timeout: 15000 })
-    }
+    const createBtn = adminPage.getByTestId('admin-hub-roles-create')
+    await expect(createBtn).toBeVisible({ timeout: 15000 })
     await createBtn.click()
 
     // Permission group labels should render with human-friendly names, not raw domains
@@ -171,77 +165,76 @@ test.describe('Role Editor — Permission Metadata UI', () => {
     await expect(main.getByText('GDPR / Privacy')).toBeVisible()
 
     // Domain sections should be present via data-testid
-    await expect(adminPage.getByTestId('permission-domain-contacts')).toBeVisible()
-    await expect(adminPage.getByTestId('permission-domain-notes')).toBeVisible()
-    await expect(adminPage.getByTestId('permission-domain-calls')).toBeVisible()
-    await expect(adminPage.getByTestId('permission-domain-users')).toBeVisible()
+    await expect(adminPage.getByTestId('admin-hub-roles-domain-contacts')).toBeVisible()
+    await expect(adminPage.getByTestId('admin-hub-roles-domain-notes')).toBeVisible()
+    await expect(adminPage.getByTestId('admin-hub-roles-domain-calls')).toBeVisible()
+    await expect(adminPage.getByTestId('admin-hub-roles-domain-users')).toBeVisible()
   })
 
   test('expanding contacts domain shows scope radio buttons, tier checkboxes, and action checkboxes', async ({
     adminPage,
   }) => {
-    await navigateAfterLogin(adminPage, '/admin/settings?section=roles')
-    await expect(
-      adminPage.getByRole('heading', { name: 'Hub Settings', exact: true })
-    ).toBeVisible()
+    await navigateAfterLogin(adminPage, '/admin/hub-roles')
+    await expect(adminPage.getByTestId('admin-section')).toHaveAttribute(
+      'data-section',
+      'hub-roles'
+    )
 
-    // Expand Roles section and open Create Role editor
-    await expect(adminPage.getByText('Roles & Permissions')).toBeVisible({ timeout: 30000 })
-    const createBtn = adminPage.getByTestId('create-role-btn')
-    const alreadyExpanded = await createBtn.isVisible({ timeout: 2000 }).catch(() => false)
-    if (!alreadyExpanded) {
-      await adminPage.getByText('Roles & Permissions').click()
-      await expect(createBtn).toBeVisible({ timeout: 15000 })
-    }
+    const createBtn = adminPage.getByTestId('admin-hub-roles-create')
+    await expect(createBtn).toBeVisible({ timeout: 15000 })
     await createBtn.click()
 
     // Expand the contacts domain
-    const contactsDomain = adminPage.getByTestId('permission-domain-contacts')
+    const contactsDomain = adminPage.getByTestId('admin-hub-roles-domain-contacts')
     await contactsDomain.click()
 
-    // Scope radio buttons should exist (data-testid="scope-<perm-key>")
-    await expect(adminPage.getByTestId('scope-contacts:read-own')).toBeVisible()
-    await expect(adminPage.getByTestId('scope-contacts:read-assigned')).toBeVisible()
-    await expect(adminPage.getByTestId('scope-contacts:read-all')).toBeVisible()
-    await expect(adminPage.getByTestId('scope-contacts:update-own')).toBeVisible()
-    await expect(adminPage.getByTestId('scope-contacts:update-assigned')).toBeVisible()
-    await expect(adminPage.getByTestId('scope-contacts:update-all')).toBeVisible()
+    // Scope radio buttons should exist
+    await expect(adminPage.getByTestId('admin-hub-roles-scope-contacts:read-own')).toBeVisible()
+    await expect(
+      adminPage.getByTestId('admin-hub-roles-scope-contacts:read-assigned')
+    ).toBeVisible()
+    await expect(adminPage.getByTestId('admin-hub-roles-scope-contacts:read-all')).toBeVisible()
+    await expect(adminPage.getByTestId('admin-hub-roles-scope-contacts:update-own')).toBeVisible()
+    await expect(
+      adminPage.getByTestId('admin-hub-roles-scope-contacts:update-assigned')
+    ).toBeVisible()
+    await expect(adminPage.getByTestId('admin-hub-roles-scope-contacts:update-all')).toBeVisible()
 
-    // Tier checkboxes (data-testid="tier-<perm-key>")
-    await expect(adminPage.getByTestId('tier-contacts:envelope-summary')).toBeVisible()
-    await expect(adminPage.getByTestId('tier-contacts:envelope-full')).toBeVisible()
+    // Tier checkboxes
+    await expect(
+      adminPage.getByTestId('admin-hub-roles-tier-contacts:envelope-summary')
+    ).toBeVisible()
+    await expect(adminPage.getByTestId('admin-hub-roles-tier-contacts:envelope-full')).toBeVisible()
 
-    // Action checkboxes (data-testid="action-<perm-key>")
-    await expect(adminPage.getByTestId('action-contacts:create')).toBeVisible()
-    await expect(adminPage.getByTestId('action-contacts:update-summary')).toBeVisible()
-    await expect(adminPage.getByTestId('action-contacts:update-pii')).toBeVisible()
-    await expect(adminPage.getByTestId('action-contacts:delete')).toBeVisible()
-    await expect(adminPage.getByTestId('action-contacts:link')).toBeVisible()
+    // Action checkboxes
+    await expect(adminPage.getByTestId('admin-hub-roles-action-contacts:create')).toBeVisible()
+    await expect(
+      adminPage.getByTestId('admin-hub-roles-action-contacts:update-summary')
+    ).toBeVisible()
+    await expect(adminPage.getByTestId('admin-hub-roles-action-contacts:update-pii')).toBeVisible()
+    await expect(adminPage.getByTestId('admin-hub-roles-action-contacts:delete')).toBeVisible()
+    await expect(adminPage.getByTestId('admin-hub-roles-action-contacts:link')).toBeVisible()
   })
 
   test('cancel button closes the editor without creating a role', async ({ adminPage }) => {
-    await navigateAfterLogin(adminPage, '/admin/settings?section=roles')
-    await expect(
-      adminPage.getByRole('heading', { name: 'Hub Settings', exact: true })
-    ).toBeVisible()
+    await navigateAfterLogin(adminPage, '/admin/hub-roles')
+    await expect(adminPage.getByTestId('admin-section')).toHaveAttribute(
+      'data-section',
+      'hub-roles'
+    )
 
-    await expect(adminPage.getByText('Roles & Permissions')).toBeVisible({ timeout: 30000 })
-    const createBtn2 = adminPage.getByTestId('create-role-btn')
-    const expanded2 = await createBtn2.isVisible({ timeout: 2000 }).catch(() => false)
-    if (!expanded2) {
-      await adminPage.getByText('Roles & Permissions').click()
-      await expect(createBtn2).toBeVisible({ timeout: 15000 })
-    }
+    const createBtn2 = adminPage.getByTestId('admin-hub-roles-create')
+    await expect(createBtn2).toBeVisible({ timeout: 15000 })
     await createBtn2.click()
 
     // Editor should be visible
-    await expect(adminPage.getByTestId('save-role-btn')).toBeVisible()
+    await expect(adminPage.getByTestId('admin-hub-roles-save')).toBeVisible()
 
     // Click cancel
-    await adminPage.getByRole('button', { name: /cancel/i }).click()
+    await adminPage.getByTestId('admin-hub-roles-cancel').click()
 
     // Editor should be gone, create button back
-    await expect(adminPage.getByTestId('create-role-btn')).toBeVisible()
-    await expect(adminPage.getByTestId('save-role-btn')).not.toBeVisible()
+    await expect(adminPage.getByTestId('admin-hub-roles-create')).toBeVisible()
+    await expect(adminPage.getByTestId('admin-hub-roles-save')).not.toBeVisible()
   })
 })
