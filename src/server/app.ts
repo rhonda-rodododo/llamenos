@@ -8,6 +8,7 @@ import { auth } from './middleware/auth'
 import { cors } from './middleware/cors'
 import { errorHandler } from './middleware/error'
 import { hubContext } from './middleware/hub'
+import { logContextMiddleware } from './middleware/log-context'
 import { checkPermission } from './middleware/permission-guard'
 import { securityHeaders } from './middleware/security-headers'
 import analyticsRoutes from './routes/analytics'
@@ -64,6 +65,10 @@ export function getIdPAdapter(): IdPAdapter | null {
 }
 
 const app = new Hono<AppEnv>()
+
+// Log context must be the first middleware so every subsequent log call
+// auto-attaches { reqId, traceId } (plus userId/hubId once layered by auth/hub).
+app.use('*', logContextMiddleware)
 
 app.onError(errorHandler)
 
