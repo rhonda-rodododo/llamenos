@@ -1478,7 +1478,10 @@
     "openMenu": "Open navigation menu",
     "items": {
       "locationLookup": "Location Lookup",
-      "passkeyPolicy": "Passkey Policy"
+      "passkeyPolicy": "Passkey Policy",
+      "hubRoles": "Hub Roles",
+      "teams": "Teams",
+      "tags": "Tags"
     }
   },
   "locationLookup": {

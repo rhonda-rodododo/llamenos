@@ -26,7 +26,14 @@ export const adminNavConfig: AdminNavConfig = {
       groupSlug: 'people',
       scope: 'this-hub',
       labelKey: 'adminNav.groups.people',
-      items: [],
+      items: [
+        {
+          slug: 'hub-roles',
+          labelKey: 'adminNav.items.hubRoles',
+          requiredPermissions: ['settings:read'],
+          testid: 'admin-sidebar-item-hub-roles',
+        },
+      ],
     },
     {
       groupSlug: 'intake',

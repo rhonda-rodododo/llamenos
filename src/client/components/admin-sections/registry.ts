@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react'
+import { HubRolesSection } from './hub-roles-section'
 import { LocationLookupSection } from './location-lookup-section'
 import { PasskeyPolicySection } from './passkey-policy-section'
 
@@ -18,3 +19,4 @@ export function getSectionComponent(slug: string): ComponentType | undefined {
 
 registerSection('location-lookup', LocationLookupSection)
 registerSection('passkey-policy', PasskeyPolicySection)
+registerSection('hub-roles', HubRolesSection)
