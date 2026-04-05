@@ -39,6 +39,12 @@ export const adminNavConfig: AdminNavConfig = {
           requiredPermissions: ['settings:read'],
           testid: 'admin-sidebar-item-teams',
         },
+        {
+          slug: 'tags',
+          labelKey: 'adminNav.items.tags',
+          requiredPermissions: ['settings:read'],
+          testid: 'admin-sidebar-item-tags',
+        },
       ],
     },
     {
