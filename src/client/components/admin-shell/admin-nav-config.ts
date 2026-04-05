@@ -181,6 +181,13 @@ export const adminNavConfig: AdminNavConfig = {
           requiredRole: 'role-super-admin',
           testid: 'admin-sidebar-item-analytics',
         },
+        {
+          slug: 'health',
+          labelKey: 'adminNav.items.health',
+          requiredPermissions: ['settings:read'],
+          requiredRole: 'role-super-admin',
+          testid: 'admin-sidebar-item-health',
+        },
       ],
     },
   ],

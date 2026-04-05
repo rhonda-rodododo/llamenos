@@ -1576,7 +1576,8 @@
       "platformRoles": "Roles",
       "bans": "Bans",
       "audit": "Audit",
-      "analytics": "Analytics"
+      "analytics": "Analytics",
+      "health": "Health"
     }
   },
   "locationLookup": {
@@ -1664,6 +1665,28 @@
         "lastActive": "Last active",
         "notes": "Notes"
       }
+    }
+  },
+  "health": {
+    "description": "System and provider health status.",
+    "system": {
+      "title": "System health",
+      "database": "Database",
+      "storage": "Object storage",
+      "relay": "Nostr relay",
+      "version": "Version",
+      "uptime": "Uptime"
+    },
+    "providers": {
+      "title": "Provider health",
+      "latency": "Latency",
+      "lastCheck": "Last check",
+      "failures": "Failures",
+      "healthy": "Healthy",
+      "degraded": "Degraded",
+      "down": "Down",
+      "refresh": "Refresh",
+      "empty": "No providers configured."
     }
   }
 }

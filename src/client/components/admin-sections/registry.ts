@@ -5,6 +5,7 @@ import { BansSection } from './bans-section'
 import { CallSettingsSection } from './call-settings-section'
 import { CustomFieldsSection } from './custom-fields-section'
 import { FirehoseSection } from './firehose-section'
+import { HealthSection } from './health-section'
 import { HubRolesSection } from './hub-roles-section'
 import { HubsSection } from './hubs-section'
 import { LocationLookupSection } from './location-lookup-section'
@@ -58,3 +59,4 @@ registerSection('platform-roles', PlatformRolesSection)
 registerSection('bans', BansSection)
 registerSection('audit', AuditSection)
 registerSection('analytics', AnalyticsSection)
+registerSection('health', HealthSection)

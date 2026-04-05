@@ -193,6 +193,7 @@ export const queryKeys = {
 
   provider: {
     health: () => ['provider', 'health'] as const,
+    system: () => ['provider', 'system'] as const,
   },
 
   firehose: {
