@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react'
+import { LocationLookupSection } from './location-lookup-section'
 
 /**
  * Maps nav item slugs to section components. Populated as sections migrate.
@@ -13,3 +14,5 @@ export function registerSection(slug: string, component: ComponentType) {
 export function getSectionComponent(slug: string): ComponentType | undefined {
   return components[slug]
 }
+
+registerSection('location-lookup', LocationLookupSection)

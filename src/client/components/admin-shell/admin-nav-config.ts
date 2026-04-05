@@ -7,7 +7,14 @@ export const adminNavConfig: AdminNavConfig = {
       groupSlug: 'general',
       scope: 'this-hub',
       labelKey: 'adminNav.groups.general',
-      items: [],
+      items: [
+        {
+          slug: 'location-lookup',
+          labelKey: 'adminNav.items.locationLookup',
+          requiredPermissions: ['settings:read'],
+          testid: 'admin-sidebar-item-location-lookup',
+        },
+      ],
     },
     {
       groupSlug: 'people',

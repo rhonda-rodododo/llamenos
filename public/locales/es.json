@@ -1475,6 +1475,30 @@
       "channels": "Channels",
       "platform": "Platform"
     },
-    "openMenu": "Open navigation menu"
+    "openMenu": "Open navigation menu",
+    "items": {
+      "locationLookup": "Location Lookup",
+      "passkeyPolicy": "Passkey Policy"
+    }
+  },
+  "locationLookup": {
+    "description": "Configure how addresses are converted to map coordinates.",
+    "provider": "Provider",
+    "apiKey": "API Key",
+    "apiKeyPlaceholder": "Enter your API key",
+    "countries": "Country Filter",
+    "countriesPlaceholder": "e.g. us, ca, mx",
+    "countriesHelp": "Comma-separated 2-letter country codes. Leave empty for worldwide.",
+    "enable": "Enable location lookup",
+    "testConnection": "Test connection",
+    "testOk": "OK ({{latency}}ms)",
+    "testFailed": "Connection test failed",
+    "saved": "Saved"
+  },
+  "passkeyPolicy": {
+    "description": "Require passkeys for user groups. Users without passkeys will be prompted to set one up.",
+    "requireForAdmins": "Require for admins",
+    "requireForUsers": "Require for users",
+    "saved": "Saved"
   }
 }
