@@ -13,6 +13,18 @@ import { LABEL_USER_PII } from '@shared/crypto-labels'
 import type { RecipientEnvelope } from '@shared/types'
 import { cryptoWorker } from './crypto-worker-client'
 
+/**
+ * Decryption diagnostics are enabled in dev builds automatically, OR at
+ * runtime by setting `window.LLAMENOS_DEBUG_CRYPTO = true` in DevTools
+ * before the next me-refresh. Keeps production clean by default while
+ * allowing ad-hoc diagnosis when a user reports silent placeholders.
+ */
+function decryptDebugEnabled(): boolean {
+  if (import.meta.env.DEV) return true
+  if (typeof window === 'undefined') return false
+  return (window as unknown as { LLAMENOS_DEBUG_CRYPTO?: boolean }).LLAMENOS_DEBUG_CRYPTO === true
+}
+
 // ---------------------------------------------------------------------------
 // DecryptCache
 // ---------------------------------------------------------------------------
@@ -109,7 +121,7 @@ export function resolveEncryptedFields(
       // placeholder (e.g., "[encrypted]"). Surface this so stale-envelope
       // scenarios (key rotation, device rekey) are diagnosable instead of
       // silently showing placeholders in the UI.
-      if (readerPubkey && import.meta.env.DEV) {
+      if (readerPubkey && decryptDebugEnabled()) {
         const envelopePubkeys = (envelopes as RecipientEnvelope[]).map((e) => e.pubkey)
         // eslint-disable-next-line no-console
         console.warn(`[decrypt-fields] No envelope for reader on field "${key}":`, {
@@ -146,6 +158,12 @@ export async function decryptObjectFields<T extends Record<string, unknown>>(
   label: string = LABEL_USER_PII
 ): Promise<T> {
   const refs = resolveEncryptedFields(obj, readerPubkey)
+  if (decryptDebugEnabled() && refs.length > 0) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[decrypt-fields] trying to decrypt ${refs.length} field(s): label=${label} readerPubkey=${readerPubkey?.slice(0, 12)} fields=${refs.map((r) => r.plaintextKey).join(',')}`
+    )
+  }
   if (refs.length === 0) return obj
 
   const worker = cryptoWorker
@@ -173,7 +191,7 @@ export async function decryptObjectFields<T extends Record<string, unknown>>(
         // failure in dev so HMAC/label mismatches, worker init races, and
         // malformed envelopes are visible instead of producing a silent
         // "[encrypted]" in the UI.
-        if (import.meta.env.DEV) {
+        if (decryptDebugEnabled()) {
           // eslint-disable-next-line no-console
           console.warn(`[decrypt-fields] Decryption failed for "${plaintextKey}":`, err)
         }
