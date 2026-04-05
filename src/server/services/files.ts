@@ -3,7 +3,10 @@ import type { EncryptedMetaItem, FileKeyEnvelope, FileRecord } from '../../share
 import type { Database } from '../db'
 import { fileRecords } from '../db/schema'
 import { AppError } from '../lib/errors'
+import { createLogger } from '../lib/logger'
 import type { StorageManager, StorageNamespace } from '../types'
+
+const log = createLogger('services.files')
 
 export class FilesService {
   constructor(
@@ -166,10 +169,10 @@ export class FilesService {
       await Promise.all(
         rows.flatMap((r) => [
           this.deleteAssembled(hubId, r.id).catch((err) =>
-            console.error('[files] storage cleanup failed:', r.id, err)
+            log.error('Storage cleanup failed', err, { fileId: r.id })
           ),
           this.deleteAllChunks(hubId, r.id, r.totalChunks).catch((err) =>
-            console.error('[files] chunk cleanup failed:', r.id, err)
+            log.error('Chunk cleanup failed', err, { fileId: r.id })
           ),
         ])
       )
