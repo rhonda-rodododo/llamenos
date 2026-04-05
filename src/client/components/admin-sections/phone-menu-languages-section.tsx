@@ -1,3 +1,4 @@
+import { SectionBody, SectionDescription } from '@/components/admin-shell/section-layout'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { updateIvrLanguages } from '@/lib/api'
@@ -31,8 +32,8 @@ export function PhoneMenuLanguagesSection() {
   if (isLoading) return null
 
   return (
-    <section className="space-y-4">
-      <p className="text-sm text-muted-foreground">{t('phoneMenuLanguages.description')}</p>
+    <SectionBody className="space-y-4">
+      <SectionDescription>{t('phoneMenuLanguages.description')}</SectionDescription>
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {IVR_LANGUAGES.map((code, index) => {
@@ -76,6 +77,6 @@ export function PhoneMenuLanguagesSection() {
           {t('common.success')}
         </span>
       )}
-    </section>
+    </SectionBody>
   )
 }

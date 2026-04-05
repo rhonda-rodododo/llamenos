@@ -1,5 +1,9 @@
+import {
+  SectionBody,
+  SectionDescription,
+  SectionField,
+} from '@/components/admin-shell/section-layout'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -38,15 +42,15 @@ export function CallSettingsSection() {
   if (isLoading || !settings) return null
 
   return (
-    <section className="space-y-4">
-      <p className="text-sm text-muted-foreground">{t('callSettings.description')}</p>
+    <SectionBody className="space-y-4">
+      <SectionDescription>{t('callSettings.description')}</SectionDescription>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="space-y-2 sm:col-span-2">
-          <Label>{t('callSettings.voicemailMode')}</Label>
-          <p className="text-xs text-muted-foreground">
-            {t('callSettings.voicemailModeDescription')}
-          </p>
+        <SectionField
+          className="sm:col-span-2"
+          label={t('callSettings.voicemailMode')}
+          help={t('callSettings.voicemailModeDescription')}
+        >
           <Select
             value={settings.voicemailMode}
             onValueChange={(val) =>
@@ -65,12 +69,12 @@ export function CallSettingsSection() {
               <SelectItem value="never">{t('callSettings.voicemailModeNever')}</SelectItem>
             </SelectContent>
           </Select>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="queue-timeout">{t('callSettings.queueTimeout')}</Label>
-          <p className="text-xs text-muted-foreground">
-            {t('callSettings.queueTimeoutDescription')}
-          </p>
+        </SectionField>
+        <SectionField
+          label={t('callSettings.queueTimeout')}
+          htmlFor="queue-timeout"
+          help={t('callSettings.queueTimeoutDescription')}
+        >
           <Input
             id="queue-timeout"
             data-testid="admin-call-settings-queue-timeout-input"
@@ -83,12 +87,12 @@ export function CallSettingsSection() {
             min={30}
             max={300}
           />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="voicemail-max">{t('callSettings.voicemailMax')}</Label>
-          <p className="text-xs text-muted-foreground">
-            {t('callSettings.voicemailMaxDescription')}
-          </p>
+        </SectionField>
+        <SectionField
+          label={t('callSettings.voicemailMax')}
+          htmlFor="voicemail-max"
+          help={t('callSettings.voicemailMaxDescription')}
+        >
           <Input
             id="voicemail-max"
             data-testid="admin-call-settings-voicemail-max-input"
@@ -101,12 +105,11 @@ export function CallSettingsSection() {
             min={30}
             max={300}
           />
-        </div>
-        <div className="space-y-2">
-          <Label>{t('callSettings.retentionDays')}</Label>
-          <p className="text-xs text-muted-foreground">
-            {t('callSettings.retentionDaysDescription')}
-          </p>
+        </SectionField>
+        <SectionField
+          label={t('callSettings.retentionDays')}
+          help={t('callSettings.retentionDaysDescription')}
+        >
           <Input
             type="number"
             value={settings.voicemailRetentionDays ?? ''}
@@ -114,7 +117,7 @@ export function CallSettingsSection() {
             disabled
           />
           <p className="text-xs text-amber-600">{t('callSettings.retentionNotYetActive')}</p>
-        </div>
+        </SectionField>
       </div>
 
       {showSaved && (
@@ -122,6 +125,6 @@ export function CallSettingsSection() {
           {t('common.success')}
         </span>
       )}
-    </section>
+    </SectionBody>
   )
 }

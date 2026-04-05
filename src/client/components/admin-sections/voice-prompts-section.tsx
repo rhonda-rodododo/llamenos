@@ -1,3 +1,4 @@
+import { SectionBody, SectionDescription } from '@/components/admin-shell/section-layout'
 import { AudioRecorder } from '@/components/audio-recorder'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -73,8 +74,8 @@ export function VoicePromptsSection() {
   if (isLoading) return null
 
   return (
-    <section className="space-y-4" data-testid="admin-voice-prompts-section">
-      <p className="text-sm text-muted-foreground">{t('ivrAudio.description')}</p>
+    <SectionBody className="space-y-4" data-testid="admin-voice-prompts-section">
+      <SectionDescription>{t('ivrAudio.description')}</SectionDescription>
 
       {PROMPT_TYPES.map((promptType) => (
         <div key={promptType} className="space-y-2">
@@ -141,6 +142,6 @@ export function VoicePromptsSection() {
           {t('common.success')}
         </span>
       )}
-    </section>
+    </SectionBody>
   )
 }

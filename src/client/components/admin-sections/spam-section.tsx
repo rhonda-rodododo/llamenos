@@ -1,4 +1,9 @@
 import { AdvancedReveal } from '@/components/admin-shell/advanced-reveal'
+import {
+  SectionBody,
+  SectionDescription,
+  SectionField,
+} from '@/components/admin-shell/section-layout'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -52,8 +57,8 @@ export function SpamProtectionSection() {
         : t('confirm.rateLimitDisable')
 
   return (
-    <section className="space-y-4">
-      <p className="text-sm text-muted-foreground">{t('spam.description')}</p>
+    <SectionBody className="space-y-4">
+      <SectionDescription>{t('spam.description')}</SectionDescription>
 
       {/* Voice CAPTCHA toggle */}
       <div className="flex items-center justify-between rounded-lg border border-border p-4">
@@ -97,11 +102,11 @@ export function SpamProtectionSection() {
       <AdvancedReveal sectionSlug="spam-protection">
         {settings.voiceCaptchaEnabled && (
           <div className="rounded-lg border border-border p-4">
-            <div className="space-y-2">
-              <Label htmlFor="captcha-max-attempts">{t('spam.captchaMaxAttempts')}</Label>
-              <p className="text-xs text-muted-foreground">
-                {t('spam.captchaMaxAttemptsDescription')}
-              </p>
+            <SectionField
+              label={t('spam.captchaMaxAttempts')}
+              htmlFor="captcha-max-attempts"
+              help={t('spam.captchaMaxAttemptsDescription')}
+            >
               <Input
                 id="captcha-max-attempts"
                 data-testid="admin-spam-protection-captcha-max-attempts-input"
@@ -115,14 +120,13 @@ export function SpamProtectionSection() {
                 max={5}
                 className="w-24"
               />
-            </div>
+            </SectionField>
           </div>
         )}
 
         {settings.rateLimitEnabled && (
           <div className="grid grid-cols-1 gap-4 rounded-lg border border-border p-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="max-calls">{t('spam.maxCallsPerMinute')}</Label>
+            <SectionField label={t('spam.maxCallsPerMinute')} htmlFor="max-calls">
               <Input
                 id="max-calls"
                 data-testid="admin-spam-protection-max-calls-per-minute-input"
@@ -135,9 +139,8 @@ export function SpamProtectionSection() {
                 min={1}
                 max={60}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="block-duration">{t('spam.blockDuration')}</Label>
+            </SectionField>
+            <SectionField label={t('spam.blockDuration')} htmlFor="block-duration">
               <Input
                 id="block-duration"
                 data-testid="admin-spam-protection-block-duration-input"
@@ -150,7 +153,7 @@ export function SpamProtectionSection() {
                 min={1}
                 max={1440}
               />
-            </div>
+            </SectionField>
           </div>
         )}
 
@@ -177,6 +180,6 @@ export function SpamProtectionSection() {
           setPendingToggle(null)
         }}
       />
-    </section>
+    </SectionBody>
   )
 }

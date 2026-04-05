@@ -1,5 +1,9 @@
+import {
+  SectionBody,
+  SectionDescription,
+  SectionToggleField,
+} from '@/components/admin-shell/section-layout'
 import { ConfirmDialog } from '@/components/confirm-dialog'
-import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { getTranscriptionSettings, updateTranscriptionSettings } from '@/lib/api'
 import { queryKeys } from '@/lib/queries/keys'
@@ -39,34 +43,32 @@ export function TranscriptionSection() {
   if (isLoading || !settings) return null
 
   return (
-    <section className="space-y-4">
-      <p className="text-sm text-muted-foreground">{t('settings.transcriptionDescription')}</p>
+    <SectionBody className="space-y-4">
+      <SectionDescription>{t('settings.transcriptionDescription')}</SectionDescription>
 
-      <div className="flex items-center justify-between rounded-lg border border-border p-4">
-        <div className="space-y-0.5">
-          <Label>{t('settings.enableTranscription')}</Label>
-          <p className="text-xs text-muted-foreground">{t('transcription.enabledGlobal')}</p>
-        </div>
+      <SectionToggleField
+        className="rounded-lg border border-border p-4"
+        label={t('settings.enableTranscription')}
+        help={t('transcription.enabledGlobal')}
+      >
         <Switch
           data-testid="admin-transcription-global-switch"
           checked={settings.globalEnabled}
           onCheckedChange={(checked) => setPendingGlobal(checked)}
         />
-      </div>
+      </SectionToggleField>
 
-      <div className="flex items-center justify-between rounded-lg border border-border p-4">
-        <div className="space-y-0.5">
-          <Label>{t('transcription.allowOptOut')}</Label>
-          <p className="text-xs text-muted-foreground">
-            {t('transcription.allowOptOutDescription')}
-          </p>
-        </div>
+      <SectionToggleField
+        className="rounded-lg border border-border p-4"
+        label={t('transcription.allowOptOut')}
+        help={t('transcription.allowOptOutDescription')}
+      >
         <Switch
           data-testid="admin-transcription-opt-out-switch"
           checked={settings.allowUserOptOut}
           onCheckedChange={(checked) => saveMutation.mutate({ allowUserOptOut: checked })}
         />
-      </div>
+      </SectionToggleField>
 
       {showSaved && (
         <span data-testid="admin-transcription-save-success" className="text-sm text-green-600">
@@ -90,6 +92,6 @@ export function TranscriptionSection() {
           setPendingGlobal(null)
         }}
       />
-    </section>
+    </SectionBody>
   )
 }
