@@ -23,6 +23,7 @@ import {
   mapBandwidthDisconnectCause,
 } from '../../shared/schemas/external/bandwidth-voice'
 import { IVR_PROMPTS, getPrompt, getVoicemailThanks } from '../../shared/voice-prompts'
+import { createLogger } from '../lib/logger'
 import type {
   AudioUrlMap,
   CallAnsweredParams,
@@ -41,6 +42,8 @@ import type {
   WebhookRecordingStatus,
   WebhookVerificationResult,
 } from './adapter'
+
+const log = createLogger('telephony.bandwidth')
 
 /**
  * Bandwidth TTS voice names mapped by ISO 639-1 language code.
@@ -376,14 +379,14 @@ export class BandwidthAdapter implements TelephonyAdapter {
       if (result.status === 'fulfilled') {
         callIds.push(result.value)
       } else {
-        console.error('[telephony:bandwidth] Failed to ring volunteer:', result.reason)
+        log.error('Failed to ring volunteer', result.reason)
       }
     }
 
     if (callIds.length === 0 && outboundTargets.length > 0) {
-      console.error(
-        `[telephony:bandwidth] CRITICAL: All ${outboundTargets.length} outbound calls failed — no volunteers are being rung`
-      )
+      log.error('CRITICAL: All outbound calls failed — no volunteers are being rung', undefined, {
+        targetCount: outboundTargets.length,
+      })
     }
 
     return callIds
@@ -403,7 +406,7 @@ export class BandwidthAdapter implements TelephonyAdapter {
     )
     for (const result of results) {
       if (result.status === 'rejected') {
-        console.warn('[telephony:bandwidth] Failed to cancel ringing:', result.reason)
+        log.warn('Failed to cancel ringing', { reason: String(result.reason) })
       }
     }
   }
@@ -413,9 +416,11 @@ export class BandwidthAdapter implements TelephonyAdapter {
   async getCallRecording(callSid: string): Promise<ArrayBuffer | null> {
     const res = await this.bandwidthApi(`/calls/${callSid}/recordings`, { method: 'GET' })
     if (!res.ok) {
-      console.error(
-        `[telephony:bandwidth] Failed to get recordings for call ${callSid}: ${res.status} ${res.statusText}`
-      )
+      log.error('Failed to get recordings for call', undefined, {
+        callSid,
+        status: res.status,
+        statusText: res.statusText,
+      })
       return null
     }
 
@@ -430,9 +435,11 @@ export class BandwidthAdapter implements TelephonyAdapter {
     // Bandwidth recording media URL pattern
     const audioRes = await this.bandwidthApi(`/recordings/${recordingSid}/media`, { method: 'GET' })
     if (!audioRes.ok) {
-      console.error(
-        `[telephony:bandwidth] Failed to get recording audio ${recordingSid}: ${audioRes.status} ${audioRes.statusText}`
-      )
+      log.error('Failed to get recording audio', undefined, {
+        recordingSid,
+        status: audioRes.status,
+        statusText: audioRes.statusText,
+      })
       return null
     }
     return audioRes.arrayBuffer()

@@ -17,6 +17,7 @@ import {
   encodeTelnyxClientState,
 } from '../../shared/schemas/external/telnyx-voice'
 import { IVR_PROMPTS, getPrompt, getVoicemailThanks } from '../../shared/voice-prompts'
+import { createLogger } from '../lib/logger'
 import type {
   AudioUrlMap,
   CallAnsweredParams,
@@ -36,6 +37,8 @@ import type {
   WebhookVerificationResult,
 } from './adapter'
 import { TelnyxCallControlClient } from './telnyx-api'
+
+const log = createLogger('telephony.telnyx')
 
 /**
  * Telnyx TTS voice names mapped by ISO 639-1 language code.
@@ -451,14 +454,14 @@ export class TelnyxAdapter implements TelephonyAdapter {
       if (result.status === 'fulfilled') {
         callControlIds.push(result.value)
       } else {
-        console.error('[telephony:telnyx] Failed to ring volunteer:', result.reason)
+        log.error('Failed to ring volunteer', result.reason)
       }
     }
 
     if (callControlIds.length === 0 && outboundTargets.length > 0) {
-      console.error(
-        `[telephony:telnyx] CRITICAL: All ${outboundTargets.length} outbound calls failed — no volunteers are being rung`
-      )
+      log.error('CRITICAL: All outbound calls failed — no volunteers are being rung', undefined, {
+        targetCount: outboundTargets.length,
+      })
     }
 
     return callControlIds
@@ -472,7 +475,7 @@ export class TelnyxAdapter implements TelephonyAdapter {
     )
     for (const result of results) {
       if (result.status === 'rejected') {
-        console.warn('[telephony:telnyx] Failed to cancel ringing:', result.reason)
+        log.warn('Failed to cancel ringing', { reason: String(result.reason) })
       }
     }
   }
@@ -490,7 +493,7 @@ export class TelnyxAdapter implements TelephonyAdapter {
     try {
       return await this.client.getRecording(recordingSid)
     } catch (err) {
-      console.error(`[telephony:telnyx] Failed to get recording audio ${recordingSid}:`, err)
+      log.error('Failed to get recording audio', err, { recordingSid })
       return null
     }
   }

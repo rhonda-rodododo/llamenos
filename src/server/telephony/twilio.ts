@@ -1,5 +1,6 @@
 import { DEFAULT_LANGUAGE, IVR_LANGUAGES } from '../../shared/languages'
 import { IVR_PROMPTS, getPrompt, getVoicemailThanks } from '../../shared/voice-prompts'
+import { createLogger } from '../lib/logger'
 import type {
   AudioUrlMap,
   CallAnsweredParams,
@@ -18,6 +19,8 @@ import type {
   WebhookRecordingStatus,
   WebhookVerificationResult,
 } from './adapter'
+
+const log = createLogger('telephony.twilio')
 
 /**
  * Twilio TwiML voice language codes, keyed by ISO 639-1 language code.
@@ -320,14 +323,14 @@ export class TwilioAdapter implements TelephonyAdapter {
       if (result.status === 'fulfilled') {
         callSids.push(result.value)
       } else {
-        console.error('[telephony:twilio] Failed to ring volunteer:', result.reason)
+        log.error('Failed to ring volunteer', result.reason)
       }
     }
 
     if (callSids.length === 0 && outboundTargets.length > 0) {
-      console.error(
-        `[telephony:twilio] CRITICAL: All ${outboundTargets.length} outbound calls failed — no volunteers are being rung`
-      )
+      log.error('CRITICAL: All outbound calls failed — no volunteers are being rung', undefined, {
+        targetCount: outboundTargets.length,
+      })
     }
 
     return callSids
@@ -346,7 +349,7 @@ export class TwilioAdapter implements TelephonyAdapter {
     )
     for (const result of results) {
       if (result.status === 'rejected') {
-        console.warn('[telephony:twilio] Failed to cancel ringing:', result.reason)
+        log.warn('Failed to cancel ringing', { reason: String(result.reason) })
       }
     }
   }
@@ -396,9 +399,11 @@ export class TwilioAdapter implements TelephonyAdapter {
       method: 'GET',
     })
     if (!res.ok) {
-      console.error(
-        `[telephony:twilio] Failed to get recordings for call ${callSid}: ${res.status} ${res.statusText}`
-      )
+      log.error('Failed to get recordings for call', undefined, {
+        callSid,
+        status: res.status,
+        statusText: res.statusText,
+      })
       return null
     }
 
@@ -413,9 +418,11 @@ export class TwilioAdapter implements TelephonyAdapter {
     })
 
     if (!audioRes.ok) {
-      console.error(
-        `[telephony:twilio] Failed to get recording audio ${recordingSid}: ${audioRes.status} ${audioRes.statusText}`
-      )
+      log.error('Failed to get recording audio', undefined, {
+        recordingSid,
+        status: audioRes.status,
+        statusText: audioRes.statusText,
+      })
       return null
     }
     return audioRes.arrayBuffer()
@@ -428,9 +435,11 @@ export class TwilioAdapter implements TelephonyAdapter {
       },
     })
     if (!audioRes.ok) {
-      console.error(
-        `[telephony:twilio] Failed to get recording audio ${recordingSid}: ${audioRes.status} ${audioRes.statusText}`
-      )
+      log.error('Failed to get recording audio', undefined, {
+        recordingSid,
+        status: audioRes.status,
+        statusText: audioRes.statusText,
+      })
       return null
     }
     return audioRes.arrayBuffer()
