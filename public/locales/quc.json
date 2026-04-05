@@ -36,7 +36,9 @@
     "off": "tztapital",
     "on": "jaqatal",
     "remove": "Teleq'aj",
-    "retry": "Tirayix chik"
+    "retry": "Tirayix chik",
+    "showAdvanced": "Show advanced settings",
+    "hideAdvanced": "Hide advanced settings"
   },
   "auth": {
     "login": "Tok",

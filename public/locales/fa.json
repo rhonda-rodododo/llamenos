@@ -36,7 +36,9 @@
     "off": "خاموش",
     "on": "روشن",
     "remove": "حذف",
-    "retry": "تلاش مجدد"
+    "retry": "تلاش مجدد",
+    "showAdvanced": "Show advanced settings",
+    "hideAdvanced": "Hide advanced settings"
   },
   "auth": {
     "login": "ورود",

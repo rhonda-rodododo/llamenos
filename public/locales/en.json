@@ -37,7 +37,9 @@
     "on": "on",
     "remove": "Remove",
     "retry": "Retry",
-    "accessDenied": "Access denied"
+    "accessDenied": "Access denied",
+    "showAdvanced": "Show advanced settings",
+    "hideAdvanced": "Hide advanced settings"
   },
   "auth": {
     "login": "Log in",

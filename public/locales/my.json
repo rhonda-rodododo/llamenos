@@ -36,7 +36,9 @@
     "off": "ပိတ်",
     "on": "ဖွင့်",
     "remove": "ဖယ်ရှားမည်",
-    "retry": "ပြန်လုပ်မည်"
+    "retry": "ပြန်လုပ်မည်",
+    "showAdvanced": "Show advanced settings",
+    "hideAdvanced": "Hide advanced settings"
   },
   "auth": {
     "login": "ဝင်ရောက်မည်",

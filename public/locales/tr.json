@@ -36,7 +36,9 @@
     "off": "kapalı",
     "on": "açık",
     "remove": "Kaldır",
-    "retry": "Tekrar dene"
+    "retry": "Tekrar dene",
+    "showAdvanced": "Show advanced settings",
+    "hideAdvanced": "Hide advanced settings"
   },
   "auth": {
     "login": "Giriş yap",

@@ -36,7 +36,9 @@
     "off": "off",
     "on": "on",
     "remove": "Remove",
-    "retry": "Retry"
+    "retry": "Retry",
+    "showAdvanced": "Show advanced settings",
+    "hideAdvanced": "Hide advanced settings"
   },
   "auth": {
     "login": "Anmelden",
