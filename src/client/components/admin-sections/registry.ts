@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react'
 import { LocationLookupSection } from './location-lookup-section'
+import { PasskeyPolicySection } from './passkey-policy-section'
 
 /**
  * Maps nav item slugs to section components. Populated as sections migrate.
@@ -16,3 +17,4 @@ export function getSectionComponent(slug: string): ComponentType | undefined {
 }
 
 registerSection('location-lookup', LocationLookupSection)
+registerSection('passkey-policy', PasskeyPolicySection)

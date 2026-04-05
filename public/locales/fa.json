@@ -1566,6 +1566,11 @@
   },
   "passkeyPolicy": {
     "description": "Require passkeys for user groups. Users without passkeys will be prompted to set one up.",
+    "enforcement": "Enforcement",
+    "enforcementNone": "None (passkeys optional)",
+    "enforcementAdmins": "Admins only",
+    "enforcementEveryone": "Everyone (admins + users)",
+    "enforcementHelp": "Users without passkeys will be prompted to set one up on next login.",
     "requireForAdmins": "Require for admins",
     "requireForUsers": "Require for users",
     "saved": "Saved"

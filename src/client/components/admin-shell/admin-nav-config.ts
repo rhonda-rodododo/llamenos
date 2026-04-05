@@ -14,6 +14,12 @@ export const adminNavConfig: AdminNavConfig = {
           requiredPermissions: ['settings:read'],
           testid: 'admin-sidebar-item-location-lookup',
         },
+        {
+          slug: 'passkey-policy',
+          labelKey: 'adminNav.items.passkeyPolicy',
+          requiredPermissions: ['settings:read'],
+          testid: 'admin-sidebar-item-passkey-policy',
+        },
       ],
     },
     {
