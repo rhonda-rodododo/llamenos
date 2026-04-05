@@ -33,6 +33,12 @@ export const adminNavConfig: AdminNavConfig = {
           requiredPermissions: ['settings:read'],
           testid: 'admin-sidebar-item-hub-roles',
         },
+        {
+          slug: 'teams',
+          labelKey: 'adminNav.items.teams',
+          requiredPermissions: ['settings:read'],
+          testid: 'admin-sidebar-item-teams',
+        },
       ],
     },
     {
