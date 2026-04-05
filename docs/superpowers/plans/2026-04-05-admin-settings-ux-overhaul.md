@@ -726,7 +726,13 @@ git commit -m "test(admin): nav config snapshot test scaffold"
 **Migration pattern** (apply to every hub-scoped section task):
 
 1. Copy the file from `src/client/components/admin-settings/<old-name>.tsx` to `src/client/components/admin-sections/<new-name>.tsx`.
-2. Remove the `SettingsSection` wrapper import and usage — the section now renders as a plain `<section className="space-y-4">` with an optional heading, since the AdminShell header renders the title.
+2. Remove the `SettingsSection` wrapper import and usage. Wrap the section in `<SectionBody>` from `@/components/admin-shell/section-layout` and use the shared primitives for every standard UI element:
+   - `<SectionDescription>` for the intro paragraph (never raw `<p className="text-sm text-muted-foreground">`)
+   - `<SectionField label htmlFor help error>...</SectionField>` for every vertical input/select/textarea field (never raw `<div className="space-y-2"><Label>...</div>`)
+   - `<SectionToggleField label htmlFor help>{switch}</SectionToggleField>` for every switch/checkbox row (never raw `<div className="flex items-center justify-between">`)
+   - `<SectionActions slug onSave saving showSaved extraActions>` for the save button + success indicator (never manual Button + `admin-{slug}-save-success` span)
+   - `<SectionBanner tone>` for status banners at top of section
+   Complex inner CRUD structures (dialogs, tables, dynamic field editors) can stay as-is, but the outer section wrapper + every simple form row MUST use the primitives.
 3. Remove `expanded`, `onToggle`, `statusSummary` props. If status info is useful, render it as a top-level summary card inside the section.
 4. The section now reads its own data via React Query hooks directly; prop-drilled `config` + `onChange` become internal queries/mutations. Use the existing `queryKeys.settings.*` / `queryKeys.roles.*` / etc. keys — do NOT introduce new domains.
 5. Add `data-testid` to every button, input, switch, select using pattern `admin-{slug}-{element}`. After every successful save mutation, the component MUST render a stable `admin-{slug}-save-success` element (e.g., an inline `<span>` rendered for 2 seconds after save) so the `saveSection` test helper can assert success without text matching.
