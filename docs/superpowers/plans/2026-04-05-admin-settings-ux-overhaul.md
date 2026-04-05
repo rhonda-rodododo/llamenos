@@ -12,6 +12,22 @@
 
 ---
 
+## Important Notes Before Executing
+
+**Query keys:** `queryKeys.roles.*`, `queryKeys.bans.*`, `queryKeys.audit.*`, `queryKeys.hubs.*`, `queryKeys.analytics.*`, `queryKeys.settings.*` **already exist** in `src/client/lib/queries/keys.ts` and are already classified in `query-client.ts`. Use them as-is. Do NOT introduce a new `queryKeys.platform.*` namespace — that creates cache inconsistency with existing admin pages and duplicates classification in `ENCRYPTED_QUERY_KEYS` / `PLAINTEXT_QUERY_KEYS`.
+
+**shadcn components to install before execution:**
+
+```bash
+bunx shadcn@latest add tabs
+```
+
+The `Tabs` primitive is used by Task 14 (hubs edit dialog) and is not yet present in `src/client/components/ui/`.
+
+**Frontend-design skill:** After completing Task 5 (AdminShell layout), and again before Task 25 (final verification), invoke `frontend-design:frontend-design` skill to polish visual hierarchy, spacing, sidebar typography, active-state treatment, and mobile drawer presentation. The skill shouldn't rewrite structure, just polish the already-built shell.
+
+---
+
 ## File Structure
 
 ### New files
@@ -411,7 +427,7 @@ grep -rn "from '@/components/ui/sheet'" src/client --include='*.tsx' | head -3
 
 ```tsx
 import { AdminSidebar } from './admin-sidebar'
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
+import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Menu } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
@@ -434,7 +450,7 @@ export function AdminShell({ currentSlug, currentLabelKey, children }: Props) {
         <AdminSidebar />
       </aside>
 
-      {/* Mobile sheet */}
+      {/* Mobile sheet (controlled; trigger is a plain Button outside) */}
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent
           side="left"
@@ -448,18 +464,18 @@ export function AdminShell({ currentSlug, currentLabelKey, children }: Props) {
       {/* Main pane */}
       <main className="flex-1 min-w-0">
         <header className="sticky top-0 z-10 flex items-center gap-3 border-b bg-background/95 px-4 py-3 backdrop-blur lg:px-8">
-          <SheetTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              data-testid="admin-sidebar-toggle"
-              className="lg:hidden"
-              onClick={() => setMobileOpen(true)}
-              aria-label={t('adminNav.openMenu')}
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
-          </SheetTrigger>
+          <Button
+            variant="ghost"
+            size="icon"
+            data-testid="admin-sidebar-toggle"
+            className="lg:hidden"
+            onClick={() => setMobileOpen(true)}
+            aria-label={t('adminNav.openMenu')}
+            aria-expanded={mobileOpen}
+            aria-controls="admin-sidebar-drawer"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
           {currentLabelKey && (
             <h1
               data-testid="admin-section-heading"
@@ -513,6 +529,10 @@ git add src/client/components/admin-shell/admin-shell.tsx public/locales/
 git commit -m "feat(admin): AdminShell layout with mobile drawer"
 ```
 
+- [ ] **Step 5: Invoke frontend-design skill for shell polish**
+
+Run `frontend-design:frontend-design` skill with the goal of polishing the AdminShell + AdminSidebar for visual hierarchy, spacing, active-state, and mobile drawer. Constrain the skill: do NOT rewrite structure, do NOT change testids, do NOT change testid names; only Tailwind class adjustments. Commit any polish changes as `style(admin): shell visual polish pass`.
+
 ---
 
 ### Task 6: Route wrapper + section route + index redirect
@@ -531,25 +551,32 @@ grep -rn "createFileRoute" src/client/routes/admin/ 2>/dev/null
 
 - [ ] **Step 2: Write `route.tsx`** (wraps all /admin/* children)
 
+Auth gating happens in `beforeLoad` (not in the component body — redirects thrown from component bodies don't propagate through TanStack Router). Pull auth from the router context set up by the root route.
+
 ```tsx
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
-import { useAuth } from '@/lib/auth'
 
 export const Route = createFileRoute('/admin')({
-  beforeLoad: () => {
-    // Auth gate handled by wrapping layout — TanStack reads auth from root context
+  beforeLoad: ({ context }) => {
+    const auth = context.auth
+    if (!auth || (!auth.isAdmin && !auth.roles.includes('role-super-admin'))) {
+      throw redirect({ to: '/' })
+    }
   },
-  component: AdminRouteComponent,
+  component: () => <Outlet />,
 })
-
-function AdminRouteComponent() {
-  const auth = useAuth()
-  if (!auth.isAdmin && !auth.roles.includes('role-super-admin')) {
-    throw redirect({ to: '/' })
-  }
-  return <Outlet />
-}
 ```
+
+If `context.auth` is not yet populated by the root route, read the root route to understand how to expose auth via `context`. If the project doesn't use router context for auth, replace with a `loader`-based or `useAuth()`-gated approach that uses `router.navigate()` inside a `useEffect`.
+
+- [ ] **Step 2a: Verify the auth context shape**
+
+```bash
+grep -n "context" src/client/routes/__root.tsx | head -10
+grep -n "auth" src/client/routes/__root.tsx | head -10
+```
+
+If `context.auth` isn't provided by the root route, modify the root route to expose it (or use `useAuth()` + `useNavigate()` in the component body as a fallback).
 
 - [ ] **Step 3: Write `$section.tsx`** (renders section by slug)
 
@@ -683,11 +710,13 @@ test.describe('admin nav config snapshot', () => {
 })
 ```
 
+**Note:** At this point `adminNavConfig.groups` have empty `items` arrays, so the `for` loops generate zero test cases. That's intentional — the file exists as scaffolding and gains coverage as each section migrates. Playwright's config does not use `--forbid-only`; a file with zero tests produces a warning but not a failure. As sections get added in Tasks 8–20, this test file automatically grows.
+
 - [ ] **Step 3: Commit**
 
 ```bash
 git add tests/ui/admin-nav-config.spec.ts
-git commit -m "test(admin): nav config snapshot test"
+git commit -m "test(admin): nav config snapshot test scaffold"
 ```
 
 ---
@@ -699,8 +728,8 @@ git commit -m "test(admin): nav config snapshot test"
 1. Copy the file from `src/client/components/admin-settings/<old-name>.tsx` to `src/client/components/admin-sections/<new-name>.tsx`.
 2. Remove the `SettingsSection` wrapper import and usage — the section now renders as a plain `<section className="space-y-4">` with an optional heading, since the AdminShell header renders the title.
 3. Remove `expanded`, `onToggle`, `statusSummary` props. If status info is useful, render it as a top-level summary card inside the section.
-4. The section now reads its own data via React Query hooks directly; prop-drilled `config` + `onChange` become internal queries/mutations.
-5. Add `data-testid` to every button, input, switch, select using pattern `admin-{slug}-{element}`.
+4. The section now reads its own data via React Query hooks directly; prop-drilled `config` + `onChange` become internal queries/mutations. Use the existing `queryKeys.settings.*` / `queryKeys.roles.*` / etc. keys — do NOT introduce new domains.
+5. Add `data-testid` to every button, input, switch, select using pattern `admin-{slug}-{element}`. After every successful save mutation, the component MUST render a stable `admin-{slug}-save-success` element (e.g., an inline `<span>` rendered for 2 seconds after save) so the `saveSection` test helper can assert success without text matching.
 6. Add entry to `admin-nav-config.ts` items array.
 7. Register the component in `registry.ts`.
 8. Add/update i18n keys where labels changed.
@@ -944,6 +973,14 @@ i18n key `adminNav.items.passkeyPolicy` = "Passkey Policy". Existing section str
 
 - [ ] **Step 2: Migrate E2E tests** in `tests/ui/webauthn*.spec.ts` that interact with this section.
 
+Before rewriting, surface exactly which selectors need changing:
+
+```bash
+grep -n "getByText\|getByRole\|passkey" tests/ui/webauthn-*.spec.ts tests/ui/admin-flow.spec.ts 2>/dev/null
+```
+
+Only update selectors that target the passkey-policy admin-settings UI; leave selectors on the user-facing passkey registration flow untouched (those are outside this overhaul's scope).
+
 - [ ] **Step 3: Typecheck + commit**
 
 ---
@@ -962,7 +999,7 @@ grep -n "roles" src/server/routes/settings.ts | head -20
 grep -n "hub" src/server/services/*role*.ts 2>/dev/null | head -10
 ```
 
-If the endpoint is platform-scoped (not hub-scoped), the "Hub Roles" section wraps the SAME endpoint as the Platform Roles section — in that case, drop `hub-roles-section.tsx` and the People group's Roles item, keeping only Platform Roles. Document finding in commit message.
+If the endpoint is platform-scoped (not hub-scoped), the "Hub Roles" section wraps the SAME endpoint as the Platform Roles section — in that case, drop `hub-roles-section.tsx` and the People group's Roles item, keeping only Platform Roles. Document the finding by adding a short comment at the top of `admin-nav-config.ts` explaining why there's no hub-scoped roles item, AND update the project CLAUDE.md "Architecture" section if the roles model turns out different than documented.
 
 - [ ] **Step 2: Migrate each section per the Phase B pattern**
 
@@ -1069,6 +1106,19 @@ Four commits.
 **Files:**
 - Create: `src/client/components/admin-sections/hubs-section.tsx`
 - Create: `src/client/components/admin-sections/hubs-edit-dialog.tsx` (extracted from current hubs.tsx)
+
+- [ ] **Step 1a: Install shadcn Tabs component** (if not already installed)
+
+```bash
+ls src/client/components/ui/tabs.tsx 2>/dev/null || bunx shadcn@latest add tabs
+```
+
+Commit the new `tabs.tsx` component in its own commit before proceeding:
+
+```bash
+git add src/client/components/ui/tabs.tsx
+git commit -m "chore(ui): add shadcn Tabs primitive"
+```
 
 - [ ] **Step 1: Read current `admin/hubs.tsx`**
 
@@ -1186,19 +1236,11 @@ export function PlatformRolesSection() {
 
 Include: create dialog, edit dialog, delete confirmation. System role `role-super-admin` rendered read-only with disabled buttons + tooltip.
 
-- [ ] **Step 4: Add query keys** in `src/client/lib/query-client.ts` under `queryKeys.platform`
+- [ ] **Step 4: Use existing `queryKeys.roles.list()` — do NOT add a new domain**
 
-```typescript
-platform: {
-  roles: () => ['platform', 'roles'] as const,
-  bans: (scope: 'global' | string) => ['platform', 'bans', scope] as const,
-  audit: (filters: AuditFilters) => ['platform', 'audit', filters] as const,
-  analytics: (range: string) => ['platform', 'analytics', range] as const,
-  health: () => ['platform', 'health'] as const,
-},
-```
+`queryKeys.roles.list()` already exists in `src/client/lib/queries/keys.ts` and is classified under `ENCRYPTED_QUERY_KEYS` in `src/client/lib/query-client.ts`. The new PlatformRolesSection uses the same key as the current `roles-section.tsx`; this keeps a single cache entry across both UIs. The same applies to Tasks 16–19 — use `queryKeys.bans.list()`, `queryKeys.audit.list(filters)`, `queryKeys.analytics.callVolume()`, etc.
 
-Classify each under `PLAINTEXT_QUERY_KEYS` since these are admin metadata, not user PII.
+No changes to `query-client.ts` or `keys.ts` are needed for Tasks 15–19 unless an endpoint is added that genuinely lacks a queryKey today. If one is needed (e.g., `queryKeys.provider.health()` for system-wide health), verify the domain exists first; if it doesn't, add it to the appropriate classification array in the same commit.
 
 - [ ] **Step 5: Register, add to nav config, add i18n, write E2E test, commit**
 
@@ -1355,12 +1397,14 @@ E2E smoke test: load page, switch range, assert charts render.
 - Create: `src/client/components/admin-sections/health-section.tsx`
 - Create: `tests/ui/admin-health.spec.ts`
 
-- [ ] **Step 1: Read endpoints**
+- [ ] **Step 1: Read endpoints + verify provider-health permission**
 
 ```bash
 cat src/server/routes/health.ts | head -80
-grep -rn "provider-health" src/server/routes/ src/server/services/ | head -10
+grep -rn "provider-health\|providerHealth" src/server/routes/ src/server/services/ | head -20
 ```
+
+Confirm the exact permission string on `GET /provider-health` (may be `settings:read` or super-admin-only). Use the confirmed string in the nav config `requiredPermissions` array below; do not guess.
 
 - [ ] **Step 2: Add API client** — `getSystemHealth()`, `getProviderHealth()`.
 
@@ -1456,6 +1500,14 @@ grep -rn "from '@/components/admin-settings/" src/client --include='*.tsx' --inc
 
 Expected: no matches (outside the deleted files themselves).
 
+- [ ] **Step 1a: Decide fate of `retention-section.tsx`**
+
+```bash
+grep -rn "RetentionSection\|retention-section" src/client --include='*.tsx' --include='*.ts'
+```
+
+If zero references outside the file itself, it's dead code — safe to delete in Step 3 below. If there are references, pause and evaluate whether retention is a real section that needs migration; if so, add it as a sub-task under Phase B (Calls & Voice group). Expected based on current understanding: dead code, delete silently with a commit note.
+
 - [ ] **Step 2: Delete `src/client/routes/admin/settings.tsx`** and regenerate TanStack routeTree.
 
 - [ ] **Step 3: Delete `src/client/components/admin-settings/` directory.**
@@ -1470,28 +1522,40 @@ If volunteer `/settings.tsx` still uses it, leave the file in place.
 
 - [ ] **Step 5: Add legacy deeplink redirect**
 
-In `src/client/routes/admin/route.tsx`, add a `useEffect` that reads `window.location.hash` on mount and if it matches a known old anchor (`#roles`, `#geocoding`, etc.), redirects to the new slug.
+Because `route.tsx` is compiled with strict types and `beforeLoad` runs before mount, the redirect logic moves into a small dedicated component that wraps `<Outlet />`:
 
-```typescript
+```tsx
+import { Outlet, useNavigate } from '@tanstack/react-router'
+import { useEffect } from 'react'
+
+// Old section anchors that got renamed. Direct renames that keep the same
+// slug (roles, teams, tags, custom-fields, report-types, firehose,
+// call-settings, voice-prompts, transcription, spam-protection, rcs, signal,
+// passkey-policy) are not listed — they just work.
 const LEGACY_ANCHOR_MAP: Record<string, string> = {
-  'profile': 'location-lookup',  // settings.tsx had no section matching this; skip
-  'geocoding': 'location-lookup',
+  geocoding: 'location-lookup',
   'telephony-provider': 'phone-provider',
   'ivr-languages': 'phone-menu-languages',
-  'channels': 'messaging-sms',
-  // direct renames stay: roles, teams, tags, custom-fields, report-types, firehose,
-  // call-settings, voice-prompts, transcription, spam-protection, rcs, signal, passkey-policy
+  channels: 'messaging-sms',
 }
 
-useEffect(() => {
-  const hash = window.location.hash.replace('#', '')
-  if (!hash) return
-  const newSlug = LEGACY_ANCHOR_MAP[hash] ?? hash
-  if (window.location.pathname === '/admin/settings' || window.location.pathname === '/admin/hubs') {
-    navigate({ to: '/admin/$section', params: { section: newSlug }, replace: true })
-  }
-}, [])
+function AdminLegacyRedirector() {
+  const navigate = useNavigate()
+  useEffect(() => {
+    const { pathname, hash } = window.location
+    // Only trigger on the two legacy paths
+    if (pathname !== '/admin/settings' && pathname !== '/admin/hubs') return
+    const anchor = hash.replace('#', '')
+    const slug = LEGACY_ANCHOR_MAP[anchor] ?? anchor
+    if (slug) {
+      void navigate({ to: '/admin/$section', params: { section: slug }, replace: true })
+    }
+  }, [navigate])
+  return <Outlet />
+}
 ```
+
+Replace the `route.tsx` component with `<AdminLegacyRedirector />`. The auth gate stays in `beforeLoad` (from Task 6).
 
 - [ ] **Step 6: Run typecheck + full build**
 
@@ -1565,7 +1629,10 @@ export async function hideAdvanced(page: Page, sectionSlug: string) {
 
 export async function saveSection(page: Page, sectionSlug: string) {
   await page.getByTestId(`admin-${sectionSlug}-save`).click()
-  await expect(page.getByText(/saved|success/i)).toBeVisible({ timeout: 5000 })
+  // Success feedback: each section renders a stable testid when save succeeds.
+  await expect(
+    page.getByTestId(`admin-${sectionSlug}-save-success`)
+  ).toBeVisible({ timeout: 5000 })
 }
 
 export async function expectNavGroupVisible(page: Page, groupSlug: string) {
@@ -1738,6 +1805,12 @@ bun run lint:fix
 ```
 
 - [ ] **Step 7: Commit any lint fixes**
+
+- [ ] **Step 8: Invoke frontend-design skill for final polish pass**
+
+With all 22 sections migrated and new super-admin sections in place, invoke `frontend-design:frontend-design` once more targeting the overall cohesion: do all sections have consistent spacing, save-button placement, heading weight, form-field density, destructive-action styling? Constrain the skill: no structural changes, no testid changes, no i18n key changes; only Tailwind class and ordering adjustments within existing JSX.
+
+Commit as `style(admin): final cohesion pass across all sections`.
 
 ---
 
