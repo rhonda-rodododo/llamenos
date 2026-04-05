@@ -45,3 +45,4 @@ packages/crypto/dist/
 .claude/scheduled_tasks.lock
 scripts/pii-check.sh
 asterisk-bridge/dev-certs/
+tests/screenshots/
