@@ -68,6 +68,7 @@ export const queryKeys = {
   bans: {
     all: ['bans'] as const,
     list: () => ['bans', 'list'] as const,
+    globalList: () => ['bans', 'global', 'list'] as const,
   },
 
   audit: {

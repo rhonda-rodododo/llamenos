@@ -1507,7 +1507,8 @@
       "rcs": "RCS",
       "signal": "Signal",
       "hubs": "Hubs",
-      "platformRoles": "Roles"
+      "platformRoles": "Roles",
+      "bans": "Bans"
     }
   },
   "locationLookup": {

@@ -160,6 +160,13 @@ export const adminNavConfig: AdminNavConfig = {
           requiredRole: 'role-super-admin',
           testid: 'admin-sidebar-item-platform-roles',
         },
+        {
+          slug: 'bans',
+          labelKey: 'adminNav.items.bans',
+          requiredPermissions: ['bans:read'],
+          requiredRole: 'role-super-admin',
+          testid: 'admin-sidebar-item-bans',
+        },
       ],
     },
   ],

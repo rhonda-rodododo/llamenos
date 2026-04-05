@@ -1320,6 +1320,36 @@
       "actions": "Actions"
     }
   },
+  "bans": {
+    "description": "Block phone numbers from calling the hotline across all hubs.",
+    "addTitle": "Ban a number",
+    "phone": "Phone number",
+    "phoneHelp": "E.164 format, e.g. +12125551234",
+    "reason": "Reason",
+    "reasonPlaceholder": "e.g. Repeated spam",
+    "addButton": "Ban number",
+    "bulkTitle": "Bulk import (CSV)",
+    "bulkHelp": "One E.164 phone number per line (first column if comma-separated).",
+    "bulkFile": "CSV file",
+    "bulkReasonPlaceholder": "Applied to all imported numbers",
+    "bulkSubmit": "Import bans",
+    "listTitle": "Active bans",
+    "empty": "No global bans yet.",
+    "banned": "Number banned",
+    "removed": "Ban removed",
+    "bulkImported": "Imported {{count}} bans",
+    "invalidPhone": "Invalid phone number. Use E.164 format (e.g. +12125551234).",
+    "invalidCsvPhone": "Invalid phone in CSV: {{phone}}",
+    "emptyCsv": "CSV contains no valid phone numbers (one E.164 number per line).",
+    "deleteTitle": "Remove ban",
+    "deleteConfirm": "Unblock {{phone}}? They will be able to call again.",
+    "columns": {
+      "phone": "Phone",
+      "reason": "Reason",
+      "bannedAt": "Banned at",
+      "actions": "Actions"
+    }
+  },
   "hub": {
     "export": {
       "title": "Export Hub Data",
@@ -1608,7 +1638,8 @@
       "rcs": "RCS",
       "signal": "Signal",
       "hubs": "Hubs",
-      "platformRoles": "Roles"
+      "platformRoles": "Roles",
+      "bans": "Bans"
     },
     "openMenu": "Open navigation menu"
   },
