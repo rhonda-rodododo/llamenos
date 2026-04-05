@@ -76,7 +76,38 @@ export const adminNavConfig: AdminNavConfig = {
       groupSlug: 'calls-voice',
       scope: 'this-hub',
       labelKey: 'adminNav.groups.callsVoice',
-      items: [],
+      items: [
+        {
+          slug: 'call-settings',
+          labelKey: 'adminNav.items.callSettings',
+          requiredPermissions: ['settings:read'],
+          testid: 'admin-sidebar-item-call-settings',
+        },
+        {
+          slug: 'voice-prompts',
+          labelKey: 'adminNav.items.voicePrompts',
+          requiredPermissions: ['settings:read'],
+          testid: 'admin-sidebar-item-voice-prompts',
+        },
+        {
+          slug: 'phone-menu-languages',
+          labelKey: 'adminNav.items.phoneMenuLanguages',
+          requiredPermissions: ['settings:read'],
+          testid: 'admin-sidebar-item-phone-menu-languages',
+        },
+        {
+          slug: 'transcription',
+          labelKey: 'adminNav.items.transcription',
+          requiredPermissions: ['settings:read'],
+          testid: 'admin-sidebar-item-transcription',
+        },
+        {
+          slug: 'spam-protection',
+          labelKey: 'adminNav.items.spamProtection',
+          requiredPermissions: ['settings:read'],
+          testid: 'admin-sidebar-item-spam-protection',
+        },
+      ],
     },
     {
       groupSlug: 'channels',

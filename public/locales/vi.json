@@ -430,7 +430,9 @@
     "rateLimiting": "Giới hạn tần suất",
     "rateLimitingDescription": "Giới hạn cuộc gọi lặp lại từ cùng một số",
     "maxCallsPerMinute": "Cuộc gọi tối đa mỗi phút mỗi số",
-    "blockDuration": "Thời gian chặn (phút)"
+    "blockDuration": "Thời gian chặn (phút)",
+    "description": "Protect the hotline from abusive callers with rate limiting and a voice CAPTCHA.",
+    "noAdvancedSettings": "Enable a protection above to configure thresholds."
   },
   "callHistory": {
     "title": "Lịch sử cuộc gọi",
@@ -1270,9 +1272,9 @@
     "type": "Type",
     "riskLevel": "Risk Level",
     "tags": "Tags",
-      "customFields": "Custom Fields",
-      "reportTypes": "Report Types",
-      "firehose": "Firehose",
+    "customFields": "Custom Fields",
+    "reportTypes": "Report Types",
+    "firehose": "Firehose",
     "lastInteraction": "Last Interaction",
     "displayName": "Display Name",
     "notes": "Notes",
@@ -1479,7 +1481,12 @@
       "tags": "Tags",
       "customFields": "Custom Fields",
       "reportTypes": "Report Types",
-      "firehose": "Firehose"
+      "firehose": "Firehose",
+      "callSettings": "Call Settings",
+      "voicePrompts": "Voice Prompts",
+      "phoneMenuLanguages": "Phone Menu Languages",
+      "transcription": "Transcription",
+      "spamProtection": "Spam Protection"
     }
   },
   "locationLookup": {
@@ -1506,5 +1513,9 @@
     "requireForAdmins": "Require for admins",
     "requireForUsers": "Require for users",
     "saved": "Saved"
+  },
+  "phoneMenuLanguages": {
+    "description": "Choose which languages callers hear in the phone menu. Disabled languages are skipped; digit mappings stay fixed.",
+    "atLeastOne": "At least one language must be enabled"
   }
 }

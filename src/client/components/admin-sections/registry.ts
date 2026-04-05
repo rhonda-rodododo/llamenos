@@ -1,12 +1,17 @@
 import type { ComponentType } from 'react'
+import { CallSettingsSection } from './call-settings-section'
 import { CustomFieldsSection } from './custom-fields-section'
 import { FirehoseSection } from './firehose-section'
 import { HubRolesSection } from './hub-roles-section'
 import { LocationLookupSection } from './location-lookup-section'
 import { PasskeyPolicySection } from './passkey-policy-section'
+import { PhoneMenuLanguagesSection } from './phone-menu-languages-section'
 import { ReportTypesSection } from './report-types-section'
+import { SpamProtectionSection } from './spam-section'
 import { TagsSection } from './tags-section'
 import { TeamsSection } from './teams-section'
+import { TranscriptionSection } from './transcription-section'
+import { VoicePromptsSection } from './voice-prompts-section'
 
 /**
  * Maps nav item slugs to section components. Populated as sections migrate.
@@ -30,3 +35,8 @@ registerSection('tags', TagsSection)
 registerSection('custom-fields', CustomFieldsSection)
 registerSection('report-types', ReportTypesSection)
 registerSection('firehose', FirehoseSection)
+registerSection('call-settings', CallSettingsSection)
+registerSection('voice-prompts', VoicePromptsSection)
+registerSection('phone-menu-languages', PhoneMenuLanguagesSection)
+registerSection('transcription', TranscriptionSection)
+registerSection('spam-protection', SpamProtectionSection)

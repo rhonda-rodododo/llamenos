@@ -438,7 +438,9 @@
     "rateLimiting": "Límite de Frecuencia",
     "rateLimitingDescription": "Limitar llamadas repetidas del mismo número",
     "maxCallsPerMinute": "Máximo de llamadas por minuto por número",
-    "blockDuration": "Duración del bloqueo (minutos)"
+    "blockDuration": "Duración del bloqueo (minutos)",
+    "description": "Protect the hotline from abusive callers with rate limiting and a voice CAPTCHA.",
+    "noAdvancedSettings": "Enable a protection above to configure thresholds."
   },
   "callHistory": {
     "title": "Historial de Llamadas",
@@ -1278,9 +1280,9 @@
     "type": "Type",
     "riskLevel": "Risk Level",
     "tags": "Tags",
-      "customFields": "Custom Fields",
-      "reportTypes": "Report Types",
-      "firehose": "Firehose",
+    "customFields": "Custom Fields",
+    "reportTypes": "Report Types",
+    "firehose": "Firehose",
     "lastInteraction": "Last Interaction",
     "displayName": "Display Name",
     "notes": "Notes",
@@ -1487,7 +1489,12 @@
       "tags": "Tags",
       "customFields": "Custom Fields",
       "reportTypes": "Report Types",
-      "firehose": "Firehose"
+      "firehose": "Firehose",
+      "callSettings": "Call Settings",
+      "voicePrompts": "Voice Prompts",
+      "phoneMenuLanguages": "Phone Menu Languages",
+      "transcription": "Transcription",
+      "spamProtection": "Spam Protection"
     }
   },
   "locationLookup": {
@@ -1514,5 +1521,9 @@
     "requireForAdmins": "Require for admins",
     "requireForUsers": "Require for users",
     "saved": "Saved"
+  },
+  "phoneMenuLanguages": {
+    "description": "Choose which languages callers hear in the phone menu. Disabled languages are skipped; digit mappings stay fixed.",
+    "atLeastOne": "At least one language must be enabled"
   }
 }

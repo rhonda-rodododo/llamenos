@@ -438,8 +438,14 @@
     "description": "Choose which languages callers hear in the phone menu. Disabled languages are skipped; digit mappings stay fixed.",
     "atLeastOne": "At least one language must be enabled"
   },
+  "phoneMenuLanguages": {
+    "description": "Choose which languages callers hear in the phone menu. Disabled languages are skipped; digit mappings stay fixed.",
+    "atLeastOne": "At least one language must be enabled"
+  },
   "spam": {
     "title": "Spam Mitigation",
+    "description": "Protect the hotline from abusive callers with rate limiting and a voice CAPTCHA.",
+    "noAdvancedSettings": "Enable a protection above to configure thresholds.",
     "voiceCaptcha": "Voice CAPTCHA",
     "voiceCaptchaDescription": "Require callers to enter a random number before connecting",
     "enabled": "Enabled",
@@ -1557,7 +1563,12 @@
       "tags": "Tags",
       "customFields": "Custom Fields",
       "reportTypes": "Report Types",
-      "firehose": "Firehose"
+      "firehose": "Firehose",
+      "callSettings": "Call Settings",
+      "voicePrompts": "Voice Prompts",
+      "phoneMenuLanguages": "Phone Menu Languages",
+      "transcription": "Transcription",
+      "spamProtection": "Spam Protection"
     },
     "openMenu": "Open navigation menu"
   },
