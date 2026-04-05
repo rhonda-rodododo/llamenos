@@ -38,7 +38,8 @@
     "remove": "Ka saar",
     "retry": "Mar kale isku day",
     "showAdvanced": "Show advanced settings",
-    "hideAdvanced": "Hide advanced settings"
+    "hideAdvanced": "Hide advanced settings",
+    "saved": "Saved"
   },
   "auth": {
     "login": "Soo gal",

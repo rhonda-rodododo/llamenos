@@ -38,7 +38,8 @@
     "remove": "Teleq'aj",
     "retry": "Tirayix chik",
     "showAdvanced": "Show advanced settings",
-    "hideAdvanced": "Hide advanced settings"
+    "hideAdvanced": "Hide advanced settings",
+    "saved": "Saved"
   },
   "auth": {
     "login": "Tok",

@@ -38,7 +38,8 @@
     "remove": "ဖယ်ရှားမည်",
     "retry": "ပြန်လုပ်မည်",
     "showAdvanced": "Show advanced settings",
-    "hideAdvanced": "Hide advanced settings"
+    "hideAdvanced": "Hide advanced settings",
+    "saved": "Saved"
   },
   "auth": {
     "login": "ဝင်ရောက်မည်",

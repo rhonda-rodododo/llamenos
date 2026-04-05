@@ -38,7 +38,8 @@
     "remove": "حذف",
     "retry": "تلاش مجدد",
     "showAdvanced": "Show advanced settings",
-    "hideAdvanced": "Hide advanced settings"
+    "hideAdvanced": "Hide advanced settings",
+    "saved": "Saved"
   },
   "auth": {
     "login": "ورود",

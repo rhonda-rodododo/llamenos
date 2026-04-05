@@ -38,7 +38,8 @@
     "remove": "Rake",
     "retry": "Dîsa biceribîne",
     "showAdvanced": "Show advanced settings",
-    "hideAdvanced": "Hide advanced settings"
+    "hideAdvanced": "Hide advanced settings",
+    "saved": "Saved"
   },
   "auth": {
     "login": "Têkeve",

@@ -38,7 +38,8 @@
     "remove": "Kaldır",
     "retry": "Tekrar dene",
     "showAdvanced": "Show advanced settings",
-    "hideAdvanced": "Hide advanced settings"
+    "hideAdvanced": "Hide advanced settings",
+    "saved": "Saved"
   },
   "auth": {
     "login": "Giriş yap",

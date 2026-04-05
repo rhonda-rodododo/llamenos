@@ -38,7 +38,8 @@
     "remove": "አስወግድ",
     "retry": "እንደገና ሞክር",
     "showAdvanced": "Show advanced settings",
-    "hideAdvanced": "Hide advanced settings"
+    "hideAdvanced": "Hide advanced settings",
+    "saved": "Saved"
   },
   "auth": {
     "login": "ግባ",
