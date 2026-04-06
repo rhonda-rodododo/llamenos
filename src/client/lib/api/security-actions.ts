@@ -5,6 +5,7 @@ export interface LockdownResult {
   revokedSessions: number
   deletedPasskeys: number
   accountDeactivated: boolean
+  notificationDelivered: boolean
 }
 
 /**

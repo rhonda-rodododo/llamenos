@@ -13,6 +13,7 @@ export const LockdownResponseSchema = z.object({
   revokedSessions: z.number().int().min(0),
   deletedPasskeys: z.number().int().min(0),
   accountDeactivated: z.boolean(),
+  notificationDelivered: z.boolean(),
 })
 
 export type LockdownTier = z.infer<typeof LockdownTierSchema>

@@ -39,6 +39,7 @@ export interface LockdownResult {
   revokedSessions: number
   deletedPasskeys: number
   accountDeactivated: boolean
+  notificationDelivered: boolean
 }
 
 export class SecurityActionsService {
@@ -90,8 +91,17 @@ export class SecurityActionsService {
       payload: { lockdownTier: tier, meta: { revokedSessions, deletedPasskeys } },
     })
 
-    void this.notifications.sendAlert(userPubkey, { type: 'lockdown_triggered', tier })
+    let notificationDelivered = false
+    try {
+      const { delivered } = await this.notifications.sendAlert(userPubkey, {
+        type: 'lockdown_triggered',
+        tier,
+      })
+      notificationDelivered = delivered
+    } catch (err) {
+      console.error('[security-actions] lockdown notification failed:', err)
+    }
 
-    return { tier, revokedSessions, deletedPasskeys, accountDeactivated }
+    return { tier, revokedSessions, deletedPasskeys, accountDeactivated, notificationDelivered }
   }
 }
