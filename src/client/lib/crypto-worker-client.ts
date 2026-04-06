@@ -6,6 +6,27 @@
  * are delegated to the worker.
  */
 
+/** Error messages from the worker that indicate the key is no longer available. */
+const LOCKED_ERROR_PATTERNS = [
+  'Not unlocked',
+  'Worker is locked',
+  'Rate limit exceeded — worker auto-locked',
+]
+
+/** Distinguishes "worker has no key" from generic timeouts/crashes. */
+export class CryptoWorkerLockedError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'CryptoWorkerLockedError'
+  }
+}
+
+/** Check if an error indicates the worker's key was zeroed/lost. */
+export function isWorkerLockedError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false
+  return LOCKED_ERROR_PATTERNS.some((p) => err.message.includes(p))
+}
+
 // Re-export the message types for consumers that need them
 interface WorkerSuccessResponse {
   type: 'success'
@@ -53,30 +74,35 @@ export class CryptoWorkerClient {
     this.worker = new Worker(new URL('./crypto-worker.ts', import.meta.url), {
       type: 'module',
     })
+    this.worker.onmessage = this.handleMessage.bind(this)
+    this.worker.onerror = this.handleError.bind(this)
+  }
 
-    this.worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
-      const resp = event.data
-      const pending = this.pending.get(resp.id)
-      if (!pending) return
+  private handleMessage(event: MessageEvent<WorkerResponse>): void {
+    const resp = event.data
+    const pending = this.pending.get(resp.id)
+    if (!pending) return
 
-      this.pending.delete(resp.id)
-      clearTimeout(pending.timeoutId)
+    this.pending.delete(resp.id)
+    clearTimeout(pending.timeoutId)
 
-      if (resp.type === 'error') {
-        pending.reject(new Error(resp.error))
-      } else {
-        pending.resolve(resp.result)
-      }
+    if (resp.type === 'error') {
+      const err = isWorkerLockedError(new Error(resp.error))
+        ? new CryptoWorkerLockedError(resp.error)
+        : new Error(resp.error)
+      pending.reject(err)
+    } else {
+      pending.resolve(resp.result)
     }
+  }
 
-    this.worker.onerror = (event: ErrorEvent) => {
-      // Reject all pending requests on unhandled worker error
-      const error = new Error(`Worker error: ${event.message}`)
-      for (const [id, pending] of this.pending) {
-        clearTimeout(pending.timeoutId)
-        pending.reject(error)
-        this.pending.delete(id)
-      }
+  private handleError(event: ErrorEvent): void {
+    // Reject all pending requests on unhandled worker error
+    const error = new Error(`Worker error: ${event.message}`)
+    for (const [id, pending] of this.pending) {
+      clearTimeout(pending.timeoutId)
+      pending.reject(error)
+      this.pending.delete(id)
     }
   }
 
@@ -248,6 +274,26 @@ export class CryptoWorkerClient {
    */
   async computeHmac(input: string, secretHex: string): Promise<string> {
     return (await this.call({ type: 'computeHmac', input, secretHex })) as string
+  }
+
+  /**
+   * Terminate the current worker and create a fresh one.
+   * Used when the worker is in a broken state (responding but not functioning).
+   */
+  reinitialize(): void {
+    const error = new Error('Worker reinitialized')
+    for (const [, pending] of this.pending) {
+      clearTimeout(pending.timeoutId)
+      pending.reject(error)
+    }
+    this.pending.clear()
+
+    this.worker.terminate()
+    this.worker = new Worker(new URL('./crypto-worker.ts', import.meta.url), {
+      type: 'module',
+    })
+    this.worker.onmessage = this.handleMessage.bind(this)
+    this.worker.onerror = this.handleError.bind(this)
   }
 
   /**
