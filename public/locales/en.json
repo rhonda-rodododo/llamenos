@@ -1628,6 +1628,15 @@
       }
     }
   },
+  "time": {
+    "justNow": "just now",
+    "minutesAgo_one": "{{count}} minute ago",
+    "minutesAgo_other": "{{count}} minutes ago",
+    "hoursAgo_one": "{{count}} hour ago",
+    "hoursAgo_other": "{{count}} hours ago",
+    "daysAgo_one": "{{count}} day ago",
+    "daysAgo_other": "{{count}} days ago"
+  },
   "cookiesRequired": {
     "title": "Cookies are required",
     "body": "Llámenos uses browser cookies to keep your session signed in. No tracking, no third parties — just the cookies this site needs to work. Please enable cookies for this site and try again.",
