@@ -40,9 +40,9 @@ export function IdleLockSection() {
       })
       return res.json()
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ['security', 'prefs'] })
-      setAutoLockMs(draft)
+      setAutoLockMs(variables)
     },
   })
 

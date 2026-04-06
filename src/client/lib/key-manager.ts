@@ -69,7 +69,8 @@ export function getAutoLockMs(): number {
   return getAutoLock()
 }
 
-function resetAutoLockTimer(): void {
+/** Reset the auto-lock inactivity timer. Call on any user/API activity. */
+export function resetAutoLockTimer(): void {
   if (autoLockDisabled) return
   if (autoLockTimer) clearTimeout(autoLockTimer)
   autoLockTimer = setTimeout(() => {

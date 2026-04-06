@@ -56,7 +56,7 @@ export const decryptCache = new DecryptCache()
 /** Prevents multiple concurrent decrypt failures from each firing lock. */
 let lockFiring = false
 
-/** Reset recovery state and decrypt cache — exposed for testing. */
+/** @internal Reset recovery state and decrypt cache — test-only, do not call in production. */
 export function resetDecryptRecoveryState(): void {
   lockFiring = false
   decryptCache.clear()
