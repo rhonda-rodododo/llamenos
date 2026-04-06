@@ -27,7 +27,9 @@ export class SecurityPrefsService {
       .insert(userSecurityPrefs)
       .values({ userPubkey, ...DEFAULTS })
       .returning()
-    return inserted[0]
+    const row = inserted[0]
+    if (!row) throw new Error('Failed to insert security prefs')
+    return row
   }
 
   async update(
@@ -40,6 +42,8 @@ export class SecurityPrefsService {
       .set({ ...patch, updatedAt: new Date() })
       .where(eq(userSecurityPrefs.userPubkey, userPubkey))
       .returning()
-    return rows[0]
+    const row = rows[0]
+    if (!row) throw new Error('Failed to update security prefs')
+    return row
   }
 }

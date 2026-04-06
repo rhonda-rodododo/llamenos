@@ -61,7 +61,9 @@ export class SignalContactsService {
         },
       })
       .returning()
-    return rows[0]
+    const row = rows[0]
+    if (!row) throw new Error('Failed to upsert signal contact')
+    return row
   }
 
   async findByUser(userPubkey: string): Promise<UserSignalContactRow | null> {
