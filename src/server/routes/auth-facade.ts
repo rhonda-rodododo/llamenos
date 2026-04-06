@@ -1089,27 +1089,27 @@ authFacade.delete('/passkeys/:id', async (c) => {
     .catch(() => undefined)
   try {
     await identity.deleteWebAuthnCredential(pubkey, credId)
-    try {
-      await c.get('authEvents').record({
-        userPubkey: pubkey,
-        eventType: 'passkey_removed',
-        payload: { credentialId: credId, credentialLabel: existing?.label },
-      })
-    } catch (err) {
-      console.error('[auth-facade] auth event recording failed:', err)
-    }
-    if (existing) {
-      const notifications = c.get('userNotifications')
-      if (notifications) {
-        void notifications
-          .sendAlert(pubkey, { type: 'passkey_removed', credentialLabel: existing.label })
-          .catch((err) => console.error('[auth-facade] notification failed:', err))
-      }
-    }
-    return c.json({ ok: true })
   } catch {
     return c.json({ error: 'Credential not found' }, 404)
   }
+  try {
+    await c.get('authEvents').record({
+      userPubkey: pubkey,
+      eventType: 'passkey_removed',
+      payload: { credentialId: credId, credentialLabel: existing?.label },
+    })
+  } catch (err) {
+    console.error('[auth-facade] auth event recording failed:', err)
+  }
+  if (existing) {
+    const notifications = c.get('userNotifications')
+    if (notifications) {
+      void notifications
+        .sendAlert(pubkey, { type: 'passkey_removed', credentialLabel: existing.label })
+        .catch((err) => console.error('[auth-facade] notification failed:', err))
+    }
+  }
+  return c.json({ ok: true })
 })
 
 // DELETE /devices/:id — delete a credential
@@ -1125,27 +1125,27 @@ authFacade.delete('/devices/:id', async (c) => {
     .catch(() => undefined)
   try {
     await identity.deleteWebAuthnCredential(pubkey, credId)
-    try {
-      await c.get('authEvents').record({
-        userPubkey: pubkey,
-        eventType: 'passkey_removed',
-        payload: { credentialId: credId, credentialLabel: existing?.label },
-      })
-    } catch (err) {
-      console.error('[auth-facade] auth event recording failed:', err)
-    }
-    if (existing) {
-      const notifications = c.get('userNotifications')
-      if (notifications) {
-        void notifications
-          .sendAlert(pubkey, { type: 'passkey_removed', credentialLabel: existing.label })
-          .catch((err) => console.error('[auth-facade] notification failed:', err))
-      }
-    }
-    return c.json({ ok: true })
   } catch {
     return c.json({ error: 'Credential not found' }, 404)
   }
+  try {
+    await c.get('authEvents').record({
+      userPubkey: pubkey,
+      eventType: 'passkey_removed',
+      payload: { credentialId: credId, credentialLabel: existing?.label },
+    })
+  } catch (err) {
+    console.error('[auth-facade] auth event recording failed:', err)
+  }
+  if (existing) {
+    const notifications = c.get('userNotifications')
+    if (notifications) {
+      void notifications
+        .sendAlert(pubkey, { type: 'passkey_removed', credentialLabel: existing.label })
+        .catch((err) => console.error('[auth-facade] notification failed:', err))
+    }
+  }
+  return c.json({ ok: true })
 })
 
 // ---------------------------------------------------------------------------
