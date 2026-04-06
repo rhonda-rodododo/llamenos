@@ -7,8 +7,8 @@ import type { UserNotificationsService } from './user-notifications'
 const BASE32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
 
 /**
- * Generate a 128-bit random recovery key formatted as XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX.
- * Matches the format used in src/client/lib/backup.ts.
+ * Generate a 128-bit random recovery key formatted as XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XX.
+ * 128 bits = 26 base32 characters. Matches the format used in src/client/lib/backup.ts.
  */
 export function generateRecoveryKey(): string {
   const bytes = new Uint8Array(16)

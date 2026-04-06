@@ -26,9 +26,9 @@ async function seedKekProof(pinProof: string): Promise<void> {
 }
 
 /**
- * Retry a request once if the server responds 409 (no KEK proof hash yet) by
- * seeding the hash first. This handles the post-migration window without
- * requiring every caller to manage it.
+ * Retry a request once if a security-action endpoint responds 409 (no KEK
+ * proof hash stored yet) by seeding the hash first. This handles the
+ * post-migration window without requiring every caller to manage it.
  */
 async function withKekProofRetry<T>(pinProof: string, fn: () => Promise<T>): Promise<T> {
   try {

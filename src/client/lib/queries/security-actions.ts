@@ -8,8 +8,6 @@ export function useLockdown() {
       api.triggerLockdown(tier, pinProof),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['security'] })
-      qc.invalidateQueries({ queryKey: ['sessions'] })
-      qc.invalidateQueries({ queryKey: ['auth-events'] })
     },
   })
 }
