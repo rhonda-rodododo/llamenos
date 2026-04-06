@@ -14,6 +14,7 @@ import {
 } from '../../shared/schemas/auth'
 import { AuthEventListQuerySchema } from '../../shared/schemas/auth-events'
 import { EnrollRequestSchema } from '../../shared/schemas/enroll'
+import { KekProofSchema } from '../../shared/schemas/kek-proof'
 import { LockdownRequestSchema } from '../../shared/schemas/lockdown'
 import { PasskeyRenameSchema } from '../../shared/schemas/passkeys'
 import { PinChangeSchema } from '../../shared/schemas/pin-change'
@@ -652,10 +653,11 @@ authFacade.get('/kek-proof/status', async (c) => {
 // POST /kek-proof — set the KEK proof hash (one-time, after first unlock post-migration)
 authFacade.post('/kek-proof', async (c) => {
   const pubkey = c.get('pubkey')
-  const body = (await c.req.json().catch(() => null)) as { proof?: unknown } | null
-  if (!body || typeof body.proof !== 'string' || body.proof.length < 1) {
+  const parsed = KekProofSchema.safeParse(await c.req.json().catch(() => null))
+  if (!parsed.success) {
     return c.json({ error: 'Invalid request body' }, 400)
   }
+  const body = parsed.data
   const identity = c.get('identity')
   const existing = await identity.getKekProofHash(pubkey)
   if (existing) {
