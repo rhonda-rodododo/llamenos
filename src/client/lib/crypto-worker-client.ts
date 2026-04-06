@@ -99,11 +99,11 @@ export class CryptoWorkerClient {
   private handleError(event: ErrorEvent): void {
     // Reject all pending requests on unhandled worker error
     const error = new Error(`Worker error: ${event.message}`)
-    for (const [id, pending] of this.pending) {
+    for (const [, pending] of this.pending) {
       clearTimeout(pending.timeoutId)
       pending.reject(error)
-      this.pending.delete(id)
     }
+    this.pending.clear()
   }
 
   private nextId(): string {
@@ -301,12 +301,12 @@ export class CryptoWorkerClient {
    */
   terminate(): void {
     this.worker.terminate()
-    // Reject any pending requests
     const error = new Error('Worker terminated')
-    for (const [id, pending] of this.pending) {
+    for (const [, pending] of this.pending) {
+      clearTimeout(pending.timeoutId)
       pending.reject(error)
-      this.pending.delete(id)
     }
+    this.pending.clear()
   }
 }
 
