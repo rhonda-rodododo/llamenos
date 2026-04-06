@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-05
 **Status:** Approved
-**Branch base:** `feat/device-management` (PR #43)
+**Branch base:** `main` (PR #43 merged)
 
 ## Problem
 
