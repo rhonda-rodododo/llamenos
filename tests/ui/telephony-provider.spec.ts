@@ -1,5 +1,5 @@
 import { expect, test } from '../fixtures/auth'
-import { navigateAfterLogin, reenterPinAfterReload } from '../helpers'
+import { enterPin, navigateAfterLogin, reenterPinAfterReload } from '../helpers'
 
 test.describe('Phone Provider Settings', () => {
   test('phone provider section is accessible from admin nav', async ({ adminPage }) => {
@@ -140,12 +140,12 @@ test.describe('Phone Provider Settings', () => {
     })
 
     // Reload clears keyManager — go to /login to re-enter PIN
-    await adminPage.goto('/login', { waitUntil: 'domcontentloaded' })
+    await adminPage.goto('/login', { waitUntil: 'networkidle' })
     const pinInput = adminPage.locator('input[aria-label="PIN digit 1"]')
     await pinInput.waitFor({ state: 'visible', timeout: 30000 })
-    await pinInput.focus()
-    await adminPage.keyboard.type('123456', { delay: 50 })
-    await adminPage.keyboard.press('Enter')
+    // Wait for CSS transitions to settle before focusing
+    await adminPage.waitForTimeout(1000)
+    await enterPin(adminPage, '123456')
     // Wait for unlock (PBKDF2 is slow under parallel workers)
     await adminPage.waitForURL((u) => !u.toString().includes('/login'), { timeout: 90000 })
     // Navigate back to the section
