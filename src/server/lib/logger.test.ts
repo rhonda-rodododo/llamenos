@@ -147,4 +147,66 @@ describe('createLogger', () => {
     expect(entry.errMsg).toBe('boom')
     expect(entry.msg).toBe('failed')
   })
+
+  test('error treats plain object as extras, not as error (C3 fix)', () => {
+    const stderr: string[] = []
+    const spy = spyOn(process.stderr, 'write').mockImplementation((c: unknown) => {
+      stderr.push(typeof c === 'string' ? c : String(c))
+      return true
+    })
+    createLogger('x').error('request failed', { status: 500, path: '/api/test' })
+    spy.mockRestore()
+    const entry = JSON.parse(stderr[0].trim())
+    expect(entry.status).toBe(500)
+    expect(entry.path).toBe('/api/test')
+    // Must NOT produce errMsg: "[object Object]"
+    expect(entry.errMsg).toBeUndefined()
+    expect(entry.errName).toBeUndefined()
+  })
+
+  test('error with Error + extras merges both', () => {
+    const stderr: string[] = []
+    const spy = spyOn(process.stderr, 'write').mockImplementation((c: unknown) => {
+      stderr.push(typeof c === 'string' ? c : String(c))
+      return true
+    })
+    createLogger('x').error('failed', new Error('boom'), { requestId: 'r1' })
+    spy.mockRestore()
+    const entry = JSON.parse(stderr[0].trim())
+    expect(entry.errName).toBe('Error')
+    expect(entry.errMsg).toBe('boom')
+    expect(entry.requestId).toBe('r1')
+  })
+
+  test('error with undefined + extras still emits extras (legacy pattern)', () => {
+    const stderr: string[] = []
+    const spy = spyOn(process.stderr, 'write').mockImplementation((c: unknown) => {
+      stderr.push(typeof c === 'string' ? c : String(c))
+      return true
+    })
+    createLogger('x').error('provider down', undefined, { provider: 'twilio' })
+    spy.mockRestore()
+    const entry = JSON.parse(stderr[0].trim())
+    expect(entry.provider).toBe('twilio')
+    expect(entry.errMsg).toBeUndefined()
+  })
+
+  test('error with string primitive wraps as error value', () => {
+    const stderr: string[] = []
+    const spy = spyOn(process.stderr, 'write').mockImplementation((c: unknown) => {
+      stderr.push(typeof c === 'string' ? c : String(c))
+      return true
+    })
+    createLogger('x').error('failed', 'some string error')
+    spy.mockRestore()
+    const entry = JSON.parse(stderr[0].trim())
+    expect(entry.errName).toBe('Unknown')
+    expect(entry.errMsg).toBe('some string error')
+  })
+
+  // Compile-time check: Loggable<T> type gate rejects Unloggable fields.
+  // The following would fail to compile if uncommented:
+  //   import type { Ciphertext } from '@shared/types'
+  //   const ct = 'encrypted' as Ciphertext
+  //   createLogger('x').info('msg', { ct })  // TS error: Ciphertext extends Unloggable → never
 })

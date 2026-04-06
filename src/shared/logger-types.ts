@@ -25,5 +25,9 @@ export type Loggable<T> = T extends Unloggable
         ? { [K in keyof T]: Loggable<T[K]> }
         : T
 
-/** Typed `extra` argument accepted by every logger method. */
+/**
+ * Documentation alias — the Logger interface uses generics directly so
+ * TypeScript infers narrow types at call sites and Loggable<T> actually
+ * rejects Unloggable fields.  Kept for documentation / ad-hoc usage.
+ */
 export type LogExtra = Loggable<Record<string, unknown>>
