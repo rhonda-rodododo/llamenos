@@ -9,7 +9,6 @@ import path from 'node:path'
  */
 import { serve } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
-import { sql } from 'drizzle-orm'
 import { migrate } from 'drizzle-orm/bun-sql/migrator'
 import { Hono } from 'hono'
 import { initDb } from './db'
@@ -71,6 +70,15 @@ async function main() {
     }
   }
 
+  // Refuse to start in production with session token rotation disabled.
+  if (process.env.DISABLE_TOKEN_ROTATION === 'true' && process.env.NODE_ENV === 'production') {
+    console.error('FATAL: DISABLE_TOKEN_ROTATION must not be enabled in production')
+    process.exit(1)
+  }
+  if (process.env.DISABLE_TOKEN_ROTATION === 'true') {
+    console.warn('[auth] Session token rotation DISABLED (test/dev only)')
+  }
+
   // Phase 4: Startup diagnostics for optional env vars
   if (!env.APP_URL) {
     console.warn('[llamenos] ⚠  APP_URL not set — invite links and webhooks may use wrong base URL')
@@ -89,13 +97,6 @@ async function main() {
 
   const db = initDb(env.DATABASE_URL)
   await migrate(db, { migrationsFolder: path.resolve(process.cwd(), 'drizzle', 'migrations') })
-  // Ensure jwt_revocations exists (migration may be skipped due to cross-branch tracking mismatch)
-  await db.execute(sql`CREATE TABLE IF NOT EXISTS jwt_revocations (
-    jti text PRIMARY KEY NOT NULL,
-    pubkey text NOT NULL,
-    expires_at timestamp NOT NULL,
-    created_at timestamp DEFAULT now() NOT NULL
-  )`)
   console.log('[llamenos] Migrations applied')
 
   let storage: StorageManager | null = null
@@ -202,6 +203,38 @@ async function main() {
   // Schedule daily retention purge at 03:00 UTC
   scheduleRetentionPurge(services)
   console.log('[llamenos] Data retention purge scheduled')
+
+  // Schedule Signal digest crons
+  const { runDigestCron } = await import('./services/digest-cron')
+  const dailyDigestInterval = setInterval(
+    () => {
+      runDigestCron(
+        db,
+        services.authEvents,
+        services.securityPrefs,
+        services.signalContacts,
+        services.userNotifications,
+        'daily'
+      ).catch((err) => console.error('[digest] daily digest failed:', err))
+    },
+    24 * 3600 * 1000
+  )
+  dailyDigestInterval.unref?.()
+  const weeklyDigestInterval = setInterval(
+    () => {
+      runDigestCron(
+        db,
+        services.authEvents,
+        services.securityPrefs,
+        services.signalContacts,
+        services.userNotifications,
+        'weekly'
+      ).catch((err) => console.error('[digest] weekly digest failed:', err))
+    },
+    7 * 24 * 3600 * 1000
+  )
+  weeklyDigestInterval.unref?.()
+  console.log('[llamenos] Signal digest crons scheduled')
 
   // Initialize IdP adapter (Authentik by default) — hard-fail on error; Docker restarts via restart: unless-stopped
   const { createIdPAdapter } = await import('./idp/index')

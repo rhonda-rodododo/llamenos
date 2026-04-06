@@ -309,6 +309,55 @@
       "when": 1744070400000,
       "tag": "0042_firehose_status_enum",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1775574000000,
+      "tag": "0043_user_sessions",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1775574000001,
+      "tag": "0044_drop_jwt_revocations",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1775574000002,
+      "tag": "0045_session_prev_token_hash",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1775574000003,
+      "tag": "0046_user_auth_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1775574000004,
+      "tag": "0047_user_signal_contacts",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1775574000005,
+      "tag": "0048_user_security_prefs",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1775574000006,
+      "tag": "0049_users_kek_proof_hash",
+      "breakpoints": true
     }
   ]
 }

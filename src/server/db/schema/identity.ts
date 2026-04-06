@@ -8,6 +8,7 @@ export const users = pgTable('users', {
   roles: jsonb<string[]>()('roles').notNull().default([]),
   hubRoles: jsonb<Array<{ hubId: string; roleIds: string[] }>>()('hub_roles').notNull().default([]),
   encryptedSecretKey: text('encrypted_secret_key').notNull().default(''),
+  kekProofHash: text('kek_proof_hash'),
   active: boolean('active').notNull().default(true),
   transcriptionEnabled: boolean('transcription_enabled').notNull().default(true),
   spokenLanguages: jsonb<string[]>()('spoken_languages').notNull().default([]),
@@ -22,17 +23,6 @@ export const users = pgTable('users', {
   encryptedPhone: ciphertext('encrypted_phone').notNull(),
   phoneEnvelopes: jsonb<RecipientEnvelope[]>()('phone_envelopes').notNull().default([]),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-})
-
-export const jwtRevocations = pgTable('jwt_revocations', {
-  /** JWT ID (jti claim) */
-  jti: text('jti').primaryKey(),
-  /** Pubkey of the revoked user */
-  pubkey: text('pubkey').notNull(),
-  /** When the JWT expires (rows can be cleaned up after this) */
-  expiresAt: timestamp('expires_at').notNull(),
-  /** When this revocation was created */
-  createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 
 export const webauthnCredentials = pgTable('webauthn_credentials', {

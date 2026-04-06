@@ -246,6 +246,13 @@ export async function unlock(pin: string): Promise<string | null> {
       if (isSynthetic) {
         await rotateSyntheticToReal(pin, blob, prfOutput)
       }
+
+      // NOTE: Server-side KEK proof seeding is handled on-demand: when the user
+      // attempts a security action (PIN change, recovery rotate, lockdown) and
+      // the server has no hash stored, it returns 409 and the client re-POSTs
+      // the proof then retries. We used to auto-sync during unlock, but that
+      // introduced an extra fetch on a hot path that could affect timing in
+      // parallel Playwright workers. On-demand is sufficient.
     }
     return pubkey
   } catch (err) {

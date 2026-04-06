@@ -12,6 +12,7 @@ import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
 import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import { schnorr, secp256k1 } from '@noble/curves/secp256k1.js'
 import { hkdf } from '@noble/hashes/hkdf.js'
+import { hmac } from '@noble/hashes/hmac.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { LABEL_DEVICE_PROVISION, SAS_INFO, SAS_SALT } from '@shared/crypto-labels'
@@ -43,6 +44,14 @@ type WorkerRequest =
       wrappedKeyHex: string
       label: string
     }
+  | {
+      type: 'envelopeEncryptField'
+      id: string
+      plaintext: string
+      recipientPubkeysHex: string[]
+      label: string
+    }
+  | { type: 'computeHmac'; id: string; input: string; secretHex: string }
 
 interface WorkerSuccessResponse {
   type: 'success'
@@ -362,6 +371,33 @@ self.onmessage = (event: MessageEvent<WorkerRequest>) => {
       case 'provisionNsec':
         result = handleProvisionNsec(req.recipientEphemeralPubkeyHex)
         break
+      case 'envelopeEncryptField': {
+        // Generate a random symmetric key, encrypt the plaintext with it, and
+        // ECIES-wrap the key for each recipient. Returns { encryptedHex, envelopes }.
+        const messageKey = randomBytes(32)
+        const fieldNonce = randomBytes(24)
+        const fieldCipher = xchacha20poly1305(messageKey, fieldNonce)
+        const ct = fieldCipher.encrypt(utf8ToBytes(req.plaintext))
+        const packed = new Uint8Array(fieldNonce.length + ct.length)
+        packed.set(fieldNonce)
+        packed.set(ct, fieldNonce.length)
+        const envelopes = req.recipientPubkeysHex.map((pub) => {
+          const wrapped = eciesWrap(messageKey, pub, req.label)
+          return {
+            recipientPubkey: pub,
+            ephemeralPubkeyHex: wrapped.ephemeralPubkeyHex,
+            wrappedKeyHex: wrapped.wrappedKeyHex,
+          }
+        })
+        messageKey.fill(0)
+        result = { encryptedHex: bytesToHex(packed), envelopes }
+        break
+      }
+      case 'computeHmac': {
+        const mac = hmac(sha256, hexToBytes(req.secretHex), utf8ToBytes(req.input))
+        result = bytesToHex(mac)
+        break
+      }
       case 'decryptEnvelopeField': {
         if (!secretKey) throw new Error('Worker is locked')
         if (!checkRateLimit('decrypt')) {

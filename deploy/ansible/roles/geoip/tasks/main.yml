@@ -1,0 +1,42 @@
+---
+- name: Ensure GeoIP data directory exists
+  ansible.builtin.file:
+    path: "{{ geoip_data_dir | default(app_root + '/data/geoip') }}"
+    state: directory
+    owner: "{{ app_user | default('llamenos') }}"
+    group: "{{ app_group | default('llamenos') }}"
+    mode: '0755'
+
+- name: Ensure scripts directory exists
+  ansible.builtin.file:
+    path: "{{ app_root }}/scripts"
+    state: directory
+    owner: "{{ app_user | default('llamenos') }}"
+    group: "{{ app_group | default('llamenos') }}"
+    mode: '0755'
+
+- name: Install DB-IP download script
+  ansible.builtin.copy:
+    src: download-dbip.sh
+    dest: "{{ app_root }}/scripts/download-dbip.sh"
+    owner: "{{ app_user | default('llamenos') }}"
+    group: "{{ app_group | default('llamenos') }}"
+    mode: '0755'
+
+- name: Download DB-IP Lite MMDB on first setup
+  ansible.builtin.command:
+    cmd: "{{ app_root }}/scripts/download-dbip.sh"
+  environment:
+    GEOIP_DIR: "{{ geoip_data_dir | default(app_root + '/data/geoip') }}"
+  args:
+    creates: "{{ geoip_data_dir | default(app_root + '/data/geoip') }}/dbip-city.mmdb"
+  become_user: "{{ app_user | default('llamenos') }}"
+
+- name: Schedule monthly DB-IP refresh
+  ansible.builtin.cron:
+    name: "DB-IP Lite monthly refresh"
+    minute: "0"
+    hour: "3"
+    day: "2"
+    job: "GEOIP_DIR={{ geoip_data_dir | default(app_root + '/data/geoip') }} {{ app_root }}/scripts/download-dbip.sh >> {{ app_root }}/logs/geoip.log 2>&1"
+    user: "{{ app_user | default('llamenos') }}"

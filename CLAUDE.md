@@ -120,8 +120,13 @@ The codebase has three encryption tiers for stored data:
 
 Every query key domain in `queryKeys` must be classified as either `ENCRYPTED_QUERY_KEYS` or `PLAINTEXT_QUERY_KEYS`. Adding a new domain to `queryKeys` without classifying it produces a compile-time error via the `MissingDomains` type check. Encrypted domains are cleared on lock and invalidated on unlock.
 
+- **Opaque session tokens**: Server-side `user_sessions` table stores hashed 32-byte random tokens. Refresh rotates token on every call; session metadata (IP, UA, location) is user-envelope encrypted (label: `LABEL_SESSION_META`). Geolocation via DB-IP Lite MMDB at `./data/geoip/dbip-city.mmdb`. Login sets both `llamenos-refresh` (opaque token) and `llamenos-session-id` cookies. `/api/auth/sessions` endpoints list/revoke sessions per user.
+
 ## Gotchas
 
+- `jwt_revocations` table was removed in favor of `user_sessions` — do not reintroduce. Session refresh revocation is now DB-backed.
+- `llamenos-session-id` cookie is required for the `isCurrent` marker on `GET /api/auth/sessions`.
+- GeoIP lookup is offline; DB-IP Lite MMDB must be downloaded via `scripts/download-dbip.sh` in dev. `GEOIP_DB_PATH` env var points to the MMDB file.
 - `@noble/ciphers` and `@noble/hashes` require `.js` extension in imports (e.g., `@noble/ciphers/chacha.js`)
 - `schnorr` is a separate named export: `import { schnorr } from '@noble/curves/secp256k1.js'`
 - Nostr pubkeys are x-only (32 bytes) — prepend `"02"` for ECDH compressed format

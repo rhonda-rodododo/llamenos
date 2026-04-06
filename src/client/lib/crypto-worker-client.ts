@@ -211,6 +211,46 @@ export class CryptoWorkerClient {
   }
 
   /**
+   * Envelope-encrypt a plaintext field for a set of recipients.
+   * Generates a random symmetric key, XChaCha20-Poly1305-encrypts the plaintext,
+   * and ECIES-wraps the key for each recipient pubkey.
+   */
+  async envelopeEncryptField(
+    plaintext: string,
+    recipientPubkeysHex: string[],
+    label: string
+  ): Promise<{
+    encryptedHex: string
+    envelopes: Array<{
+      recipientPubkey: string
+      ephemeralPubkeyHex: string
+      wrappedKeyHex: string
+    }>
+  }> {
+    return (await this.call({
+      type: 'envelopeEncryptField',
+      plaintext,
+      recipientPubkeysHex,
+      label,
+    })) as {
+      encryptedHex: string
+      envelopes: Array<{
+        recipientPubkey: string
+        ephemeralPubkeyHex: string
+        wrappedKeyHex: string
+      }>
+    }
+  }
+
+  /**
+   * Compute HMAC-SHA256 of the input string using the provided hex-encoded secret.
+   * Returns the hex-encoded MAC.
+   */
+  async computeHmac(input: string, secretHex: string): Promise<string> {
+    return (await this.call({ type: 'computeHmac', input, secretHex })) as string
+  }
+
+  /**
    * Terminate the worker. After this, the client is unusable.
    */
   terminate(): void {

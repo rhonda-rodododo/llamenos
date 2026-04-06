@@ -11,6 +11,7 @@ dist/
 test-results/
 playwright-report/
 tests/storage/*.json
+tests/storage/*.txt
 .playwright-mcp/
 audit/
 site/dist/
@@ -46,3 +47,4 @@ packages/crypto/dist/
 scripts/pii-check.sh
 asterisk-bridge/dev-certs/
 tests/screenshots/
+data/geoip/*.mmdb

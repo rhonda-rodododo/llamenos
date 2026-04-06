@@ -25,7 +25,6 @@ const mockUser: User = {
 }
 const mockIdentity = {
   getUser: async (pubkey: string) => (pubkey === TEST_PUBKEY ? mockUser : null),
-  isJtiRevoked: async (_jti: string) => false,
 }
 beforeAll(() => {
   process.env.JWT_SECRET = TEST_JWT_SECRET
@@ -70,23 +69,6 @@ describe('authenticateRequest', () => {
     const result = await authenticateRequest(req, mockIdentity)
     expect(result).not.toBeNull()
     expect(result!.pubkey).toBe(TEST_PUBKEY)
-  })
-  test('null for revoked jti', async () => {
-    const token = await signAccessToken(
-      { pubkey: TEST_PUBKEY, permissions: ['*'] },
-      TEST_JWT_SECRET
-    )
-    // Decode jti from the JWT payload
-    const [, payloadB64] = token.split('.')
-    const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8')) as {
-      jti: string
-    }
-    const revokedIdentity = {
-      getUser: async (pubkey: string) => (pubkey === TEST_PUBKEY ? mockUser : null),
-      isJtiRevoked: async (jti: string) => jti === payload.jti,
-    }
-    const req = new Request('http://localhost/', { headers: { Authorization: `Bearer ${token}` } })
-    expect(await authenticateRequest(req, revokedIdentity)).toBeNull()
   })
   test('throws when JWT_SECRET empty', async () => {
     const saved = process.env.JWT_SECRET
