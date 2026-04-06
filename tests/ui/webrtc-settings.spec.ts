@@ -177,14 +177,15 @@ test.describe('WebRTC & Call Preference Settings', () => {
       timeout: 5000,
     })
 
-    // Reload clears keyManager — go to /login to re-enter PIN
-    await adminPage.goto('/login', { waitUntil: 'networkidle' })
+    // Reload clears keyManager — block refresh to force login screen
+    await adminPage.route('**/api/auth/token/refresh', (route) =>
+      route.fulfill({ status: 401, contentType: 'application/json', body: '{"error":"blocked"}' })
+    )
+    await adminPage.reload({ waitUntil: 'domcontentloaded' })
     const pinInput2 = adminPage.locator('input[aria-label="PIN digit 1"]')
-    await pinInput2.waitFor({ state: 'visible', timeout: 30000 })
-    // Wait for CSS transitions to settle before focusing
-    await adminPage.waitForTimeout(1000)
+    await pinInput2.waitFor({ state: 'visible', timeout: 60000 })
+    await adminPage.unroute('**/api/auth/token/refresh')
     await enterPin(adminPage, '123456')
-    // Wait for unlock (PBKDF2 is slow under parallel workers)
     await adminPage.waitForURL((u) => !u.toString().includes('/login'), { timeout: 90000 })
     // Navigate back to phone provider section
     await gotoPhoneProvider(adminPage)
