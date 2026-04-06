@@ -1,6 +1,5 @@
 import { useAuth } from '@/lib/auth'
 import { LABEL_AUTH_EVENT } from '@shared/crypto-labels'
-import type { RecipientEnvelope } from '@shared/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as api from '../api/auth-events'
 import { decryptEnvelopeJson } from '../decrypt-fields'
@@ -38,7 +37,7 @@ export function useAuthEvents(limit = 50) {
           const payload = envelope
             ? await decryptEnvelopeJson<AuthEventPayloadDecrypted>(
                 e.encryptedPayload,
-                envelope as unknown as RecipientEnvelope,
+                envelope,
                 LABEL_AUTH_EVENT
               )
             : null

@@ -1,6 +1,5 @@
 import { useAuth } from '@/lib/auth'
 import { LABEL_SESSION_META } from '@shared/crypto-labels'
-import type { RecipientEnvelope } from '@shared/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as api from '../api/security'
 import { decryptEnvelopeJson } from '../decrypt-fields'
@@ -35,7 +34,7 @@ export function useSessions() {
           const meta = envelope
             ? await decryptEnvelopeJson<SessionMetaDecrypted>(
                 s.encryptedMeta,
-                envelope as unknown as RecipientEnvelope,
+                envelope,
                 LABEL_SESSION_META
               )
             : null

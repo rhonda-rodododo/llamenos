@@ -1,16 +1,11 @@
+import type { RecipientEnvelope } from '@shared/types'
 import { request } from './client'
-
-export interface AuthEventEnvelopeItem {
-  pubkey: string
-  wrappedKey: string
-  ephemeralPubkey: string
-}
 
 export interface AuthEventApiRow {
   id: string
   eventType: string
   encryptedPayload: string
-  payloadEnvelope: AuthEventEnvelopeItem[]
+  payloadEnvelope: RecipientEnvelope[]
   createdAt: string
   reportedSuspiciousAt: string | null
 }

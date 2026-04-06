@@ -1,10 +1,5 @@
+import type { RecipientEnvelope } from '@shared/types'
 import { request } from './client'
-
-export interface SessionMetaEnvelopeItem {
-  pubkey: string
-  wrappedKey: string
-  ephemeralPubkey: string
-}
 
 export interface SessionApiRow {
   id: string
@@ -13,7 +8,7 @@ export interface SessionApiRow {
   expiresAt: string
   isCurrent: boolean
   encryptedMeta: string
-  metaEnvelope: SessionMetaEnvelopeItem[]
+  metaEnvelope: RecipientEnvelope[]
   credentialId: string | null
 }
 
@@ -40,7 +35,7 @@ export interface PasskeyApiRow {
   createdAt: string
   lastUsedAt: string
   encryptedLabel?: string
-  labelEnvelopes?: SessionMetaEnvelopeItem[]
+  labelEnvelopes?: RecipientEnvelope[]
 }
 
 export async function listPasskeys(): Promise<{ credentials: PasskeyApiRow[]; warning?: string }> {
@@ -50,7 +45,7 @@ export async function listPasskeys(): Promise<{ credentials: PasskeyApiRow[]; wa
 export interface RenamePasskeyInput {
   label?: string
   encryptedLabel?: string
-  labelEnvelopes?: SessionMetaEnvelopeItem[]
+  labelEnvelopes?: RecipientEnvelope[]
 }
 
 export async function renamePasskey(
