@@ -31,11 +31,10 @@ describe('redact', () => {
     expect(redact(input)).toEqual({ a: { b: { phone: '[redacted]' } } })
   })
 
-  test('does not recurse deeper than 2 (safety)', () => {
+  test('truncates deeper than depth 2 instead of passing through', () => {
     const input = { a: { b: { c: { phone: 'x' } } } } as Record<string, unknown>
-    const out = redact(input) as { a: { b: { c: { phone: string } } } }
-    // depth 3 is left as-is; type gate is primary defense
-    expect(out.a.b.c.phone).toBe('x')
+    const out = redact(input) as { a: { b: { c: string } } }
+    expect(out.a.b.c).toBe('[truncated:depth]')
   })
 
   test('replaces circular refs with [circular]', () => {

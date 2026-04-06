@@ -34,7 +34,12 @@ export const auth = createMiddleware<AppEnv>(async (c, next) => {
   c.set('permissions', permissions)
   c.set('allRoles', allRoles)
 
-  const userIdHash = createHash('sha256').update(authResult.pubkey).digest('hex').slice(0, 8)
+  let userIdHash: string
+  try {
+    userIdHash = createHash('sha256').update(authResult.pubkey).digest('hex').slice(0, 8)
+  } catch {
+    userIdHash = 'hash-err'
+  }
   await runWithLogContext({ userId: userIdHash }, async () => {
     await next()
   })

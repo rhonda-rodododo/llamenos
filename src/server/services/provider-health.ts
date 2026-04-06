@@ -57,18 +57,18 @@ export class ProviderHealthService {
     if (prev && prev.status !== result.status) {
       if (result.status === 'down')
         log.error('Provider DOWN', undefined, {
-          name,
+          providerName: name,
           consecutiveFailures,
           error: result.error,
         })
       else if (result.status === 'degraded')
         log.warn('Provider connection failed', {
-          name,
+          providerName: name,
           consecutiveFailures,
           threshold: DOWN_THRESHOLD,
           error: result.error,
         })
-      else log.info('Provider recovered', { name, latencyMs: result.latencyMs })
+      else log.info('Provider recovered', { providerName: name, latencyMs: result.latencyMs })
     }
 
     this.results.set(key, result)

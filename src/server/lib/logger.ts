@@ -1,4 +1,4 @@
-import type { LogExtra } from '@shared/logger-types'
+import type { Loggable } from '@shared/logger-types'
 import { getLogContext } from './log-context'
 import { type LogLevel, type RateLimits, createRateLimiter } from './log-rate-limiter'
 import { redact } from './log-redactor'
@@ -23,7 +23,10 @@ function parseRateLimits(env: string | undefined): Required<RateLimits> {
   try {
     const parsed = JSON.parse(env) as Partial<RateLimits>
     return { ...defaults, ...parsed }
-  } catch {
+  } catch (err) {
+    process.stderr.write(
+      `{"level":"warn","component":"logger","msg":"Invalid LOG_RATE_LIMITS JSON, using defaults","error":"${err instanceof Error ? err.message : String(err)}"}\n`
+    )
     return defaults
   }
 }
@@ -84,31 +87,46 @@ function emit(entry: Record<string, unknown>, level: LogLevel): void {
     const line = `${JSON.stringify(entry, circularReplacer())}\n`
     if (level === 'error') process.stderr.write(line)
     else process.stdout.write(line)
-  } catch {
+  } catch (emitErr) {
     // Last-ditch: logger must never throw.
-    process.stderr.write(`{"level":"error","component":"logger","msg":"emit failed"}\n`)
+    const safeComponent = typeof entry.component === 'string' ? entry.component : 'unknown'
+    const safeMsg = typeof entry.msg === 'string' ? entry.msg.slice(0, 100) : 'unknown'
+    process.stderr.write(
+      `{"level":"error","component":"logger","msg":"emit failed","failedComponent":"${safeComponent}","failedMsg":"${safeMsg}","error":"${emitErr instanceof Error ? emitErr.message : String(emitErr)}"}\n`
+    )
   }
 }
 
-function unwrapError(err: unknown, stripStacks: boolean): Record<string, unknown> {
+interface UnwrappedError {
+  errName: string
+  errMsg: string
+  stack?: string
+}
+
+function unwrapError(err: unknown, stripStacks: boolean): UnwrappedError {
   if (err instanceof Error) {
-    const base: Record<string, unknown> = { errName: err.name, errMsg: err.message }
+    const base: UnwrappedError = { errName: err.name, errMsg: err.message }
     if (!stripStacks) base.stack = err.stack
     return base
   }
-  return { errMsg: String(err) }
+  return { errName: 'Unknown', errMsg: String(err) }
 }
 
 export interface Logger {
-  debug(msg: string, extra?: LogExtra): void
-  info(msg: string, extra?: LogExtra): void
-  warn(msg: string, extra?: LogExtra): void
-  error(msg: string, err?: unknown, extra?: LogExtra): void
+  debug<E extends Record<string, unknown>>(msg: string, extra?: Loggable<E>): void
+  info<E extends Record<string, unknown>>(msg: string, extra?: Loggable<E>): void
+  warn<E extends Record<string, unknown>>(msg: string, extra?: Loggable<E>): void
+  error(msg: string): void
+  error(msg: string, err: Error): void
+  error<E extends Record<string, unknown>>(msg: string, extra: Loggable<E>): void
+  error<E extends Record<string, unknown>>(msg: string, err: Error, extra: Loggable<E>): void
+  error(msg: string, err: unknown): void
+  error(msg: string, err: unknown, extra: Record<string, unknown>): void
 }
 
 /** Create a namespaced structured logger. Namespaces are dot-separated (e.g. `telephony.twilio`). */
 export function createLogger(namespace: string): Logger {
-  function write(level: LogLevel, msg: string, extra?: LogExtra): void {
+  function write(level: LogLevel, msg: string, extra?: Record<string, unknown>): void {
     if (!levelAllowed(level)) return
     if (!namespaceAllowed(namespace)) return
     if (!rateLimiter.check(namespace, level)) return
@@ -130,12 +148,32 @@ export function createLogger(namespace: string): Logger {
     debug: (msg, extra) => write('debug', msg, extra),
     info: (msg, extra) => write('info', msg, extra),
     warn: (msg, extra) => write('warn', msg, extra),
-    error: (msg, err, extra) => {
-      const merged = {
-        ...(extra ?? {}),
-        ...(err !== undefined ? unwrapError(err, config.stripStacks) : {}),
+    error: (msg: string, errOrExtra?: unknown, maybeExtra?: Record<string, unknown>) => {
+      let errorFields: UnwrappedError | undefined
+      let extraFields: Record<string, unknown> = {}
+
+      if (errOrExtra instanceof Error) {
+        // error(msg, Error) or error(msg, Error, extra)
+        errorFields = unwrapError(errOrExtra, config.stripStacks)
+        extraFields = maybeExtra ?? {}
+      } else if (
+        errOrExtra !== null &&
+        errOrExtra !== undefined &&
+        typeof errOrExtra === 'object' &&
+        !Array.isArray(errOrExtra)
+      ) {
+        // error(msg, plainObject) — treat as extras, not an error
+        extraFields = errOrExtra as Record<string, unknown>
+      } else if (errOrExtra !== undefined && errOrExtra !== null) {
+        // Primitive (string, number, etc.) — treat as error value
+        errorFields = unwrapError(errOrExtra, config.stripStacks)
+        extraFields = maybeExtra ?? {}
+      } else {
+        // errOrExtra is undefined/null — only maybeExtra matters
+        extraFields = maybeExtra ?? {}
       }
-      write('error', msg, merged as LogExtra)
+
+      write('error', msg, { ...extraFields, ...(errorFields ?? {}) })
     },
   }
 }

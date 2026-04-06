@@ -1,8 +1,9 @@
 const SENSITIVE_KEY_RE =
   /phone|email|nsec|secret|token|ciphertext|encrypted|content|recovery|^pin$|password|credential/i
 
-// Exclude 'name' alone — it has too many safe uses ('componentName', 'eventName').
-// But catch first/last/full name:
+// Match name-related keys: 'name', 'firstName', 'lastName', 'fullName', 'displayName', 'userName'.
+// Bare 'name' IS matched intentionally — it's more often PII (person's name) than a safe label.
+// For non-PII names, use specific keys like 'providerName', 'bucketName', 'componentName'.
 const NAME_KEY_RE = /^(first|last|full|display|user)?name$/i
 
 const NSEC_RE = /nsec1[0-9a-z]{58}/g
@@ -32,7 +33,7 @@ function redactInner(value: unknown, depth: number, seen: WeakSet<object>): unkn
   if (seen.has(value as object)) return '[circular]'
   seen.add(value as object)
 
-  if (depth > MAX_DEPTH) return value
+  if (depth > MAX_DEPTH) return '[truncated:depth]'
 
   if (Array.isArray(value)) {
     return value.map((v) => redactInner(v, depth + 1, seen))

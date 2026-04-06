@@ -142,7 +142,7 @@ export function createStorageAdmin(opts: {
           'DELETE'
         )
         if (!res.ok && res.status !== 404) {
-          log.warn('Failed to delete policy', { name, status: res.status })
+          log.warn('Failed to delete policy', { policyName: name, status: res.status })
         }
       } catch {
         // Idempotent
