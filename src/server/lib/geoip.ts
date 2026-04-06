@@ -28,7 +28,8 @@ async function getReader(dbPath: string): Promise<Reader<CityResponse> | null> {
     cachedReader = await maxmind.open<CityResponse>(dbPath)
     cachedPath = dbPath
     return cachedReader
-  } catch {
+  } catch (err) {
+    console.error('[geoip] failed to open database:', err)
     return null
   }
 }
@@ -58,7 +59,8 @@ export async function lookupIp(ip: string, dbPath: string): Promise<GeoLookupRes
       lat: resp.location?.latitude ?? null,
       lon: resp.location?.longitude ?? null,
     }
-  } catch {
+  } catch (err) {
+    console.error('[geoip] lookup failed for IP:', err)
     return UNKNOWN
   }
 }

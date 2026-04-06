@@ -525,8 +525,8 @@ authFacade.post('/webauthn/register-verify', async (c) => {
         eventType: 'passkey_added',
         payload: { credentialId: regCred.id, credentialLabel: newCred.label },
       })
-    } catch {
-      /* non-fatal */
+    } catch (err) {
+      console.error('[auth-facade] auth event recording failed:', err)
     }
 
     const notifications = c.get('userNotifications')
@@ -583,8 +583,8 @@ authFacade.post('/token/refresh', async (c) => {
           eventType: 'session_revoked',
           payload: { sessionId: session.id, meta: { reason: 'replay' } },
         })
-      } catch {
-        /* non-fatal */
+      } catch (err) {
+        console.error('[auth-facade] auth event recording failed:', err)
       }
       const notifications = c.get('userNotifications')
       if (notifications) {
@@ -722,8 +722,8 @@ authFacade.post('/session/revoke', async (c) => {
       eventType: 'logout',
       payload: { sessionId: sessionIdCookie ?? undefined },
     })
-  } catch {
-    /* non-fatal */
+  } catch (err) {
+    console.error('[auth-facade] auth event recording failed:', err)
   }
 
   // Also revoke IdP session if still applicable (skipped in test mode).
@@ -789,8 +789,8 @@ authFacade.delete('/sessions/:id', async (c) => {
       eventType: 'session_revoked',
       payload: { sessionId: id },
     })
-  } catch {
-    /* non-fatal */
+  } catch (err) {
+    console.error('[auth-facade] auth event recording failed:', err)
   }
   return c.json({ ok: true })
 })
@@ -807,8 +807,8 @@ authFacade.post('/sessions/revoke-others', async (c) => {
       eventType: 'sessions_revoked_others',
       payload: { meta: { count } },
     })
-  } catch {
-    /* non-fatal */
+  } catch (err) {
+    console.error('[auth-facade] auth event recording failed:', err)
   }
   return c.json({ revokedCount: count })
 })
@@ -887,8 +887,8 @@ authFacade.post('/pin/change', async (c) => {
       eventType: 'pin_changed',
       payload: {},
     })
-  } catch {
-    /* non-fatal */
+  } catch (err) {
+    console.error('[auth-facade] auth event recording failed:', err)
   }
   const notifications = c.get('userNotifications')
   if (notifications) {
@@ -928,8 +928,8 @@ authFacade.post('/recovery/rotate', async (c) => {
       eventType: 'recovery_rotated',
       payload: {},
     })
-  } catch {
-    /* non-fatal */
+  } catch (err) {
+    console.error('[auth-facade] auth event recording failed:', err)
   }
   const notifications = c.get('userNotifications')
   if (notifications) {
@@ -1068,8 +1068,8 @@ authFacade.patch('/passkeys/:id', async (c) => {
         eventType: 'passkey_renamed',
         payload: { credentialId: credId },
       })
-    } catch {
-      /* non-fatal */
+    } catch (err) {
+      console.error('[auth-facade] auth event recording failed:', err)
     }
     return c.json({ ok: true })
   } catch {
@@ -1095,8 +1095,8 @@ authFacade.delete('/passkeys/:id', async (c) => {
         eventType: 'passkey_removed',
         payload: { credentialId: credId, credentialLabel: existing?.label },
       })
-    } catch {
-      /* non-fatal */
+    } catch (err) {
+      console.error('[auth-facade] auth event recording failed:', err)
     }
     if (existing) {
       const notifications = c.get('userNotifications')
@@ -1131,8 +1131,8 @@ authFacade.delete('/devices/:id', async (c) => {
         eventType: 'passkey_removed',
         payload: { credentialId: credId, credentialLabel: existing?.label },
       })
-    } catch {
-      /* non-fatal */
+    } catch (err) {
+      console.error('[auth-facade] auth event recording failed:', err)
     }
     if (existing) {
       const notifications = c.get('userNotifications')
@@ -1216,8 +1216,8 @@ authFacade.post('/events/:id/report', async (c) => {
       reportedEventId: id,
       reportedEventType: updated.eventType,
     })
-  } catch {
-    /* non-fatal */
+  } catch (err) {
+    console.error('[auth-facade] auth event recording failed:', err)
   }
   return c.json({ ok: true })
 })
@@ -1322,8 +1322,8 @@ authFacade.delete('/signal-contact', async (c) => {
           signal: AbortSignal.timeout(5000),
         }
       )
-    } catch {
-      // best-effort
+    } catch (err) {
+      console.error('[auth-facade] signal notifier cleanup failed:', err)
     }
     await svc.deleteByUser(pubkey)
   }
