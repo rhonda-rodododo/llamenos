@@ -143,7 +143,6 @@ async function resolveUserPermissions(
 ): Promise<string[]> {
   const user = await identity.getUser(pubkey)
   if (!user || !user.active) return []
-  const { resolvePermissions } = await import('../../shared/permissions')
   const allRoles = await settings.listRoles()
   return resolvePermissions(user.roles, allRoles)
 }
@@ -268,107 +267,118 @@ authFacade.post('/webauthn/login-verify', async (c) => {
   const matched = credentials.find((cr) => cr.id === assertion.id)
   if (!matched) return c.json({ error: 'Unknown credential' }, 401)
 
+  // WebAuthn verification — failure here is a 401
+  let verification: Awaited<ReturnType<typeof verifyAuthResponse>>
   try {
-    const verification = await verifyAuthResponse(assertion, matched, challenge, origin, rpID)
-    if (!verification.verified) return c.json({ error: 'Verification failed' }, 401)
-
-    await identity.updateWebAuthnCounter({
-      pubkey: matched.ownerPubkey,
-      credId: matched.id,
-      counter: verification.authenticationInfo.newCounter,
-      lastUsedAt: new Date().toISOString(),
-    })
-
-    const settings = c.get('settings')
-    const permissions = await resolveUserPermissions(matched.ownerPubkey, identity, settings)
-    const accessToken = await signAccessToken(
-      { pubkey: matched.ownerPubkey, permissions },
-      c.env.JWT_SECRET
-    )
-
-    const userAgent = c.req.header('User-Agent') || ''
-    const seenBefore = await c.get('sessions').hasSeenIpHash(matched.ownerPubkey, ipHash)
-    const { sessionId, token } = await createUserSession({
-      pubkey: matched.ownerPubkey,
-      credentialId: matched.id,
-      clientIp,
-      userAgent,
-      ipHash,
-      hmacSecret: c.env.HMAC_SECRET,
-      sessions: c.get('sessions'),
-      crypto: c.get('crypto'),
-    })
-
-    // Emit login auth event (non-fatal on failure)
-    let geoCity = ''
-    let geoCountry = ''
-    try {
-      const geo = await lookupIp(clientIp, GEOIP_DB_PATH)
-      geoCity = geo.city
-      geoCountry = geo.country
-      await c.get('authEvents').record({
-        userPubkey: matched.ownerPubkey,
-        eventType: 'login',
-        payload: {
-          sessionId,
-          ipHash,
-          city: geo.city,
-          country: geo.country,
-          userAgent,
-          credentialId: matched.id,
-          credentialLabel: matched.label,
-        },
-      })
-    } catch {
-      // Non-fatal — auth event logging should not block login
-    }
-
-    // Fire new-device alert on first sighting of this IP hash (non-fatal, fire-and-forget)
-    if (!seenBefore) {
-      const notifications = c.get('userNotifications')
-      if (notifications) {
-        void notifications
-          .sendAlert(matched.ownerPubkey, {
-            type: 'new_device',
-            city: geoCity,
-            country: geoCountry,
-            userAgent: formatUserAgent(userAgent),
-          })
-          .catch(() => {
-            /* non-fatal */
-          })
-      }
-    }
-
-    setCookie(c, 'llamenos-refresh', token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'Strict',
-      path: '/api/auth/token',
-      maxAge: SESSION_COOKIE_MAX_AGE,
-    })
-    setCookie(c, 'llamenos-session-id', sessionId, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'Strict',
-      path: '/',
-      maxAge: SESSION_COOKIE_MAX_AGE,
-    })
-
-    return c.json({ accessToken, pubkey: matched.ownerPubkey })
+    verification = await verifyAuthResponse(assertion, matched, challenge, origin, rpID)
   } catch {
-    // Emit login_failed event (non-fatal)
     try {
       await c.get('authEvents').record({
         userPubkey: matched.ownerPubkey,
         eventType: 'login_failed',
         payload: { ipHash, credentialId: matched.id },
       })
-    } catch {
-      /* ignore */
+    } catch (err) {
+      console.error('[auth-facade] auth event recording failed:', err)
     }
     return c.json({ error: 'Verification failed' }, 401)
   }
+  if (!verification.verified) {
+    try {
+      await c.get('authEvents').record({
+        userPubkey: matched.ownerPubkey,
+        eventType: 'login_failed',
+        payload: { ipHash, credentialId: matched.id },
+      })
+    } catch (err) {
+      console.error('[auth-facade] auth event recording failed:', err)
+    }
+    return c.json({ error: 'Verification failed' }, 401)
+  }
+
+  // Post-verification infrastructure — errors here are 500s, not auth failures
+  await identity.updateWebAuthnCounter({
+    pubkey: matched.ownerPubkey,
+    credId: matched.id,
+    counter: verification.authenticationInfo.newCounter,
+    lastUsedAt: new Date().toISOString(),
+  })
+
+  const settings = c.get('settings')
+  const permissions = await resolveUserPermissions(matched.ownerPubkey, identity, settings)
+  const accessToken = await signAccessToken(
+    { pubkey: matched.ownerPubkey, permissions },
+    c.env.JWT_SECRET
+  )
+
+  const userAgent = c.req.header('User-Agent') || ''
+  const seenBefore = await c.get('sessions').hasSeenIpHash(matched.ownerPubkey, ipHash)
+  const { sessionId, token } = await createUserSession({
+    pubkey: matched.ownerPubkey,
+    credentialId: matched.id,
+    clientIp,
+    userAgent,
+    ipHash,
+    hmacSecret: c.env.HMAC_SECRET,
+    sessions: c.get('sessions'),
+    crypto: c.get('crypto'),
+  })
+
+  // Emit login auth event (non-fatal on failure)
+  let geoCity = ''
+  let geoCountry = ''
+  try {
+    const geo = await lookupIp(clientIp, GEOIP_DB_PATH)
+    geoCity = geo.city
+    geoCountry = geo.country
+    await c.get('authEvents').record({
+      userPubkey: matched.ownerPubkey,
+      eventType: 'login',
+      payload: {
+        sessionId,
+        ipHash,
+        city: geo.city,
+        country: geo.country,
+        userAgent,
+        credentialId: matched.id,
+        credentialLabel: matched.label,
+      },
+    })
+  } catch (err) {
+    console.error('[auth-facade] auth event recording failed:', err)
+  }
+
+  // Fire new-device alert on first sighting of this IP hash (non-fatal, fire-and-forget)
+  if (!seenBefore) {
+    const notifications = c.get('userNotifications')
+    if (notifications) {
+      void notifications
+        .sendAlert(matched.ownerPubkey, {
+          type: 'new_device',
+          city: geoCity,
+          country: geoCountry,
+          userAgent: formatUserAgent(userAgent),
+        })
+        .catch((err) => console.error('[auth-facade] notification failed:', err))
+    }
+  }
+
+  setCookie(c, 'llamenos-refresh', token, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'Strict',
+    path: '/api/auth/token',
+    maxAge: SESSION_COOKIE_MAX_AGE,
+  })
+  setCookie(c, 'llamenos-session-id', sessionId, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'Strict',
+    path: '/',
+    maxAge: SESSION_COOKIE_MAX_AGE,
+  })
+
+  return c.json({ accessToken, pubkey: matched.ownerPubkey })
 })
 
 // POST /invite/accept
