@@ -25,16 +25,12 @@ test.describe('Auth guards', () => {
     await ctx.close()
   })
 
-  test('unauthenticated user is redirected from /admin/settings', async ({ browser }) => {
+  test('unauthenticated user is redirected from /admin', async ({ browser }) => {
     const ctx = await browser.newContext()
     const page = await ctx.newPage()
-    await page.goto('/admin/settings')
-    // The legacy /admin/settings route is a client-side redirect chain (→ /admin/$section
-    // → /admin → /). Because multiple navigates race, TanStack router's internal state
-    // reaches /login (and the Login component renders) before window.history.pushState
-    // fully syncs. Assert on rendered content rather than URL.
-    // Multiple async navigates race through the redirect chain
-    // (/admin/settings → /admin → / → /login). CI is slower; give 30s.
+    await page.goto('/admin')
+    // Auth guard in AdminRoute redirects unauthenticated users to /.
+    // The root layout then redirects to /login.
     await expect(page.getByTestId('login-heading')).toBeVisible({ timeout: 30000 })
     await ctx.close()
   })
