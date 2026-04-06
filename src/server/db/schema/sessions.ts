@@ -3,6 +3,15 @@ import { index, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
 import { jsonb } from '../bun-jsonb'
 import { ciphertext } from '../crypto-columns'
 
+export type SessionRevokedReason =
+  | 'user'
+  | 'lockdown_a'
+  | 'lockdown_b'
+  | 'lockdown_c'
+  | 'admin'
+  | 'replay'
+  | 'expired'
+
 export const userSessions = pgTable(
   'user_sessions',
   {
@@ -22,7 +31,7 @@ export const userSessions = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
-    revokedReason: text('revoked_reason'),
+    revokedReason: text('revoked_reason').$type<SessionRevokedReason>(),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   },
   (table) => [

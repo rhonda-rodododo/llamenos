@@ -3,12 +3,30 @@ import { index, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
 import { jsonb } from '../bun-jsonb'
 import { ciphertext } from '../crypto-columns'
 
+export const AUTH_EVENT_TYPES = [
+  'login',
+  'login_failed',
+  'logout',
+  'session_revoked',
+  'sessions_revoked_others',
+  'passkey_added',
+  'passkey_removed',
+  'passkey_renamed',
+  'pin_changed',
+  'recovery_rotated',
+  'lockdown_triggered',
+  'alert_sent',
+  'signal_contact_changed',
+] as const
+
+export type AuthEventType = (typeof AUTH_EVENT_TYPES)[number]
+
 export const userAuthEvents = pgTable(
   'user_auth_events',
   {
     id: text('id').primaryKey(),
     userPubkey: text('user_pubkey').notNull(),
-    eventType: text('event_type').notNull(),
+    eventType: text('event_type').notNull().$type<AuthEventType>(),
     encryptedPayload: ciphertext('encrypted_payload').notNull(),
     payloadEnvelope: jsonb<RecipientEnvelope[]>()('payload_envelope').notNull().default([]),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

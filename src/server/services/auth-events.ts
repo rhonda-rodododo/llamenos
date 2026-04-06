@@ -1,26 +1,15 @@
 import { LABEL_AUTH_EVENT } from '@shared/crypto-labels'
 import { and, desc, eq, gte, lt } from 'drizzle-orm'
 import type { Database } from '../db'
-import { type UserAuthEventRow, userAuthEvents } from '../db/schema/auth-events'
+import {
+  AUTH_EVENT_TYPES,
+  type AuthEventType,
+  type UserAuthEventRow,
+  userAuthEvents,
+} from '../db/schema/auth-events'
 import type { CryptoService } from '../lib/crypto-service'
 
-export const AUTH_EVENT_TYPES = [
-  'login',
-  'login_failed',
-  'logout',
-  'session_revoked',
-  'sessions_revoked_others',
-  'passkey_added',
-  'passkey_removed',
-  'passkey_renamed',
-  'pin_changed',
-  'recovery_rotated',
-  'lockdown_triggered',
-  'alert_sent',
-  'signal_contact_changed',
-] as const
-
-export type AuthEventType = (typeof AUTH_EVENT_TYPES)[number]
+export { AUTH_EVENT_TYPES, type AuthEventType } from '../db/schema/auth-events'
 
 export function isValidEventType(t: string): t is AuthEventType {
   return (AUTH_EVENT_TYPES as readonly string[]).includes(t)
