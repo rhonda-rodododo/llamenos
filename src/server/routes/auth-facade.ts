@@ -533,9 +533,7 @@ authFacade.post('/webauthn/register-verify', async (c) => {
     if (notifications) {
       void notifications
         .sendAlert(pubkey, { type: 'passkey_added', credentialLabel: newCred.label })
-        .catch(() => {
-          /* non-fatal */
-        })
+        .catch((err) => console.error('[auth-facade] notification failed:', err))
     }
 
     return c.json({ ok: true })
@@ -590,11 +588,13 @@ authFacade.post('/token/refresh', async (c) => {
       }
       const notifications = c.get('userNotifications')
       if (notifications) {
-        void notifications.sendAlert(session.userPubkey, {
-          type: 'session_revoked_remote',
-          city: '',
-          country: '',
-        })
+        void notifications
+          .sendAlert(session.userPubkey, {
+            type: 'session_revoked_remote',
+            city: 'unknown',
+            country: 'unknown',
+          })
+          .catch((err) => console.error('[auth-facade] replay notification failed:', err))
       }
       return c.json({ error: 'Session revoked' }, 401)
     }
@@ -892,7 +892,9 @@ authFacade.post('/pin/change', async (c) => {
   }
   const notifications = c.get('userNotifications')
   if (notifications) {
-    void notifications.sendAlert(pubkey, { type: 'pin_changed' })
+    void notifications
+      .sendAlert(pubkey, { type: 'pin_changed' })
+      .catch((err) => console.error('[auth-facade] notification failed:', err))
   }
   return c.json({ ok: true })
 })
@@ -931,7 +933,9 @@ authFacade.post('/recovery/rotate', async (c) => {
   }
   const notifications = c.get('userNotifications')
   if (notifications) {
-    void notifications.sendAlert(pubkey, { type: 'recovery_rotated' })
+    void notifications
+      .sendAlert(pubkey, { type: 'recovery_rotated' })
+      .catch((err) => console.error('[auth-facade] notification failed:', err))
   }
   return c.json({ ok: true })
 })
@@ -1099,9 +1103,7 @@ authFacade.delete('/passkeys/:id', async (c) => {
       if (notifications) {
         void notifications
           .sendAlert(pubkey, { type: 'passkey_removed', credentialLabel: existing.label })
-          .catch(() => {
-            /* non-fatal */
-          })
+          .catch((err) => console.error('[auth-facade] notification failed:', err))
       }
     }
     return c.json({ ok: true })
@@ -1137,9 +1139,7 @@ authFacade.delete('/devices/:id', async (c) => {
       if (notifications) {
         void notifications
           .sendAlert(pubkey, { type: 'passkey_removed', credentialLabel: existing.label })
-          .catch(() => {
-            /* non-fatal */
-          })
+          .catch((err) => console.error('[auth-facade] notification failed:', err))
       }
     }
     return c.json({ ok: true })
