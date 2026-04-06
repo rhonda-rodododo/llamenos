@@ -72,7 +72,8 @@
     "contacts": "Contacts",
     "conversations": "Conversations",
     "help": "Help",
-    "users": "Mga Boluntaryo"
+    "users": "Mga Boluntaryo",
+    "security": "Seguridad"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -1451,5 +1452,107 @@
     "testConnection": "Subukan ang Koneksyon",
     "testSuccess": "Matagumpay ang koneksyon ({{latency}}ms)",
     "testFailed": "Nabigo ang pagsubok ng koneksyon"
+  },
+  "security": {
+    "title": "Seguridad",
+    "tabs": {
+      "sessions": "Mga aktibong session",
+      "passkeys": "Mga passkey",
+      "history": "Kasaysayan",
+      "factors": "Mga factor"
+    },
+    "history": {
+      "description": "Mga security event sa iyong account sa nakalipas na 90 araw.",
+      "export": "I-export ang kasaysayan",
+      "report": "I-report bilang kahina-hinala",
+      "flagged": "Naka-flag",
+      "none": "Wala pang mga event.",
+      "eventType": {
+        "login": "Nag-login",
+        "login_failed": "Hindi nag-login",
+        "logout": "Nag-logout",
+        "session_revoked": "Nabawi ang session",
+        "sessions_revoked_others": "Na-logout ang ibang session",
+        "passkey_added": "Naidagdag ang passkey",
+        "passkey_removed": "Natanggal ang passkey",
+        "passkey_renamed": "Pinalitan ang pangalan ng passkey",
+        "pin_changed": "Napalitan ang PIN",
+        "recovery_rotated": "Na-rotate ang recovery key",
+        "lockdown_triggered": "Na-trigger ang emergency lockdown",
+        "alert_sent": "Ipinadala ang alerto",
+        "signal_contact_changed": "Na-update ang Signal contact"
+      }
+    },
+    "sessions": {
+      "none": "Walang aktibong session.",
+      "signOutEverywhere": "Mag-sign out sa ibang lahat",
+      "lockdown": "Emergency lockdown",
+      "current": "Kasalukuyang",
+      "unknownBrowser": "Hindi kilalang browser",
+      "unknownLocation": "Hindi kilalang lokasyon",
+      "lastSeen": "Huling aktibo",
+      "revoke": "Bawiin"
+    },
+    "lockdown": {
+      "title": "Emergency lockdown",
+      "intro": "Piliin ang saklaw ng lockdown. Hindi ito maaaring bawiin.",
+      "tierA": {
+        "title": "Mag-sign out sa ibang lahat",
+        "desc": "Bawiin lahat ng ibang session. Hindi magagalaw ang mga passkey."
+      },
+      "tierB": {
+        "title": "Tanggalin ang ibang device + passkey",
+        "desc": "Bawiin lahat ng ibang session at tanggalin lahat ng passkey maliban sa kasalukuyang ginagamit."
+      },
+      "tierC": {
+        "title": "Buong lockdown",
+        "desc": "Bawiin LAHAT ng session, tanggalin LAHAT ng passkey, i-deactivate ang account. Kinakailangan ng admin na i-reactivate."
+      },
+      "confirmLabel": "I-type ang LOCKDOWN para kumpirmahin",
+      "pinLabel": "Ilagay ang iyong PIN",
+      "execute": "Isagawa ang lockdown",
+      "locking": "Nila-lock…",
+      "typeWord": "I-type ang LOCKDOWN para kumpirmahin"
+    },
+    "pin": {
+      "title": "Baguhin ang PIN",
+      "current": "Kasalukuyang PIN",
+      "new": "Bagong PIN",
+      "confirm": "Kumpirmahin ang bagong PIN",
+      "save": "Baguhin ang PIN",
+      "success": "Matagumpay na nabago ang PIN",
+      "mismatch": "Hindi magkatugma ang mga bagong PIN",
+      "tooShort": "Kailangan ng PIN na may hindi bababa sa 6 na numero",
+      "locked": "Naka-lock ang account; i-unlock muna"
+    },
+    "recovery": {
+      "title": "I-rotate ang recovery key",
+      "rotate": "I-rotate ang recovery key",
+      "download": "I-download",
+      "warning": "I-save ang key na ito ngayon. Hindi na ito ipapakita ulit.",
+      "locked": "I-unlock muna"
+    },
+    "lock": {
+      "title": "Auto-lock delay",
+      "desc": "I-lock ang app pagkatapos ng ganitong oras kapag nakatago ang tab.",
+      "immediate": "Kaagad"
+    },
+    "passkeys": {
+      "backedUp": "Naka-sync",
+      "createdAt": "Naidagdag",
+      "lastUsedAt": "Huling ginamit",
+      "rename": "Palitan ang pangalan",
+      "transport": {
+        "usb": "USB",
+        "internal": "Built-in",
+        "hybrid": "Cross-device"
+      }
+    }
+  },
+  "cookiesRequired": {
+    "title": "Kinakailangan ang cookies",
+    "body": "Gumagamit ang Llámenos ng browser cookies para panatilihing naka-sign in ang iyong session. Walang tracking, walang third party — ang mga cookies lang na kailangan ng site na ito para gumana. Paki-enable ang cookies para sa site na ito at subukan muli.",
+    "retry": "Na-enable ko ang cookies — subukan muli",
+    "stillBlocked": "Mukhang naka-block pa rin ang cookies. Tingnan ang mga setting ng browser mo para sa site na ito."
   }
 }

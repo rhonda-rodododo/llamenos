@@ -72,7 +72,8 @@
     "contacts": "Contacts",
     "conversations": "Conversations",
     "help": "Help",
-    "users": "Benutzer"
+    "users": "Benutzer",
+    "security": "Sicherheit"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -1451,5 +1452,107 @@
     "testConnection": "Verbindung testen",
     "testSuccess": "Verbindung erfolgreich ({{latency}}ms)",
     "testFailed": "Verbindungstest fehlgeschlagen"
+  },
+  "security": {
+    "title": "Sicherheit",
+    "tabs": {
+      "sessions": "Aktive Sitzungen",
+      "passkeys": "Passkeys",
+      "history": "Verlauf",
+      "factors": "Faktoren"
+    },
+    "history": {
+      "description": "Sicherheitsereignisse deines Kontos der letzten 90 Tage.",
+      "export": "Verlauf exportieren",
+      "report": "Als verdächtig melden",
+      "flagged": "Gemeldet",
+      "none": "Noch keine Ereignisse.",
+      "eventType": {
+        "login": "Angemeldet",
+        "login_failed": "Anmeldung fehlgeschlagen",
+        "logout": "Abgemeldet",
+        "session_revoked": "Sitzung widerrufen",
+        "sessions_revoked_others": "Andere Sitzungen abgemeldet",
+        "passkey_added": "Passkey hinzugefügt",
+        "passkey_removed": "Passkey entfernt",
+        "passkey_renamed": "Passkey umbenannt",
+        "pin_changed": "PIN geändert",
+        "recovery_rotated": "Wiederherstellungsschlüssel erneuert",
+        "lockdown_triggered": "Notfallsperre ausgelöst",
+        "alert_sent": "Warnung gesendet",
+        "signal_contact_changed": "Signal-Kontakt aktualisiert"
+      }
+    },
+    "sessions": {
+      "none": "Keine aktiven Sitzungen.",
+      "signOutEverywhere": "Überall sonst abmelden",
+      "lockdown": "Notfallsperre",
+      "current": "Aktuell",
+      "unknownBrowser": "Unbekannter Browser",
+      "unknownLocation": "Unbekannter Ort",
+      "lastSeen": "Zuletzt aktiv",
+      "revoke": "Widerrufen"
+    },
+    "lockdown": {
+      "title": "Notfallsperre",
+      "intro": "Wähle den Umfang der Sperre. Dies kann nicht rückgängig gemacht werden.",
+      "tierA": {
+        "title": "Überall sonst abmelden",
+        "desc": "Alle anderen Sitzungen widerrufen. Passkeys bleiben unberührt."
+      },
+      "tierB": {
+        "title": "Andere Geräte + Passkeys entfernen",
+        "desc": "Alle anderen Sitzungen widerrufen und alle Passkeys außer dem aktuell genutzten löschen."
+      },
+      "tierC": {
+        "title": "Vollständige Sperre",
+        "desc": "ALLE Sitzungen widerrufen, ALLE Passkeys löschen, Konto deaktivieren. Ein Admin muss reaktivieren."
+      },
+      "confirmLabel": "Gib LOCKDOWN ein zum Bestätigen",
+      "pinLabel": "Gib deine PIN ein",
+      "execute": "Sperre ausführen",
+      "locking": "Sperre…",
+      "typeWord": "Gib LOCKDOWN ein zum Bestätigen"
+    },
+    "pin": {
+      "title": "PIN ändern",
+      "current": "Aktuelle PIN",
+      "new": "Neue PIN",
+      "confirm": "Neue PIN bestätigen",
+      "save": "PIN ändern",
+      "success": "PIN erfolgreich geändert",
+      "mismatch": "Neue PINs stimmen nicht überein",
+      "tooShort": "PIN muss mindestens 6 Ziffern haben",
+      "locked": "Konto ist gesperrt; zuerst entsperren"
+    },
+    "recovery": {
+      "title": "Wiederherstellungsschlüssel erneuern",
+      "rotate": "Wiederherstellungsschlüssel erneuern",
+      "download": "Herunterladen",
+      "warning": "Speichere diesen Schlüssel jetzt. Er wird nicht erneut angezeigt.",
+      "locked": "Zuerst entsperren"
+    },
+    "lock": {
+      "title": "Auto-Sperr-Verzögerung",
+      "desc": "App nach dieser Zeit sperren, wenn der Tab ausgeblendet ist.",
+      "immediate": "Sofort"
+    },
+    "passkeys": {
+      "backedUp": "Synchronisiert",
+      "createdAt": "Hinzugefügt",
+      "lastUsedAt": "Zuletzt verwendet",
+      "rename": "Umbenennen",
+      "transport": {
+        "usb": "USB",
+        "internal": "Integriert",
+        "hybrid": "Geräteübergreifend"
+      }
+    }
+  },
+  "cookiesRequired": {
+    "title": "Cookies erforderlich",
+    "body": "Llámenos verwendet Browser-Cookies, um deine Sitzung angemeldet zu halten. Kein Tracking, keine Drittanbieter — nur die Cookies, die diese Seite zum Funktionieren braucht. Bitte aktiviere Cookies für diese Seite und versuche es erneut.",
+    "retry": "Ich habe Cookies aktiviert — erneut versuchen",
+    "stillBlocked": "Cookies scheinen immer noch blockiert zu sein. Prüfe die Browser-Einstellungen für diese Seite."
   }
 }

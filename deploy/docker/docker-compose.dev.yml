@@ -102,6 +102,11 @@ services:
     ports:
       - "8085:8000"
 
+  # Signal notifier sidecar — dev port for host access
+  signal-notifier:
+    ports:
+      - "3100:3100"
+
   # vLLM inference server — firehose report agent (optional)
   vllm:
     image: vllm/vllm-openai:latest

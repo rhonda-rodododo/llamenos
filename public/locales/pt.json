@@ -72,7 +72,8 @@
     "contacts": "Contacts",
     "conversations": "Conversations",
     "help": "Help",
-    "users": "Usuários"
+    "users": "Usuários",
+    "security": "Segurança"
   },
   "dashboard": {
     "title": "Painel",
@@ -1451,5 +1452,107 @@
     "testConnection": "Testar Conexão",
     "testSuccess": "Conexão bem-sucedida ({{latency}}ms)",
     "testFailed": "Falha no teste de conexão"
+  },
+  "security": {
+    "title": "Segurança",
+    "tabs": {
+      "sessions": "Sessões ativas",
+      "passkeys": "Chaves de acesso",
+      "history": "Histórico",
+      "factors": "Fatores"
+    },
+    "history": {
+      "description": "Eventos de segurança da sua conta nos últimos 90 dias.",
+      "export": "Exportar histórico",
+      "report": "Denunciar como suspeito",
+      "flagged": "Sinalizado",
+      "none": "Ainda não há eventos.",
+      "eventType": {
+        "login": "Entrou",
+        "login_failed": "Falha no login",
+        "logout": "Saiu",
+        "session_revoked": "Sessão revogada",
+        "sessions_revoked_others": "Outras sessões encerradas",
+        "passkey_added": "Chave de acesso adicionada",
+        "passkey_removed": "Chave de acesso removida",
+        "passkey_renamed": "Chave de acesso renomeada",
+        "pin_changed": "PIN alterado",
+        "recovery_rotated": "Chave de recuperação rotacionada",
+        "lockdown_triggered": "Bloqueio de emergência acionado",
+        "alert_sent": "Alerta enviado",
+        "signal_contact_changed": "Contato do Signal atualizado"
+      }
+    },
+    "sessions": {
+      "none": "Nenhuma sessão ativa.",
+      "signOutEverywhere": "Sair em todos os outros lugares",
+      "lockdown": "Bloqueio de emergência",
+      "current": "Atual",
+      "unknownBrowser": "Navegador desconhecido",
+      "unknownLocation": "Local desconhecido",
+      "lastSeen": "Última atividade",
+      "revoke": "Revogar"
+    },
+    "lockdown": {
+      "title": "Bloqueio de emergência",
+      "intro": "Escolha o escopo do bloqueio. Isso não pode ser desfeito.",
+      "tierA": {
+        "title": "Sair em todos os outros lugares",
+        "desc": "Revogar todas as outras sessões. As chaves de acesso não são afetadas."
+      },
+      "tierB": {
+        "title": "Remover outros dispositivos + chaves",
+        "desc": "Revogar todas as outras sessões e excluir todas as chaves de acesso exceto a em uso."
+      },
+      "tierC": {
+        "title": "Bloqueio total",
+        "desc": "Revogar TODAS as sessões, excluir TODAS as chaves de acesso, desativar a conta. Um administrador deve reativá-la."
+      },
+      "confirmLabel": "Digite LOCKDOWN para confirmar",
+      "pinLabel": "Digite seu PIN",
+      "execute": "Executar bloqueio",
+      "locking": "Bloqueando…",
+      "typeWord": "Digite LOCKDOWN para confirmar"
+    },
+    "pin": {
+      "title": "Alterar PIN",
+      "current": "PIN atual",
+      "new": "Novo PIN",
+      "confirm": "Confirmar novo PIN",
+      "save": "Alterar PIN",
+      "success": "PIN alterado com sucesso",
+      "mismatch": "Os novos PINs não coincidem",
+      "tooShort": "O PIN deve ter pelo menos 6 dígitos",
+      "locked": "A conta está bloqueada; desbloqueie primeiro"
+    },
+    "recovery": {
+      "title": "Rotacionar chave de recuperação",
+      "rotate": "Rotacionar chave de recuperação",
+      "download": "Baixar",
+      "warning": "Salve esta chave agora. Ela não será mostrada novamente.",
+      "locked": "Desbloqueie primeiro"
+    },
+    "lock": {
+      "title": "Atraso de bloqueio automático",
+      "desc": "Bloquear o app após esse tempo quando a aba estiver oculta.",
+      "immediate": "Imediato"
+    },
+    "passkeys": {
+      "backedUp": "Sincronizada",
+      "createdAt": "Adicionada",
+      "lastUsedAt": "Último uso",
+      "rename": "Renomear",
+      "transport": {
+        "usb": "USB",
+        "internal": "Integrada",
+        "hybrid": "Entre dispositivos"
+      }
+    }
+  },
+  "cookiesRequired": {
+    "title": "Cookies são necessários",
+    "body": "Llámenos usa cookies do navegador para manter sua sessão conectada. Sem rastreamento, sem terceiros — apenas os cookies que este site precisa para funcionar. Habilite os cookies para este site e tente novamente.",
+    "retry": "Habilitei os cookies — tentar novamente",
+    "stillBlocked": "Os cookies ainda parecem estar bloqueados. Verifique as configurações do seu navegador para este site."
   }
 }

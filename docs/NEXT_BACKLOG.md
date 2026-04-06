@@ -384,3 +384,16 @@ admin-flow (18), blast-sending (8), notes-crud (7), smoke (4), theme (7), health
 - [ ] **Telnyx SMS adapter** — MessagingAdapter with JSON webhooks. ~200 lines.
 - [ ] **SignalWire WebRTC tokens** — Copy Twilio JWT logic, adapt config. ~30 lines.
 - [ ] **Vonage webhook verification** — Implement Application API query with RS256 JWT. ~50 lines.
+
+## Deferred from User Security & Device Management (2026-04-04)
+Spec: `docs/superpowers/specs/2026-04-04-user-security-device-management-design.md` (pending)
+
+These items were identified during brainstorming but deferred as follow-up efforts — each adds meaningful architecture expansion beyond the core Security page v1:
+
+- [ ] **WebAuthn-as-KEK-factor add/remove** — Add/remove WebAuthn as a KEK factor (distinct from passkey-as-login-credential). Requires re-wrapping KEK when factor set changes. key-store-v2 already supports 3-factor PRF mode so plumbing exists; needs UX + rotation flow.
+- [ ] **Trusted browser / "remember this device"** — Per-session trust marking with different TTLs for trusted vs. untrusted sessions. Cuts across login flow + session UI. Depends on sessions table landing first.
+- [ ] **Step-up re-auth for sensitive actions** — Re-tap passkey (or re-enter PIN) before admin operations. Requires tagging sensitive endpoints + freshness claim on tokens + UX interruption pattern. Cross-cutting.
+
+## Dedupe section-layout primitives (2026-04-05)
+
+- [ ] **Dedupe user-shell + admin-shell `section-layout.tsx`** — PR #43 and PR #44 landed parallel copies. Once both merge, move the primitives to `src/client/components/section-layout/` (or `section-ui/`), update imports in both admin-sections/* and user-sections/*, delete the duplicates. APIs are identical except user-shell's `SectionActions` has a `saveButtonTestId` prop for legacy E2E selectors — keep that in the shared copy.

@@ -186,4 +186,11 @@ export const queryKeys = {
     detail: (id: string) => ['firehose', id] as const,
     status: () => ['firehose', 'status'] as const,
   },
+
+  security: {
+    all: ['security'] as const,
+    sessions: () => ['security', 'sessions'] as const,
+    passkeys: () => ['security', 'passkeys'] as const,
+    history: (params?: { limit?: number }) => ['security', 'history', params ?? {}] as const,
+  },
 } as const

@@ -62,7 +62,7 @@
   },
   "overrides": [
     {
-      "include": ["src/client/lib/debug-log.ts"],
+      "include": ["src/client/lib/debug-log.ts", "tests/**"],
       "linter": {
         "rules": {
           "suspicious": {
