@@ -212,10 +212,11 @@ export function isValidPin(pin: string): boolean {
 }
 
 /**
- * Derive a zero-knowledge "proof" value from a PIN for rate-limit / audit tracking.
+ * Derive a PIN-based proof value for rate-limit / audit tracking.
  * Uses a DIFFERENT salt than the KEK derivation so the proof cannot leak KEK material.
- * The server stores this proof but cannot independently verify it — the client sends
- * the same proof value it would compute locally.
+ * The server stores a SHA-256 hash of this proof and verifies it on security-critical
+ * operations (PIN change, recovery rotate, lockdown), ensuring the caller knows the
+ * current PIN without the server seeing the PIN itself.
  */
 export function deriveKekProof(pin: string): string {
   const salt = new TextEncoder().encode('llamenos:pin-proof:v1')
@@ -273,9 +274,9 @@ export async function rewrapWithNewRecoveryKey(
   currentBlob: EncryptedKeyDataV2
 ): Promise<string> {
   // For the primary blob, the factors are the same (PIN + IdP + optional PRF).
-  // The recovery key is used only for the separate backup file. Rotating it rewraps
-  // the primary blob with fresh salt/nonce so any previously-leaked recovery-key
-  // cannot be combined with an old snapshot.
+  // The recovery key is used only for the separate backup file. Rotating rewraps
+  // the primary blob with fresh salt/nonce to ensure local storage is not stale
+  // after recovery key rotation.
   const { cryptoWorker } = await import('./crypto-worker-client')
   const newSalt = new Uint8Array(32)
   crypto.getRandomValues(newSalt)
