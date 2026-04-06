@@ -1,6 +1,6 @@
 CREATE TABLE user_security_prefs (
   user_pubkey TEXT PRIMARY KEY,
-  lock_delay_ms INTEGER NOT NULL DEFAULT 30000,
+  auto_lock_ms INTEGER NOT NULL DEFAULT 900000,
   disappearing_timer_days INTEGER NOT NULL DEFAULT 1,
   digest_cadence TEXT NOT NULL DEFAULT 'weekly',
   alert_on_new_device BOOLEAN NOT NULL DEFAULT TRUE,

@@ -5,7 +5,7 @@ import { type UserSecurityPrefsRow, userSecurityPrefs } from '../db/schema/secur
 export type DigestCadence = 'off' | 'daily' | 'weekly'
 
 const DEFAULTS = {
-  lockDelayMs: 30000,
+  autoLockMs: 900000,
   disappearingTimerDays: 1,
   digestCadence: 'weekly' as DigestCadence,
   alertOnNewDevice: true,
