@@ -177,14 +177,15 @@ test.describe('WebRTC & Call Preference Settings', () => {
       timeout: 5000,
     })
 
-    // Reload the page — clears keyManager, PIN re-entry needed
-    await adminPage.reload()
-    await reenterPinAfterReload(adminPage)
-    // PIN unlock may redirect to profile-setup — handle it
-    if (adminPage.url().includes('profile-setup')) {
-      await adminPage.getByRole('button', { name: /complete setup/i }).click()
-      await adminPage.waitForURL((u) => !u.toString().includes('profile-setup'), { timeout: 15000 })
-    }
+    // Reload clears keyManager — go to /login to re-enter PIN
+    await adminPage.goto('/login', { waitUntil: 'domcontentloaded' })
+    const pinInput2 = adminPage.locator('input[aria-label="PIN digit 1"]')
+    await pinInput2.waitFor({ state: 'visible', timeout: 30000 })
+    await pinInput2.focus()
+    await adminPage.keyboard.type('123456', { delay: 50 })
+    await adminPage.keyboard.press('Enter')
+    // Wait for unlock (PBKDF2 is slow under parallel workers)
+    await adminPage.waitForURL((u) => !u.toString().includes('/login'), { timeout: 90000 })
     // Navigate back to phone provider section
     await gotoPhoneProvider(adminPage)
 
