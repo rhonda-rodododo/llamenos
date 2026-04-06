@@ -331,6 +331,7 @@ jobs:
           AUTH_WEBAUTHN_RP_NAME: Llamenos Test
           AUTH_WEBAUTHN_ORIGIN: http://localhost:3000
           FIREHOSE_AGENT_SEAL_KEY: ${{ env.TEST_FIREHOSE_AGENT_SEAL_KEY }}
+          DISABLE_TOKEN_ROTATION: "true"
         run: |
           bun run start > /tmp/server.log 2>&1 &
           for i in $(seq 1 30); do
@@ -448,6 +449,7 @@ jobs:
           AUTH_WEBAUTHN_RP_NAME: Llamenos Test
           AUTH_WEBAUTHN_ORIGIN: http://localhost:3000
           FIREHOSE_AGENT_SEAL_KEY: ${{ env.TEST_FIREHOSE_AGENT_SEAL_KEY }}
+          DISABLE_TOKEN_ROTATION: "true"
         run: |
           bun run start > /tmp/server.log 2>&1 &
           for i in $(seq 1 30); do

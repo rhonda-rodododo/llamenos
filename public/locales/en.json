@@ -73,7 +73,8 @@
     "contacts": "Contacts",
     "conversations": "Conversations",
     "help": "Help",
-    "users": "Users"
+    "users": "Users",
+    "security": "Security"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -1530,5 +1531,116 @@
     "channelWeb": "Web",
     "channelsSaved": "Channel settings saved",
     "selectChannels": "Select channels"
+  },
+  "security": {
+    "title": "Security",
+    "tabs": {
+      "sessions": "Active sessions",
+      "passkeys": "Passkeys",
+      "history": "History",
+      "factors": "Factors"
+    },
+    "history": {
+      "description": "Security events on your account from the last 90 days.",
+      "export": "Export history",
+      "report": "Report suspicious",
+      "flagged": "Flagged",
+      "none": "No events yet.",
+      "eventType": {
+        "login": "Logged in",
+        "login_failed": "Login failed",
+        "logout": "Logged out",
+        "session_revoked": "Session revoked",
+        "sessions_revoked_others": "Signed out other sessions",
+        "passkey_added": "Passkey added",
+        "passkey_removed": "Passkey removed",
+        "passkey_renamed": "Passkey renamed",
+        "pin_changed": "PIN changed",
+        "recovery_rotated": "Recovery key rotated",
+        "lockdown_triggered": "Emergency lockdown triggered",
+        "alert_sent": "Alert sent",
+        "signal_contact_changed": "Signal contact updated"
+      }
+    },
+    "sessions": {
+      "none": "No active sessions.",
+      "signOutEverywhere": "Sign out everywhere else",
+      "lockdown": "Emergency lockdown",
+      "current": "Current",
+      "unknownBrowser": "Unknown browser",
+      "unknownLocation": "Unknown location",
+      "lastSeen": "Last active",
+      "revoke": "Revoke"
+    },
+    "lockdown": {
+      "title": "Emergency lockdown",
+      "intro": "Choose the scope of the lockdown. This cannot be undone.",
+      "tierA": {
+        "title": "Sign out everywhere else",
+        "desc": "Revoke all other sessions. Passkeys are untouched."
+      },
+      "tierB": {
+        "title": "Remove other devices + passkeys",
+        "desc": "Revoke all other sessions and delete all passkeys except the one in use."
+      },
+      "tierC": {
+        "title": "Full lockdown",
+        "desc": "Revoke ALL sessions, delete ALL passkeys, deactivate account. Admin must reactivate."
+      },
+      "confirmLabel": "Type LOCKDOWN to confirm",
+      "pinLabel": "Enter your PIN",
+      "execute": "Execute lockdown",
+      "locking": "Locking\u2026",
+      "typeWord": "Type LOCKDOWN to confirm"
+    },
+    "pin": {
+      "title": "Change PIN",
+      "current": "Current PIN",
+      "new": "New PIN",
+      "confirm": "Confirm new PIN",
+      "save": "Change PIN",
+      "success": "PIN changed successfully",
+      "mismatch": "New PINs do not match",
+      "tooShort": "PIN must be at least 6 digits",
+      "locked": "Account is locked; unlock first"
+    },
+    "recovery": {
+      "title": "Rotate recovery key",
+      "rotate": "Rotate recovery key",
+      "download": "Download",
+      "warning": "Save this key now. It will not be shown again.",
+      "locked": "Unlock first"
+    },
+    "lock": {
+      "title": "Auto-lock delay",
+      "desc": "Lock the app after this long when the tab is hidden.",
+      "immediate": "Immediate"
+    },
+    "passkeys": {
+      "backedUp": "Synced",
+      "createdAt": "Added",
+      "lastUsedAt": "Last used",
+      "rename": "Rename",
+      "transport": {
+        "usb": "USB",
+        "internal": "Built-in",
+        "hybrid": "Cross-device"
+      }
+    }
+  },
+  "time": {
+    "justNow": "just now",
+    "minutesAgo_one": "{{count}} minute ago",
+    "minutesAgo_other": "{{count}} minutes ago",
+    "hoursAgo_one": "{{count}} hour ago",
+    "hoursAgo_other": "{{count}} hours ago",
+    "daysAgo_one": "{{count}} day ago",
+    "daysAgo_other": "{{count}} days ago"
+  },
+  "cookiesRequired": {
+    "title": "Cookies are required",
+    "body": "Llámenos uses browser cookies to keep your session signed in. No tracking, no third parties — just the cookies this site needs to work. Please enable cookies for this site and try again.",
+    "retry": "I enabled cookies — retry",
+    "stillBlocked": "Cookies still appear to be blocked. Check your browser settings for this site."
   }
 }

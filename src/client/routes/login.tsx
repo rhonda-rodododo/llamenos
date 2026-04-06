@@ -1,3 +1,4 @@
+import { CookiesRequired } from '@/components/cookies-required'
 import { DemoAccountPicker } from '@/components/demo-account-picker'
 import { LanguageSelect } from '@/components/language-select'
 import { LogoMark } from '@/components/logo-mark'
@@ -20,6 +21,7 @@ import {
   restoreFromBackupWithRecoveryKey,
 } from '@/lib/backup'
 import { useConfig } from '@/lib/config'
+import { areCookiesBlocked } from '@/lib/cookie-detection'
 import { isValidNsec } from '@/lib/crypto'
 import * as keyManager from '@/lib/key-manager'
 import { hasStoredKey } from '@/lib/key-manager'
@@ -49,6 +51,7 @@ export const Route = createFileRoute('/login')({
 
 function LoginPage() {
   const { t } = useTranslation()
+  const [cookiesBlocked, setCookiesBlocked] = useState(() => areCookiesBlocked())
   const {
     signIn,
     signInWithPasskey,
@@ -274,6 +277,12 @@ function LoginPage() {
         setValidationError(t('common.error'))
       }
     }
+  }
+
+  // If cookies are blocked, auth cookies can't round-trip — show interstitial
+  // instead of the login form to surface the real cause of silent failures.
+  if (cookiesBlocked) {
+    return <CookiesRequired onRetry={() => setCookiesBlocked(false)} />
   }
 
   // --- If stored key exists, show PIN entry as primary ---

@@ -175,6 +175,38 @@ export async function decryptObjectFields<T extends Record<string, unknown>>(
  * @param label         Domain separation label (defaults to LABEL_USER_PII).
  * @returns The same array, with each item mutated in place.
  */
+/**
+ * Decrypt a ciphertext + single envelope (ECIES wrapped key) to plaintext JSON.
+ * Returns null on failure. Used for session meta, etc., where the payload is
+ * envelope-encrypted JSON outside the standard `encryptedFoo + fooEnvelopes` convention.
+ */
+export async function decryptEnvelopeJson<T>(
+  ciphertext: string,
+  envelope: RecipientEnvelope,
+  label: string
+): Promise<T | null> {
+  const cached = decryptCache.get(ciphertext, label)
+  if (cached !== null) {
+    try {
+      return JSON.parse(cached) as T
+    } catch {
+      return null
+    }
+  }
+  try {
+    const plaintext = await cryptoWorker.decryptEnvelopeField(
+      ciphertext,
+      envelope.ephemeralPubkey,
+      envelope.wrappedKey,
+      label
+    )
+    decryptCache.set(ciphertext, label, plaintext)
+    return JSON.parse(plaintext) as T
+  } catch {
+    return null
+  }
+}
+
 export async function decryptArrayFields<T extends Record<string, unknown>>(
   items: T[],
   readerPubkey: string,

@@ -340,6 +340,29 @@ services:
       retries: 3
       start_period: 20s
 
+  # ── Signal Notifier Sidecar ─────────────────────────────
+  signal-notifier:
+    build:
+      context: ../../signal-notifier
+      dockerfile: Dockerfile
+    profiles: ["signal"]
+    restart: unless-stopped
+    environment:
+      NOTIFIER_API_KEY: ${SIGNAL_NOTIFIER_API_KEY}
+      SIGNAL_BRIDGE_URL: ${SIGNAL_BRIDGE_URL:-http://signal-cli:8080}
+      SIGNAL_BRIDGE_API_KEY: ${SIGNAL_BRIDGE_API_KEY:-}
+      SIGNAL_REGISTERED_NUMBER: ${SIGNAL_REGISTERED_NUMBER:-}
+    volumes:
+      - signal-notifier-data:/app/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "bun", "-e", "fetch('http://localhost:3100/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
 volumes:
   postgres-data:
   caddy-data:
@@ -347,6 +370,7 @@ volumes:
   rustfs-data:
   nostr-data:
   signal-data:
+  signal-notifier-data:
   authentik-media:
   authentik-templates:
 

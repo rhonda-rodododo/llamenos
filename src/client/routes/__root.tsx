@@ -43,6 +43,7 @@ import {
   ScrollText,
   Search,
   Settings,
+  Shield,
   ShieldBan,
   StickyNote,
   Sun,
@@ -398,6 +399,9 @@ function AuthenticatedLayout() {
                   {t('nav.callHistory')}
                 </NavLink>
               )}
+              <NavLink to="/security" icon={<Shield className="h-4 w-4" />}>
+                {t('nav.security', { defaultValue: 'Security' })}
+              </NavLink>
               <NavLink to="/settings" icon={<Settings className="h-4 w-4" />}>
                 {t('nav.settings')}
               </NavLink>

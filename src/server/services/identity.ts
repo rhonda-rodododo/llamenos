@@ -1,3 +1,5 @@
+import { sha256 } from '@noble/hashes/sha2.js'
+import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js'
 import { LABEL_USER_PII } from '@shared/crypto-labels'
 import type { Ciphertext } from '@shared/crypto-types'
 import { and, eq, isNull, sql } from 'drizzle-orm'
@@ -5,7 +7,6 @@ import type { MessagingChannelType } from '../../shared/types'
 import type { Database } from '../db'
 import {
   inviteCodes,
-  jwtRevocations,
   provisionRooms,
   users,
   webauthnChallenges,
@@ -522,6 +523,40 @@ export class IdentityService {
       .where(and(eq(webauthnCredentials.pubkey, pubkey), eq(webauthnCredentials.id, credId)))
   }
 
+  async renameWebAuthnCredential(
+    pubkey: string,
+    credId: string,
+    data: {
+      label?: string
+      encryptedLabel?: Ciphertext
+      labelEnvelopes?: import('../../shared/types').RecipientEnvelope[]
+    }
+  ): Promise<void> {
+    const updates: Record<string, unknown> = {}
+    if (data.encryptedLabel !== undefined) updates.encryptedLabel = data.encryptedLabel
+    if (data.labelEnvelopes !== undefined) updates.labelEnvelopes = data.labelEnvelopes
+    if (Object.keys(updates).length === 0) {
+      // No encrypted fields provided. We still need to confirm the credential exists.
+      const rows = await this.db
+        .select({ id: webauthnCredentials.id })
+        .from(webauthnCredentials)
+        .where(and(eq(webauthnCredentials.pubkey, pubkey), eq(webauthnCredentials.id, credId)))
+        .limit(1)
+      if (!rows[0]) throw new AppError(404, 'Credential not found')
+      return
+    }
+
+    const result = await this.db
+      .update(webauthnCredentials)
+      .set(updates)
+      .where(and(eq(webauthnCredentials.id, credId), eq(webauthnCredentials.pubkey, pubkey)))
+      .returning({ id: webauthnCredentials.id })
+
+    if (result.length === 0) {
+      throw new AppError(404, 'Credential not found')
+    }
+  }
+
   async updateWebAuthnCounter(data: UpdateWebAuthnCounterData): Promise<void> {
     // Atomic conditional UPDATE to avoid TOCTOU race between SELECT and UPDATE.
     // Two concurrent auths must not both observe N and both write N+1.
@@ -706,24 +741,9 @@ export class IdentityService {
 
   // ------------------------------------------------------------------ JWT Revocations
 
-  /**
-   * Check whether a JWT (by its jti claim) has been revoked.
-   * Revoked access tokens must be rejected even if cryptographically valid
-   * and not yet expired.
-   */
-  async isJtiRevoked(jti: string): Promise<boolean> {
-    const rows = await this.db
-      .select({ jti: jwtRevocations.jti })
-      .from(jwtRevocations)
-      .where(eq(jwtRevocations.jti, jti))
-      .limit(1)
-    return rows.length > 0
-  }
-
   // ------------------------------------------------------------------ Test Reset
 
   async resetForTest(): Promise<void> {
-    await this.db.delete(jwtRevocations)
     await this.db.delete(webauthnCredentials)
     await this.db.delete(webauthnChallenges)
     await this.db.delete(provisionRooms)
@@ -853,6 +873,54 @@ export class IdentityService {
           }
         : {}),
     }
+  }
+
+  async updateEncryptedSecretKey(pubkey: string, newCiphertext: string): Promise<void> {
+    await this.db
+      .update(users)
+      .set({ encryptedSecretKey: newCiphertext })
+      .where(eq(users.pubkey, pubkey))
+  }
+
+  /** Hex-encoded sha256 of the caller-supplied KEK proof. */
+  static hashKekProof(proof: string): string {
+    return bytesToHex(sha256(utf8ToBytes(proof)))
+  }
+
+  async setKekProofHash(pubkey: string, hash: string): Promise<void> {
+    await this.db.update(users).set({ kekProofHash: hash }).where(eq(users.pubkey, pubkey))
+  }
+
+  async getKekProofHash(pubkey: string): Promise<string | null> {
+    const rows = await this.db
+      .select({ kekProofHash: users.kekProofHash })
+      .from(users)
+      .where(eq(users.pubkey, pubkey))
+      .limit(1)
+    return rows[0]?.kekProofHash ?? null
+  }
+
+  /**
+   * Constant-time compare the sha256 of the caller-supplied proof against the
+   * stored hash. Returns false when no hash is stored yet (pre-migration users).
+   */
+  async verifyKekProof(pubkey: string, proof: string): Promise<boolean> {
+    const stored = await this.getKekProofHash(pubkey)
+    if (!stored) return false
+    const computed = IdentityService.hashKekProof(proof)
+    // Both sides are fixed-length hex strings (64 chars) — length-mismatch short
+    // circuit is acceptable and the remaining compare is constant-time on equal
+    // lengths via XOR.
+    if (computed.length !== stored.length) return false
+    let diff = 0
+    for (let i = 0; i < computed.length; i++) {
+      diff |= computed.charCodeAt(i) ^ stored.charCodeAt(i)
+    }
+    return diff === 0
+  }
+
+  async setUserActive(pubkey: string, active: boolean): Promise<void> {
+    await this.db.update(users).set({ active }).where(eq(users.pubkey, pubkey))
   }
 
   #rowToCredential(r: typeof webauthnCredentials.$inferSelect): WebAuthnCredential {

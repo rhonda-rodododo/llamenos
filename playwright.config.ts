@@ -99,6 +99,10 @@ export default defineConfig({
           env: {
             ...process.env,
             USE_TEST_ADAPTER: "true",
+            // Disable opaque-token rotation in test mode so Playwright storage-state
+            // fixtures can reuse refresh cookies across tests. Rotation + replay
+            // detection remain enabled in dev/prod and are covered by unit tests.
+            DISABLE_TOKEN_ROTATION: "true",
           },
         },
         // sip-bridge for Asterisk API tests. Skipped in CI (started via docker

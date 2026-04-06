@@ -164,19 +164,16 @@ export function createAuthedRequestFromPubkey(
  */
 export function getAdminPubkeyFromStorageState(): string {
   const __dirname = path.dirname(fileURLToPath(import.meta.url))
-  const storageStatePath = path.resolve(__dirname, '..', 'storage', 'admin.json')
-  const storageState = JSON.parse(fs.readFileSync(storageStatePath, 'utf-8'))
-  const refreshCookie = storageState.cookies?.find(
-    (c: { name: string }) => c.name === 'llamenos-refresh'
+  // Opaque refresh tokens don't carry the pubkey, so global-setup writes it
+  // alongside admin.json during bootstrap.
+  const pubkeyFilePath = path.resolve(__dirname, '..', 'storage', 'admin-pubkey.txt')
+  if (fs.existsSync(pubkeyFilePath)) {
+    const pubkey = fs.readFileSync(pubkeyFilePath, 'utf-8').trim()
+    if (/^[0-9a-f]{64}$/.test(pubkey)) return pubkey
+  }
+  throw new Error(
+    'Admin pubkey not found — tests/storage/admin-pubkey.txt missing or invalid. Re-run global-setup.'
   )
-  if (!refreshCookie) {
-    throw new Error('No llamenos-refresh cookie found in admin.json storage state')
-  }
-  const payload = JSON.parse(Buffer.from(refreshCookie.value.split('.')[1], 'base64url').toString())
-  if (!payload.sub) {
-    throw new Error('No sub claim found in admin refresh token')
-  }
-  return payload.sub as string
 }
 
 /**

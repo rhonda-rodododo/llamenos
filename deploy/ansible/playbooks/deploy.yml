@@ -34,3 +34,5 @@
       tags: [docker, deploy]
     - role: llamenos
       tags: [llamenos, deploy]
+    - role: geoip
+      tags: [geoip, deploy]

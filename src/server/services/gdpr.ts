@@ -17,7 +17,6 @@ import {
   conversations,
   gdprConsents,
   gdprErasureRequests,
-  jwtRevocations,
   messageEnvelopes,
   noteEnvelopes,
   provisionRooms,
@@ -33,7 +32,6 @@ export interface GdprExport {
   exportedAt: string
   version: string
   profile: Record<string, unknown> | null
-  jwtRevocations: Array<{ jti: string; expiresAt: string; createdAt: string }>
   credentials: Array<{ id: string; label: string; createdAt: string; lastUsedAt: string }>
   shifts: Array<{ hubId: string; startedAt: string }>
   calls: Array<{ id: string; startedAt: string; status: string }>
@@ -112,21 +110,6 @@ export class GdprService {
           createdAt: vol.createdAt.toISOString(),
         }
       : null
-
-    // JWT revocations
-    const revocationRows = await this.db
-      .select({
-        jti: jwtRevocations.jti,
-        expiresAt: jwtRevocations.expiresAt,
-        createdAt: jwtRevocations.createdAt,
-      })
-      .from(jwtRevocations)
-      .where(eq(jwtRevocations.pubkey, pubkey))
-    const revocations = revocationRows.map((r) => ({
-      jti: r.jti,
-      expiresAt: r.expiresAt.toISOString(),
-      createdAt: r.createdAt.toISOString(),
-    }))
 
     // WebAuthn credentials (metadata only)
     const credRows = await this.db
@@ -229,7 +212,6 @@ export class GdprService {
       exportedAt: now,
       version: '1.0',
       profile,
-      jwtRevocations: revocations,
       credentials,
       shifts,
       calls,
@@ -303,9 +285,6 @@ export class GdprService {
     await this.db.transaction(async (tx) => {
       // Delete WebAuthn credentials
       await tx.delete(webauthnCredentials).where(eq(webauthnCredentials.pubkey, pubkey))
-
-      // Delete JWT revocations
-      await tx.delete(jwtRevocations).where(eq(jwtRevocations.pubkey, pubkey))
 
       // Delete provision rooms
       await tx.delete(provisionRooms).where(eq(provisionRooms.primaryPubkey, pubkey))

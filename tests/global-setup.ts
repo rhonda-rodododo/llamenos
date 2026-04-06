@@ -29,36 +29,52 @@ async function unlockAndNavigateToDashboard(page: import('@playwright/test').Pag
   const dashboard = page.getByRole('heading', { name: 'Dashboard', exact: true })
   const profileSetup = page.getByRole('heading', { name: 'Welcome!' })
 
-  // Wait for one of: PIN screen, dashboard, or profile-setup
-  const firstVisible = await Promise.race([
-    pinInput.waitFor({ state: 'visible', timeout: 30000 }).then(() => 'pin' as const),
-    dashboard.waitFor({ state: 'visible', timeout: 30000 }).then(() => 'dashboard' as const),
-    profileSetup.waitFor({ state: 'visible', timeout: 30000 }).then(() => 'profile' as const),
-  ])
-
-  if (firstVisible === 'pin') {
-    // Use focus+type for login PIN (lighter component than bootstrap)
-    const firstPinInput = page.locator('input[aria-label="PIN digit 1"]')
-    await firstPinInput.focus()
-    await page.keyboard.type(TEST_PIN, { delay: 80 })
-    await page.keyboard.press('Enter')
-    // After PIN entry: PBKDF2 600K runs synchronously (~30s), then navigates
-    const wrongPin = page.getByText('Wrong PIN')
-    const afterPin = await Promise.race([
-      dashboard.waitFor({ state: 'visible', timeout: 90000 }).then(() => 'dashboard' as const),
-      profileSetup.waitFor({ state: 'visible', timeout: 90000 }).then(() => 'profile' as const),
-      wrongPin.waitFor({ state: 'visible', timeout: 90000 }).then(() => 'wrong-pin' as const),
+  const MAX_ATTEMPTS = 2
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    // Wait for one of: PIN screen, dashboard, or profile-setup
+    const firstVisible = await Promise.race([
+      pinInput.waitFor({ state: 'visible', timeout: 30000 }).then(() => 'pin' as const),
+      dashboard.waitFor({ state: 'visible', timeout: 30000 }).then(() => 'dashboard' as const),
+      profileSetup.waitFor({ state: 'visible', timeout: 30000 }).then(() => 'profile' as const),
     ])
-    if (afterPin === 'wrong-pin') throw new Error('Wrong PIN entered during admin unlock')
-    if (afterPin === 'profile') {
+
+    if (firstVisible === 'pin') {
+      const firstPinInput = page.locator('input[aria-label="PIN digit 1"]')
+      await firstPinInput.focus()
+      await page.keyboard.type(TEST_PIN, { delay: 80 })
+      await page.keyboard.press('Enter')
+      // After PIN entry: PBKDF2 600K runs synchronously (~30s), then navigates
+      const wrongPin = page.getByText('Wrong PIN')
+      const afterPin = await Promise.race([
+        dashboard.waitFor({ state: 'visible', timeout: 90000 }).then(() => 'dashboard' as const),
+        profileSetup.waitFor({ state: 'visible', timeout: 90000 }).then(() => 'profile' as const),
+        wrongPin.waitFor({ state: 'visible', timeout: 90000 }).then(() => 'wrong-pin' as const),
+      ])
+      if (afterPin === 'wrong-pin') {
+        // Transient race: admin's access token may not yet be refreshed from the
+        // HttpOnly cookie, so unlock returns false before PBKDF2 runs. Wait +
+        // reload once before giving up.
+        if (attempt < MAX_ATTEMPTS) {
+          await page.waitForTimeout(1500)
+          await page.reload({ waitUntil: 'domcontentloaded' })
+          continue
+        }
+        throw new Error('Wrong PIN entered during admin unlock')
+      }
+      if (afterPin === 'profile') {
+        await page.getByRole('button', { name: /complete setup/i }).click()
+        await expect(dashboard).toBeVisible({ timeout: 15000 })
+      }
+      return
+    }
+    if (firstVisible === 'profile') {
       await page.getByRole('button', { name: /complete setup/i }).click()
       await expect(dashboard).toBeVisible({ timeout: 15000 })
+      return
     }
-  } else if (firstVisible === 'profile') {
-    await page.getByRole('button', { name: /complete setup/i }).click()
-    await expect(dashboard).toBeVisible({ timeout: 15000 })
+    // 'dashboard' — already there
+    return
   }
-  // If 'dashboard', we're already there
 }
 
 /**
@@ -417,6 +433,27 @@ test.describe('Global Setup: Provision Test Accounts', () => {
 
     // Save admin storage state
     await page.context().storageState({ path: `${STORAGE_DIR}/admin.json` })
+
+    // Save admin pubkey alongside storage — opaque refresh tokens don't contain
+    // the pubkey anymore, so we can't decode it from the cookie like we could
+    // with stateless JWTs. Query the DB directly.
+    const postgres = (await import('postgres')).default
+    const dbUrl =
+      process.env.TEST_DATABASE_URL ??
+      process.env.DATABASE_URL ??
+      'postgres://llamenos:llamenos@localhost:5433/llamenos'
+    const sql = postgres(dbUrl, { max: 1 })
+    try {
+      const rows = await sql<Array<{ pubkey: string }>>`
+        SELECT pubkey FROM users WHERE roles::text LIKE '%"role-super-admin"%' LIMIT 1
+      `
+      if (rows[0]) {
+        const fs = await import('node:fs')
+        fs.writeFileSync(`${STORAGE_DIR}/admin-pubkey.txt`, rows[0].pubkey)
+      }
+    } finally {
+      await sql.end()
+    }
   })
 
   test('create hub-admin account via invite', async ({ browser }) => {

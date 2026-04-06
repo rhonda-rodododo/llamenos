@@ -72,7 +72,8 @@
     "contacts": "Contacts",
     "conversations": "Conversations",
     "help": "Help",
-    "users": "Người dùng"
+    "users": "Người dùng",
+    "security": "Bảo mật"
   },
   "dashboard": {
     "title": "Bảng điều khiển",
@@ -1451,5 +1452,107 @@
     "testConnection": "Kiểm tra kết nối",
     "testSuccess": "Kết nối thành công ({{latency}}ms)",
     "testFailed": "Kiểm tra kết nối thất bại"
+  },
+  "security": {
+    "title": "Bảo mật",
+    "tabs": {
+      "sessions": "Phiên đang hoạt động",
+      "passkeys": "Khóa truy cập",
+      "history": "Lịch sử",
+      "factors": "Yếu tố"
+    },
+    "history": {
+      "description": "Các sự kiện bảo mật trên tài khoản của bạn trong 90 ngày qua.",
+      "export": "Xuất lịch sử",
+      "report": "Báo cáo đáng ngờ",
+      "flagged": "Đã đánh dấu",
+      "none": "Chưa có sự kiện nào.",
+      "eventType": {
+        "login": "Đã đăng nhập",
+        "login_failed": "Đăng nhập thất bại",
+        "logout": "Đã đăng xuất",
+        "session_revoked": "Phiên đã bị thu hồi",
+        "sessions_revoked_others": "Đã đăng xuất các phiên khác",
+        "passkey_added": "Đã thêm khóa truy cập",
+        "passkey_removed": "Đã xóa khóa truy cập",
+        "passkey_renamed": "Đã đổi tên khóa truy cập",
+        "pin_changed": "Đã thay đổi mã PIN",
+        "recovery_rotated": "Đã xoay khóa khôi phục",
+        "lockdown_triggered": "Đã kích hoạt khóa khẩn cấp",
+        "alert_sent": "Đã gửi cảnh báo",
+        "signal_contact_changed": "Đã cập nhật liên hệ Signal"
+      }
+    },
+    "sessions": {
+      "none": "Không có phiên hoạt động.",
+      "signOutEverywhere": "Đăng xuất khỏi mọi nơi khác",
+      "lockdown": "Khóa khẩn cấp",
+      "current": "Hiện tại",
+      "unknownBrowser": "Trình duyệt không xác định",
+      "unknownLocation": "Vị trí không xác định",
+      "lastSeen": "Hoạt động cuối",
+      "revoke": "Thu hồi"
+    },
+    "lockdown": {
+      "title": "Khóa khẩn cấp",
+      "intro": "Chọn phạm vi khóa. Điều này không thể hoàn tác.",
+      "tierA": {
+        "title": "Đăng xuất khỏi mọi nơi khác",
+        "desc": "Thu hồi tất cả các phiên khác. Khóa truy cập không bị ảnh hưởng."
+      },
+      "tierB": {
+        "title": "Xóa thiết bị khác + khóa truy cập",
+        "desc": "Thu hồi tất cả các phiên khác và xóa tất cả các khóa truy cập ngoại trừ khóa đang dùng."
+      },
+      "tierC": {
+        "title": "Khóa hoàn toàn",
+        "desc": "Thu hồi TẤT CẢ các phiên, xóa TẤT CẢ khóa truy cập, vô hiệu hóa tài khoản. Quản trị viên phải kích hoạt lại."
+      },
+      "confirmLabel": "Nhập LOCKDOWN để xác nhận",
+      "pinLabel": "Nhập mã PIN của bạn",
+      "execute": "Thực hiện khóa",
+      "locking": "Đang khóa…",
+      "typeWord": "Nhập LOCKDOWN để xác nhận"
+    },
+    "pin": {
+      "title": "Thay đổi mã PIN",
+      "current": "Mã PIN hiện tại",
+      "new": "Mã PIN mới",
+      "confirm": "Xác nhận mã PIN mới",
+      "save": "Thay đổi mã PIN",
+      "success": "Đã thay đổi mã PIN thành công",
+      "mismatch": "Mã PIN mới không khớp",
+      "tooShort": "Mã PIN phải có ít nhất 6 chữ số",
+      "locked": "Tài khoản bị khóa; mở khóa trước"
+    },
+    "recovery": {
+      "title": "Xoay khóa khôi phục",
+      "rotate": "Xoay khóa khôi phục",
+      "download": "Tải xuống",
+      "warning": "Lưu khóa này ngay bây giờ. Nó sẽ không hiển thị lại.",
+      "locked": "Mở khóa trước"
+    },
+    "lock": {
+      "title": "Độ trễ tự động khóa",
+      "desc": "Khóa ứng dụng sau thời gian này khi tab bị ẩn.",
+      "immediate": "Ngay lập tức"
+    },
+    "passkeys": {
+      "backedUp": "Đã đồng bộ",
+      "createdAt": "Đã thêm",
+      "lastUsedAt": "Sử dụng gần nhất",
+      "rename": "Đổi tên",
+      "transport": {
+        "usb": "USB",
+        "internal": "Tích hợp",
+        "hybrid": "Đa thiết bị"
+      }
+    }
+  },
+  "cookiesRequired": {
+    "title": "Cần cookie",
+    "body": "Llámenos sử dụng cookie trình duyệt để giữ phiên đăng nhập của bạn. Không theo dõi, không bên thứ ba — chỉ là các cookie mà trang này cần để hoạt động. Vui lòng bật cookie cho trang này và thử lại.",
+    "retry": "Tôi đã bật cookie — thử lại",
+    "stillBlocked": "Cookie vẫn có vẻ bị chặn. Kiểm tra cài đặt trình duyệt cho trang này."
   }
 }

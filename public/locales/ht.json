@@ -72,7 +72,8 @@
     "contacts": "Contacts",
     "conversations": "Conversations",
     "help": "Help",
-    "users": "Itilizatè"
+    "users": "Itilizatè",
+    "security": "Sekirite"
   },
   "dashboard": {
     "title": "Tablo",
@@ -1451,5 +1452,107 @@
     "testConnection": "Teste Koneksyon",
     "testSuccess": "Koneksyon reyisi ({{latency}}ms)",
     "testFailed": "Tès koneksyon echwe"
+  },
+  "security": {
+    "title": "Sekirite",
+    "tabs": {
+      "sessions": "Sesyon aktif",
+      "passkeys": "Kle aksè",
+      "history": "Istwa",
+      "factors": "Faktè"
+    },
+    "history": {
+      "description": "Evènman sekirite nan kont ou nan 90 dènye jou yo.",
+      "export": "Ekspòte istwa",
+      "report": "Rapòte kòm sispèk",
+      "flagged": "Make",
+      "none": "Poko gen evènman.",
+      "eventType": {
+        "login": "Ou konekte",
+        "login_failed": "Koneksyon echwe",
+        "logout": "Ou dekonekte",
+        "session_revoked": "Sesyon revoke",
+        "sessions_revoked_others": "Lòt sesyon yo dekonekte",
+        "passkey_added": "Kle aksè ajoute",
+        "passkey_removed": "Kle aksè retire",
+        "passkey_renamed": "Kle aksè rele",
+        "pin_changed": "PIN chanje",
+        "recovery_rotated": "Kle rekiperasyon woule",
+        "lockdown_triggered": "Fèmti ijans aktive",
+        "alert_sent": "Alèt voye",
+        "signal_contact_changed": "Kontak Signal mete ajou"
+      }
+    },
+    "sessions": {
+      "none": "Pa gen sesyon aktif.",
+      "signOutEverywhere": "Dekonekte tout lòt kote",
+      "lockdown": "Fèmti ijans",
+      "current": "Aktyèl",
+      "unknownBrowser": "Navigatè enkoni",
+      "unknownLocation": "Kote enkoni",
+      "lastSeen": "Dènye aktivite",
+      "revoke": "Revoke"
+    },
+    "lockdown": {
+      "title": "Fèmti ijans",
+      "intro": "Chwazi pòte fèmti a. Sa a pa ka defèt.",
+      "tierA": {
+        "title": "Dekonekte tout lòt kote",
+        "desc": "Revoke tout lòt sesyon yo. Kle aksè yo pa touche."
+      },
+      "tierB": {
+        "title": "Retire lòt aparèy + kle yo",
+        "desc": "Revoke tout lòt sesyon yo epi efase tout kle aksè eksepte sa k ap itilize a."
+      },
+      "tierC": {
+        "title": "Fèmti total",
+        "desc": "Revoke TOUT sesyon yo, efase TOUT kle aksè, dezaktive kont la. Yon admin dwe reaktive."
+      },
+      "confirmLabel": "Tape LOCKDOWN pou konfime",
+      "pinLabel": "Antre PIN ou",
+      "execute": "Egzekite fèmti",
+      "locking": "Fèmen…",
+      "typeWord": "Tape LOCKDOWN pou konfime"
+    },
+    "pin": {
+      "title": "Chanje PIN",
+      "current": "PIN aktyèl",
+      "new": "Nouvo PIN",
+      "confirm": "Konfime nouvo PIN",
+      "save": "Chanje PIN",
+      "success": "PIN chanje avèk siksè",
+      "mismatch": "Nouvo PIN yo pa matche",
+      "tooShort": "PIN dwe gen omwen 6 chif",
+      "locked": "Kont lan fèmen; debloke li dabò"
+    },
+    "recovery": {
+      "title": "Woule kle rekiperasyon",
+      "rotate": "Woule kle rekiperasyon",
+      "download": "Telechaje",
+      "warning": "Sove kle sa a kounye a. Li p ap parèt ankò.",
+      "locked": "Debloke dabò"
+    },
+    "lock": {
+      "title": "Reta fèmti otomatik",
+      "desc": "Fèmen aplikasyon an apre tan sa a lè tab la kache.",
+      "immediate": "Imedyatman"
+    },
+    "passkeys": {
+      "backedUp": "Senkronize",
+      "createdAt": "Ajoute",
+      "lastUsedAt": "Dènye itilizasyon",
+      "rename": "Rele",
+      "transport": {
+        "usb": "USB",
+        "internal": "Entegre",
+        "hybrid": "Kwa-aparèy"
+      }
+    }
+  },
+  "cookiesRequired": {
+    "title": "Cookies obligatwa",
+    "body": "Llámenos itilize cookies navigatè pou kenbe sesyon ou konekte. Pa gen swivi, pa gen twazyèm pati — sèlman cookies sit sa a bezwen pou fonksyone. Tanpri, aktive cookies pou sit sa a epi eseye ankò.",
+    "retry": "Mwen aktive cookies — eseye ankò",
+    "stillBlocked": "Cookies sanble toujou bloke. Tcheke paramèt navigatè ou pou sit sa a."
   }
 }
