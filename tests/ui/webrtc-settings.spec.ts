@@ -188,6 +188,9 @@ test.describe('WebRTC & Call Preference Settings', () => {
     // Navigate back to phone provider section
     await gotoPhoneProvider(adminPage)
 
+    // WebRTC toggle is inside AdvancedReveal (closed by default after reload)
+    await adminPage.getByTestId('admin-advanced-reveal-phone-provider').click()
+
     // WebRTC toggle should now be on (from saved state) — wait for fields to render
     await expect(adminPage.getByTestId('admin-phone-provider-webrtc-enabled-switch')).toBeChecked({
       timeout: 10000,

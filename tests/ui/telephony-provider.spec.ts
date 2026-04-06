@@ -109,7 +109,9 @@ test.describe('Phone Provider Settings', () => {
     await saveButton.click()
 
     // Should show success toast
-    await expect(adminPage.getByText(/telephony provider saved/i)).toBeVisible({ timeout: 5000 })
+    await expect(adminPage.getByTestId('admin-phone-provider-save-success')).toBeVisible({
+      timeout: 5000,
+    })
 
     // Should now show current-provider banner with Twilio
     await expect(
@@ -133,7 +135,9 @@ test.describe('Phone Provider Settings', () => {
     await adminPage.getByTestId('admin-phone-provider-auth-token-input').fill('test-auth-token-456')
 
     await adminPage.getByTestId('admin-phone-provider-save').click()
-    await expect(adminPage.getByText(/telephony provider saved/i)).toBeVisible({ timeout: 5000 })
+    await expect(adminPage.getByTestId('admin-phone-provider-save-success')).toBeVisible({
+      timeout: 5000,
+    })
 
     // Reload the page — clears keyManager, PIN re-entry needed
     await adminPage.reload()
@@ -179,7 +183,9 @@ test.describe('Phone Provider Settings', () => {
 
     // Save
     await adminPage.getByTestId('admin-phone-provider-save').click()
-    await expect(adminPage.getByText(/telephony provider saved/i)).toBeVisible({ timeout: 5000 })
+    await expect(adminPage.getByTestId('admin-phone-provider-save-success')).toBeVisible({
+      timeout: 5000,
+    })
 
     // Should show current provider as SignalWire
     await expect(

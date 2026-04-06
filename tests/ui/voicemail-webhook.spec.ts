@@ -76,31 +76,44 @@ test.describe('Voicemail UI', () => {
     // This confirms the DB state before we check the UI.
     // Uses the SPA's auth token and hub-scoped endpoint so the request is
     // authenticated and queries the correct hub.
-    await adminPage.waitForTimeout(2000)
-    const apiCheck = await adminPage.evaluate(async (sid: string) => {
-      type AuthFacade = { getAccessToken(): string | null }
-      const facade = (window as Record<string, unknown>).__TEST_AUTH_FACADE as
-        | AuthFacade
-        | undefined
-      const token = facade?.getAccessToken()
-      if (!token) return { ok: false, status: 0, error: 'no token' }
-      // Resolve active hub ID from config endpoint
-      const configRes = await fetch('/api/config')
-      if (!configRes.ok) return { ok: false, status: configRes.status, error: 'config failed' }
-      const config = await configRes.json()
-      const hubId = config.defaultHubId || config.hubs?.[0]?.id
-      if (!hubId) return { ok: false, status: 0, error: 'no hub' }
-      // Use hub-scoped endpoint matching what the SPA uses
-      const res = await fetch(`/api/hubs/${hubId}/calls/history`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (!res.ok) return { ok: false, status: res.status }
-      const data = await res.json()
-      const call = data.calls?.find(
-        (c: { id?: string; callSid?: string }) => c.id === sid || c.callSid === sid
-      )
-      return { ok: true, found: !!call, hasVoicemail: call?.hasVoicemail }
-    }, callSid)
+    // Retry up to 5 times — parallel CI workers may delay DB commits or
+    // other tests may temporarily hold locks on the calls table.
+    await adminPage.waitForTimeout(3000)
+    let apiCheck: {
+      ok: boolean
+      found?: boolean
+      hasVoicemail?: boolean
+      status?: number
+      error?: string
+    } = { ok: false }
+    for (let attempt = 0; attempt < 5; attempt++) {
+      apiCheck = await adminPage.evaluate(async (sid: string) => {
+        type AuthFacade = { getAccessToken(): string | null }
+        const facade = (window as Record<string, unknown>).__TEST_AUTH_FACADE as
+          | AuthFacade
+          | undefined
+        const token = facade?.getAccessToken()
+        if (!token) return { ok: false, status: 0, error: 'no token' }
+        // Resolve active hub ID from config endpoint
+        const configRes = await fetch('/api/config')
+        if (!configRes.ok) return { ok: false, status: configRes.status, error: 'config failed' }
+        const config = await configRes.json()
+        const hubId = config.defaultHubId || config.hubs?.[0]?.id
+        if (!hubId) return { ok: false, status: 0, error: 'no hub' }
+        // Use hub-scoped endpoint matching what the SPA uses
+        const res = await fetch(`/api/hubs/${hubId}/calls/history`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!res.ok) return { ok: false, status: res.status }
+        const data = await res.json()
+        const call = data.calls?.find(
+          (c: { id?: string; callSid?: string }) => c.id === sid || c.callSid === sid
+        )
+        return { ok: true, found: !!call, hasVoicemail: call?.hasVoicemail }
+      }, callSid)
+      if (apiCheck.ok && apiCheck.found) break
+      await adminPage.waitForTimeout(2000)
+    }
 
     // If the API check fails, log diagnostics and skip the UI check
     if (!apiCheck.ok || !apiCheck.found) {
