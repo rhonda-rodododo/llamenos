@@ -11,7 +11,7 @@
 
 import { LABEL_USER_PII } from '@shared/crypto-labels'
 import type { RecipientEnvelope } from '@shared/types'
-import { CryptoWorkerLockedError, cryptoWorker } from './crypto-worker-client'
+import { CryptoWorkerLockedError, cryptoWorker, isWorkerLockedError } from './crypto-worker-client'
 import * as keyManager from './key-manager'
 
 // ---------------------------------------------------------------------------
@@ -103,7 +103,7 @@ async function decryptFieldWithRecovery(
     )
   } catch (firstErr) {
     // Known locked — no point retrying
-    if (firstErr instanceof CryptoWorkerLockedError) {
+    if (isWorkerLockedError(firstErr)) {
       await fireLockOnce()
       return null
     }
@@ -272,14 +272,10 @@ export async function decryptEnvelopeJson<T>(
       return null
     }
   }
+  const plaintext = await decryptFieldWithRecovery(ciphertext, envelope, label)
+  if (plaintext === null) return null
+  decryptCache.set(ciphertext, label, plaintext)
   try {
-    const plaintext = await cryptoWorker.decryptEnvelopeField(
-      ciphertext,
-      envelope.ephemeralPubkey,
-      envelope.wrappedKey,
-      label
-    )
-    decryptCache.set(ciphertext, label, plaintext)
     return JSON.parse(plaintext) as T
   } catch {
     return null

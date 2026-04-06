@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
+import { beforeEach, describe, expect, mock, test } from 'bun:test'
 import { CryptoWorkerLockedError } from './crypto-worker-client'
 
 // We need to mock the crypto-worker-client module and key-manager module
