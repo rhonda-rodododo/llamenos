@@ -177,14 +177,20 @@ test.describe('WebRTC & Call Preference Settings', () => {
       timeout: 5000,
     })
 
-    // Reload clears keyManager — block refresh to force login screen
-    await adminPage.route('**/api/auth/token/refresh', (route) =>
-      route.fulfill({ status: 401, contentType: 'application/json', body: '{"error":"blocked"}' })
-    )
-    await adminPage.reload({ waitUntil: 'domcontentloaded' })
+    // Lock key + clear cache → unlock → forces fresh server fetch
+    await adminPage.evaluate(async () => {
+      const km = (window as unknown as { __TEST_KEY_MANAGER?: { lock(): void } }).__TEST_KEY_MANAGER
+      km?.lock()
+      const { queryClient } = await import('/src/client/lib/query-client')
+      queryClient.clear()
+    })
+    await adminPage.evaluate(() => {
+      ;(
+        window as unknown as { __TEST_ROUTER?: { navigate(o: { to: string }): void } }
+      ).__TEST_ROUTER?.navigate({ to: '/login' })
+    })
     const pinInput2 = adminPage.locator('input[aria-label="PIN digit 1"]')
-    await pinInput2.waitFor({ state: 'visible', timeout: 60000 })
-    await adminPage.unroute('**/api/auth/token/refresh')
+    await pinInput2.waitFor({ state: 'visible', timeout: 30000 })
     await enterPin(adminPage, '123456')
     await adminPage.waitForURL((u) => !u.toString().includes('/login'), { timeout: 90000 })
     // Navigate back to phone provider section
