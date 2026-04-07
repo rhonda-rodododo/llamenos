@@ -4,7 +4,7 @@ test.describe('Security page', () => {
   test('shows Security nav link and redirects /security to /security/sessions', async ({
     adminPage,
   }) => {
-    const navLink = adminPage.getByRole('link', { name: /^Security$/ })
+    const navLink = adminPage.getByTestId('nav-security')
     await expect(navLink).toBeVisible()
     await navLink.click()
     await expect(adminPage).toHaveURL(/\/security\/sessions$/)
@@ -13,7 +13,7 @@ test.describe('Security page', () => {
 
   test('switches to passkeys tab', async ({ adminPage }) => {
     // Navigate via client-side link (NOT goto) to preserve crypto worker state
-    const navLink = adminPage.getByRole('link', { name: /^Security$/ })
+    const navLink = adminPage.getByTestId('nav-security')
     await navLink.click()
     await expect(adminPage).toHaveURL(/\/security\/sessions$/)
     await expect(adminPage.getByTestId('sessions-page')).toBeVisible({ timeout: 30000 })
@@ -24,7 +24,7 @@ test.describe('Security page', () => {
 
   test('sessions page renders', async ({ adminPage }) => {
     // Navigate via client-side link (NOT goto) to preserve crypto worker state
-    const navLink = adminPage.getByRole('link', { name: /^Security$/ })
+    const navLink = adminPage.getByTestId('nav-security')
     await navLink.click()
     await expect(adminPage).toHaveURL(/\/security\/sessions$/)
     // Either the sessions list is visible or the empty state is shown

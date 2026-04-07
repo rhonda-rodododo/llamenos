@@ -3,7 +3,7 @@ import { expect, test } from '../fixtures/auth'
 test.describe('Security actions UI', () => {
   test('lockdown modal shows tier choices', async ({ adminPage }) => {
     // Navigate via client-side link to preserve crypto worker state
-    await adminPage.getByRole('link', { name: /^Security$/ }).click()
+    await adminPage.getByTestId('nav-security').click()
     await expect(adminPage).toHaveURL(/\/security\/sessions$/)
     await expect(adminPage.getByTestId('sessions-page')).toBeVisible({ timeout: 30000 })
     await adminPage.getByTestId('open-lockdown').click()
@@ -15,7 +15,7 @@ test.describe('Security actions UI', () => {
   })
 
   test('lockdown requires typing LOCKDOWN', async ({ adminPage }) => {
-    await adminPage.getByRole('link', { name: /^Security$/ }).click()
+    await adminPage.getByTestId('nav-security').click()
     await expect(adminPage).toHaveURL(/\/security\/sessions$/)
     await expect(adminPage.getByTestId('sessions-page')).toBeVisible({ timeout: 30000 })
     await adminPage.getByTestId('open-lockdown').click()
@@ -28,7 +28,7 @@ test.describe('Security actions UI', () => {
   })
 
   test('factors page renders PIN + recovery + lock sections', async ({ adminPage }) => {
-    await adminPage.getByRole('link', { name: /^Security$/ }).click()
+    await adminPage.getByTestId('nav-security').click()
     await expect(adminPage).toHaveURL(/\/security\/sessions$/)
     await adminPage.getByTestId('tab-factors').click()
     await expect(adminPage).toHaveURL(/\/security\/factors$/)
@@ -39,7 +39,7 @@ test.describe('Security actions UI', () => {
   })
 
   test('factors tab is reachable from security navigation', async ({ adminPage }) => {
-    await adminPage.getByRole('link', { name: /^Security$/ }).click()
+    await adminPage.getByTestId('nav-security').click()
     await expect(adminPage).toHaveURL(/\/security\/sessions$/)
     await adminPage.getByTestId('tab-factors').click()
     await expect(adminPage).toHaveURL(/\/security\/factors$/)

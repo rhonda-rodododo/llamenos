@@ -2,7 +2,7 @@ import { expect, test } from '../fixtures/auth'
 
 test.describe('Security history', () => {
   test('history tab link navigates to /security/history', async ({ adminPage }) => {
-    await adminPage.getByRole('link', { name: /^Security$/ }).click()
+    await adminPage.getByTestId('nav-security').click()
     await expect(adminPage).toHaveURL(/\/security\/sessions$/)
     await adminPage.getByTestId('tab-history').click()
     await expect(adminPage).toHaveURL(/\/security\/history$/)
@@ -10,7 +10,7 @@ test.describe('Security history', () => {
   })
 
   test('history page renders (list or empty state)', async ({ adminPage }) => {
-    await adminPage.getByRole('link', { name: /^Security$/ }).click()
+    await adminPage.getByTestId('nav-security').click()
     await expect(adminPage).toHaveURL(/\/security\/sessions$/)
     await adminPage.getByTestId('tab-history').click()
     await expect(adminPage).toHaveURL(/\/security\/history$/)
@@ -21,7 +21,7 @@ test.describe('Security history', () => {
   })
 
   test('export triggers a download', async ({ adminPage }) => {
-    await adminPage.getByRole('link', { name: /^Security$/ }).click()
+    await adminPage.getByTestId('nav-security').click()
     await expect(adminPage).toHaveURL(/\/security\/sessions$/)
     await adminPage.getByTestId('tab-history').click()
     await expect(adminPage).toHaveURL(/\/security\/history$/)
