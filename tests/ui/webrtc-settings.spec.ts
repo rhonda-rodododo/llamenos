@@ -1,5 +1,5 @@
 import { expect, test } from '../fixtures/auth'
-import { navigateAfterLogin, reenterPinAfterReload } from '../helpers'
+import { enterPin, navigateAfterLogin } from '../helpers'
 
 async function gotoPhoneProvider(page: import('@playwright/test').Page) {
   await navigateAfterLogin(page, '/admin/phone-provider')
@@ -177,13 +177,17 @@ test.describe('WebRTC & Call Preference Settings', () => {
       timeout: 5000,
     })
 
-    // Reload to verify server-side persistence
-    await adminPage.reload()
-    await reenterPinAfterReload(adminPage)
-    if (adminPage.url().includes('profile-setup')) {
-      await adminPage.getByRole('button', { name: /complete setup/i }).click()
-      await adminPage.waitForURL((u) => !u.toString().includes('profile-setup'), { timeout: 15000 })
-    }
+    // Reload to verify server-side persistence. Block refresh throughout
+    // PIN entry to prevent auto-redirect races.
+    await adminPage.route('**/api/auth/token/refresh', (route) =>
+      route.fulfill({ status: 401, contentType: 'application/json', body: '{"error":"blocked"}' })
+    )
+    await adminPage.reload({ waitUntil: 'domcontentloaded' })
+    const pinInput2 = adminPage.locator('input[aria-label="PIN digit 1"]')
+    await pinInput2.waitFor({ state: 'visible', timeout: 30000 })
+    await adminPage.unroute('**/api/auth/token/refresh')
+    await enterPin(adminPage, '123456')
+    await adminPage.waitForURL((u) => !u.toString().includes('/login'), { timeout: 90000 })
     // Navigate back to phone provider section
     await gotoPhoneProvider(adminPage)
 
