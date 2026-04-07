@@ -11,7 +11,8 @@
 
 import { LABEL_USER_PII } from '@shared/crypto-labels'
 import type { RecipientEnvelope } from '@shared/types'
-import { cryptoWorker } from './crypto-worker-client'
+import { CryptoWorkerLockedError, cryptoWorker, isWorkerLockedError } from './crypto-worker-client'
+import * as keyManager from './key-manager'
 
 /**
  * Decryption diagnostics are enabled in dev builds automatically, OR at
@@ -59,6 +60,91 @@ export class DecryptCache {
 
 /** Global singleton — cleared on key lock via key-manager lock callbacks. */
 export const decryptCache = new DecryptCache()
+
+// ---------------------------------------------------------------------------
+// Decrypt recovery state
+// ---------------------------------------------------------------------------
+
+/** Prevents multiple concurrent decrypt failures from each firing lock. */
+let lockFiring = false
+
+/** @internal Reset recovery state and decrypt cache — test-only, do not call in production. */
+export function resetDecryptRecoveryState(): void {
+  lockFiring = false
+  decryptCache.clear()
+}
+
+/**
+ * Fire keyManager.lock() exactly once per failure batch.
+ * Concurrent callers that arrive while the first lock is in-flight are no-ops.
+ */
+async function fireLockOnce(): Promise<void> {
+  if (lockFiring) return
+  lockFiring = true
+  try {
+    await keyManager.lock()
+  } finally {
+    lockFiring = false
+  }
+}
+
+/**
+ * Attempt to decrypt a single field with retry and recovery.
+ *
+ * 1. Try decrypt
+ * 2. On CryptoWorkerLockedError → fire lock immediately (no retry — key is gone)
+ * 3. On timeout/other error → retry once
+ * 4. On second failure → probe worker state:
+ *    - Worker locked → fire lock (PIN prompt)
+ *    - Worker unlocked but broken → reinitialize worker + fire lock
+ */
+async function decryptFieldWithRecovery(
+  ciphertext: string,
+  envelope: RecipientEnvelope,
+  label: string
+): Promise<string | null> {
+  const worker = cryptoWorker
+
+  // First attempt
+  try {
+    return await worker.decryptEnvelopeField(
+      ciphertext,
+      envelope.ephemeralPubkey,
+      envelope.wrappedKey,
+      label
+    )
+  } catch (firstErr) {
+    // Known locked — no point retrying
+    if (isWorkerLockedError(firstErr)) {
+      await fireLockOnce()
+      return null
+    }
+
+    // Transient error — retry once
+    try {
+      return await worker.decryptEnvelopeField(
+        ciphertext,
+        envelope.ephemeralPubkey,
+        envelope.wrappedKey,
+        label
+      )
+    } catch {
+      // Both attempts failed — probe worker state
+      try {
+        const unlocked = await worker.isUnlocked()
+        if (unlocked) {
+          // Worker claims unlocked but can't decrypt — broken state
+          worker.reinitialize()
+        }
+      } catch {
+        // isUnlocked itself failed — worker is definitely broken
+        worker.reinitialize()
+      }
+      await fireLockOnce()
+      return null
+    }
+  }
+}
 
 // ---------------------------------------------------------------------------
 // EncryptedFieldRef
@@ -166,8 +252,6 @@ export async function decryptObjectFields<T extends Record<string, unknown>>(
   }
   if (refs.length === 0) return obj
 
-  const worker = cryptoWorker
-
   await Promise.all(
     refs.map(async ({ plaintextKey, ciphertext, envelope }) => {
       // Check cache first
@@ -177,25 +261,16 @@ export async function decryptObjectFields<T extends Record<string, unknown>>(
         return
       }
 
-      try {
-        const plaintext = await worker.decryptEnvelopeField(
-          ciphertext,
-          envelope.ephemeralPubkey,
-          envelope.wrappedKey,
-          label
-        )
+      const plaintext = await decryptFieldWithRecovery(ciphertext, envelope, label)
+      if (plaintext !== null) {
         decryptCache.set(ciphertext, label, plaintext)
         ;(obj as Record<string, unknown>)[plaintextKey] = plaintext
-      } catch (err) {
-        // Leave field as-is (placeholder value from server). Surface the
-        // failure in dev so HMAC/label mismatches, worker init races, and
-        // malformed envelopes are visible instead of producing a silent
-        // "[encrypted]" in the UI.
-        if (decryptDebugEnabled()) {
-          // eslint-disable-next-line no-console
-          console.warn(`[decrypt-fields] Decryption failed for "${plaintextKey}":`, err)
-        }
+      } else if (decryptDebugEnabled()) {
+        // eslint-disable-next-line no-console
+        console.warn(`[decrypt-fields] Decryption returned null for "${plaintextKey}"`)
       }
+      // If null, field keeps its server placeholder ("[encrypted]")
+      // but lock has been fired — PIN prompt will appear
     })
   )
 
@@ -232,14 +307,10 @@ export async function decryptEnvelopeJson<T>(
       return null
     }
   }
+  const plaintext = await decryptFieldWithRecovery(ciphertext, envelope, label)
+  if (plaintext === null) return null
+  decryptCache.set(ciphertext, label, plaintext)
   try {
-    const plaintext = await cryptoWorker.decryptEnvelopeField(
-      ciphertext,
-      envelope.ephemeralPubkey,
-      envelope.wrappedKey,
-      label
-    )
-    decryptCache.set(ciphertext, label, plaintext)
     return JSON.parse(plaintext) as T
   } catch {
     return null

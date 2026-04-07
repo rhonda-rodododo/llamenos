@@ -32,76 +32,67 @@ import {
 
 const log = createDebugLog('key-manager')
 
-// --- Auto-lock ---
-let idleTimer: ReturnType<typeof setTimeout> | null = null
+// --- Unified auto-lock ---
+let autoLockTimer: ReturnType<typeof setTimeout> | null = null
 const lockCallbacks: Set<() => void> = new Set()
 const unlockCallbacks: Set<() => void> = new Set()
-const IDLE_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes
 let autoLockDisabled = false
 
-function resetAutoLockTimers() {
+const AUTO_LOCK_KEY = 'llamenos-auto-lock'
+const DEFAULT_AUTO_LOCK_MS = 15 * 60 * 1000 // 15 minutes
+const MIN_AUTO_LOCK_MS = 60_000 // 1 minute
+const MAX_AUTO_LOCK_MS = 60 * 60 * 1000 // 60 minutes
+
+function getAutoLock(): number {
+  try {
+    const stored = localStorage.getItem(AUTO_LOCK_KEY)
+    if (stored) {
+      const ms = Number.parseInt(stored, 10)
+      if (ms >= MIN_AUTO_LOCK_MS && ms <= MAX_AUTO_LOCK_MS) return ms
+    }
+  } catch {
+    /* localStorage unavailable */
+  }
+  return DEFAULT_AUTO_LOCK_MS
+}
+
+/** Set the auto-lock timeout in milliseconds (1 min – 60 min). */
+export function setAutoLockMs(ms: number): void {
+  const clamped = Math.max(MIN_AUTO_LOCK_MS, Math.min(MAX_AUTO_LOCK_MS, ms))
+  localStorage.setItem(AUTO_LOCK_KEY, String(clamped))
+  // Reset timer with new value if currently unlocked
+  resetAutoLockTimer()
+}
+
+/** Get the current auto-lock timeout in milliseconds. */
+export function getAutoLockMs(): number {
+  return getAutoLock()
+}
+
+/** Reset the auto-lock inactivity timer. Call on any user/API activity. */
+export function resetAutoLockTimer(): void {
   if (autoLockDisabled) return
-  if (idleTimer) clearTimeout(idleTimer)
-  idleTimer = setTimeout(() => {
+  if (autoLockTimer) clearTimeout(autoLockTimer)
+  autoLockTimer = setTimeout(() => {
     void lock()
-  }, IDLE_TIMEOUT_MS)
+  }, getAutoLock())
 }
 
 function notifyCallbacks(callbacks: Set<() => void>) {
   callbacks.forEach((cb) => cb())
 }
 
-// Lock on tab hide — with configurable grace period so users can switch windows to copy/paste
-let visibilityTimer: ReturnType<typeof setTimeout> | null = null
-const LOCK_DELAY_KEY = 'llamenos-lock-delay'
-const DEFAULT_LOCK_DELAY_MS = 30_000 // 30 seconds
-
-function getLockDelay(): number {
-  try {
-    const stored = localStorage.getItem(LOCK_DELAY_KEY)
-    if (stored) {
-      const ms = Number.parseInt(stored, 10)
-      if (ms >= 0 && ms <= 600_000) return ms // 0 = immediate, max 10 min
-    }
-  } catch {
-    /* localStorage unavailable */
-  }
-  return DEFAULT_LOCK_DELAY_MS
-}
-
-/** Set the tab-switch lock delay in milliseconds (0 = lock immediately, max 600000 = 10 min) */
-export function setLockDelay(ms: number) {
-  const clamped = Math.max(0, Math.min(600_000, ms))
-  localStorage.setItem(LOCK_DELAY_KEY, String(clamped))
-}
-
-/** Get the current tab-switch lock delay in milliseconds */
-export function getLockDelayMs(): number {
-  return getLockDelay()
-}
-
+// Activity listeners — reset the single timer on user interaction
 if (typeof document !== 'undefined') {
+  const resetOnActivity = () => resetAutoLockTimer()
+  document.addEventListener('click', resetOnActivity, { passive: true })
+  document.addEventListener('keydown', resetOnActivity, { passive: true })
+  document.addEventListener('touchstart', resetOnActivity, { passive: true })
+
+  // Tab becoming visible counts as activity (resets timer)
+  // Tab becoming hidden is NOT a lock trigger — just absence of activity
   document.addEventListener('visibilitychange', () => {
-    if (autoLockDisabled) return
-    // Check worker state asynchronously — the visibility handler
-    // needs to guard on whether the worker is unlocked
-    void (async () => {
-      const unlocked = await cryptoWorker.isUnlocked()
-      if (document.hidden && unlocked) {
-        const delay = getLockDelay()
-        if (delay === 0) {
-          await lock()
-        } else {
-          visibilityTimer = setTimeout(() => {
-            void lock()
-          }, delay)
-        }
-      } else if (!document.hidden && visibilityTimer) {
-        // User came back within grace period — cancel the lock
-        clearTimeout(visibilityTimer)
-        visibilityTimer = null
-      }
-    })()
+    if (!document.hidden) resetAutoLockTimer()
   })
 }
 
@@ -234,7 +225,7 @@ export async function unlock(pin: string): Promise<string | null> {
   try {
     const pubkey = await cryptoWorker.unlock(bytesToHex(kek), blob.nonce, blob.ciphertext)
     if (pubkey) {
-      resetAutoLockTimers()
+      resetAutoLockTimer()
       notifyCallbacks(unlockCallbacks)
 
       // Handle idp_value rotation if pending (real IdP changed)
@@ -266,13 +257,9 @@ export async function unlock(pin: string): Promise<string | null> {
  */
 export async function lock(): Promise<void> {
   await cryptoWorker.lock()
-  if (idleTimer) {
-    clearTimeout(idleTimer)
-    idleTimer = null
-  }
-  if (visibilityTimer) {
-    clearTimeout(visibilityTimer)
-    visibilityTimer = null
+  if (autoLockTimer) {
+    clearTimeout(autoLockTimer)
+    autoLockTimer = null
   }
   notifyCallbacks(lockCallbacks)
 }
@@ -306,7 +293,7 @@ export async function importKey(
   // Load into worker
   const workerPubkey = await cryptoWorker.unlock(bytesToHex(kek), blob.nonce, blob.ciphertext)
 
-  resetAutoLockTimers()
+  resetAutoLockTimer()
   notifyCallbacks(unlockCallbacks)
 
   return workerPubkey
@@ -360,18 +347,14 @@ export async function wipeKey(): Promise<void> {
 }
 
 /**
- * Disable auto-lock timers (idle + tab-hide).
+ * Disable the unified auto-lock timer.
  * Used in demo mode where frequent lock-outs ruin the experience.
  */
 export function disableAutoLock() {
   autoLockDisabled = true
-  if (idleTimer) {
-    clearTimeout(idleTimer)
-    idleTimer = null
-  }
-  if (visibilityTimer) {
-    clearTimeout(visibilityTimer)
-    visibilityTimer = null
+  if (autoLockTimer) {
+    clearTimeout(autoLockTimer)
+    autoLockTimer = null
   }
 }
 

@@ -128,6 +128,11 @@ async function createAuthenticatedPage(
   // Clean up the route handler
   await page.unroute('**/api/auth/token/refresh')
 
+  // Re-save storage state so subsequent tests get the rotated refresh token.
+  // Token rotation + replay detection (60s grace) means the old token from the
+  // initial storageState file becomes invalid after this context uses it.
+  await context.storageState({ path: STORAGE_PATHS[role] })
+
   return { context, page }
 }
 
@@ -150,51 +155,64 @@ export const test = base.extend<{
   adminPage: async ({ browser }, use) => {
     const { context, page } = await createAuthenticatedPage(browser, 'admin')
     await use(page)
+    // Re-save storage state after the test body completes so the next test
+    // gets the latest rotated refresh token (test bodies may reload pages,
+    // triggering additional token rotations).
+    await context.storageState({ path: STORAGE_PATHS.admin })
     await context.close()
   },
   adminContext: async ({ browser }, use) => {
     const { context } = await createAuthenticatedPage(browser, 'admin')
     await use(context)
+    await context.storageState({ path: STORAGE_PATHS.admin })
     await context.close()
   },
   hubAdminPage: async ({ browser }, use) => {
     const { context, page } = await createAuthenticatedPage(browser, 'hub-admin')
     await use(page)
+    await context.storageState({ path: STORAGE_PATHS['hub-admin'] })
     await context.close()
   },
   hubAdminContext: async ({ browser }, use) => {
     const { context } = await createAuthenticatedPage(browser, 'hub-admin')
     await use(context)
+    await context.storageState({ path: STORAGE_PATHS['hub-admin'] })
     await context.close()
   },
   volunteerPage: async ({ browser }, use) => {
     const { context, page } = await createAuthenticatedPage(browser, 'volunteer')
     await use(page)
+    await context.storageState({ path: STORAGE_PATHS.volunteer })
     await context.close()
   },
   volunteerContext: async ({ browser }, use) => {
     const { context } = await createAuthenticatedPage(browser, 'volunteer')
     await use(context)
+    await context.storageState({ path: STORAGE_PATHS.volunteer })
     await context.close()
   },
   reviewerPage: async ({ browser }, use) => {
     const { context, page } = await createAuthenticatedPage(browser, 'reviewer')
     await use(page)
+    await context.storageState({ path: STORAGE_PATHS.reviewer })
     await context.close()
   },
   reviewerContext: async ({ browser }, use) => {
     const { context } = await createAuthenticatedPage(browser, 'reviewer')
     await use(context)
+    await context.storageState({ path: STORAGE_PATHS.reviewer })
     await context.close()
   },
   reporterPage: async ({ browser }, use) => {
     const { context, page } = await createAuthenticatedPage(browser, 'reporter')
     await use(page)
+    await context.storageState({ path: STORAGE_PATHS.reporter })
     await context.close()
   },
   reporterContext: async ({ browser }, use) => {
     const { context } = await createAuthenticatedPage(browser, 'reporter')
     await use(context)
+    await context.storageState({ path: STORAGE_PATHS.reporter })
     await context.close()
   },
 })

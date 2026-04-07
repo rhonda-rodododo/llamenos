@@ -1339,7 +1339,7 @@ authFacade.get('/security-prefs', async (c) => {
   const svc = c.get('securityPrefs')
   const row = await svc.get(pubkey)
   return c.json({
-    lockDelayMs: row.lockDelayMs,
+    autoLockMs: row.autoLockMs,
     disappearingTimerDays: row.disappearingTimerDays,
     digestCadence: row.digestCadence,
     alertOnNewDevice: row.alertOnNewDevice,
@@ -1357,7 +1357,7 @@ authFacade.patch('/security-prefs', async (c) => {
   const svc = c.get('securityPrefs')
   const row = await svc.update(pubkey, parsed.data)
   return c.json({
-    lockDelayMs: row.lockDelayMs,
+    autoLockMs: row.autoLockMs,
     disappearingTimerDays: row.disappearingTimerDays,
     digestCadence: row.digestCadence,
     alertOnNewDevice: row.alertOnNewDevice,

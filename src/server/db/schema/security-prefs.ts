@@ -2,7 +2,7 @@ import { boolean, integer, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
 
 export const userSecurityPrefs = pgTable('user_security_prefs', {
   userPubkey: text('user_pubkey').primaryKey(),
-  lockDelayMs: integer('lock_delay_ms').notNull().default(30000),
+  autoLockMs: integer('auto_lock_ms').notNull().default(900000),
   disappearingTimerDays: integer('disappearing_timer_days').notNull().default(1),
   digestCadence: text('digest_cadence').notNull().default('weekly'),
   alertOnNewDevice: boolean('alert_on_new_device').notNull().default(true),
