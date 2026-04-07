@@ -1,5 +1,5 @@
 import { expect, test } from '../fixtures/auth'
-import { enterPin, navigateAfterLogin } from '../helpers'
+import { navigateAfterLogin, reenterPinAfterReload } from '../helpers'
 
 test.describe('Phone Provider Settings', () => {
   test('phone provider section is accessible from admin nav', async ({ adminPage }) => {
@@ -139,18 +139,9 @@ test.describe('Phone Provider Settings', () => {
       timeout: 5000,
     })
 
-    // Reload to verify server-side persistence. Block refresh throughout
-    // PIN entry to prevent auto-redirect races.
-    await adminPage.route('**/api/auth/token/refresh', (route) =>
-      route.fulfill({ status: 401, contentType: 'application/json', body: '{"error":"blocked"}' })
-    )
-    await adminPage.reload({ waitUntil: 'domcontentloaded' })
-    const pinInput = adminPage.locator('input[aria-label="PIN digit 1"]')
-    await pinInput.waitFor({ state: 'visible', timeout: 30000 })
-    // Unblock refresh JUST before entering PIN so unlockWithPin can call refreshToken
-    await adminPage.unroute('**/api/auth/token/refresh')
-    await enterPin(adminPage, '123456')
-    await adminPage.waitForURL((u) => !u.toString().includes('/login'), { timeout: 90000 })
+    // Reload to verify server-side persistence
+    await adminPage.reload()
+    await reenterPinAfterReload(adminPage)
     await navigateAfterLogin(adminPage, '/admin/phone-provider')
 
     // Should show current provider banner
