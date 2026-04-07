@@ -2,14 +2,18 @@ import { expect, test } from '../fixtures/auth'
 
 test.describe('Security history', () => {
   test('history tab link navigates to /security/history', async ({ adminPage }) => {
-    await adminPage.goto('/security/sessions')
+    await adminPage.getByRole('link', { name: /^Security$/ }).click()
+    await expect(adminPage).toHaveURL(/\/security\/sessions$/)
     await adminPage.getByTestId('tab-history').click()
     await expect(adminPage).toHaveURL(/\/security\/history$/)
     await expect(adminPage.getByTestId('history-page')).toBeVisible()
   })
 
   test('history page renders (list or empty state)', async ({ adminPage }) => {
-    await adminPage.goto('/security/history')
+    await adminPage.getByRole('link', { name: /^Security$/ }).click()
+    await expect(adminPage).toHaveURL(/\/security\/sessions$/)
+    await adminPage.getByTestId('tab-history').click()
+    await expect(adminPage).toHaveURL(/\/security\/history$/)
     const page = adminPage.getByTestId('history-page')
     await expect(page).toBeVisible()
     // Export button is always present
@@ -17,7 +21,10 @@ test.describe('Security history', () => {
   })
 
   test('export triggers a download', async ({ adminPage }) => {
-    await adminPage.goto('/security/history')
+    await adminPage.getByRole('link', { name: /^Security$/ }).click()
+    await expect(adminPage).toHaveURL(/\/security\/sessions$/)
+    await adminPage.getByTestId('tab-history').click()
+    await expect(adminPage).toHaveURL(/\/security\/history$/)
     await expect(adminPage.getByTestId('history-page')).toBeVisible()
     const downloadPromise = adminPage.waitForEvent('download')
     await adminPage.getByTestId('export-history').click()

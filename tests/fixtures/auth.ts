@@ -128,6 +128,11 @@ async function createAuthenticatedPage(
   // Clean up the route handler
   await page.unroute('**/api/auth/token/refresh')
 
+  // Re-save storage state so subsequent tests get the rotated refresh token.
+  // Token rotation + replay detection (60s grace) means the old token from the
+  // initial storageState file becomes invalid after this context uses it.
+  await context.storageState({ path: STORAGE_PATHS[role] })
+
   return { context, page }
 }
 
