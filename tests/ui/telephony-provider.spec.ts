@@ -1,5 +1,5 @@
 import { expect, test } from '../fixtures/auth'
-import { enterPin, navigateAfterLogin, reenterPinAfterReload } from '../helpers'
+import { navigateAfterLogin, reenterPinAfterReload } from '../helpers'
 
 test.describe('Phone Provider Settings', () => {
   test('phone provider section is accessible from admin nav', async ({ adminPage }) => {
@@ -139,26 +139,13 @@ test.describe('Phone Provider Settings', () => {
       timeout: 5000,
     })
 
-    // Verify persistence: lock key → clear React Query cache → unlock →
-    // navigate back. This forces a fresh server fetch (not cached data)
-    // without a full page reload (which races with the AdminRoute auth guard).
-    await adminPage.evaluate(async () => {
-      const km = (window as unknown as { __TEST_KEY_MANAGER?: { lock(): void } }).__TEST_KEY_MANAGER
-      km?.lock()
-      // Clear all React Query caches so next visit fetches from server
-      const { queryClient } = await import('/src/client/lib/query-client')
-      queryClient.clear()
-    })
-    // SPA-navigate to /login for PIN re-entry
-    await adminPage.evaluate(() => {
-      ;(
-        window as unknown as { __TEST_ROUTER?: { navigate(o: { to: string }): void } }
-      ).__TEST_ROUTER?.navigate({ to: '/login' })
-    })
-    const pinInput = adminPage.locator('input[aria-label="PIN digit 1"]')
-    await pinInput.waitFor({ state: 'visible', timeout: 30000 })
-    await enterPin(adminPage, '123456')
-    await adminPage.waitForURL((u) => !u.toString().includes('/login'), { timeout: 90000 })
+    // Reload to verify server-side persistence (not just React Query cache)
+    await adminPage.reload()
+    await reenterPinAfterReload(adminPage)
+    if (adminPage.url().includes('profile-setup')) {
+      await adminPage.getByRole('button', { name: /complete setup/i }).click()
+      await adminPage.waitForURL((u) => !u.toString().includes('profile-setup'), { timeout: 15000 })
+    }
     await navigateAfterLogin(adminPage, '/admin/phone-provider')
 
     // Should show current provider banner

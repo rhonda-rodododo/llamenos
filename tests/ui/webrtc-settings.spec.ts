@@ -1,5 +1,5 @@
 import { expect, test } from '../fixtures/auth'
-import { enterPin, navigateAfterLogin, reenterPinAfterReload } from '../helpers'
+import { navigateAfterLogin, reenterPinAfterReload } from '../helpers'
 
 async function gotoPhoneProvider(page: import('@playwright/test').Page) {
   await navigateAfterLogin(page, '/admin/phone-provider')
@@ -177,22 +177,13 @@ test.describe('WebRTC & Call Preference Settings', () => {
       timeout: 5000,
     })
 
-    // Lock key + clear cache → unlock → forces fresh server fetch
-    await adminPage.evaluate(async () => {
-      const km = (window as unknown as { __TEST_KEY_MANAGER?: { lock(): void } }).__TEST_KEY_MANAGER
-      km?.lock()
-      const { queryClient } = await import('/src/client/lib/query-client')
-      queryClient.clear()
-    })
-    await adminPage.evaluate(() => {
-      ;(
-        window as unknown as { __TEST_ROUTER?: { navigate(o: { to: string }): void } }
-      ).__TEST_ROUTER?.navigate({ to: '/login' })
-    })
-    const pinInput2 = adminPage.locator('input[aria-label="PIN digit 1"]')
-    await pinInput2.waitFor({ state: 'visible', timeout: 30000 })
-    await enterPin(adminPage, '123456')
-    await adminPage.waitForURL((u) => !u.toString().includes('/login'), { timeout: 90000 })
+    // Reload to verify server-side persistence
+    await adminPage.reload()
+    await reenterPinAfterReload(adminPage)
+    if (adminPage.url().includes('profile-setup')) {
+      await adminPage.getByRole('button', { name: /complete setup/i }).click()
+      await adminPage.waitForURL((u) => !u.toString().includes('profile-setup'), { timeout: 15000 })
+    }
     // Navigate back to phone provider section
     await gotoPhoneProvider(adminPage)
 
