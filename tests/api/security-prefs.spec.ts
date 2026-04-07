@@ -21,12 +21,22 @@ test.describe('Security prefs API', () => {
     const res = await authed.get('/api/auth/security-prefs')
     expect(res.status()).toBe(200)
     const body = await res.json()
-    expect(body.lockDelayMs).toBe(30000)
+    expect(body.autoLockMs).toBe(900000)
     expect(body.digestCadence).toBe('weekly')
     expect(body.disappearingTimerDays).toBe(1)
     expect(body.alertOnNewDevice).toBe(true)
     expect(body.alertOnPasskeyChange).toBe(true)
     expect(body.alertOnPinChange).toBe(true)
+  })
+
+  test('PATCH updates autoLockMs', async ({ request }) => {
+    const authed = createAuthedRequest(request, generateSecretKey())
+    const res = await authed.patch('/api/auth/security-prefs', {
+      autoLockMs: 300_000,
+    })
+    expect(res.status()).toBe(200)
+    const body = await res.json()
+    expect(body.autoLockMs).toBe(300_000)
   })
 
   test('PATCH updates cadence', async ({ request }) => {
@@ -45,6 +55,22 @@ test.describe('Security prefs API', () => {
     const authed = createAuthedRequest(request, generateSecretKey())
     const res = await authed.patch('/api/auth/security-prefs', {
       disappearingTimerDays: 99,
+    })
+    expect(res.status()).toBe(400)
+  })
+
+  test('PATCH rejects autoLockMs below minimum', async ({ request }) => {
+    const authed = createAuthedRequest(request, generateSecretKey())
+    const res = await authed.patch('/api/auth/security-prefs', {
+      autoLockMs: 1000,
+    })
+    expect(res.status()).toBe(400)
+  })
+
+  test('PATCH rejects autoLockMs above maximum', async ({ request }) => {
+    const authed = createAuthedRequest(request, generateSecretKey())
+    const res = await authed.patch('/api/auth/security-prefs', {
+      autoLockMs: 99_999_999,
     })
     expect(res.status()).toBe(400)
   })
