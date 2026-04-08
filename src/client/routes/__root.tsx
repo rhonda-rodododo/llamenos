@@ -15,6 +15,7 @@ import { useConfig, useHasMessaging } from '@/lib/config'
 import { cryptoWorker } from '@/lib/crypto-worker-client'
 import { useCalls, useShiftStatus } from '@/lib/hooks'
 import { getHubKeyForId } from '@/lib/hub-key-cache'
+import { hasStoredKey } from '@/lib/key-manager'
 import * as keyManager from '@/lib/key-manager'
 import { NostrProvider } from '@/lib/nostr/context'
 import { subscribeToPush } from '@/lib/push-subscription'
@@ -122,6 +123,29 @@ function RootLayout() {
     navigate,
     profileCompleted,
   ])
+
+  // Redirect to /login when authenticated but key is locked (after reload or auto-lock).
+  // The user needs to enter their PIN to decrypt data. Without this, the app renders
+  // with [encrypted] placeholders silently.
+  useEffect(() => {
+    if (
+      !isLoading &&
+      !configLoading &&
+      isAuthenticated &&
+      !isKeyUnlocked &&
+      hasStoredKey() &&
+      location.pathname !== '/login' &&
+      location.pathname !== '/onboarding' &&
+      location.pathname !== '/link-device' &&
+      location.pathname !== '/setup'
+    ) {
+      // Save current path so login page can redirect back after PIN entry
+      if (location.pathname !== '/') {
+        sessionStorage.setItem('returnTo', location.pathname)
+      }
+      navigate({ to: '/login' })
+    }
+  }, [isLoading, configLoading, isAuthenticated, isKeyUnlocked, location.pathname, navigate])
 
   // Redirect to profile setup if not completed (skip during setup wizard)
   useEffect(() => {
