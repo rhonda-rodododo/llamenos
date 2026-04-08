@@ -1,5 +1,5 @@
 import { ConsentGate } from '@/components/consent-gate'
-import { decryptObjectFields } from '@/lib/decrypt-fields'
+import { decryptObjectFields, setOnDecryptMismatch } from '@/lib/decrypt-fields'
 import { permissionGranted } from '@shared/permissions'
 import {
   type ReactNode,
@@ -45,6 +45,8 @@ interface AuthState {
   adminDecryptionPubkey: string
   /** True when passkey login succeeded but no local key exists — needs PIN setup */
   needsKeySetup: boolean
+  /** True when decrypt-fields detects no envelope matches the reader's pubkey */
+  keyMismatchDetected: boolean
 }
 
 interface AuthContextValue extends AuthState {
@@ -66,6 +68,7 @@ interface AuthContextValue extends AuthState {
   isKeyUnlocked: boolean
   adminPubkey: string
   adminDecryptionPubkey: string
+  keyMismatchDetected: boolean
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -96,6 +99,7 @@ function stateFromMe(
     sessionExpiring: false,
     sessionExpired: false,
     needsKeySetup: false,
+    keyMismatchDetected: false,
     ...overrides,
   }
 }
@@ -125,6 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     adminPubkey: '',
     adminDecryptionPubkey: '',
     needsKeySetup: false,
+    keyMismatchDetected: false,
   })
 
   const lastApiActivity = useRef(Date.now())
@@ -159,6 +164,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       unsubLock()
       unsubUnlock()
     }
+  }, [])
+
+  // Listen for decrypt envelope mismatches (no envelope for our pubkey)
+  useEffect(() => {
+    setOnDecryptMismatch(() => {
+      setState((s) => {
+        if (s.keyMismatchDetected) return s // already flagged
+        return { ...s, keyMismatchDetected: true }
+      })
+    })
+    return () => setOnDecryptMismatch(null)
   }, [])
 
   // Register auth expiry callback — called by api.ts when a 401 is received
@@ -540,6 +556,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sessionExpiring: false,
       sessionExpired: false,
       needsKeySetup: false,
+      keyMismatchDetected: false,
     })
   }, [])
 
@@ -561,6 +578,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAuthenticated: (state.isKeyUnlocked || hasAccessToken) && state.roles.length > 0,
     hasNsec: state.isKeyUnlocked,
     isKeyUnlocked: state.isKeyUnlocked,
+    keyMismatchDetected: state.keyMismatchDetected,
   }
 
   return (
