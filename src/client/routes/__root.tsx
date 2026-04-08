@@ -62,6 +62,7 @@ function RootLayout() {
   const {
     isAuthenticated,
     isAdmin,
+    isKeyUnlocked,
     signOut,
     name,
     isLoading,
@@ -102,11 +103,25 @@ function RootLayout() {
   }, [isLoading, configLoading, isAuthenticated, location.pathname, navigate, needsBootstrap])
 
   useEffect(() => {
-    // Don't redirect away from /login during post-passkey PIN setup (needsKeySetup)
-    if (!isLoading && isAuthenticated && !needsKeySetup && location.pathname === '/login') {
+    // Don't redirect away from /login during post-passkey PIN setup (needsKeySetup) or when key is locked
+    if (
+      !isLoading &&
+      isAuthenticated &&
+      !needsKeySetup &&
+      isKeyUnlocked &&
+      location.pathname === '/login'
+    ) {
       navigate({ to: profileCompleted ? '/' : '/profile-setup' })
     }
-  }, [isLoading, isAuthenticated, needsKeySetup, location.pathname, navigate, profileCompleted])
+  }, [
+    isLoading,
+    isAuthenticated,
+    needsKeySetup,
+    isKeyUnlocked,
+    location.pathname,
+    navigate,
+    profileCompleted,
+  ])
 
   // Redirect to profile setup if not completed (skip during setup wizard)
   useEffect(() => {
