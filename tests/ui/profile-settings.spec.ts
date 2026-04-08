@@ -106,11 +106,12 @@ test.describe('Profile self-service', () => {
     await expect(adminPage.getByRole('heading', { name: /key backup/i })).toBeVisible()
 
     // Spam Mitigation is in admin settings
-    await adminPage.getByRole('link', { name: 'Hub Settings' }).click()
-    await expect(
-      adminPage.getByRole('heading', { name: 'Hub Settings', exact: true })
-    ).toBeVisible()
-    await expect(adminPage.getByRole('heading', { name: /spam mitigation/i })).toBeVisible()
+    await navigateAfterLogin(adminPage, '/admin/spam-protection')
+    await expect(adminPage.getByTestId('admin-section')).toHaveAttribute(
+      'data-section',
+      'spam-protection'
+    )
+    await expect(adminPage.getByTestId('admin-section-heading')).toBeVisible()
   })
 
   test('admin sees passkeys in user settings', async ({ adminPage }) => {

@@ -14,6 +14,18 @@ import type { RecipientEnvelope } from '@shared/types'
 import { CryptoWorkerLockedError, cryptoWorker, isWorkerLockedError } from './crypto-worker-client'
 import * as keyManager from './key-manager'
 
+/**
+ * Decryption diagnostics are enabled in dev builds automatically, OR at
+ * runtime by setting `window.LLAMENOS_DEBUG_CRYPTO = true` in DevTools
+ * before the next me-refresh. Keeps production clean by default while
+ * allowing ad-hoc diagnosis when a user reports silent placeholders.
+ */
+function decryptDebugEnabled(): boolean {
+  if (import.meta.env.DEV) return true
+  if (typeof window === 'undefined') return false
+  return (window as unknown as { LLAMENOS_DEBUG_CRYPTO?: boolean }).LLAMENOS_DEBUG_CRYPTO === true
+}
+
 // ---------------------------------------------------------------------------
 // DecryptCache
 // ---------------------------------------------------------------------------
@@ -190,7 +202,21 @@ export function resolveEncryptedFields(
       ? (envelopes as RecipientEnvelope[]).find((e) => e.pubkey === readerPubkey)
       : (envelopes[0] as RecipientEnvelope)
 
-    if (!envelope) continue
+    if (!envelope) {
+      // No envelope for this reader — field will stay as the server's
+      // placeholder (e.g., "[encrypted]"). Surface this so stale-envelope
+      // scenarios (key rotation, device rekey) are diagnosable instead of
+      // silently showing placeholders in the UI.
+      if (readerPubkey && decryptDebugEnabled()) {
+        const envelopePubkeys = (envelopes as RecipientEnvelope[]).map((e) => e.pubkey)
+        // eslint-disable-next-line no-console
+        console.warn(`[decrypt-fields] No envelope for reader on field "${key}":`, {
+          readerPubkey,
+          envelopePubkeys,
+        })
+      }
+      continue
+    }
 
     refs.push({ plaintextKey, ciphertext, envelope })
   }
@@ -218,6 +244,12 @@ export async function decryptObjectFields<T extends Record<string, unknown>>(
   label: string = LABEL_USER_PII
 ): Promise<T> {
   const refs = resolveEncryptedFields(obj, readerPubkey)
+  if (decryptDebugEnabled() && refs.length > 0) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[decrypt-fields] trying to decrypt ${refs.length} field(s): label=${label} readerPubkey=${readerPubkey?.slice(0, 12)} fields=${refs.map((r) => r.plaintextKey).join(',')}`
+    )
+  }
   if (refs.length === 0) return obj
 
   await Promise.all(
@@ -233,6 +265,9 @@ export async function decryptObjectFields<T extends Record<string, unknown>>(
       if (plaintext !== null) {
         decryptCache.set(ciphertext, label, plaintext)
         ;(obj as Record<string, unknown>)[plaintextKey] = plaintext
+      } else if (decryptDebugEnabled()) {
+        // eslint-disable-next-line no-console
+        console.warn(`[decrypt-fields] Decryption returned null for "${plaintextKey}"`)
       }
       // If null, field keeps its server placeholder ("[encrypted]")
       // but lock has been fired — PIN prompt will appear

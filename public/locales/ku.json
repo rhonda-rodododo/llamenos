@@ -36,7 +36,10 @@
     "off": "girtî",
     "on": "vekirî",
     "remove": "Rake",
-    "retry": "Dîsa biceribîne"
+    "retry": "Dîsa biceribîne",
+    "showAdvanced": "Show advanced settings",
+    "hideAdvanced": "Hide advanced settings",
+    "saved": "Saved"
   },
   "auth": {
     "login": "Têkeve",
@@ -445,7 +448,9 @@
     "maxCallsPerMinute": "Herî zêde bang di deqîqeyê de ji bo her jimareyê",
     "blockDuration": "Maweya astengkirinê (deqîqe)",
     "captchaMaxAttempts": "Herî zêde hewldanên CAPTCHA",
-    "captchaMaxAttemptsDescription": "Hejmara hewldanan berî ku bang were redkirin (1-5)"
+    "captchaMaxAttemptsDescription": "Hejmara hewldanan berî ku bang were redkirin (1-5)",
+    "description": "Protect the hotline from abusive callers with rate limiting and a voice CAPTCHA.",
+    "noAdvancedSettings": "Enable a protection above to configure thresholds."
   },
   "callHistory": {
     "title": "Dîroka Bangan",
@@ -1274,6 +1279,12 @@
       "disableConfirm": "Ev ê gihîştina rêvebirê platformê ya vê navendê betal bike. Ew ê gihîştina tomarên pêşerojê yekser winda bike. Bidomîne?",
       "enabled": "Gihîştina Rêvebir Çalak e",
       "restricted": "Gihîştina Rêvebir Sînorkirî ye"
+    },
+    "tabs": {
+      "general": "General",
+      "access": "Access",
+      "export": "Export",
+      "danger": "Danger"
     }
   },
   "hub": {
@@ -1528,5 +1539,159 @@
     "channelWeb": "Web",
     "channelsSaved": "Mîhengên kanalan hatin tomarkirin",
     "selectChannels": "Kanalan hilbijêre"
+  },
+  "adminNav": {
+    "scopes": {
+      "thisHub": "This Hub",
+      "platform": "Platform"
+    },
+    "groups": {
+      "general": "General",
+      "people": "People",
+      "intake": "Intake",
+      "callsVoice": "Calls & Voice",
+      "channels": "Channels",
+      "platform": "Platform"
+    },
+    "openMenu": "Open navigation menu",
+    "items": {
+      "locationLookup": "Location Lookup",
+      "passkeyPolicy": "Passkey Policy",
+      "hubRoles": "Hub Roles",
+      "teams": "Teams",
+      "tags": "Tags",
+      "customFields": "Custom Fields",
+      "reportTypes": "Report Types",
+      "firehose": "Firehose",
+      "callSettings": "Call Settings",
+      "voicePrompts": "Voice Prompts",
+      "phoneMenuLanguages": "Phone Menu Languages",
+      "transcription": "Transcription",
+      "spamProtection": "Spam Protection",
+      "phoneProvider": "Phone Provider",
+      "messagingSms": "Messaging / SMS",
+      "rcs": "RCS",
+      "signal": "Signal",
+      "hubs": "Hubs",
+      "platformRoles": "Roles",
+      "bans": "Bans",
+      "audit": "Audit",
+      "analytics": "Analytics",
+      "health": "Health",
+      "platform": "Platform"
+    }
+  },
+  "locationLookup": {
+    "description": "Configure how addresses are converted to map coordinates.",
+    "provider": "Provider",
+    "apiKey": "API Key",
+    "apiKeyPlaceholder": "Enter your API key",
+    "countries": "Country Filter",
+    "countriesPlaceholder": "e.g. us, ca, mx",
+    "countriesHelp": "Comma-separated 2-letter country codes. Leave empty for worldwide.",
+    "enable": "Enable location lookup",
+    "testConnection": "Test connection",
+    "testOk": "OK ({{latency}}ms)",
+    "testFailed": "Connection test failed",
+    "saved": "Saved"
+  },
+  "passkeyPolicy": {
+    "description": "Require passkeys for user groups. Users without passkeys will be prompted to set one up.",
+    "enforcement": "Enforcement",
+    "enforcementNone": "None (passkeys optional)",
+    "enforcementAdmins": "Admins only",
+    "enforcementEveryone": "Everyone (admins + users)",
+    "enforcementHelp": "Users without passkeys will be prompted to set one up on next login.",
+    "requireForAdmins": "Require for admins",
+    "requireForUsers": "Require for users",
+    "saved": "Saved"
+  },
+  "phoneMenuLanguages": {
+    "description": "Choose which languages callers hear in the phone menu. Disabled languages are skipped; digit mappings stay fixed.",
+    "atLeastOne": "At least one language must be enabled"
+  },
+  "audit": {
+    "description": "Review every administrative action across all hubs.",
+    "empty": "No audit entries match these filters.",
+    "filters": {
+      "eventType": "Event type",
+      "dateFrom": "From",
+      "dateTo": "To",
+      "search": "Search",
+      "searchPlaceholder": "Event, actor, details…",
+      "clear": "Clear filters"
+    },
+    "eventTypes": {
+      "authentication": "Authentication",
+      "users": "Users",
+      "calls": "Calls",
+      "settings": "Settings",
+      "shifts": "Shifts",
+      "notes": "Notes",
+      "messaging": "Messaging"
+    },
+    "columns": {
+      "timestamp": "Timestamp",
+      "actor": "Actor",
+      "event": "Event",
+      "details": "Details"
+    },
+    "pagination": {
+      "rangeOf": "{{start}}-{{end}} of {{total}}",
+      "prev": "Prev",
+      "next": "Next"
+    }
+  },
+  "analytics": {
+    "description": "Cross-hub call activity and user engagement.",
+    "range": {
+      "days7": "7 days",
+      "days30": "30 days"
+    },
+    "callVolume": {
+      "title": "Call volume",
+      "noData": "No call data for this range."
+    },
+    "hours": {
+      "title": "Hour of day",
+      "noData": "No hourly data available."
+    },
+    "users": {
+      "title": "Per-user activity",
+      "noData": "No user activity recorded.",
+      "columns": {
+        "name": "User",
+        "calls": "Calls",
+        "avgDuration": "Avg duration",
+        "lastActive": "Last active",
+        "notes": "Notes"
+      }
+    }
+  },
+  "health": {
+    "description": "System and provider health status.",
+    "system": {
+      "title": "System health",
+      "database": "Database",
+      "storage": "Object storage",
+      "relay": "Nostr relay",
+      "version": "Version",
+      "uptime": "Uptime"
+    },
+    "providers": {
+      "title": "Provider health",
+      "latency": "Latency",
+      "lastCheck": "Last check",
+      "failures": "Failures",
+      "healthy": "Healthy",
+      "degraded": "Degraded",
+      "down": "Down",
+      "refresh": "Refresh",
+      "empty": "No providers configured."
+    }
+  },
+  "platform": {
+    "description": "Platform-wide settings and configuration.",
+    "emptyState": "No platform-level settings yet."
   }
 }

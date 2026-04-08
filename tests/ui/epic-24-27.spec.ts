@@ -1,4 +1,5 @@
 import { expect, test } from '../fixtures/auth'
+import { navigateAfterLogin } from '../helpers'
 
 test.describe('Epic 24: Shift & Call Status Awareness', () => {
   test('sidebar shows shift status indicator', async ({ adminPage }) => {
@@ -41,22 +42,21 @@ test.describe('Epic 25: Command Palette Enhancements', () => {
 })
 
 test.describe('Epic 26: Custom IVR Audio Recording', () => {
-  test('admin settings page shows voice prompts card', async ({ adminPage }) => {
-    await adminPage.getByRole('link', { name: 'Hub Settings' }).click()
-    await expect(
-      adminPage.getByRole('heading', { name: 'Hub Settings', exact: true })
-    ).toBeVisible()
-    await expect(adminPage.getByRole('heading', { name: /voice prompts/i })).toBeVisible()
+  test('admin voice-prompts section loads', async ({ adminPage }) => {
+    await navigateAfterLogin(adminPage, '/admin/voice-prompts')
+    await expect(adminPage.getByTestId('admin-section')).toHaveAttribute(
+      'data-section',
+      'voice-prompts'
+    )
+    await expect(adminPage.getByTestId('admin-voice-prompts-section')).toBeVisible()
   })
 
-  test('voice prompts card shows prompt types', async ({ adminPage }) => {
-    await adminPage.getByRole('link', { name: 'Hub Settings' }).click()
-    await expect(
-      adminPage.getByRole('heading', { name: 'Hub Settings', exact: true })
-    ).toBeVisible()
-
-    // Expand Voice Prompts section
-    await adminPage.getByRole('heading', { name: /voice prompts/i }).click()
+  test('voice prompts section shows prompt types', async ({ adminPage }) => {
+    await navigateAfterLogin(adminPage, '/admin/voice-prompts')
+    await expect(adminPage.getByTestId('admin-section')).toHaveAttribute(
+      'data-section',
+      'voice-prompts'
+    )
 
     // Should show prompt type labels
     await expect(adminPage.getByText('Greeting').first()).toBeVisible()
@@ -64,12 +64,12 @@ test.describe('Epic 26: Custom IVR Audio Recording', () => {
     await expect(adminPage.getByText('Wait Message').first()).toBeVisible()
   })
 
-  test('admin settings page shows IVR language menu card', async ({ adminPage }) => {
-    await adminPage.getByRole('link', { name: 'Hub Settings' }).click()
-    await expect(
-      adminPage.getByRole('heading', { name: 'Hub Settings', exact: true })
-    ).toBeVisible()
-    await expect(adminPage.getByRole('heading', { name: /ivr language menu/i })).toBeVisible()
+  test('admin phone-menu-languages section loads', async ({ adminPage }) => {
+    await navigateAfterLogin(adminPage, '/admin/phone-menu-languages')
+    await expect(adminPage.getByTestId('admin-section')).toHaveAttribute(
+      'data-section',
+      'phone-menu-languages'
+    )
   })
 })
 
@@ -90,20 +90,15 @@ test.describe('Epic 27: Remaining Polish', () => {
   })
 
   test('settings toggle shows confirmation dialog', async ({ adminPage }) => {
-    await adminPage.getByRole('link', { name: 'Hub Settings' }).click()
-    await expect(
-      adminPage.getByRole('heading', { name: 'Hub Settings', exact: true })
-    ).toBeVisible()
+    await navigateAfterLogin(adminPage, '/admin/spam-protection')
+    await expect(adminPage.getByTestId('admin-section')).toHaveAttribute(
+      'data-section',
+      'spam-protection'
+    )
 
-    // Expand Spam Mitigation section
-    await adminPage.getByRole('heading', { name: 'Spam Mitigation' }).click()
-
-    // Find the voice CAPTCHA switch — use filter with both text and switch presence
-    const captchaSection = adminPage
-      .locator('div')
-      .filter({ hasText: /voice captcha/i, has: adminPage.getByRole('switch') })
-      .last()
-    const captchaSwitch = captchaSection.getByRole('switch')
+    // Click the voice CAPTCHA switch
+    const captchaSwitch = adminPage.getByTestId('admin-spam-protection-captcha-switch')
+    await expect(captchaSwitch).toBeVisible()
     await captchaSwitch.click()
 
     // Should show confirmation dialog
@@ -119,20 +114,15 @@ test.describe('Epic 27: Remaining Polish', () => {
   })
 
   test('settings confirmation dialog applies change on confirm', async ({ adminPage }) => {
-    await adminPage.getByRole('link', { name: 'Hub Settings' }).click()
-    await expect(
-      adminPage.getByRole('heading', { name: 'Hub Settings', exact: true })
-    ).toBeVisible()
+    await navigateAfterLogin(adminPage, '/admin/spam-protection')
+    await expect(adminPage.getByTestId('admin-section')).toHaveAttribute(
+      'data-section',
+      'spam-protection'
+    )
 
-    // Expand Spam Mitigation section
-    await adminPage.getByRole('heading', { name: 'Spam Mitigation' }).click()
-
-    // Toggle rate limiting — use filter with both text and switch presence
-    const rlSection = adminPage
-      .locator('div')
-      .filter({ hasText: /rate limiting/i, has: adminPage.getByRole('switch') })
-      .last()
-    const rlSwitch = rlSection.getByRole('switch')
+    // Toggle rate limiting
+    const rlSwitch = adminPage.getByTestId('admin-spam-protection-rate-limit-switch')
+    await expect(rlSwitch).toBeVisible()
     const wasChecked = await rlSwitch.isChecked()
 
     await rlSwitch.click()

@@ -25,11 +25,13 @@ test.describe('Auth guards', () => {
     await ctx.close()
   })
 
-  test('unauthenticated user is redirected from /admin/settings', async ({ browser }) => {
+  test('unauthenticated user is redirected from /admin', async ({ browser }) => {
     const ctx = await browser.newContext()
     const page = await ctx.newPage()
-    await page.goto('/admin/settings')
-    await expect(page).toHaveURL(/\/login/)
+    await page.goto('/admin')
+    // Auth guard in AdminRoute redirects unauthenticated users to /.
+    // The root layout then redirects to /login.
+    await expect(page.getByTestId('login-heading')).toBeVisible({ timeout: 30000 })
     await ctx.close()
   })
 

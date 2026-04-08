@@ -11,6 +11,9 @@ import {
   type UserStatEntry,
   getCallAnalytics,
   getCallHoursAnalytics,
+  getGlobalCallAnalytics,
+  getGlobalCallHoursAnalytics,
+  getGlobalUserStats,
   getUserStats,
 } from '@/lib/api'
 import { queryOptions, useQuery } from '@tanstack/react-query'
@@ -97,6 +100,59 @@ export const userStatsAnalyticsOptions = (enabled = true) =>
 
 export function useUserStatsAnalytics(enabled = true) {
   return useQuery(userStatsAnalyticsOptions(enabled))
+}
+
+// ---------------------------------------------------------------------------
+// Global (platform) analytics — super-admin only
+// ---------------------------------------------------------------------------
+//
+// Hits the un-prefixed /analytics endpoints, which aggregate across every hub.
+// Distinct query keys from the hub-scoped versions so cache writes don't
+// cross-contaminate.
+
+export const globalCallAnalyticsOptions = (days: 7 | 30 = 7, enabled = true) =>
+  queryOptions({
+    queryKey: queryKeys.analytics.globalCallVolume(days),
+    queryFn: async (): Promise<CallVolumeDay[]> => {
+      const res = await getGlobalCallAnalytics(days)
+      return res.data
+    },
+    staleTime: STALE_5_MIN,
+    enabled,
+  })
+
+export function useGlobalCallAnalytics(days: 7 | 30 = 7, enabled = true) {
+  return useQuery(globalCallAnalyticsOptions(days, enabled))
+}
+
+export const globalCallHoursAnalyticsOptions = (enabled = true) =>
+  queryOptions({
+    queryKey: queryKeys.analytics.globalCallHours(),
+    queryFn: async (): Promise<CallHourBucket[]> => {
+      const res = await getGlobalCallHoursAnalytics()
+      return res.data
+    },
+    staleTime: STALE_5_MIN,
+    enabled,
+  })
+
+export function useGlobalCallHoursAnalytics(enabled = true) {
+  return useQuery(globalCallHoursAnalyticsOptions(enabled))
+}
+
+export const globalUserStatsAnalyticsOptions = (enabled = true) =>
+  queryOptions({
+    queryKey: queryKeys.analytics.globalUserStats(),
+    queryFn: async (): Promise<UserStatEntry[]> => {
+      const res = await getGlobalUserStats()
+      return res.data
+    },
+    staleTime: STALE_5_MIN,
+    enabled,
+  })
+
+export function useGlobalUserStatsAnalytics(enabled = true) {
+  return useQuery(globalUserStatsAnalyticsOptions(enabled))
 }
 
 // ---------------------------------------------------------------------------

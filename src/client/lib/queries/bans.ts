@@ -5,7 +5,17 @@
  * invalidate the full bans cache on success.
  */
 
-import { type BanEntry, addBan, bulkAddBans, listBans, removeBan } from '@/lib/api'
+import {
+  type BanEntry,
+  addBan,
+  addGlobalBan,
+  bulkAddBans,
+  bulkAddGlobalBans,
+  listBans,
+  listGlobalBans,
+  removeBan,
+  removeGlobalBan,
+} from '@/lib/api'
 import { decryptArrayFields } from '@/lib/decrypt-fields'
 import * as keyManager from '@/lib/key-manager'
 import { LABEL_USER_PII } from '@shared/crypto-labels'
@@ -81,6 +91,67 @@ export function useRemoveBan() {
     mutationFn: (phone: string) => removeBan(phone),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.bans.all })
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Global (platform) bans — super-admin only
+// ---------------------------------------------------------------------------
+//
+// Hits the un-prefixed /bans endpoint, which reads/writes rows with
+// `hub_id = 'global'` on the server. A distinct query key from the hub-scoped
+// `list()` so cache writes don't cross-contaminate the two views.
+
+export const globalBansListOptions = () =>
+  queryOptions({
+    queryKey: queryKeys.bans.globalList(),
+    queryFn: async () => {
+      const { bans } = await listGlobalBans()
+      const pubkey = await keyManager.getPublicKeyHex()
+      if (pubkey && (await keyManager.isUnlocked())) {
+        await decryptArrayFields(
+          bans as unknown as Record<string, unknown>[],
+          pubkey,
+          LABEL_USER_PII
+        )
+      }
+      return bans
+    },
+  })
+
+export function useGlobalBans() {
+  return useQuery(globalBansListOptions())
+}
+
+export function useAddGlobalBan() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ phone, reason }: { phone: string; reason: string }) =>
+      addGlobalBan({ phone, reason }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.bans.globalList() })
+    },
+  })
+}
+
+export function useBulkAddGlobalBans() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ phones, reason }: { phones: string[]; reason: string }) =>
+      bulkAddGlobalBans({ phones, reason }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.bans.globalList() })
+    },
+  })
+}
+
+export function useRemoveGlobalBan() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (phone: string) => removeGlobalBan(phone),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.bans.globalList() })
     },
   })
 }

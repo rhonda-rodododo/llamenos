@@ -235,9 +235,11 @@ export async function completeProfileSetup(page: Page) {
   })
 }
 
+let phoneCounter = 0
 export function uniquePhone(): string {
-  const suffix = Date.now().toString().slice(-7)
-  return `+1555${suffix}`
+  const suffix = Date.now().toString().slice(-5)
+  const counter = String(phoneCounter++).padStart(2, '0')
+  return `+1555${suffix}${counter}`
 }
 
 const TEST_RESET_SECRET = process.env.DEV_RESET_SECRET || 'test-reset-secret'

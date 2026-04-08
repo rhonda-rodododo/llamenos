@@ -198,11 +198,7 @@ export function CommandPalette() {
             </CommandItem>
             {isAdmin && (
               <>
-                <CommandItem
-                  onSelect={() =>
-                    runCommand(() => navigate({ to: '/admin/settings', search: { section: '' } }))
-                  }
-                >
+                <CommandItem onSelect={() => runCommand(() => navigate({ to: '/admin' }))}>
                   <Settings className="h-4 w-4" />
                   {t('nav.hubSettings', { defaultValue: 'Hub Settings' })}
                 </CommandItem>

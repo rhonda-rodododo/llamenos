@@ -37,7 +37,10 @@
     "on": "on",
     "remove": "Remove",
     "retry": "Retry",
-    "accessDenied": "Access denied"
+    "accessDenied": "Access denied",
+    "showAdvanced": "Show advanced settings",
+    "hideAdvanced": "Hide advanced settings",
+    "saved": "Saved"
   },
   "auth": {
     "login": "Log in",
@@ -437,8 +440,14 @@
     "description": "Choose which languages callers hear in the phone menu. Disabled languages are skipped; digit mappings stay fixed.",
     "atLeastOne": "At least one language must be enabled"
   },
+  "phoneMenuLanguages": {
+    "description": "Choose which languages callers hear in the phone menu. Disabled languages are skipped; digit mappings stay fixed.",
+    "atLeastOne": "At least one language must be enabled"
+  },
   "spam": {
     "title": "Spam Mitigation",
+    "description": "Protect the hotline from abusive callers with rate limiting and a voice CAPTCHA.",
+    "noAdvancedSettings": "Enable a protection above to configure thresholds.",
     "voiceCaptcha": "Voice CAPTCHA",
     "voiceCaptchaDescription": "Require callers to enter a random number before connecting",
     "enabled": "Enabled",
@@ -1269,6 +1278,12 @@
     "switchHub": "Switch hub",
     "urlLabel": "Hub URL",
     "urlPlaceholder": "https://hub.example.com",
+    "tabs": {
+      "general": "General",
+      "access": "Access",
+      "export": "Export",
+      "danger": "Danger"
+    },
     "accessControl": {
       "title": "Platform Administrator Access",
       "allowSuperAdmin": "Allow platform administrator to view this hub's data",
@@ -1277,6 +1292,143 @@
       "disableConfirm": "This revokes the platform administrator's access to this hub. They will lose access to future records immediately. Continue?",
       "enabled": "Admin Access Enabled",
       "restricted": "Admin Access Restricted"
+    }
+  },
+  "platformRoles": {
+    "description": "Platform-wide roles available across all hubs. Only super admins can manage these.",
+    "create": "Create Role",
+    "createTitle": "Create Platform Role",
+    "editTitle": "Edit Platform Role",
+    "dialogDescription": "Platform roles are visible to all hubs. Use them for cross-hub responsibilities.",
+    "name": "Name",
+    "namePlaceholder": "e.g. Platform Auditor",
+    "descriptionLabel": "Description",
+    "descriptionPlaceholder": "Brief description of this role...",
+    "permissions": "Permissions",
+    "selected": "selected",
+    "system": "System",
+    "default": "Default",
+    "systemReadOnly": "System role cannot be edited",
+    "deleteTitle": "Delete Role",
+    "deleteConfirm": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone.",
+    "created": "Role created",
+    "updated": "Role updated",
+    "deleted": "Role deleted",
+    "columns": {
+      "name": "Name",
+      "description": "Description",
+      "permissions": "Permissions",
+      "actions": "Actions"
+    }
+  },
+  "audit": {
+    "description": "Review every administrative action across all hubs.",
+    "empty": "No audit entries match these filters.",
+    "filters": {
+      "eventType": "Event type",
+      "dateFrom": "From",
+      "dateTo": "To",
+      "search": "Search",
+      "searchPlaceholder": "Event, actor, details…",
+      "clear": "Clear filters"
+    },
+    "eventTypes": {
+      "authentication": "Authentication",
+      "users": "Users",
+      "calls": "Calls",
+      "settings": "Settings",
+      "shifts": "Shifts",
+      "notes": "Notes",
+      "messaging": "Messaging"
+    },
+    "columns": {
+      "timestamp": "Timestamp",
+      "actor": "Actor",
+      "event": "Event",
+      "details": "Details"
+    },
+    "pagination": {
+      "rangeOf": "{{start}}-{{end}} of {{total}}",
+      "prev": "Prev",
+      "next": "Next"
+    }
+  },
+  "analytics": {
+    "description": "Cross-hub call activity and user engagement.",
+    "range": {
+      "days7": "7 days",
+      "days30": "30 days"
+    },
+    "callVolume": {
+      "title": "Call volume",
+      "noData": "No call data for this range."
+    },
+    "hours": {
+      "title": "Hour of day",
+      "noData": "No hourly data available."
+    },
+    "users": {
+      "title": "Per-user activity",
+      "noData": "No user activity recorded.",
+      "columns": {
+        "name": "User",
+        "calls": "Calls",
+        "avgDuration": "Avg duration",
+        "lastActive": "Last active",
+        "notes": "Notes"
+      }
+    }
+  },
+  "bans": {
+    "description": "Block phone numbers from calling the hotline across all hubs.",
+    "addTitle": "Ban a number",
+    "phone": "Phone number",
+    "phoneHelp": "E.164 format, e.g. +12125551234",
+    "reason": "Reason",
+    "reasonPlaceholder": "e.g. Repeated spam",
+    "addButton": "Ban number",
+    "bulkTitle": "Bulk import (CSV)",
+    "bulkHelp": "One E.164 phone number per line (first column if comma-separated).",
+    "bulkFile": "CSV file",
+    "bulkReasonPlaceholder": "Applied to all imported numbers",
+    "bulkSubmit": "Import bans",
+    "listTitle": "Active bans",
+    "empty": "No global bans yet.",
+    "banned": "Number banned",
+    "removed": "Ban removed",
+    "bulkImported": "Imported {{count}} bans",
+    "invalidPhone": "Invalid phone number. Use E.164 format (e.g. +12125551234).",
+    "invalidCsvPhone": "Invalid phone in CSV: {{phone}}",
+    "emptyCsv": "CSV contains no valid phone numbers (one E.164 number per line).",
+    "deleteTitle": "Remove ban",
+    "deleteConfirm": "Unblock {{phone}}? They will be able to call again.",
+    "columns": {
+      "phone": "Phone",
+      "reason": "Reason",
+      "bannedAt": "Banned at",
+      "actions": "Actions"
+    }
+  },
+  "health": {
+    "description": "System and provider health status.",
+    "system": {
+      "title": "System health",
+      "database": "Database",
+      "storage": "Object storage",
+      "relay": "Nostr relay",
+      "version": "Version",
+      "uptime": "Uptime"
+    },
+    "providers": {
+      "title": "Provider health",
+      "latency": "Latency",
+      "lastCheck": "Last check",
+      "failures": "Failures",
+      "healthy": "Healthy",
+      "degraded": "Degraded",
+      "down": "Down",
+      "refresh": "Refresh",
+      "empty": "No providers configured."
     }
   },
   "hub": {
@@ -1399,6 +1551,9 @@
     "type": "Type",
     "riskLevel": "Risk Level",
     "tags": "Tags",
+    "customFields": "Custom Fields",
+    "reportTypes": "Report Types",
+    "firehose": "Firehose",
     "lastInteraction": "Last Interaction",
     "displayName": "Display Name",
     "notes": "Notes",
@@ -1532,6 +1687,76 @@
     "channelsSaved": "Channel settings saved",
     "selectChannels": "Select channels"
   },
+  "adminNav": {
+    "scopes": {
+      "thisHub": "This Hub",
+      "platform": "Platform"
+    },
+    "groups": {
+      "general": "General",
+      "people": "People",
+      "intake": "Intake",
+      "callsVoice": "Calls & Voice",
+      "channels": "Channels",
+      "platform": "Platform"
+    },
+    "items": {
+      "locationLookup": "Location Lookup",
+      "passkeyPolicy": "Passkey Policy",
+      "hubRoles": "Hub Roles",
+      "teams": "Teams",
+      "tags": "Tags",
+      "customFields": "Custom Fields",
+      "reportTypes": "Report Types",
+      "firehose": "Firehose",
+      "callSettings": "Call Settings",
+      "voicePrompts": "Voice Prompts",
+      "phoneMenuLanguages": "Phone Menu Languages",
+      "transcription": "Transcription",
+      "spamProtection": "Spam Protection",
+      "phoneProvider": "Phone Provider",
+      "messagingSms": "Messaging / SMS",
+      "rcs": "RCS",
+      "signal": "Signal",
+      "hubs": "Hubs",
+      "platformRoles": "Roles",
+      "bans": "Bans",
+      "audit": "Audit",
+      "analytics": "Analytics",
+      "health": "Health",
+      "platform": "Platform"
+    },
+    "openMenu": "Open navigation menu"
+  },
+  "locationLookup": {
+    "description": "Configure how addresses are converted to map coordinates.",
+    "provider": "Provider",
+    "apiKey": "API Key",
+    "apiKeyPlaceholder": "Enter your API key",
+    "countries": "Country Filter",
+    "countriesPlaceholder": "e.g. us, ca, mx",
+    "countriesHelp": "Comma-separated 2-letter country codes. Leave empty for worldwide.",
+    "enable": "Enable location lookup",
+    "testConnection": "Test connection",
+    "testOk": "OK ({{latency}}ms)",
+    "testFailed": "Connection test failed",
+    "saved": "Saved"
+  },
+  "passkeyPolicy": {
+    "description": "Require passkeys for user groups. Users without passkeys will be prompted to set one up.",
+    "enforcement": "Enforcement",
+    "enforcementNone": "None (passkeys optional)",
+    "enforcementAdmins": "Admins only",
+    "enforcementEveryone": "Everyone (admins + users)",
+    "enforcementHelp": "Users without passkeys will be prompted to set one up on next login.",
+    "requireForAdmins": "Require for admins",
+    "requireForUsers": "Require for users",
+    "saved": "Saved"
+  },
+  "platform": {
+    "description": "Platform-wide settings and configuration.",
+    "emptyState": "No platform-level settings yet."
+  },
   "security": {
     "title": "Security",
     "tabs": {
@@ -1590,7 +1815,7 @@
       "confirmLabel": "Type LOCKDOWN to confirm",
       "pinLabel": "Enter your PIN",
       "execute": "Execute lockdown",
-      "locking": "Locking\u2026",
+      "locking": "Locking…",
       "typeWord": "Type LOCKDOWN to confirm"
     },
     "pin": {

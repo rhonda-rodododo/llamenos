@@ -68,6 +68,7 @@ export const queryKeys = {
   bans: {
     all: ['bans'] as const,
     list: () => ['bans', 'list'] as const,
+    globalList: () => ['bans', 'global', 'list'] as const,
   },
 
   audit: {
@@ -81,6 +82,15 @@ export const queryKeys = {
       dateTo?: string
       search?: string
     }) => ['audit', 'list', filters ?? {}] as const,
+    globalList: (filters?: {
+      page?: number
+      limit?: number
+      actorPubkey?: string
+      eventType?: string
+      dateFrom?: string
+      dateTo?: string
+      search?: string
+    }) => ['audit', 'global', 'list', filters ?? {}] as const,
   },
 
   reports: {
@@ -146,6 +156,10 @@ export const queryKeys = {
     callVolume: (days?: number) => ['analytics', 'callVolume', days ?? null] as const,
     callHours: () => ['analytics', 'callHours'] as const,
     userStats: () => ['analytics', 'userStats'] as const,
+    globalCallVolume: (days?: number) =>
+      ['analytics', 'global', 'callVolume', days ?? null] as const,
+    globalCallHours: () => ['analytics', 'global', 'callHours'] as const,
+    globalUserStats: () => ['analytics', 'global', 'userStats'] as const,
   },
 
   presence: {
@@ -179,6 +193,7 @@ export const queryKeys = {
 
   provider: {
     health: () => ['provider', 'health'] as const,
+    system: () => ['provider', 'system'] as const,
   },
 
   firehose: {

@@ -6,7 +6,7 @@
  * Cache is short-lived (60s stale) since audit logs update frequently.
  */
 
-import { listAuditLog } from '@/lib/api'
+import { listAuditLog, listGlobalAuditLog } from '@/lib/api'
 import { decryptArrayFields } from '@/lib/decrypt-fields'
 import * as keyManager from '@/lib/key-manager'
 import { LABEL_USER_PII } from '@shared/crypto-labels'
@@ -56,6 +56,36 @@ export const auditLogOptions = (filters?: AuditLogFilters) =>
 
 export function useAuditLog(filters?: AuditLogFilters) {
   return useQuery(auditLogOptions(filters))
+}
+
+// ---------------------------------------------------------------------------
+// Global (platform) audit log — super-admin only
+// ---------------------------------------------------------------------------
+//
+// Hits the un-prefixed /audit endpoint which returns rows with hub_id = 'global'
+// on the server. A distinct query key from the hub-scoped list() so cache
+// writes don't cross-contaminate the two views.
+
+export const globalAuditLogOptions = (filters?: AuditLogFilters) =>
+  queryOptions({
+    queryKey: queryKeys.audit.globalList(filters),
+    queryFn: async () => {
+      const { entries, total } = await listGlobalAuditLog(filters)
+      const pubkey = await keyManager.getPublicKeyHex()
+      if (pubkey && (await keyManager.isUnlocked())) {
+        await decryptArrayFields(
+          entries as unknown as Record<string, unknown>[],
+          pubkey,
+          LABEL_USER_PII
+        )
+      }
+      return { entries, total }
+    },
+    staleTime: 60_000,
+  })
+
+export function useGlobalAuditLog(filters?: AuditLogFilters) {
+  return useQuery(globalAuditLogOptions(filters))
 }
 
 // ---------------------------------------------------------------------------
