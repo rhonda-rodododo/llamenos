@@ -27,6 +27,25 @@ function decryptDebugEnabled(): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Decrypt mismatch notification
+// ---------------------------------------------------------------------------
+
+export interface DecryptMismatchInfo {
+  field: string
+  readerPubkey: string
+  envelopePubkeys: string[]
+}
+
+type DecryptMismatchHandler = (info: DecryptMismatchInfo) => void
+
+let mismatchHandler: DecryptMismatchHandler | null = null
+
+/** Register a handler called when no envelope matches the reader's pubkey. */
+export function setOnDecryptMismatch(handler: DecryptMismatchHandler | null): void {
+  mismatchHandler = handler
+}
+
+// ---------------------------------------------------------------------------
 // DecryptCache
 // ---------------------------------------------------------------------------
 
@@ -203,17 +222,16 @@ export function resolveEncryptedFields(
       : (envelopes[0] as RecipientEnvelope)
 
     if (!envelope) {
-      // No envelope for this reader — field will stay as the server's
-      // placeholder (e.g., "[encrypted]"). Surface this so stale-envelope
-      // scenarios (key rotation, device rekey) are diagnosable instead of
-      // silently showing placeholders in the UI.
-      if (readerPubkey && decryptDebugEnabled()) {
+      if (readerPubkey) {
         const envelopePubkeys = (envelopes as RecipientEnvelope[]).map((e) => e.pubkey)
-        // eslint-disable-next-line no-console
-        console.warn(`[decrypt-fields] No envelope for reader on field "${key}":`, {
-          readerPubkey,
-          envelopePubkeys,
-        })
+        if (decryptDebugEnabled()) {
+          // eslint-disable-next-line no-console
+          console.warn(`[decrypt-fields] No envelope for reader on field "${key}":`, {
+            readerPubkey,
+            envelopePubkeys,
+          })
+        }
+        mismatchHandler?.({ field: key, readerPubkey, envelopePubkeys })
       }
       continue
     }

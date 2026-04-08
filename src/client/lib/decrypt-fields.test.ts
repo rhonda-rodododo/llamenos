@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, mock, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
 import { CryptoWorkerLockedError } from './crypto-worker-client'
 
 // We need to mock the crypto-worker-client module and key-manager module
@@ -37,9 +37,13 @@ mock.module('./key-manager', () => ({
 }))
 
 // Import AFTER mocking
-const { DecryptCache, decryptObjectFields, resetDecryptRecoveryState } = await import(
-  './decrypt-fields'
-)
+const {
+  DecryptCache,
+  decryptObjectFields,
+  resetDecryptRecoveryState,
+  resolveEncryptedFields,
+  setOnDecryptMismatch,
+} = await import('./decrypt-fields')
 
 describe('decrypt recovery', () => {
   beforeEach(() => {
@@ -157,5 +161,48 @@ describe('DecryptCache', () => {
     cache.clear()
     expect(cache.get('ct', 'label')).toBeNull()
     expect(cache.size).toBe(0)
+  })
+})
+
+describe('decrypt mismatch callback', () => {
+  afterEach(() => {
+    setOnDecryptMismatch(null)
+  })
+
+  test('fires mismatch handler when no envelope matches reader pubkey', () => {
+    const handler = mock(() => {})
+    setOnDecryptMismatch(handler)
+    const obj = {
+      encryptedName: 'some-ciphertext',
+      nameEnvelopes: [{ pubkey: 'aaaa', ephemeralPubkey: 'bbbb', wrappedKey: 'cccc' }],
+    }
+    resolveEncryptedFields(obj, 'different-pubkey')
+    expect(handler).toHaveBeenCalledWith({
+      field: 'encryptedName',
+      readerPubkey: 'different-pubkey',
+      envelopePubkeys: ['aaaa'],
+    })
+  })
+
+  test('does not fire when envelope matches reader pubkey', () => {
+    const handler = mock(() => {})
+    setOnDecryptMismatch(handler)
+    const obj = {
+      encryptedName: 'some-ciphertext',
+      nameEnvelopes: [{ pubkey: 'reader-key', ephemeralPubkey: 'bbbb', wrappedKey: 'cccc' }],
+    }
+    resolveEncryptedFields(obj, 'reader-key')
+    expect(handler).not.toHaveBeenCalled()
+  })
+
+  test('does not fire when no reader pubkey provided', () => {
+    const handler = mock(() => {})
+    setOnDecryptMismatch(handler)
+    const obj = {
+      encryptedName: 'some-ciphertext',
+      nameEnvelopes: [{ pubkey: 'aaaa', ephemeralPubkey: 'bbbb', wrappedKey: 'cccc' }],
+    }
+    resolveEncryptedFields(obj)
+    expect(handler).not.toHaveBeenCalled()
   })
 })
