@@ -3,7 +3,7 @@ import { z } from '@hono/zod-openapi'
 export const DigestCadenceSchema = z.enum(['off', 'daily', 'weekly'])
 
 export const SecurityPrefsSchema = z.object({
-  lockDelayMs: z.number().int().min(0).max(600_000),
+  autoLockMs: z.number().int().min(60_000).max(3_600_000),
   disappearingTimerDays: z.number().int().min(1).max(7),
   digestCadence: DigestCadenceSchema,
   alertOnNewDevice: z.boolean(),

@@ -500,7 +500,9 @@ function LoginPage() {
           <div className="mx-auto mb-3">
             <LogoMark size="xl" className="animate-in fade-in zoom-in duration-700" />
           </div>
-          <CardTitle className="text-2xl">{t('auth.loginTitle', { name: hotlineName })}</CardTitle>
+          <CardTitle className="text-2xl" data-testid="login-heading">
+            {t('auth.loginTitle', { name: hotlineName })}
+          </CardTitle>
           <CardDescription>
             {storedKeyExists
               ? t('recovery.title', { defaultValue: 'Recover your account' })

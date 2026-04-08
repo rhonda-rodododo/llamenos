@@ -293,13 +293,14 @@ test.describe('Setup Wizard - Provider Module', () => {
     await adminPage.getByRole('button', { name: /go to dashboard/i }).click()
     await adminPage.waitForURL('**/', { timeout: 15000 })
 
-    // Navigate to admin settings
-    await navigateAfterLogin(adminPage, '/admin/settings')
-    await expect(adminPage.getByRole('heading', { name: 'Hub Settings' })).toBeVisible({
-      timeout: 10000,
-    })
-
-    // Channel Settings section should be visible
-    await expect(adminPage.getByText('Channels & Providers')).toBeVisible()
+    // Navigate to the Messaging / SMS admin section (formerly "Channels" under
+    // the flat collapsible settings page).
+    await navigateAfterLogin(adminPage, '/admin/messaging-sms')
+    await expect(adminPage.getByTestId('admin-section')).toHaveAttribute(
+      'data-section',
+      'messaging-sms',
+      { timeout: 10000 }
+    )
+    await expect(adminPage.getByTestId('admin-section-heading')).toBeVisible()
   })
 })

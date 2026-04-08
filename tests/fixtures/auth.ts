@@ -190,11 +190,13 @@ export const test = base.extend<{
   reporterPage: async ({ browser }, use) => {
     const { context, page } = await createAuthenticatedPage(browser, 'reporter')
     await use(page)
+    await context.storageState({ path: STORAGE_PATHS.reporter })
     await context.close()
   },
   reporterContext: async ({ browser }, use) => {
     const { context } = await createAuthenticatedPage(browser, 'reporter')
     await use(context)
+    await context.storageState({ path: STORAGE_PATHS.reporter })
     await context.close()
   },
 })

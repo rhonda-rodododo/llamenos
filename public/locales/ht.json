@@ -36,7 +36,10 @@
     "off": "off",
     "on": "on",
     "remove": "Remove",
-    "retry": "Retry"
+    "retry": "Retry",
+    "showAdvanced": "Show advanced settings",
+    "hideAdvanced": "Hide advanced settings",
+    "saved": "Saved"
   },
   "auth": {
     "login": "Konekte",
@@ -429,7 +432,9 @@
     "rateLimiting": "Limitasyon Frekans",
     "rateLimitingDescription": "Limite apèl repete nan menm nimewo a",
     "maxCallsPerMinute": "Maksimòm apèl pa minit pa nimewo",
-    "blockDuration": "Dire blokaj (minit)"
+    "blockDuration": "Dire blokaj (minit)",
+    "description": "Protect the hotline from abusive callers with rate limiting and a voice CAPTCHA.",
+    "noAdvancedSettings": "Enable a protection above to configure thresholds."
   },
   "callHistory": {
     "title": "Istorik Apèl",
@@ -1232,6 +1237,12 @@
       "disableConfirm": "This revokes the platform administrator's access to this hub. They will lose access to future records immediately. Continue?",
       "enabled": "Admin Access Enabled",
       "restricted": "Admin Access Restricted"
+    },
+    "tabs": {
+      "general": "General",
+      "access": "Access",
+      "export": "Export",
+      "danger": "Danger"
     }
   },
   "channelSettings": {
@@ -1269,6 +1280,9 @@
     "type": "Type",
     "riskLevel": "Risk Level",
     "tags": "Tags",
+    "customFields": "Custom Fields",
+    "reportTypes": "Report Types",
+    "firehose": "Firehose",
     "lastInteraction": "Last Interaction",
     "displayName": "Display Name",
     "notes": "Notes",
@@ -1452,6 +1466,160 @@
     "testConnection": "Teste Koneksyon",
     "testSuccess": "Koneksyon reyisi ({{latency}}ms)",
     "testFailed": "Tès koneksyon echwe"
+  },
+  "adminNav": {
+    "scopes": {
+      "thisHub": "This Hub",
+      "platform": "Platform"
+    },
+    "groups": {
+      "general": "General",
+      "people": "People",
+      "intake": "Intake",
+      "callsVoice": "Calls & Voice",
+      "channels": "Channels",
+      "platform": "Platform"
+    },
+    "openMenu": "Open navigation menu",
+    "items": {
+      "locationLookup": "Location Lookup",
+      "passkeyPolicy": "Passkey Policy",
+      "hubRoles": "Hub Roles",
+      "teams": "Teams",
+      "tags": "Tags",
+      "customFields": "Custom Fields",
+      "reportTypes": "Report Types",
+      "firehose": "Firehose",
+      "callSettings": "Call Settings",
+      "voicePrompts": "Voice Prompts",
+      "phoneMenuLanguages": "Phone Menu Languages",
+      "transcription": "Transcription",
+      "spamProtection": "Spam Protection",
+      "phoneProvider": "Phone Provider",
+      "messagingSms": "Messaging / SMS",
+      "rcs": "RCS",
+      "signal": "Signal",
+      "hubs": "Hubs",
+      "platformRoles": "Roles",
+      "bans": "Bans",
+      "audit": "Audit",
+      "analytics": "Analytics",
+      "health": "Health",
+      "platform": "Platform"
+    }
+  },
+  "locationLookup": {
+    "description": "Configure how addresses are converted to map coordinates.",
+    "provider": "Provider",
+    "apiKey": "API Key",
+    "apiKeyPlaceholder": "Enter your API key",
+    "countries": "Country Filter",
+    "countriesPlaceholder": "e.g. us, ca, mx",
+    "countriesHelp": "Comma-separated 2-letter country codes. Leave empty for worldwide.",
+    "enable": "Enable location lookup",
+    "testConnection": "Test connection",
+    "testOk": "OK ({{latency}}ms)",
+    "testFailed": "Connection test failed",
+    "saved": "Saved"
+  },
+  "passkeyPolicy": {
+    "description": "Require passkeys for user groups. Users without passkeys will be prompted to set one up.",
+    "enforcement": "Enforcement",
+    "enforcementNone": "None (passkeys optional)",
+    "enforcementAdmins": "Admins only",
+    "enforcementEveryone": "Everyone (admins + users)",
+    "enforcementHelp": "Users without passkeys will be prompted to set one up on next login.",
+    "requireForAdmins": "Require for admins",
+    "requireForUsers": "Require for users",
+    "saved": "Saved"
+  },
+  "phoneMenuLanguages": {
+    "description": "Choose which languages callers hear in the phone menu. Disabled languages are skipped; digit mappings stay fixed.",
+    "atLeastOne": "At least one language must be enabled"
+  },
+  "audit": {
+    "description": "Review every administrative action across all hubs.",
+    "empty": "No audit entries match these filters.",
+    "filters": {
+      "eventType": "Event type",
+      "dateFrom": "From",
+      "dateTo": "To",
+      "search": "Search",
+      "searchPlaceholder": "Event, actor, details…",
+      "clear": "Clear filters"
+    },
+    "eventTypes": {
+      "authentication": "Authentication",
+      "users": "Users",
+      "calls": "Calls",
+      "settings": "Settings",
+      "shifts": "Shifts",
+      "notes": "Notes",
+      "messaging": "Messaging"
+    },
+    "columns": {
+      "timestamp": "Timestamp",
+      "actor": "Actor",
+      "event": "Event",
+      "details": "Details"
+    },
+    "pagination": {
+      "rangeOf": "{{start}}-{{end}} of {{total}}",
+      "prev": "Prev",
+      "next": "Next"
+    }
+  },
+  "analytics": {
+    "description": "Cross-hub call activity and user engagement.",
+    "range": {
+      "days7": "7 days",
+      "days30": "30 days"
+    },
+    "callVolume": {
+      "title": "Call volume",
+      "noData": "No call data for this range."
+    },
+    "hours": {
+      "title": "Hour of day",
+      "noData": "No hourly data available."
+    },
+    "users": {
+      "title": "Per-user activity",
+      "noData": "No user activity recorded.",
+      "columns": {
+        "name": "User",
+        "calls": "Calls",
+        "avgDuration": "Avg duration",
+        "lastActive": "Last active",
+        "notes": "Notes"
+      }
+    }
+  },
+  "health": {
+    "description": "System and provider health status.",
+    "system": {
+      "title": "System health",
+      "database": "Database",
+      "storage": "Object storage",
+      "relay": "Nostr relay",
+      "version": "Version",
+      "uptime": "Uptime"
+    },
+    "providers": {
+      "title": "Provider health",
+      "latency": "Latency",
+      "lastCheck": "Last check",
+      "failures": "Failures",
+      "healthy": "Healthy",
+      "degraded": "Degraded",
+      "down": "Down",
+      "refresh": "Refresh",
+      "empty": "No providers configured."
+    }
+  },
+  "platform": {
+    "description": "Platform-wide settings and configuration.",
+    "emptyState": "No platform-level settings yet."
   },
   "security": {
     "title": "Sekirite",

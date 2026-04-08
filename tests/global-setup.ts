@@ -5,18 +5,22 @@ const TEST_RESET_SECRET = process.env.DEV_RESET_SECRET || 'test-reset-secret'
 const STORAGE_DIR = 'tests/storage'
 
 /**
- * Enter a 6-digit PIN into the PinInput component.
- * Uses per-digit click+type because the bootstrap/onboarding components
- * re-render heavily and the faster keyboard.type approach drops digits.
+ * Enter a PIN into the PinInput component (supports 6-8 digit PINs in 8-slot input).
+ * Uses Playwright's fill() on each slot for reliable React controlled input handling.
+ * After all digits are filled, verifies the value and presses Enter to submit.
  */
 async function enterSetupPin(page: import('@playwright/test').Page, pin: string) {
   const firstDigit = page.locator('input[aria-label="PIN digit 1"]')
   await firstDigit.waitFor({ state: 'visible', timeout: 30000 })
   for (let i = 0; i < pin.length; i++) {
     const input = page.locator(`input[aria-label="PIN digit ${i + 1}"]`)
-    await input.click()
-    await input.pressSequentially(pin[i])
+    await input.fill(pin[i])
+    // Verify the digit was accepted before moving on
+    await expect(input).toHaveValue(pin[i], { timeout: 1000 })
   }
+  // Focus the last filled digit and press Enter to submit
+  const lastFilledDigit = page.locator(`input[aria-label="PIN digit ${pin.length}"]`)
+  await lastFilledDigit.focus()
   await page.keyboard.press('Enter')
 }
 
@@ -29,52 +33,61 @@ async function unlockAndNavigateToDashboard(page: import('@playwright/test').Pag
   const dashboard = page.getByRole('heading', { name: 'Dashboard', exact: true })
   const profileSetup = page.getByRole('heading', { name: 'Welcome!' })
 
-  const MAX_ATTEMPTS = 2
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    // Wait for one of: PIN screen, dashboard, or profile-setup
-    const firstVisible = await Promise.race([
-      pinInput.waitFor({ state: 'visible', timeout: 30000 }).then(() => 'pin' as const),
-      dashboard.waitFor({ state: 'visible', timeout: 30000 }).then(() => 'dashboard' as const),
-      profileSetup.waitFor({ state: 'visible', timeout: 30000 }).then(() => 'profile' as const),
-    ])
-
-    if (firstVisible === 'pin') {
-      const firstPinInput = page.locator('input[aria-label="PIN digit 1"]')
-      await firstPinInput.focus()
-      await page.keyboard.type(TEST_PIN, { delay: 80 })
-      await page.keyboard.press('Enter')
-      // After PIN entry: PBKDF2 600K runs synchronously (~30s), then navigates
-      const wrongPin = page.getByText('Wrong PIN')
-      const afterPin = await Promise.race([
-        dashboard.waitFor({ state: 'visible', timeout: 90000 }).then(() => 'dashboard' as const),
-        profileSetup.waitFor({ state: 'visible', timeout: 90000 }).then(() => 'profile' as const),
-        wrongPin.waitFor({ state: 'visible', timeout: 90000 }).then(() => 'wrong-pin' as const),
-      ])
-      if (afterPin === 'wrong-pin') {
-        // Transient race: admin's access token may not yet be refreshed from the
-        // HttpOnly cookie, so unlock returns false before PBKDF2 runs. Wait +
-        // reload once before giving up.
-        if (attempt < MAX_ATTEMPTS) {
-          await page.waitForTimeout(1500)
-          await page.reload({ waitUntil: 'domcontentloaded' })
-          continue
-        }
-        throw new Error('Wrong PIN entered during admin unlock')
-      }
-      if (afterPin === 'profile') {
-        await page.getByRole('button', { name: /complete setup/i }).click()
-        await expect(dashboard).toBeVisible({ timeout: 15000 })
-      }
-      return
+  // Block the automatic restoreSession refresh so the PIN screen appears first.
+  // Without this, restoreSession may get an access token from the refresh cookie
+  // and redirect to dashboard before PIN entry (keys stay locked).
+  let refreshBlocked = true
+  await page.route('**/api/auth/token/refresh', async (route) => {
+    if (refreshBlocked) {
+      await route.fulfill({
+        status: 401,
+        contentType: 'application/json',
+        body: '{"error":"blocked-during-setup"}',
+      })
+    } else {
+      await route.continue()
     }
-    if (firstVisible === 'profile') {
+  })
+
+  await page.goto('/', { waitUntil: 'domcontentloaded' })
+
+  const firstVisible = await Promise.race([
+    pinInput.waitFor({ state: 'visible', timeout: 45000 }).then(() => 'pin' as const),
+    dashboard.waitFor({ state: 'visible', timeout: 45000 }).then(() => 'dashboard' as const),
+    profileSetup.waitFor({ state: 'visible', timeout: 45000 }).then(() => 'profile' as const),
+  ])
+
+  // Unblock refresh so the PIN unlock flow can call refreshToken and getUserInfo
+  refreshBlocked = false
+
+  if (firstVisible === 'pin') {
+    // Capture browser console for debugging unlock failures
+    const consoleLogs: string[] = []
+    page.on('console', (msg) => consoleLogs.push(`[${msg.type()}] ${msg.text()}`))
+    page.on('pageerror', (err) => consoleLogs.push(`[pageerror] ${err.message}`))
+
+    await enterSetupPin(page, TEST_PIN)
+    const wrongPin = page.getByText('Wrong PIN')
+    const afterPin = await Promise.race([
+      dashboard.waitFor({ state: 'visible', timeout: 90000 }).then(() => 'dashboard' as const),
+      profileSetup.waitFor({ state: 'visible', timeout: 90000 }).then(() => 'profile' as const),
+      wrongPin.waitFor({ state: 'visible', timeout: 90000 }).then(() => 'wrong-pin' as const),
+    ])
+    if (afterPin === 'wrong-pin') {
+      console.error('[UNLOCK] Browser console logs:')
+      for (const log of consoleLogs) console.error(`  ${log}`)
+      throw new Error('Wrong PIN entered during admin unlock')
+    }
+    if (afterPin === 'profile') {
       await page.getByRole('button', { name: /complete setup/i }).click()
       await expect(dashboard).toBeVisible({ timeout: 15000 })
-      return
     }
-    // 'dashboard' — already there
-    return
+  } else if (firstVisible === 'profile') {
+    await page.getByRole('button', { name: /complete setup/i }).click()
+    await expect(dashboard).toBeVisible({ timeout: 15000 })
   }
+
+  await page.unroute('**/api/auth/token/refresh')
 }
 
 /**
@@ -286,10 +299,12 @@ async function createRoleAccount(
   if (!inviteLink) throw new Error(`Failed to get invite link for ${opts.name}`)
 
   // Dismiss all overlays — send invite dialog, invite link card
-  // Press Escape repeatedly to close any dialogs
+  // Press Escape repeatedly to close any dialogs.
+  // IMPORTANT: Space presses >500ms apart to avoid triggering panic wipe
+  // (3 Escapes within 1 second triggers emergency key destruction).
   for (let i = 0; i < 3; i++) {
     await adminPage.keyboard.press('Escape')
-    await adminPage.waitForTimeout(300)
+    await adminPage.waitForTimeout(1200)
   }
   // Also click dismiss button if still visible
   const dismissBtn = adminPage.getByTestId('dismiss-invite').first()
@@ -463,7 +478,6 @@ test.describe('Global Setup: Provision Test Accounts', () => {
     const adminPage = await adminContext.newPage()
 
     try {
-      await adminPage.goto('/', { waitUntil: 'domcontentloaded' })
       await unlockAndNavigateToDashboard(adminPage)
 
       await createRoleAccount(adminPage, browser, {
@@ -472,6 +486,8 @@ test.describe('Global Setup: Provision Test Accounts', () => {
         roleName: 'hub-admin',
         storageFile: `${STORAGE_DIR}/hub-admin.json`,
       })
+      // Re-save admin storage state so subsequent tests get the rotated refresh token
+      await adminContext.storageState({ path: `${STORAGE_DIR}/admin.json` })
     } finally {
       await adminContext.close()
     }
@@ -484,7 +500,6 @@ test.describe('Global Setup: Provision Test Accounts', () => {
     const adminPage = await adminContext.newPage()
 
     try {
-      await adminPage.goto('/', { waitUntil: 'domcontentloaded' })
       await unlockAndNavigateToDashboard(adminPage)
 
       await createRoleAccount(adminPage, browser, {
@@ -493,6 +508,8 @@ test.describe('Global Setup: Provision Test Accounts', () => {
         roleName: 'volunteer',
         storageFile: `${STORAGE_DIR}/volunteer.json`,
       })
+      // Re-save admin storage state so subsequent tests get the rotated refresh token
+      await adminContext.storageState({ path: `${STORAGE_DIR}/admin.json` })
     } finally {
       await adminContext.close()
     }
@@ -505,7 +522,6 @@ test.describe('Global Setup: Provision Test Accounts', () => {
     const adminPage = await adminContext.newPage()
 
     try {
-      await adminPage.goto('/', { waitUntil: 'domcontentloaded' })
       await unlockAndNavigateToDashboard(adminPage)
 
       await createRoleAccount(adminPage, browser, {
@@ -514,6 +530,8 @@ test.describe('Global Setup: Provision Test Accounts', () => {
         roleName: 'reviewer',
         storageFile: `${STORAGE_DIR}/reviewer.json`,
       })
+      // Re-save admin storage state so subsequent tests get the rotated refresh token
+      await adminContext.storageState({ path: `${STORAGE_DIR}/admin.json` })
     } finally {
       await adminContext.close()
     }
@@ -526,7 +544,6 @@ test.describe('Global Setup: Provision Test Accounts', () => {
     const adminPage = await adminContext.newPage()
 
     try {
-      await adminPage.goto('/', { waitUntil: 'domcontentloaded' })
       await unlockAndNavigateToDashboard(adminPage)
 
       await createRoleAccount(adminPage, browser, {

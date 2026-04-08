@@ -52,13 +52,19 @@ test.describe('Multi-hub architecture — UI', () => {
     // Confirm the hub appears in the active list (hub names are encrypted — need decryption time)
     await expect(adminPage.getByText(hubName)).toBeVisible({ timeout: 30000 })
 
-    // Click the Archive button for this hub's row
+    // Open the edit dialog for this hub, then navigate to the Danger tab
     const hubRow = adminPage.locator('[data-testid="hub-row"]').filter({ hasText: hubName })
-    await hubRow.getByRole('button', { name: /archive/i }).click()
+    await hubRow.getByRole('button', { name: /edit/i }).click()
 
-    // Confirmation dialog should appear
+    // Edit dialog should appear
     await expect(adminPage.getByRole('dialog')).toBeVisible()
-    await expect(adminPage.getByRole('dialog')).toContainText(hubName)
+
+    // Switch to the Danger tab and click Archive
+    await adminPage.getByTestId('admin-hubs-edit-dialog-tab-danger').click()
+    await adminPage.getByTestId('admin-hubs-danger-archive-button').click()
+
+    // Archive confirmation dialog should appear
+    await expect(adminPage.getByRole('dialog').filter({ hasText: hubName })).toBeVisible()
 
     // Confirm the archive action (click the destructive Archive Hub button in dialog)
     await adminPage
@@ -89,10 +95,14 @@ test.describe('Multi-hub architecture — UI', () => {
     // The hub should appear in the list (with archived status)
     const hubRow = adminPage.locator('[data-testid="hub-row"]').filter({ hasText: hubName })
     await expect(hubRow).toBeVisible({ timeout: 10000 })
+    // The row's delete button opens the edit dialog — navigate to Danger tab
     await hubRow.getByTestId('hub-delete-btn').click()
-
-    // Dialog opens
     await expect(adminPage.getByRole('dialog')).toBeVisible()
+    await adminPage.getByTestId('admin-hubs-edit-dialog-tab-danger').click()
+    await adminPage.getByTestId('admin-hubs-danger-delete-button').click()
+
+    // Delete confirmation dialog opens
+    await expect(adminPage.getByRole('dialog').filter({ hasText: /delete hub/i })).toBeVisible()
 
     // Confirm button disabled until name typed
     const confirmBtn = adminPage.getByTestId('delete-hub-confirm-btn')
@@ -106,8 +116,12 @@ test.describe('Multi-hub architecture — UI', () => {
     await adminPage.getByTestId('delete-hub-confirm-input').fill(hubName)
     await expect(confirmBtn).toBeEnabled()
 
-    // Cancel without deleting
+    // Cancel without deleting — closes the inner delete-confirm dialog.
+    // The outer edit dialog (admin-hubs-edit-dialog) remains open; verify the
+    // inner confirm dialog's inputs/button are gone, then close the outer too.
     await adminPage.getByRole('button', { name: /cancel/i }).click()
+    await expect(adminPage.getByTestId('delete-hub-confirm-btn')).not.toBeVisible()
+    await adminPage.keyboard.press('Escape')
     await expect(adminPage.getByRole('dialog')).not.toBeVisible()
   })
 
@@ -129,8 +143,11 @@ test.describe('Multi-hub architecture — UI', () => {
     const hubRow = adminPage.locator('[data-testid="hub-row"]').filter({ hasText: hubName })
     await expect(hubRow).toBeVisible()
     await hubRow.getByTestId('hub-delete-btn').click()
-
     await expect(adminPage.getByRole('dialog')).toBeVisible()
+    await adminPage.getByTestId('admin-hubs-edit-dialog-tab-danger').click()
+    await adminPage.getByTestId('admin-hubs-danger-delete-button').click()
+
+    await expect(adminPage.getByRole('dialog').filter({ hasText: /delete hub/i })).toBeVisible()
     await adminPage.getByTestId('delete-hub-confirm-input').fill(hubName)
     await adminPage.getByTestId('delete-hub-confirm-btn').click()
 

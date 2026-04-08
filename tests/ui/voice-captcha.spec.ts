@@ -169,35 +169,31 @@ test.describe('Voice CAPTCHA', () => {
 
   // --- Admin UI: captchaMaxAttempts setting ---
   test('admin can set captchaMaxAttempts in spam settings UI', async ({ adminPage, request }) => {
-    await adminPage.getByRole('link', { name: 'Hub Settings' }).click()
-    await expect(
-      adminPage.getByRole('heading', { name: 'Hub Settings', exact: true })
-    ).toBeVisible()
+    // Navigate directly to the spam-protection admin section
+    await adminPage.goto('/admin/spam-protection')
 
-    // Expand spam section
-    await adminPage.getByText('Spam Mitigation').first().click()
-
-    // Enable CAPTCHA if not already enabled.
-    // The switch is inside a bordered card that also contains the "Voice CAPTCHA" label.
-    const captchaCard = adminPage
-      .locator('div.flex.items-center.justify-between')
-      .filter({ has: adminPage.locator('text=Voice CAPTCHA') })
-      .first()
-    const captchaSwitch = captchaCard.getByRole('switch')
+    const captchaSwitch = adminPage.getByTestId('admin-spam-protection-captcha-switch')
     await expect(captchaSwitch).toBeVisible({ timeout: 10000 })
     const isChecked = await captchaSwitch.isChecked()
     if (!isChecked) {
-      // Need to enable via confirmation dialog
+      // Toggling opens a confirmation dialog
       await captchaSwitch.click()
-      // Handle potential confirmation dialog
       const confirmBtn = adminPage.getByRole('button', { name: /confirm|enable/i })
       if (await confirmBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
         await confirmBtn.click()
       }
+      // Wait for save indicator
+      await expect(adminPage.getByTestId('admin-spam-protection-save-success')).toBeVisible({
+        timeout: 5000,
+      })
     }
 
-    // Max attempts input should now be visible
-    const maxAttemptsInput = adminPage.locator('#captcha-max-attempts')
+    // Reveal advanced thresholds panel
+    await adminPage.getByTestId('admin-advanced-reveal-spam-protection').click()
+
+    const maxAttemptsInput = adminPage.getByTestId(
+      'admin-spam-protection-captcha-max-attempts-input'
+    )
     await expect(maxAttemptsInput).toBeVisible({ timeout: 5000 })
 
     // Change value to 3

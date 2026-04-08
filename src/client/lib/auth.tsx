@@ -139,6 +139,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const markActivity = useCallback(() => {
     lastApiActivity.current = Date.now()
     setState((s) => (s.sessionExpiring ? { ...s, sessionExpiring: false } : s))
+    keyManager.resetAutoLockTimer()
   }, [])
 
   // Listen for key manager lock/unlock events

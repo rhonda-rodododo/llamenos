@@ -260,6 +260,31 @@ export async function getProviderHealth() {
   return request<ProviderHealthStatus>('/settings/provider-health')
 }
 
+// --- System Health (public, no auth required) ---
+
+export interface SystemHealthStatus {
+  status: 'ok' | 'degraded'
+  checks: Record<string, 'ok' | 'failing'>
+  details?: Record<string, string>
+  version: string
+  uptime: number | null
+  backup?: {
+    lastSuccessAt: string
+    lastSizeBytes: number
+    file: string
+  }
+}
+
+export async function getSystemHealth(): Promise<SystemHealthStatus> {
+  // `/api/health` is public (used by k8s probes) — not auth-gated.
+  const res = await fetch(`${API_BASE}/health`)
+  // 503 is still a valid JSON response (degraded state) — parse it either way.
+  if (res.status !== 200 && res.status !== 503) {
+    throw new ApiError(res.status, await res.text())
+  }
+  return res.json() as Promise<SystemHealthStatus>
+}
+
 // --- Telephony Provider Settings ---
 
 export async function getTelephonyProvider() {

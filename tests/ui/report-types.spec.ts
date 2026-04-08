@@ -1,17 +1,11 @@
 import { type Page, expect, test } from '../fixtures/auth'
+import { navigateAfterLogin } from '../helpers'
 
-/** Navigate to admin hub settings and expand the Report Types section */
-async function expandReportTypes(page: Page) {
-  await page.getByRole('link', { name: 'Hub Settings' }).click()
-  await expect(page.getByRole('heading', { name: 'Hub Settings', exact: true })).toBeVisible()
-
-  // Check if section is already expanded
-  const addBtn = page.getByTestId('add-report-type-btn')
-  const isVisible = await addBtn.isVisible({ timeout: 1000 }).catch(() => false)
-  if (!isVisible) {
-    await page.getByRole('heading', { name: /report types/i }).click()
-  }
-  await expect(addBtn).toBeVisible({ timeout: 10000 })
+/** Navigate to admin Report Types section */
+async function gotoReportTypes(page: Page) {
+  await navigateAfterLogin(page, '/admin/report-types')
+  await expect(page.getByTestId('admin-section')).toHaveAttribute('data-section', 'report-types')
+  await expect(page.getByTestId('admin-report-types-add')).toBeVisible({ timeout: 10000 })
 }
 
 /** Navigate to Reports page */
@@ -22,18 +16,18 @@ async function navigateToReports(page: Page) {
   })
 }
 
-/** Create a report type via the UI. Returns after success toast is visible. */
+/** Create a report type via the UI. Returns after success indicator is visible. */
 async function createReportType(
   page: Page,
   name: string,
   description: string,
   setAsDefault = true
 ) {
-  await page.getByTestId('add-report-type-btn').click()
-  await page.getByTestId('report-type-name-input').fill(name)
-  await page.getByTestId('report-type-description-input').fill(description)
+  await page.getByTestId('admin-report-types-add').click()
+  await page.getByTestId('admin-report-types-name-input').fill(name)
+  await page.getByTestId('admin-report-types-description-input').fill(description)
 
-  const defaultSwitch = page.getByTestId('report-type-default-switch')
+  const defaultSwitch = page.getByTestId('admin-report-types-default-switch')
   await expect(defaultSwitch).toBeVisible({ timeout: 5000 })
   const isChecked = await defaultSwitch.isChecked()
   if (setAsDefault && !isChecked) {
@@ -42,48 +36,52 @@ async function createReportType(
     await defaultSwitch.click()
   }
 
-  await page.getByTestId('report-type-save-btn').click()
-  await expect(page.getByText(/success/i).last()).toBeVisible({ timeout: 5000 })
+  await page.getByTestId('admin-report-types-save').click()
+  await expect(page.getByTestId('admin-report-types-save-success')).toBeVisible({ timeout: 5000 })
   await expect(page.getByText(name).first()).toBeVisible()
 }
 
 test.describe('Report Types System', () => {
-  test('report types section is visible in admin settings', async ({ adminPage }) => {
-    await adminPage.getByRole('link', { name: 'Hub Settings' }).click()
-    await expect(
-      adminPage.getByRole('heading', { name: 'Hub Settings', exact: true })
-    ).toBeVisible()
-    await expect(adminPage.getByRole('heading', { name: /report types/i })).toBeVisible()
+  test('report types section is accessible in admin', async ({ adminPage }) => {
+    await gotoReportTypes(adminPage)
+    await expect(adminPage.getByTestId('admin-report-types-add')).toBeVisible()
   })
 
   test('admin can create a report type', async ({ adminPage }) => {
-    await expandReportTypes(adminPage)
+    await gotoReportTypes(adminPage)
 
     const typeName = `Crisis Report ${Date.now()}`
-    await adminPage.getByTestId('add-report-type-btn').click()
-    await adminPage.getByTestId('report-type-name-input').fill(typeName)
+    await adminPage.getByTestId('admin-report-types-add').click()
+    await adminPage.getByTestId('admin-report-types-name-input').fill(typeName)
     await adminPage
-      .getByTestId('report-type-description-input')
+      .getByTestId('admin-report-types-description-input')
       .fill('For immediate crisis situations')
-    await adminPage.getByTestId('report-type-save-btn').click()
+    await adminPage.getByTestId('admin-report-types-save').click()
 
-    await expect(adminPage.getByText(/success/i).last()).toBeVisible({ timeout: 5000 })
+    await expect(adminPage.getByTestId('admin-report-types-save-success')).toBeVisible({
+      timeout: 5000,
+    })
     await expect(adminPage.getByText(typeName).first()).toBeVisible()
   })
 
   test('created report type shows default badge', async ({ adminPage }) => {
-    await expandReportTypes(adminPage)
+    await gotoReportTypes(adminPage)
 
     const typeName = `Badge Test ${Date.now()}`
     await createReportType(adminPage, typeName, 'Badge visibility test', true)
 
-    const typeRow = adminPage.getByTestId('report-type-row').filter({ hasText: typeName })
+    const typeRow = adminPage
+      .getByTestId('admin-report-types-list')
+      .locator('[data-testid^="admin-report-types-row-"]')
+      .filter({ hasText: typeName })
     await expect(typeRow).toBeVisible({ timeout: 15000 })
-    await expect(typeRow.getByTestId('default-badge')).toBeVisible({ timeout: 10000 })
+    await expect(typeRow.locator('[data-testid^="admin-report-types-default-badge-"]')).toBeVisible(
+      { timeout: 10000 }
+    )
   })
 
   test('admin can create a second report type without default', async ({ adminPage }) => {
-    await expandReportTypes(adminPage)
+    await gotoReportTypes(adminPage)
 
     const suffix = Date.now()
     // Create first type (will be default)
@@ -97,7 +95,7 @@ test.describe('Report Types System', () => {
   })
 
   test('admin can set a different type as default', async ({ adminPage }) => {
-    await expandReportTypes(adminPage)
+    await gotoReportTypes(adminPage)
 
     const suffix = Date.now()
     const firstName = `Crisis ${suffix}`
@@ -108,20 +106,30 @@ test.describe('Report Types System', () => {
     await createReportType(adminPage, secondName, 'Support type', false)
 
     // Set second as default
-    const supportRow = adminPage.getByTestId('report-type-row').filter({ hasText: secondName })
+    const supportRow = adminPage
+      .getByTestId('admin-report-types-list')
+      .locator('[data-testid^="admin-report-types-row-"]')
+      .filter({ hasText: secondName })
     await expect(supportRow).toBeVisible()
-    await supportRow.getByTestId('set-default-btn').click()
+    await supportRow.locator('[data-testid^="admin-report-types-set-default-"]').click()
 
     // Support should now have Default badge
-    await expect(supportRow.getByTestId('default-badge')).toBeVisible({ timeout: 5000 })
+    await expect(
+      supportRow.locator('[data-testid^="admin-report-types-default-badge-"]')
+    ).toBeVisible({ timeout: 5000 })
 
     // Crisis should no longer have Default badge
-    const crisisRow = adminPage.getByTestId('report-type-row').filter({ hasText: firstName })
-    await expect(crisisRow.getByTestId('default-badge')).not.toBeVisible()
+    const crisisRow = adminPage
+      .getByTestId('admin-report-types-list')
+      .locator('[data-testid^="admin-report-types-row-"]')
+      .filter({ hasText: firstName })
+    await expect(
+      crisisRow.locator('[data-testid^="admin-report-types-default-badge-"]')
+    ).not.toBeVisible()
   })
 
   test('admin can archive a report type', async ({ adminPage }) => {
-    await expandReportTypes(adminPage)
+    await gotoReportTypes(adminPage)
 
     const suffix = Date.now()
     const defaultName = `Default ${suffix}`
@@ -132,17 +140,20 @@ test.describe('Report Types System', () => {
     await createReportType(adminPage, archiveName, 'Will be archived', false)
 
     // Archive the second type
-    const archiveRow = adminPage.getByTestId('report-type-row').filter({ hasText: archiveName })
+    const archiveRow = adminPage
+      .getByTestId('admin-report-types-list')
+      .locator('[data-testid^="admin-report-types-row-"]')
+      .filter({ hasText: archiveName })
     await expect(archiveRow).toBeVisible()
     adminPage.once('dialog', (dialog) => dialog.accept())
-    await archiveRow.getByTestId('archive-report-type-btn').click()
+    await archiveRow.locator('[data-testid^="admin-report-types-archive-"]').click()
 
     // Should disappear from active list
     await expect(archiveRow).not.toBeVisible({ timeout: 5000 })
   })
 
   test('archived report type can be shown and unarchived', async ({ adminPage }) => {
-    await expandReportTypes(adminPage)
+    await gotoReportTypes(adminPage)
 
     const suffix = Date.now()
     const defaultName = `Default ${suffix}`
@@ -152,24 +163,29 @@ test.describe('Report Types System', () => {
     await createReportType(adminPage, defaultName, 'Default', true)
     await createReportType(adminPage, archiveName, 'Will be archived then unarchived', false)
 
-    const archiveRow = adminPage.getByTestId('report-type-row').filter({ hasText: archiveName })
+    const archiveRow = adminPage
+      .getByTestId('admin-report-types-list')
+      .locator('[data-testid^="admin-report-types-row-"]')
+      .filter({ hasText: archiveName })
     adminPage.once('dialog', (dialog) => dialog.accept())
-    await archiveRow.getByTestId('archive-report-type-btn').click()
+    await archiveRow.locator('[data-testid^="admin-report-types-archive-"]').click()
     await expect(archiveRow).not.toBeVisible({ timeout: 5000 })
 
     // Show archived section
-    await adminPage.getByRole('button', { name: /show archived/i }).click()
-    const archivedRow = adminPage.getByTestId('report-type-row').filter({ hasText: archiveName })
+    await adminPage.getByTestId('admin-report-types-toggle-archived').click()
+    const archivedRow = adminPage
+      .locator('[data-testid^="admin-report-types-row-"]')
+      .filter({ hasText: archiveName })
     await expect(archivedRow).toBeVisible({ timeout: 10000 })
 
     // Unarchive it — scope to the specific row to avoid strict mode with parallel tests
-    await archivedRow.getByTestId('unarchive-report-type-btn').click()
+    await archivedRow.locator('[data-testid^="admin-report-types-unarchive-"]').click()
     await expect(adminPage.getByText(archiveName).first()).toBeVisible({ timeout: 10000 })
   })
 
   test('report form shows report type dropdown when types exist', async ({ adminPage }) => {
     // Create a report type first
-    await expandReportTypes(adminPage)
+    await gotoReportTypes(adminPage)
     const typeName = `FormType ${Date.now()}`
     await createReportType(adminPage, typeName, 'For form test', true)
 
@@ -187,7 +203,7 @@ test.describe('Report Types System', () => {
   })
 
   test('default type is pre-selected in report form', async ({ adminPage }) => {
-    await expandReportTypes(adminPage)
+    await gotoReportTypes(adminPage)
     const typeName = `DefaultSelect ${Date.now()}`
     await createReportType(adminPage, typeName, 'Default select test', true)
 
@@ -202,7 +218,7 @@ test.describe('Report Types System', () => {
   })
 
   test('can change report type in form', async ({ adminPage }) => {
-    await expandReportTypes(adminPage)
+    await gotoReportTypes(adminPage)
     const suffix = Date.now()
     const defaultName = `Default ${suffix}`
     const otherName = `Other ${suffix}`
@@ -223,7 +239,7 @@ test.describe('Report Types System', () => {
   })
 
   test('archived type not shown in report form dropdown', async ({ adminPage }) => {
-    await expandReportTypes(adminPage)
+    await gotoReportTypes(adminPage)
 
     const suffix = Date.now()
     const keepName = `Keep ${suffix}`
@@ -234,9 +250,12 @@ test.describe('Report Types System', () => {
     await createReportType(adminPage, archName, 'Will be archived', false)
 
     // Archive the second type
-    const archRow = adminPage.getByTestId('report-type-row').filter({ hasText: archName })
+    const archRow = adminPage
+      .getByTestId('admin-report-types-list')
+      .locator('[data-testid^="admin-report-types-row-"]')
+      .filter({ hasText: archName })
     adminPage.once('dialog', (dialog) => dialog.accept())
-    await archRow.getByTestId('archive-report-type-btn').click()
+    await archRow.locator('[data-testid^="admin-report-types-archive-"]').click()
     await expect(archRow).not.toBeVisible({ timeout: 5000 })
 
     // Open report form and verify archived type is not in dropdown

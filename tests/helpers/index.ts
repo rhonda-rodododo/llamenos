@@ -30,20 +30,22 @@ export { TestIds } from '../test-ids'
 export * from '../pages/index'
 
 /**
- * Enter a PIN into the PinInput component.
- * Uses keyboard typing since the component auto-advances focus on each digit.
+ * Enter a PIN into the PinInput component (supports 6-8 digit PINs in 8-slot input).
+ * Uses Playwright's fill() on each slot for reliable React controlled input handling.
+ * After all digits are filled, verifies the value and presses Enter to submit.
  */
 export async function enterPin(page: Page, pin: string) {
-  // Focus the first PIN digit input
   const firstDigit = page.locator('input[aria-label="PIN digit 1"]')
   await firstDigit.waitFor({ state: 'visible', timeout: 10000 })
-  // Use focus() instead of click() to avoid Playwright stability check failures
-  // caused by CSS transition-colors on the input during page load
-  await firstDigit.focus()
-  // Type each digit — PinInput handles focus advance automatically
-  await page.keyboard.type(pin, { delay: 80 })
-  // If PIN is shorter than the input length (e.g., 6 digits in 8-box input),
-  // press Enter to submit early (supported when >= minLength)
+  for (let i = 0; i < pin.length; i++) {
+    const input = page.locator(`input[aria-label="PIN digit ${i + 1}"]`)
+    await input.fill(pin[i])
+    // Verify the digit was accepted before moving on
+    await expect(input).toHaveValue(pin[i], { timeout: 1000 })
+  }
+  // Focus the last filled digit and press Enter to submit
+  const lastFilledDigit = page.locator(`input[aria-label="PIN digit ${pin.length}"]`)
+  await lastFilledDigit.focus()
   await page.keyboard.press('Enter')
 }
 
@@ -233,9 +235,11 @@ export async function completeProfileSetup(page: Page) {
   })
 }
 
+let phoneCounter = 0
 export function uniquePhone(): string {
-  const suffix = Date.now().toString().slice(-7)
-  return `+1555${suffix}`
+  const suffix = Date.now().toString().slice(-5)
+  const counter = String(phoneCounter++).padStart(2, '0')
+  return `+1555${suffix}${counter}`
 }
 
 const TEST_RESET_SECRET = process.env.DEV_RESET_SECRET || 'test-reset-secret'

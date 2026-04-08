@@ -39,3 +39,35 @@ export async function bulkAddBans(data: { phones: string[]; reason: string }) {
     body: JSON.stringify(data),
   })
 }
+
+// --- Platform (global) ban list ---
+//
+// The bans router is mounted twice in src/server/app.ts:
+//   - `/bans` on `authenticated` (no hubContext → hubId is undefined → global bans)
+//   - `/hubs/:hubId/bans` on `hubScoped` (hubContext → hubId set → hub-scoped bans)
+//
+// These `global*` variants always hit the un-prefixed `/bans` endpoint, which
+// reads/writes rows with `hub_id = 'global'` regardless of which hub is currently
+// active in the UI. Super-admin only.
+
+export async function listGlobalBans() {
+  return request<{ bans: BanEntry[] }>('/bans')
+}
+
+export async function addGlobalBan(data: { phone: string; reason: string }) {
+  return request<{ ban: BanEntry }>('/bans', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function removeGlobalBan(phone: string) {
+  return request<{ ok: true }>(`/bans/${encodeURIComponent(phone)}`, { method: 'DELETE' })
+}
+
+export async function bulkAddGlobalBans(data: { phones: string[]; reason: string }) {
+  return request<{ count: number }>('/bans/bulk', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
