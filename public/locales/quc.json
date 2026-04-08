@@ -58,6 +58,9 @@
     "decryptFailed": "Man xtikir ta xjaqax ri yakb'al",
     "dropOrChoose": "Takuqub'a' o tacha' jun yakb'al wuj"
   },
+  "crypto": {
+    "keyMismatch": "Your encryption key doesn’t match your stored data. Contact an admin to re-verify your identity."
+  },
   "nav": {
     "dashboard": "Nab'ey Raqan Wuj",
     "calls": "Oyonik",

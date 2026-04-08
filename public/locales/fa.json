@@ -57,6 +57,9 @@
     "decryptFailed": "رمزگشایی پشتیبان ناموفق بود",
     "dropOrChoose": "فایل پشتیبان را رها کنید یا انتخاب کنید"
   },
+  "crypto": {
+    "keyMismatch": "Your encryption key doesn’t match your stored data. Contact an admin to re-verify your identity."
+  },
   "nav": {
     "dashboard": "داشبورد",
     "calls": "تماس‌ها",

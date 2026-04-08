@@ -2,6 +2,7 @@ import { CommandPalette, triggerCommandPalette } from '@/components/command-pale
 import { DemoBanner } from '@/components/demo-banner'
 import { ErrorBoundary } from '@/components/error-boundary'
 import { HubSwitcher } from '@/components/hub-switcher'
+import { KeyMismatchBanner } from '@/components/key-mismatch-banner'
 import { KeyboardShortcutsDialog } from '@/components/keyboard-shortcuts-dialog'
 import { LanguageSelect } from '@/components/language-select'
 import { LogoMark } from '@/components/logo-mark'
@@ -551,6 +552,7 @@ function AuthenticatedLayout() {
         {demoMode && <DemoBanner />}
         <NotificationPromptBanner />
         <PwaInstallBanner />
+        <KeyMismatchBanner />
 
         {/* Mobile top bar */}
         <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-background px-4 py-3 md:hidden">
