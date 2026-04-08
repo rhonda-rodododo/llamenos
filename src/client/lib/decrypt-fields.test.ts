@@ -41,6 +41,7 @@ const {
   DecryptCache,
   decryptObjectFields,
   resetDecryptRecoveryState,
+  resetMismatchFired,
   resolveEncryptedFields,
   setOnDecryptMismatch,
 } = await import('./decrypt-fields')
@@ -204,5 +205,72 @@ describe('decrypt mismatch callback', () => {
     }
     resolveEncryptedFields(obj)
     expect(handler).not.toHaveBeenCalled()
+  })
+
+  test('fires handler at most once per registration (fire-once guard)', () => {
+    const handler = mock(() => {})
+    setOnDecryptMismatch(handler)
+
+    const obj1 = {
+      encryptedName: 'ct-1',
+      nameEnvelopes: [{ pubkey: 'aaaa', ephemeralPubkey: 'bbbb', wrappedKey: 'cccc' }],
+    }
+    const obj2 = {
+      encryptedPhone: 'ct-2',
+      phoneEnvelopes: [{ pubkey: 'aaaa', ephemeralPubkey: 'bbbb', wrappedKey: 'cccc' }],
+    }
+
+    resolveEncryptedFields(obj1, 'different-pubkey')
+    resolveEncryptedFields(obj2, 'different-pubkey')
+
+    // Handler should fire exactly once — for the first mismatched field only
+    expect(handler).toHaveBeenCalledTimes(1)
+    expect(handler).toHaveBeenCalledWith({
+      field: 'encryptedName',
+      readerPubkey: 'different-pubkey',
+      envelopePubkeys: ['aaaa'],
+    })
+  })
+
+  test('resetMismatchFired re-arms the fire-once guard', () => {
+    const handler = mock(() => {})
+    setOnDecryptMismatch(handler)
+
+    const obj = {
+      encryptedName: 'ct-1',
+      nameEnvelopes: [{ pubkey: 'aaaa', ephemeralPubkey: 'bbbb', wrappedKey: 'cccc' }],
+    }
+
+    resolveEncryptedFields(obj, 'different-pubkey')
+    expect(handler).toHaveBeenCalledTimes(1)
+
+    // Re-arm and fire again
+    resetMismatchFired()
+    resolveEncryptedFields(obj, 'different-pubkey')
+    expect(handler).toHaveBeenCalledTimes(2)
+  })
+
+  test('resetDecryptRecoveryState clears mismatch state', () => {
+    const handler = mock(() => {})
+    setOnDecryptMismatch(handler)
+
+    const obj = {
+      encryptedName: 'ct-1',
+      nameEnvelopes: [{ pubkey: 'aaaa', ephemeralPubkey: 'bbbb', wrappedKey: 'cccc' }],
+    }
+
+    resolveEncryptedFields(obj, 'different-pubkey')
+    expect(handler).toHaveBeenCalledTimes(1)
+
+    // Full reset clears handler + fired flag
+    resetDecryptRecoveryState()
+
+    // Handler was cleared, so re-registering and firing should work
+    const handler2 = mock(() => {})
+    setOnDecryptMismatch(handler2)
+    resolveEncryptedFields(obj, 'different-pubkey')
+    expect(handler2).toHaveBeenCalledTimes(1)
+    // Original handler should not have been called again
+    expect(handler).toHaveBeenCalledTimes(1)
   })
 })

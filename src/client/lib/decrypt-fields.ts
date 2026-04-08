@@ -41,9 +41,18 @@ type DecryptMismatchHandler = (info: DecryptMismatchInfo) => void
 let mismatchHandler: DecryptMismatchHandler | null = null
 let mismatchFired = false
 
-/** Register a handler called when no envelope matches the reader's pubkey. */
+/**
+ * Register a handler called (at most once per registration) when no envelope
+ * matches the reader's pubkey. Resets the fire-once guard, so re-registering
+ * re-arms the notification. Pass null to unregister and reset.
+ */
 export function setOnDecryptMismatch(handler: DecryptMismatchHandler | null): void {
   mismatchHandler = handler
+  mismatchFired = false
+}
+
+/** Re-arm the fire-once guard so the next mismatch will fire the handler again. */
+export function resetMismatchFired(): void {
   mismatchFired = false
 }
 
@@ -89,7 +98,7 @@ export const decryptCache = new DecryptCache()
 /** Prevents multiple concurrent decrypt failures from each firing lock. */
 let lockFiring = false
 
-/** @internal Reset recovery state and decrypt cache — test-only, do not call in production. */
+/** @internal Reset recovery state, mismatch notification state, and decrypt cache — test-only, do not call in production. */
 export function resetDecryptRecoveryState(): void {
   lockFiring = false
   mismatchFired = false
@@ -237,6 +246,12 @@ export function resolveEncryptedFields(
         }
         if (!mismatchFired) {
           mismatchFired = true
+          // Always log mismatch — this is a security-relevant event (key doesn't
+          // match stored envelopes). Per-field debug detail is gated above.
+          // eslint-disable-next-line no-console
+          console.warn(
+            `[decrypt-fields] Pubkey/envelope mismatch detected on field "${key}". Reader pubkey does not match any envelope.`
+          )
           mismatchHandler?.({ field: key, readerPubkey, envelopePubkeys })
         }
       }

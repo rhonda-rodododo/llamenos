@@ -148,11 +148,14 @@ function RootLayout() {
     }
   }, [isLoading, configLoading, isAuthenticated, isKeyUnlocked, location.pathname, navigate])
 
-  // Redirect to profile setup if not completed (skip during setup wizard)
+  // Redirect to profile setup if not completed (skip during setup wizard).
+  // Only redirect when key is unlocked — profile setup needs decryption,
+  // and the locked-key redirect above takes priority.
   useEffect(() => {
     if (
       !isLoading &&
       isAuthenticated &&
+      isKeyUnlocked &&
       !profileCompleted &&
       location.pathname !== '/profile-setup' &&
       location.pathname !== '/login' &&
@@ -160,7 +163,7 @@ function RootLayout() {
     ) {
       navigate({ to: '/profile-setup' })
     }
-  }, [isLoading, isAuthenticated, profileCompleted, location.pathname, navigate])
+  }, [isLoading, isAuthenticated, isKeyUnlocked, profileCompleted, location.pathname, navigate])
 
   // Redirect away from profile setup once completed
   useEffect(() => {
