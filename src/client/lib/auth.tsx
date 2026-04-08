@@ -63,6 +63,7 @@ interface AuthContextValue extends AuthState {
   isAdmin: boolean
   isAuthenticated: boolean
   hasNsec: boolean
+  isKeyUnlocked: boolean
   adminPubkey: string
   adminDecryptionPubkey: string
 }
@@ -559,6 +560,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAdmin: permissionGranted(state.permissions, 'settings:manage'),
     isAuthenticated: (state.isKeyUnlocked || hasAccessToken) && state.roles.length > 0,
     hasNsec: state.isKeyUnlocked,
+    isKeyUnlocked: state.isKeyUnlocked,
   }
 
   return (
