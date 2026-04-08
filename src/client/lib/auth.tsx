@@ -175,7 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // We only need the boolean signal for the banner — field-level details
   // are logged in dev mode by decrypt-fields.ts.
   useEffect(() => {
-    setOnDecryptMismatch(() => {
+    setOnDecryptMismatch((_info) => {
       setState((s) => {
         if (s.keyMismatchDetected) return s // already flagged
         return { ...s, keyMismatchDetected: true }

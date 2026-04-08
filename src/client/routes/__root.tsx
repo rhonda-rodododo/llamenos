@@ -138,6 +138,8 @@ function RootLayout() {
       location.pathname !== '/onboarding' &&
       location.pathname !== '/link-device' &&
       location.pathname !== '/setup' &&
+      // Exclude /profile-setup — it has its own redirect that guards on isKeyUnlocked,
+      // and bouncing between /profile-setup and /login would create a redirect loop
       location.pathname !== '/profile-setup'
     ) {
       // Save current path so login page can redirect back after PIN entry
