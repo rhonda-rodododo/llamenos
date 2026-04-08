@@ -15,7 +15,6 @@ import { useConfig, useHasMessaging } from '@/lib/config'
 import { cryptoWorker } from '@/lib/crypto-worker-client'
 import { useCalls, useShiftStatus } from '@/lib/hooks'
 import { getHubKeyForId } from '@/lib/hub-key-cache'
-import { hasStoredKey } from '@/lib/key-manager'
 import * as keyManager from '@/lib/key-manager'
 import { NostrProvider } from '@/lib/nostr/context'
 import { subscribeToPush } from '@/lib/push-subscription'
@@ -133,11 +132,12 @@ function RootLayout() {
       !configLoading &&
       isAuthenticated &&
       !isKeyUnlocked &&
-      hasStoredKey() &&
+      keyManager.hasStoredKey() &&
       location.pathname !== '/login' &&
       location.pathname !== '/onboarding' &&
       location.pathname !== '/link-device' &&
-      location.pathname !== '/setup'
+      location.pathname !== '/setup' &&
+      location.pathname !== '/profile-setup'
     ) {
       // Save current path so login page can redirect back after PIN entry
       if (location.pathname !== '/') {
