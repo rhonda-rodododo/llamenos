@@ -39,10 +39,12 @@ export interface DecryptMismatchInfo {
 type DecryptMismatchHandler = (info: DecryptMismatchInfo) => void
 
 let mismatchHandler: DecryptMismatchHandler | null = null
+let mismatchFired = false
 
 /** Register a handler called when no envelope matches the reader's pubkey. */
 export function setOnDecryptMismatch(handler: DecryptMismatchHandler | null): void {
   mismatchHandler = handler
+  mismatchFired = false
 }
 
 // ---------------------------------------------------------------------------
@@ -90,6 +92,8 @@ let lockFiring = false
 /** @internal Reset recovery state and decrypt cache — test-only, do not call in production. */
 export function resetDecryptRecoveryState(): void {
   lockFiring = false
+  mismatchFired = false
+  mismatchHandler = null
   decryptCache.clear()
 }
 
@@ -231,7 +235,10 @@ export function resolveEncryptedFields(
             envelopePubkeys,
           })
         }
-        mismatchHandler?.({ field: key, readerPubkey, envelopePubkeys })
+        if (!mismatchFired) {
+          mismatchFired = true
+          mismatchHandler?.({ field: key, readerPubkey, envelopePubkeys })
+        }
       }
       continue
     }
