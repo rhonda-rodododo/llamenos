@@ -1,4 +1,5 @@
 import { expect, test } from '../fixtures/auth'
+import { gotoAdminPath } from '../helpers/admin-settings'
 import { createAdminApiFromStorageState } from '../helpers/authed-request'
 
 /**
@@ -169,8 +170,8 @@ test.describe('Voice CAPTCHA', () => {
 
   // --- Admin UI: captchaMaxAttempts setting ---
   test('admin can set captchaMaxAttempts in spam settings UI', async ({ adminPage, request }) => {
-    // Navigate directly to the spam-protection admin section
-    await adminPage.goto('/admin/spam-protection')
+    // Navigate via SPA router to preserve crypto worker state (page.goto wipes it)
+    await gotoAdminPath(adminPage, '/admin/spam-protection')
 
     const captchaSwitch = adminPage.getByTestId('admin-spam-protection-captcha-switch')
     await expect(captchaSwitch).toBeVisible({ timeout: 10000 })
