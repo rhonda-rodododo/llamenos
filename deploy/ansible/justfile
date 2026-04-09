@@ -118,6 +118,76 @@ edit-demo-vars:
 # Requires: Tart + Docker on Mac, SSH access as 'mac'
 # See: docs/plans/2026-03-25-local-vm-ansible-testing.md
 
+# Multi-distro Tart matrix test. Provisions a fresh VM per image, runs the
+# full setup playbook, executes smoke assertions, then tears down.
+#
+# P0 distros (must pass on every PR): Ubuntu 24.04, Debian 13
+# P1 distros (nightly + tags):        Ubuntu 22.04, Debian 12
+# all:                                everything above
+#
+# Usage:
+#   just test-matrix              # P0 only (default)
+#   just test-matrix p1
+#   just test-matrix all
+test-matrix mode='p0':
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    case "{{mode}}" in
+      p0)  images=("ghcr.io/cirruslabs/ubuntu:24.04" "ghcr.io/cirruslabs/debian:13") ;;
+      p1)  images=("ghcr.io/cirruslabs/ubuntu:22.04" "ghcr.io/cirruslabs/debian:12") ;;
+      all) images=(
+            "ghcr.io/cirruslabs/ubuntu:24.04"
+            "ghcr.io/cirruslabs/ubuntu:22.04"
+            "ghcr.io/cirruslabs/debian:13"
+            "ghcr.io/cirruslabs/debian:12"
+           ) ;;
+      *)   echo "usage: just test-matrix [p0|p1|all]" >&2; exit 2 ;;
+    esac
+
+    for image in "${images[@]}"; do
+      slug="$(basename "$image" | tr ':' '-')"
+      name="llamenos-test-${slug}"
+      echo "=== Provisioning ${name} from ${image} ==="
+
+      ssh mac "source ~/.zprofile && tart stop ${name} 2>/dev/null || true"
+      ssh mac "source ~/.zprofile && tart delete ${name} 2>/dev/null || true"
+      ssh mac "source ~/.zprofile && tart clone ${image} ${name} && tart set ${name} --cpu 4 --memory 8192 --disk-size 20"
+      ssh mac "source ~/.zprofile && nohup tart run --no-graphics ${name} >/tmp/${name}.log 2>&1 &"
+
+      echo "=== Waiting 30s for ${name} to boot ==="
+      sleep 30
+
+      vm_ip="$(ssh mac "source ~/.zprofile && tart ip ${name}")"
+      echo "=== ${name} reachable at ${vm_ip} ==="
+
+      echo "=== Running setup playbook against ${name} ==="
+      ssh mac "cd ~/projects/llamenos-hotline/deploy/ansible && source ~/.zprofile && \
+        ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook setup.yml \
+          -i '${vm_ip},' \
+          -u admin \
+          --private-key ~/.ssh/tart_test_ed25519 \
+          --extra-vars '@vars.example.yml'"
+
+      echo "=== Running smoke assertions on ${name} ==="
+      ssh mac "ssh -o StrictHostKeyChecking=no -i ~/.ssh/tart_test_ed25519 admin@${vm_ip} 'sudo bash -s'" <<'SMOKE'
+    set -euo pipefail
+    ufw status verbose | grep -q "Status: active"
+    ufw status verbose | grep -q "Default: deny (incoming)"
+    systemctl is-active fail2ban
+    systemctl is-active docker
+    docker info --format '{{ "{{" }}.SecurityOptions{{ "}}" }}' | grep -q userns
+    sshd -T | grep -E '^(passwordauthentication|permitrootlogin) no$' | wc -l | grep -q 2
+    sysctl -n net.ipv4.tcp_syncookies | grep -q 1
+    dpkg -l unattended-upgrades | grep -q '^ii'
+    echo "all smoke checks passed"
+    SMOKE
+
+      echo "=== Tearing down ${name} ==="
+      ssh mac "source ~/.zprofile && tart stop ${name} && tart delete ${name}"
+      echo "=== ${image} PASS ==="
+    done
+
 # Create and configure a fresh Tart VM for testing (4 CPU / 8GB matches a small VPS)
 vm-create:
     ssh mac 'source ~/.zprofile && tart clone ghcr.io/cirruslabs/ubuntu:24.04 llamenos-test && tart set llamenos-test --cpu 4 --memory 8192 --disk-size 20'
