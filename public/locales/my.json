@@ -57,6 +57,9 @@
     "decryptFailed": "အရန်ဖိုင်ကို စာဝှက်ဖြေမှု မအောင်မြင်ပါ",
     "dropOrChoose": "အရန်ဖိုင်ကို ဆွဲချ သို့မဟုတ် ရွေးချယ်ပါ"
   },
+  "crypto": {
+    "keyMismatch": "Your encryption key doesn’t match your stored data. Contact an admin to re-verify your identity."
+  },
   "nav": {
     "dashboard": "ဒက်ရှ်ဘုတ်",
     "calls": "ဖုန်းခေါ်ဆိုမှုများ",

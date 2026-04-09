@@ -194,4 +194,37 @@ dev.post('/test-reset-setup', async (c) => {
   return c.json({ ok: true })
 })
 
+// Seed a call record directly for UI-facing tests. Parallel-worker races
+// on /telephony/incoming hub resolution make the webhook simulation
+// unreliable (a concurrent multi-hub test creating and archiving a hub
+// briefly breaks the sole-active-hub fallback), so UI tests that just
+// want to assert "a voicemail-flagged call shows the badge" seed the
+// call deterministically against the bootstrap hub via this endpoint.
+dev.post('/test-seed-call', async (c) => {
+  if (c.env.ENVIRONMENT !== 'development' && c.env.ENVIRONMENT !== 'demo') {
+    return c.json({ error: 'Not Found' }, 404)
+  }
+  const secret = c.env.DEV_RESET_SECRET || c.env.E2E_TEST_SECRET
+  if (!secret) return c.json({ error: 'Not Found' }, 404)
+  if (c.req.header('X-Test-Secret') !== secret) {
+    return c.json({ error: 'Forbidden' }, 403)
+  }
+  const body = (await c.req.json().catch(() => ({}))) as {
+    callSid?: string
+    hubId?: string
+    hasVoicemail?: boolean
+    status?: string
+    callerLast4?: string
+  }
+  if (!body.callSid) return c.json({ error: 'callSid is required' }, 400)
+  if (!body.hubId) return c.json({ error: 'hubId is required' }, 400)
+  const services = c.get('services')
+  await services.records.upsertCallRecord(body.callSid, body.hubId, {
+    status: body.status ?? 'voicemail',
+    hasVoicemail: body.hasVoicemail ?? true,
+    callerLast4: body.callerLast4 ?? '4444',
+  })
+  return c.json({ ok: true })
+})
+
 export default dev

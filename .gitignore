@@ -48,3 +48,4 @@ scripts/pii-check.sh
 asterisk-bridge/dev-certs/
 tests/screenshots/
 data/geoip/*.mmdb
+.tanstack/

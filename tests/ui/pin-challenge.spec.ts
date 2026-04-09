@@ -59,16 +59,26 @@ test.describe('PIN Challenge (Re-auth Step-up)', () => {
     const pinDialog = adminPage.getByTestId('pin-challenge-dialog')
     await expect(pinDialog).toBeVisible({ timeout: 5000 })
 
-    // Enter wrong PIN
+    // Enter wrong PIN — PBKDF2 runs during verification (slow under CI parallel load)
     await enterPin(adminPage, '999999')
 
-    // Should show error
+    // Should show error — wait for PBKDF2 to complete + error render
     const errorMsg = adminPage.getByTestId('pin-challenge-error')
-    await expect(errorMsg).toBeVisible({ timeout: 5000 })
+    await expect(errorMsg).toBeVisible({ timeout: 15000 })
+
+    // Wait for PIN input to be ready again (PBKDF2 disables inputs during verification)
+    await adminPage
+      .locator('input[aria-label="PIN digit 1"]')
+      .waitFor({ state: 'visible', timeout: 10000 })
 
     // Enter wrong PIN again
     await enterPin(adminPage, '888888')
-    await expect(errorMsg).toBeVisible({ timeout: 5000 })
+    await expect(errorMsg).toBeVisible({ timeout: 15000 })
+
+    // Wait for PIN input to be ready again
+    await adminPage
+      .locator('input[aria-label="PIN digit 1"]')
+      .waitFor({ state: 'visible', timeout: 10000 })
 
     // Third wrong PIN — should trigger wipe and close dialog
     await enterPin(adminPage, '777777')

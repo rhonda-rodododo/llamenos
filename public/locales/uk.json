@@ -57,6 +57,9 @@
     "decryptFailed": "Не вдалося розшифрувати резервну копію",
     "dropOrChoose": "Перетягніть або оберіть файл резервної копії"
   },
+  "crypto": {
+    "keyMismatch": "Your encryption key doesn’t match your stored data. Contact an admin to re-verify your identity."
+  },
   "nav": {
     "dashboard": "Панель",
     "calls": "Дзвінки",

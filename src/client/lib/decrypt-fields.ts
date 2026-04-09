@@ -27,6 +27,36 @@ function decryptDebugEnabled(): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Decrypt mismatch notification
+// ---------------------------------------------------------------------------
+
+export interface DecryptMismatchInfo {
+  field: string
+  readerPubkey: string
+  envelopePubkeys: string[]
+}
+
+type DecryptMismatchHandler = (info: DecryptMismatchInfo) => void
+
+let mismatchHandler: DecryptMismatchHandler | null = null
+let mismatchFired = false
+
+/**
+ * Register a handler called (at most once per registration) when no envelope
+ * matches the reader's pubkey. Resets the fire-once guard, so re-registering
+ * re-arms the notification. Pass null to unregister and reset.
+ */
+export function setOnDecryptMismatch(handler: DecryptMismatchHandler | null): void {
+  mismatchHandler = handler
+  mismatchFired = false
+}
+
+/** Re-arm the fire-once guard so the next mismatch will fire the handler again. */
+export function resetMismatchFired(): void {
+  mismatchFired = false
+}
+
+// ---------------------------------------------------------------------------
 // DecryptCache
 // ---------------------------------------------------------------------------
 
@@ -68,9 +98,11 @@ export const decryptCache = new DecryptCache()
 /** Prevents multiple concurrent decrypt failures from each firing lock. */
 let lockFiring = false
 
-/** @internal Reset recovery state and decrypt cache — test-only, do not call in production. */
+/** @internal Reset recovery state, mismatch notification state, and decrypt cache — test-only, do not call in production. */
 export function resetDecryptRecoveryState(): void {
   lockFiring = false
+  mismatchFired = false
+  mismatchHandler = null
   decryptCache.clear()
 }
 
@@ -96,7 +128,16 @@ async function fireLockOnce(): Promise<void> {
  * 3. On timeout/other error → retry once
  * 4. On second failure → probe worker state:
  *    - Worker locked → fire lock (PIN prompt)
- *    - Worker unlocked but broken → reinitialize worker + fire lock
+ *    - Worker unlocked but decrypt still failing (or isUnlocked itself throws) →
+ *      the worker is in a broken state. Reinitialize the worker and fire lock
+ *      so the user is forced back through the PIN prompt into a fresh worker.
+ *
+ * NOTE: callers must ensure they are invoking this only for fields that were
+ * encrypted under the given `label`. Mismatching labels on the *same*
+ * envelope is a caller bug — not a transient failure — and will reach this
+ * function's "broken worker" branch, which is the last line of defence. The
+ * primary guard is that `decryptObjectFields` / `resolveEncryptedFields`
+ * only scans the fields the caller asked for.
  */
 async function decryptFieldWithRecovery(
   ciphertext: string,
@@ -114,7 +155,7 @@ async function decryptFieldWithRecovery(
       label
     )
   } catch (firstErr) {
-    // Known locked — no point retrying
+    // Known locked — no point retrying, fire lock so PIN prompt appears
     if (isWorkerLockedError(firstErr)) {
       await fireLockOnce()
       return null
@@ -128,19 +169,36 @@ async function decryptFieldWithRecovery(
         envelope.wrappedKey,
         label
       )
-    } catch {
-      // Both attempts failed — probe worker state
+    } catch (secondErr) {
+      // Both attempts failed.
+      if (isWorkerLockedError(secondErr)) {
+        await fireLockOnce()
+        return null
+      }
+      // Probe worker state to decide between "genuinely locked" and "broken".
       try {
         const unlocked = await worker.isUnlocked()
-        if (unlocked) {
-          // Worker claims unlocked but can't decrypt — broken state
-          worker.reinitialize()
+        if (!unlocked) {
+          await fireLockOnce()
+          return null
         }
-      } catch {
-        // isUnlocked itself failed — worker is definitely broken
+        // Worker claims unlocked but decrypt still fails. This should not
+        // happen during normal operation — reinitialize the worker and force
+        // the PIN prompt so the user lands in a clean state.
+        if (decryptDebugEnabled()) {
+          // eslint-disable-next-line no-console
+          console.warn('[decrypt-fields] Field decrypt failed but worker is unlocked:', {
+            label,
+            error: secondErr instanceof Error ? secondErr.message : String(secondErr),
+          })
+        }
         worker.reinitialize()
+        await fireLockOnce()
+      } catch {
+        // isUnlocked itself failed — worker is definitely broken, fire lock
+        worker.reinitialize()
+        await fireLockOnce()
       }
-      await fireLockOnce()
       return null
     }
   }
@@ -171,19 +229,31 @@ export interface EncryptedFieldRef {
  * array. Derives `plaintextKey` by stripping the `encrypted` prefix and
  * lower-casing the first character.
  *
- * @param obj         Any plain object (API response body, etc.)
+ * When `fieldNames` is provided, only those specific encrypted keys are
+ * considered — this is REQUIRED whenever an object holds fields encrypted
+ * under more than one domain-separation label (e.g. contacts carry both
+ * LABEL_CONTACT_SUMMARY and LABEL_CONTACT_PII fields). Calling the scanner
+ * without a filter on a multi-label object would attempt to decrypt every
+ * encrypted field with the wrong label and fail AEAD authentication.
+ *
+ * @param obj           Any plain object (API response body, etc.)
  * @param readerPubkey  If provided, only return refs whose envelope matches
  *                      this pubkey. If omitted, returns the first envelope in
  *                      the array for each field.
+ * @param fieldNames    If provided, restricts the scan to this exact set of
+ *                      encrypted field keys (e.g. `['encryptedDisplayName']`).
  */
 export function resolveEncryptedFields(
   obj: Record<string, unknown>,
-  readerPubkey?: string
+  readerPubkey?: string,
+  fieldNames?: readonly string[]
 ): EncryptedFieldRef[] {
   const refs: EncryptedFieldRef[] = []
+  const allowed = fieldNames ? new Set(fieldNames) : null
 
   for (const key of Object.keys(obj)) {
     if (!key.startsWith('encrypted')) continue
+    if (allowed && !allowed.has(key)) continue
 
     // encryptedFoo → foo  (strip 'encrypted', lower-case first char)
     const suffix = key.slice('encrypted'.length)
@@ -203,17 +273,25 @@ export function resolveEncryptedFields(
       : (envelopes[0] as RecipientEnvelope)
 
     if (!envelope) {
-      // No envelope for this reader — field will stay as the server's
-      // placeholder (e.g., "[encrypted]"). Surface this so stale-envelope
-      // scenarios (key rotation, device rekey) are diagnosable instead of
-      // silently showing placeholders in the UI.
-      if (readerPubkey && decryptDebugEnabled()) {
+      if (readerPubkey) {
         const envelopePubkeys = (envelopes as RecipientEnvelope[]).map((e) => e.pubkey)
-        // eslint-disable-next-line no-console
-        console.warn(`[decrypt-fields] No envelope for reader on field "${key}":`, {
-          readerPubkey,
-          envelopePubkeys,
-        })
+        if (decryptDebugEnabled()) {
+          // eslint-disable-next-line no-console
+          console.warn(`[decrypt-fields] No envelope for reader on field "${key}":`, {
+            readerPubkey,
+            envelopePubkeys,
+          })
+        }
+        if (!mismatchFired) {
+          mismatchFired = true
+          // Always log mismatch — this is a security-relevant event (key doesn't
+          // match stored envelopes). Per-field debug detail is gated above.
+          // eslint-disable-next-line no-console
+          console.warn(
+            `[decrypt-fields] Pubkey/envelope mismatch detected on field "${key}". Reader pubkey does not match any envelope.`
+          )
+          mismatchHandler?.({ field: key, readerPubkey, envelopePubkeys })
+        }
       }
       continue
     }
@@ -229,21 +307,30 @@ export function resolveEncryptedFields(
 // ---------------------------------------------------------------------------
 
 /**
- * Decrypt all encrypted field pairs on `obj` in-place, writing plaintext to
+ * Decrypt encrypted field pairs on `obj` in-place, writing plaintext to
  * the corresponding `foo` key. Uses the global `decryptCache` to skip
  * redundant worker calls.
+ *
+ * When the object contains fields encrypted under multiple domain labels
+ * (e.g. a contact has both LABEL_CONTACT_SUMMARY and LABEL_CONTACT_PII
+ * fields) the caller MUST pass `fieldNames` to restrict the scan to the
+ * fields that belong to the given label — otherwise cross-label decrypt
+ * attempts will fail AEAD authentication and trigger the recovery/lock flow.
  *
  * @param obj           Plain object with `encryptedFoo` + `fooEnvelopes` pairs.
  * @param readerPubkey  The current user's x-only public key hex.
  * @param label         Domain separation label (defaults to LABEL_USER_PII).
+ * @param fieldNames    Optional list of encrypted field keys to decrypt.
+ *                      Required for objects with mixed-label fields.
  * @returns The same object, mutated in place.
  */
 export async function decryptObjectFields<T extends Record<string, unknown>>(
   obj: T,
   readerPubkey: string,
-  label: string = LABEL_USER_PII
+  label: string = LABEL_USER_PII,
+  fieldNames?: readonly string[]
 ): Promise<T> {
-  const refs = resolveEncryptedFields(obj, readerPubkey)
+  const refs = resolveEncryptedFields(obj, readerPubkey, fieldNames)
   if (decryptDebugEnabled() && refs.length > 0) {
     // eslint-disable-next-line no-console
     console.warn(
@@ -284,9 +371,14 @@ export async function decryptObjectFields<T extends Record<string, unknown>>(
 /**
  * Decrypt encrypted field pairs on every item in an array in-place.
  *
+ * When each item contains fields encrypted under multiple domain labels,
+ * the caller MUST pass `fieldNames` to restrict the scan (see
+ * `decryptObjectFields` for details).
+ *
  * @param items         Array of plain objects.
  * @param readerPubkey  The current user's x-only public key hex.
  * @param label         Domain separation label (defaults to LABEL_USER_PII).
+ * @param fieldNames    Optional list of encrypted field keys to decrypt.
  * @returns The same array, with each item mutated in place.
  */
 /**
@@ -320,8 +412,9 @@ export async function decryptEnvelopeJson<T>(
 export async function decryptArrayFields<T extends Record<string, unknown>>(
   items: T[],
   readerPubkey: string,
-  label: string = LABEL_USER_PII
+  label: string = LABEL_USER_PII,
+  fieldNames?: readonly string[]
 ): Promise<T[]> {
-  await Promise.all(items.map((item) => decryptObjectFields(item, readerPubkey, label)))
+  await Promise.all(items.map((item) => decryptObjectFields(item, readerPubkey, label, fieldNames)))
   return items
 }

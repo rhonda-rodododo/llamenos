@@ -2,6 +2,7 @@ import { CommandPalette, triggerCommandPalette } from '@/components/command-pale
 import { DemoBanner } from '@/components/demo-banner'
 import { ErrorBoundary } from '@/components/error-boundary'
 import { HubSwitcher } from '@/components/hub-switcher'
+import { KeyMismatchBanner } from '@/components/key-mismatch-banner'
 import { KeyboardShortcutsDialog } from '@/components/keyboard-shortcuts-dialog'
 import { LanguageSelect } from '@/components/language-select'
 import { LogoMark } from '@/components/logo-mark'
@@ -62,6 +63,7 @@ function RootLayout() {
   const {
     isAuthenticated,
     isAdmin,
+    isKeyUnlocked,
     signOut,
     name,
     isLoading,
@@ -102,17 +104,60 @@ function RootLayout() {
   }, [isLoading, configLoading, isAuthenticated, location.pathname, navigate, needsBootstrap])
 
   useEffect(() => {
-    // Don't redirect away from /login during post-passkey PIN setup (needsKeySetup)
-    if (!isLoading && isAuthenticated && !needsKeySetup && location.pathname === '/login') {
+    // Don't redirect away from /login during post-passkey PIN setup (needsKeySetup) or when key is locked
+    if (
+      !isLoading &&
+      isAuthenticated &&
+      !needsKeySetup &&
+      isKeyUnlocked &&
+      location.pathname === '/login'
+    ) {
       navigate({ to: profileCompleted ? '/' : '/profile-setup' })
     }
-  }, [isLoading, isAuthenticated, needsKeySetup, location.pathname, navigate, profileCompleted])
+  }, [
+    isLoading,
+    isAuthenticated,
+    needsKeySetup,
+    isKeyUnlocked,
+    location.pathname,
+    navigate,
+    profileCompleted,
+  ])
 
-  // Redirect to profile setup if not completed (skip during setup wizard)
+  // Redirect to /login when authenticated but key is locked (after reload or auto-lock).
+  // The user needs to enter their PIN to decrypt data. Without this, the app renders
+  // with [encrypted] placeholders silently.
+  useEffect(() => {
+    if (
+      !isLoading &&
+      !configLoading &&
+      isAuthenticated &&
+      !isKeyUnlocked &&
+      keyManager.hasStoredKey() &&
+      location.pathname !== '/login' &&
+      location.pathname !== '/onboarding' &&
+      location.pathname !== '/link-device' &&
+      location.pathname !== '/setup' &&
+      // Exclude /profile-setup — it has its own redirect that guards on isKeyUnlocked,
+      // and bouncing between /profile-setup and /login would create a redirect loop
+      location.pathname !== '/profile-setup'
+    ) {
+      // Save current path so login page can redirect back after PIN entry
+      if (location.pathname !== '/') {
+        sessionStorage.setItem('returnTo', location.pathname)
+      }
+      navigate({ to: '/login' })
+    }
+  }, [isLoading, configLoading, isAuthenticated, isKeyUnlocked, location.pathname, navigate])
+
+  // Redirect to profile setup if not completed (skip during setup wizard).
+  // Only redirect when key is unlocked — profile setup needs decryption,
+  // and the locked-key redirect above takes priority.
   useEffect(() => {
     if (
       !isLoading &&
       isAuthenticated &&
+      isKeyUnlocked &&
       !profileCompleted &&
       location.pathname !== '/profile-setup' &&
       location.pathname !== '/login' &&
@@ -120,7 +165,7 @@ function RootLayout() {
     ) {
       navigate({ to: '/profile-setup' })
     }
-  }, [isLoading, isAuthenticated, profileCompleted, location.pathname, navigate])
+  }, [isLoading, isAuthenticated, isKeyUnlocked, profileCompleted, location.pathname, navigate])
 
   // Redirect away from profile setup once completed
   useEffect(() => {
@@ -512,6 +557,7 @@ function AuthenticatedLayout() {
         {demoMode && <DemoBanner />}
         <NotificationPromptBanner />
         <PwaInstallBanner />
+        <KeyMismatchBanner />
 
         {/* Mobile top bar */}
         <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-background px-4 py-3 md:hidden">

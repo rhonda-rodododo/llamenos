@@ -1,5 +1,5 @@
 import { ConsentGate } from '@/components/consent-gate'
-import { decryptObjectFields } from '@/lib/decrypt-fields'
+import { decryptObjectFields, resetMismatchFired, setOnDecryptMismatch } from '@/lib/decrypt-fields'
 import { permissionGranted } from '@shared/permissions'
 import {
   type ReactNode,
@@ -45,6 +45,8 @@ interface AuthState {
   adminDecryptionPubkey: string
   /** True when passkey login succeeded but no local key exists — needs PIN setup */
   needsKeySetup: boolean
+  /** True when decrypt-fields detects no envelope matches the reader's pubkey. Cleared on sign-out and unlock. */
+  keyMismatchDetected: boolean
 }
 
 interface AuthContextValue extends AuthState {
@@ -63,8 +65,10 @@ interface AuthContextValue extends AuthState {
   isAdmin: boolean
   isAuthenticated: boolean
   hasNsec: boolean
+  isKeyUnlocked: boolean
   adminPubkey: string
   adminDecryptionPubkey: string
+  keyMismatchDetected: boolean
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -95,6 +99,7 @@ function stateFromMe(
     sessionExpiring: false,
     sessionExpired: false,
     needsKeySetup: false,
+    keyMismatchDetected: false,
     ...overrides,
   }
 }
@@ -124,6 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     adminPubkey: '',
     adminDecryptionPubkey: '',
     needsKeySetup: false,
+    keyMismatchDetected: false,
   })
 
   const lastApiActivity = useRef(Date.now())
@@ -147,9 +153,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubUnlock = keyManager.onUnlock(() => {
       // getPublicKeyHex is async now — update state when it resolves
       void keyManager.getPublicKeyHex().then((pubkey) => {
+        // Clear keyMismatchDetected on unlock — fresh decryption will re-detect
+        // if the mismatch persists. Re-arm the fire-once guard so the handler
+        // can fire again with the new key state.
+        resetMismatchFired()
         setState((s) => ({
           ...s,
           isKeyUnlocked: true,
+          keyMismatchDetected: false,
           publicKey: pubkey ?? s.publicKey,
         }))
       })
@@ -158,6 +169,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       unsubLock()
       unsubUnlock()
     }
+  }, [])
+
+  // Listen for decrypt envelope mismatches (no envelope for our pubkey).
+  // We only need the boolean signal for the banner — field-level details
+  // are logged in dev mode by decrypt-fields.ts.
+  useEffect(() => {
+    setOnDecryptMismatch((_info) => {
+      setState((s) => {
+        if (s.keyMismatchDetected) return s // already flagged
+        return { ...s, keyMismatchDetected: true }
+      })
+    })
+    return () => setOnDecryptMismatch(null)
   }, [])
 
   // Register auth expiry callback — called by api.ts when a 401 is received
@@ -514,6 +538,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void apiLogout()
     void keyManager.lock()
     clearHubKeyCache()
+    resetMismatchFired()
     // Clean up encrypted drafts from localStorage
     const draftKeys = Object.keys(localStorage).filter((k) => k.startsWith('llamenos-draft:'))
     for (const k of draftKeys) localStorage.removeItem(k)
@@ -539,6 +564,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sessionExpiring: false,
       sessionExpired: false,
       needsKeySetup: false,
+      keyMismatchDetected: false,
     })
   }, [])
 
@@ -559,6 +585,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAdmin: permissionGranted(state.permissions, 'settings:manage'),
     isAuthenticated: (state.isKeyUnlocked || hasAccessToken) && state.roles.length > 0,
     hasNsec: state.isKeyUnlocked,
+    isKeyUnlocked: state.isKeyUnlocked,
+    keyMismatchDetected: state.keyMismatchDetected,
   }
 
   return (
