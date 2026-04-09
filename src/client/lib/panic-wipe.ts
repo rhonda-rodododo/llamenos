@@ -7,6 +7,7 @@
  */
 
 import * as keyManager from './key-manager'
+import { SESSION_TOKEN_KEY, clearCapsule } from './session-capsule'
 
 const REQUIRED_TAPS = 3
 const WINDOW_MS = 1000
@@ -23,14 +24,28 @@ export function performPanicWipe(): void {
   //    before storage clearing triggers React auth redirect
   panicWipeCallback?.()
 
-  // 2. Zero out the cryptographic key in memory immediately
+  // 2. Clear the session capsule synchronously-ish — fire-and-forget the
+  //    IDB delete but remove the sessionStorage token immediately so any
+  //    subsequent read can't race a partial state.
+  try {
+    sessionStorage.removeItem(SESSION_TOKEN_KEY)
+  } catch {
+    // Storage may be unavailable
+  }
+  void clearCapsule().catch(() => {
+    // IDB may be unavailable — the indexedDB.databases() sweep below will
+    // catch it as part of the scorched-earth cleanup.
+  })
+
+  // 3. Zero out the cryptographic key in memory immediately
+  //    (this also broadcasts a lock message to sibling tabs)
   try {
     keyManager.wipeKey()
   } catch {
     // Key may already be wiped or locked — continue
   }
 
-  // 3. Defer storage clearing and redirect — gives React one frame
+  // 4. Defer storage clearing and redirect — gives React one frame
   //    to paint the overlay before localStorage.clear() triggers auth changes
   setTimeout(() => {
     try {
