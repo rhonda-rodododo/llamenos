@@ -75,7 +75,7 @@ facts:
 # Install galaxy roles + collections from requirements.yml
 # Run once after a fresh checkout, then re-run when requirements.yml changes
 bootstrap:
-    ansible-galaxy install -r requirements.yml -p roles/galaxy/ --force
+    ansible-galaxy install -r requirements.yml -p roles/galaxy/ --upgrade
     ansible-galaxy collection install -r requirements.yml --upgrade
 
 # Deploy or update the demo instance
