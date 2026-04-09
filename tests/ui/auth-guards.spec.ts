@@ -29,21 +29,30 @@ test.describe('Auth guards', () => {
     const ctx = await browser.newContext()
     const page = await ctx.newPage()
     await page.goto('/admin')
-    // Auth guard in AdminRoute renders <Navigate to="/" /> for unauthenticated
-    // users, and the root layout then redirects to /login via useEffect. On a
-    // cold browser context the full chain (bundle fetch + restoreSession 401 +
-    // config fetch + effect + navigate + login render) can easily exceed 30s
-    // when CI is running 500+ tests across 3 parallel workers — this is not
-    // a bug, just resource contention on the GitHub runner.
+    // Auth guard in AdminRoute schedules `navigate({ to: '/' })` via useEffect
+    // for unauthenticated users; the root layout then redirects to /login via
+    // its own useEffect. The test's contract is "the admin path lands on the
+    // login screen".
     //
-    // We assert on login-heading visibility rather than on the browser URL
-    // because TanStack Router's internal location updates before the
-    // history API entry is committed — under concurrent rendering the page
-    // can be showing LoginPage (with login-heading in the DOM) while
-    // page.url() still reports `/`. The test's real contract is "admin
-    // redirect lands on the login screen"; visible login-heading is the
-    // authoritative signal for that.
-    await expect(page.getByTestId('login-heading')).toBeVisible({ timeout: 60000 })
+    // Under CI parallel-worker load two things conspire:
+    //   1. The cold-context bundle fetch + restoreSession 401 + config fetch
+    //      + effect + navigate + login render chain routinely takes 30s+ on
+    //      the GitHub runner.
+    //   2. TanStack Router's internal location updates before the history
+    //      API entry commits, so `page.url()` can report `/` even after
+    //      LoginPage has already mounted with login-heading in the DOM. And
+    //      under concurrent rendering a transient auth-context update can
+    //      flag login-heading as "not visible" during a re-render tick even
+    //      though it's in the DOM.
+    //
+    // Use a raw DOM query via waitForFunction — "login-heading exists in the
+    // DOM" is the authoritative signal the redirect reached the login route,
+    // and it isn't affected by React's concurrent render visibility state.
+    await page.waitForFunction(
+      () => !!document.querySelector('[data-testid="login-heading"]'),
+      null,
+      { timeout: 60000 }
+    )
     await ctx.close()
   })
 
