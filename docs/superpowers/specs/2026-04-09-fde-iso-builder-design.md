@@ -111,6 +111,8 @@ Optional:
   --locale LOCALE               Locale (default: en_US.UTF-8)
   --timezone TZ                 Timezone (default: UTC)
   --user USERNAME               Initial sudo user (default: deploy)
+  --disk DEVICE                 Target disk device (default: /dev/sda)
+                                  Use /dev/vda for paravirt VPS providers
   --debian-version VERSION      Debian point release to fetch (default: 13.4.0)
   --out PATH                    Output directory (default: ./dist/iso/)
   --no-cache                    Re-download upstream ISO even if cached
@@ -136,6 +138,7 @@ Before invoking Docker, the entrypoint script validates:
 - The key type is in an allowlist: `ssh-ed25519`, `ecdsa-sha2-nistp256`, `ecdsa-sha2-nistp384`, `ecdsa-sha2-nistp521`. RSA is **rejected** because dropbear-initramfs in trixie supports ed25519 cleanly and RSA is structurally weaker for this use.
 - `--unlock` is one of the two values
 - If `--static-ip` is set, `--gateway` must also be set
+- `--disk` matches the form `/dev/[a-z]+` (sda, vda, nvme0n1 are all valid; arbitrary paths are rejected)
 - `--debian-version` matches the form `13.X.Y` (regex)
 - The output directory is writable
 
@@ -274,6 +277,7 @@ d-i clock-setup/ntp boolean true
 
 #--- Partitioning: LUKS2 + LVM full disk encryption ---
 d-i partman-auto/method string crypto
+d-i partman-auto/disk string ${DISK}
 d-i partman-auto-lvm/new_vg_name string vg0
 d-i partman-auto-lvm/guided_size string max
 d-i partman-lvm/device_remove_lvm boolean true
@@ -328,7 +332,7 @@ d-i pkgsel/update-policy select unattended-upgrades
 #--- GRUB ---
 d-i grub-installer/only_debian boolean true
 d-i grub-installer/with_other_os boolean false
-d-i grub-installer/bootdev string /dev/sda
+d-i grub-installer/bootdev string ${DISK}
 
 #--- Late command (see §6) ---
 # Both helper scripts live on the ISO root (under /llamenos/) and are copied
@@ -351,7 +355,7 @@ d-i finish-install/reboot_in_progress note
 3. **Root login disabled.** No `passwd/root-login`, no root password. `sudo` is the only privilege escalation path.
 4. **`unattended-upgrades` enabled at install time.** First boot already has security updates configured.
 5. **Mirror is HTTPS-only and pinned to `deb.debian.org`.** Slightly slower than the geo-mirror but provides TLS to the trust path.
-6. **Single disk assumption (`/dev/sda`).** Common for VPSes; documented as the assumption. A future flag could parameterize.
+6. **Target disk is configurable via `--disk` (default `/dev/sda`).** Most VPS providers including 1984 Hosting use `/dev/sda` (SCSI emulation), but paravirtualized providers expose `/dev/vda`. The flag accepts any `/dev/...` path that matches the validation regex; the value is substituted into both the partman recipe (via the recipe's implicit "first detected disk" behavior — partman-auto picks `/dev/sda` if only one disk is present, so we also pin `partman-auto/disk` explicitly to `${DISK}`) and the GRUB bootdev preseed answer.
 
 ---
 
@@ -711,12 +715,22 @@ A documented test against 1984 Hosting (or any provider) before the PR is merged
 - **Reproducible builds are fragile.** xorriso, cpio, gzip, and the upstream Debian initrd are all sources of non-determinism if we touch them wrong. Mitigated by: a CI job that builds the ISO twice in clean containers and asserts byte-equality on every PR touching the builder.
 - **Custom ISO surface area is novel for the project.** Nobody on the team has built one before. Mitigated by: research already done (see spec), conservative design (vendoring the upstream installer rather than rolling our own), and the manual test against a real VPS as part of merge.
 
-### Open questions for review
+### Resolved decisions
 
-- **Should we pre-generate the LUKS passphrase and display it once after install rather than prompting interactively?** Pro: fully automated install, no console interaction needed at all (useful for providers that have flaky web consoles). Con: passphrase has to be embedded in the ISO somewhere or the late-command output, which is a security tradeoff. **Recommendation: keep interactive.** A 30-second console session once per server is a reasonable price for keeping the passphrase out of any artifact.
-- **Should the ISO bundle the Ansible playbook itself for offline first-run?** Useful for air-gapped scenarios, but adds a lot of repo content into the ISO and gets stale fast. **Recommendation: no.** The operator's laptop runs Ansible against the new VPS over the network; this is the simplest model.
-- **Should we offer a `--unlock=tang` mode for network-bound key release?** Tang/Clevis is the standard for "unlock when on a trusted network." Powerful but requires running a Tang server, which is a deployment of its own. **Recommendation: no for this PR.** Possible follow-up if operators ask.
-- **Disk device parametrization (`/dev/sda` vs `/dev/vda` etc.)?** Most VPSes use `/dev/sda` (SCSI emulation) but some use `/dev/vda` (paravirt). **Recommendation: hardcode `/dev/sda` in this PR, add `--disk` as P2 follow-up if a tested provider uses anything else.** 1984 Hosting uses `/dev/sda` (verified at research time).
+- **LUKS passphrase: interactive prompt at install time, NOT preseeded.** Operator types it once at the provider's web console during the one-time install. After install, dropbear handles every subsequent boot. Avoids the security tradeoff of embedding the passphrase in any build artifact. The 30-second console interaction is the only manual step in the install.
+- **ISO does NOT bundle the Ansible playbook.** The operator's laptop runs Ansible against the new VPS over the network. Avoids ISO bloat and the staleness problem of bundled deployment code. Documented in `iso-install.md` as the assumed model.
+- **`--disk` flag is in scope** (default `/dev/sda`) so paravirt VPS providers can target `/dev/vda` without rebuilding the ISO image generator. See §2 and §5.
+- **No `--unlock=tang` in this PR.** See follow-up note below.
+
+### Follow-up: `--unlock=tang` (Tang/Clevis network-bound disk encryption)
+
+Tang/Clevis is the standard for "unlock the disk automatically when the host is on a trusted network." Compared to dropbear it eliminates the manual passphrase step on every boot, but requires:
+
+- A separately deployed and maintained Tang server (its own VPS, its own hardening, its own backup story) — Tang servers are stateful and their compromise is equivalent to disclosing all bound LUKS keys
+- Network-path trust assumptions (the operator must define what "trusted network" means in their threat model)
+- Coordination with our existing `key-store-v2` multi-factor KEK story so two parallel "what unlocks what" mental models don't confuse operators
+
+This is worth doing eventually for operators running multiple Llamenos hotlines who don't want to type a passphrase per server per boot, but it's a deployment of its own and needs its own design spec. **Tracked as a follow-up in `docs/NEXT_BACKLOG.md` (item to be added when this spec is approved):** *"FDE ISO: add `--unlock=tang` mode with bundled Tang server deployment role."*
 
 ---
 
@@ -724,7 +738,7 @@ A documented test against 1984 Hosting (or any provider) before the PR is merged
 
 This PR is done when:
 
-- [ ] `scripts/build-iso.sh` exists, validates all flags per §2, and produces a Debian 13 ISO via the container builder
+- [ ] `scripts/build-iso.sh` exists, validates all flags per §2 (including `--disk` allowlist), and produces a Debian 13 ISO via the container builder
 - [ ] `scripts/iso-builder/Dockerfile` is pinned to a specific Debian 13 image SHA + tool versions
 - [ ] Upstream Debian netinst ISO is GPG-verified against `debian-keyring` inside the build container; build fails loudly on verification failure
 - [ ] Preseed produces an unattended install with LUKS2+LVM, unencrypted /boot, encrypted swap inside LVM
@@ -740,5 +754,6 @@ This PR is done when:
 - [ ] CI runs the full ISO build on PRs labelled `iso-build` and on push to `main`
 - [ ] `docs/deployment/iso-install.md` is written per §11 and reviewed
 - [ ] PR description includes a screenshot or text log proving end-to-end install + dropbear unlock + Ansible takeover on a real 1984 Hosting VPS (or equivalent)
+- [ ] `docs/NEXT_BACKLOG.md` has a follow-up entry for the Tang/Clevis `--unlock=tang` mode
 - [ ] `package.json` `scripts` section gains `"build:iso": "scripts/build-iso.sh"` so the command appears in `bun run` autocompletion
 - [ ] `CLAUDE.md` "Development Commands" section lists `bun run build:iso` with a one-line description and link to `docs/deployment/iso-install.md`

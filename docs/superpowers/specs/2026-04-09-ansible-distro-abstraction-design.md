@@ -423,11 +423,11 @@ No data migration. No env var changes. No version bump (it's a deploy-only chang
 - **Tart matrix increases CI cost.** Two P0 images double the Mac runner time for ansible changes. Mitigated by the existing `changes.yml` filter — non-Ansible PRs don't trigger the matrix.
 - **Vars-file lookup ordering bugs.** `first_found` is well-tested but easy to misconfigure (wrong path, wrong filename). Mitigated by a small test case in `tests/ansible-vars-lookup.test.yml` that asserts the loaded values match expectations on each tested distro.
 
-### Open questions
+### Resolved decisions
 
-- **Should `kamailio` get the dispatcher in this PR or a follow-up?** Kamailio is the most distro-divergent role (different repo, different package set). Including it doubles the surface area of this PR. **Recommendation: defer to a follow-up PR specifically for SIP-related distro support.** This PR's preflight allowlist already includes Debian; if the kamailio role breaks on Debian, the role gets a `when: ansible_distribution == 'Ubuntu'` guard and a clear error. Better to ship the core hardening on Debian and chase Kamailio separately.
-- **`geerlingguy.docker` vs vendoring inline?** Vendoring (copying the role into our repo as-is, removing the galaxy dependency) is an option that trades supply-chain control for maintenance burden. **Recommendation: galaxy dependency for now.** Revisit if Geerling ever stops maintaining or makes a breaking change.
-- **Ubuntu 20.04 (focal)?** Out of LTS standard support April 2025; ESM only. **Recommendation: do not add to allowlist.** Operators on focal should upgrade to jammy.
+- **`kamailio` role is deferred to a follow-up PR.** Kamailio is the most distro-divergent role (different upstream repo, different package set, RHEL repo isn't valid at all). Including it would double the surface area of this PR. The follow-up PR is specifically for SIP-related distro support. Until then, hosts that include the Kamailio role get a `when: ansible_distribution == 'Ubuntu'` guard with a clear error message pointing operators at the follow-up PR.
+- **`geerlingguy.docker` from Galaxy, pinned by version + SHA.** Vendoring (copying the role into our repo) was considered and rejected — the maintenance burden outweighs the supply-chain marginal gain when we can pin a specific git SHA in `requirements.yml` and review monthly. Revisit if Geerling stops maintaining or ships a breaking change.
+- **Ubuntu 20.04 (focal) is not in the allowlist.** Out of LTS standard support April 2025, ESM only. Operators on focal should upgrade to jammy. The preflight assert (§2) rejects focal with a friendly upgrade message.
 
 ---
 
