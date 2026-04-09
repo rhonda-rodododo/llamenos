@@ -1,0 +1,52 @@
+---
+# Variables for the geerlingguy.docker galaxy role.
+#
+# This file replaces the former custom roles/docker/ and preserves parity with
+# its daemon hardening configuration (see git history for
+# deploy/ansible/roles/docker/tasks/main.yml removed in the same commit).
+#
+# Note on /etc/subuid and /etc/subgid: the previous custom role manually
+# populated these with a `dockremap` entry plus a `{{ deploy_user }}` entry.
+# With `userns-remap: default` below, Docker automatically creates the
+# `dockremap` user on first start and writes its own subuid/subgid mapping,
+# so we no longer manage these files from Ansible. The deploy_user subuid
+# entry from the old role was never used by any container and is dropped.
+
+# Edition + package state
+docker_edition: ce
+docker_packages_state: present
+
+# Compose plugin (v2) — installed alongside docker-ce
+docker_install_compose_plugin: true
+docker_compose_package: docker-compose-plugin
+
+# Service management
+docker_service_state: started
+docker_service_enabled: true
+
+# deploy_user must be in the docker group because playbooks/restore.yml
+# runs `docker compose exec` as deploy_user via become_user. Removing
+# deploy_user from the docker group is a security improvement but requires
+# refactoring restore.yml to use root + sudo docker — track as follow-up.
+docker_users:
+  - "{{ deploy_user }}"
+
+# Daemon hardening — parity with the former custom roles/docker/ config.
+# The geerlingguy.docker role writes this dict to /etc/docker/daemon.json
+# and notifies its internal `restart docker` handler on change.
+docker_daemon_options:
+  log-driver: json-file
+  log-opts:
+    max-size: "10m"
+    max-file: "3"
+  default-ulimits:
+    nofile:
+      Name: nofile
+      Hard: 65536
+      Soft: 32768
+  no-new-privileges: true
+  live-restore: true
+  userland-proxy: false
+  iptables: true
+  ip6tables: true
+  userns-remap: default
