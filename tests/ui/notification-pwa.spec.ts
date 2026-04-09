@@ -1,5 +1,5 @@
 import { expect, test } from '../fixtures/auth'
-import { reenterPinAfterReload } from '../helpers'
+import { clearSessionCapsule, reenterPinAfterReload } from '../helpers'
 
 test.describe('Notification prompt banner', () => {
   test('shows notification banner when permission is default', async ({ adminPage }) => {
@@ -72,7 +72,9 @@ test.describe('Settings notification permission status', () => {
       })
     })
 
-    // Reload so the addInitScript takes effect
+    // Reload so the addInitScript takes effect; clear capsule first so the
+    // locked-key redirect fires and PIN re-entry is required.
+    await clearSessionCapsule(adminPage)
     await adminPage.reload()
     await reenterPinAfterReload(adminPage)
 

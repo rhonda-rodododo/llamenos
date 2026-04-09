@@ -162,78 +162,28 @@ export async function clearSessionCapsule(page: Page): Promise<void> {
 }
 
 /**
- * Re-enter PIN after a page.reload() when user is already authenticated.
- * The reload clears keyManager, so the encrypted key in localStorage triggers
- * the PIN screen. After entering PIN the app redirects to /.
- * If currentPath is provided, the helper then navigates back to that path
- * via the sidebar or page.goto as appropriate.
+ * Re-enter PIN after a clearSessionCapsule() + page.reload() sequence.
+ *
+ * Prerequisite: the caller cleared the session capsule first. Otherwise
+ * the capsule auto-restores on reload and this helper's wait for /login
+ * will time out.
+ *
+ * After PR #48 the app redirects to /login automatically when the key is
+ * locked, so this helper just waits for that redirect, enters the PIN,
+ * and waits for the authenticated layout to re-render.
  */
 export async function reenterPinAfterReload(page: Page): Promise<void> {
-  // After reload, wait for the page to settle — Session Expired modal may flash
-  await page.waitForLoadState('domcontentloaded')
-
-  // Dismiss Session Expired modal if it appears before PIN input
-  const sessionExpired = page.getByText('Session Expired')
-  if (await sessionExpired.isVisible({ timeout: 1000 }).catch(() => false)) {
-    const reconnectBtn = page.getByRole('button', { name: /reconnect/i })
-    if (await reconnectBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
-      await reconnectBtn.click({ timeout: 3000 }).catch(() => {})
-    }
-  }
+  // Wait for the locked-key redirect to fire
+  await page.waitForURL(/\/login/, { timeout: 15000 })
 
   const pinInput = page.locator('input[aria-label="PIN digit 1"]')
-
-  // After reload, the refresh cookie may restore the API session without
-  // showing a PIN prompt (user stays on dashboard with locked keys).
-  // Use waitFor (NOT isVisible) — isVisible resolves immediately for absent elements.
-  let pinVisible = await pinInput
-    .waitFor({ state: 'visible', timeout: 10000 })
-    .then(() => true)
-    .catch(() => false)
-
-  if (!pinVisible) {
-    // Block refresh endpoint and reload to force the login/PIN screen
-    await page.route('**/api/auth/token/refresh', async (route) => {
-      await route.fulfill({
-        status: 401,
-        contentType: 'application/json',
-        body: '{"error":"blocked"}',
-      })
-    })
-    await page.reload({ waitUntil: 'domcontentloaded' })
-    // Wait for the login/PIN screen to appear (the blocked refresh triggers redirect)
-    pinVisible = await pinInput
-      .waitFor({ state: 'visible', timeout: 15000 })
-      .then(() => true)
-      .catch(() => false)
-    // Unblock refresh so the PIN unlock flow can complete
-    await page.unroute('**/api/auth/token/refresh')
-  }
-
-  if (!pinVisible) {
-    // Last resort: navigate directly to /login to force PIN screen
-    await page.goto('/login', { waitUntil: 'domcontentloaded' })
-    pinVisible = await pinInput
-      .waitFor({ state: 'visible', timeout: 10000 })
-      .then(() => true)
-      .catch(() => false)
-  }
-
-  if (!pinVisible) {
-    throw new Error(
-      'reenterPinAfterReload: PIN screen never appeared after reload + blocked refresh + goto /login'
-    )
-  }
+  await pinInput.waitFor({ state: 'visible', timeout: 10000 })
 
   await enterPin(page, TEST_PIN)
-  // PBKDF2 600K + unlockWithPin + loadHubKeys + invalidateQueries can take 60s+
-  // under parallel worker load (3 workers each doing PBKDF2 simultaneously)
+
+  // PBKDF2 600K + unlockWithPin + loadHubKeys + invalidateQueries can take
+  // 60s+ under parallel worker load.
   await page.waitForURL((u) => !u.toString().includes('/login'), { timeout: 90000 })
-  // Wait for the authenticated layout to render (sidebar, dashboard heading)
-  const dashHeading = page.getByRole('heading', { name: 'Dashboard', exact: true })
-  await dashHeading.waitFor({ state: 'visible', timeout: 30000 }).catch(() => {
-    // May have gone to profile-setup instead — that's OK
-  })
 }
 
 export async function logout(page: Page) {
