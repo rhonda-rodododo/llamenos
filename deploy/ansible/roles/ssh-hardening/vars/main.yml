@@ -1,0 +1,4 @@
+---
+# Cross-distro defaults for the ssh-hardening role.
+# Per-family overrides live in vars/{OsFamily}.yml and are loaded via
+# first_found in tasks/main.yml.

@@ -7,9 +7,20 @@
 # - Restricts allowed users
 # - Hardens SSH crypto settings
 
+- name: Load OS-specific vars
+  ansible.builtin.include_vars: "{{ lookup('ansible.builtin.first_found', params) }}"
+  vars:
+    params:
+      files:
+        - "{{ ansible_facts.distribution }}.yml"
+        - "{{ ansible_facts.os_family }}.yml"
+        - main.yml
+      paths:
+        - "{{ role_path }}/vars"
+
 - name: Configure SSH server
   ansible.builtin.copy:
-    dest: /etc/ssh/sshd_config.d/99-llamenos-hardening.conf
+    dest: "{{ ssh_hardening_config_d_path }}/99-llamenos-hardening.conf"
     owner: root
     group: root
     mode: "0600"
