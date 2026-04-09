@@ -228,11 +228,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await authFacadeClient.refreshToken()
         if (cancelled) return
 
+        // Fast path: restore Worker from a session capsule if one is present.
+        // This skips PBKDF2 and keeps the user on their current page.
+        const restored = await keyManager.trySessionRestore()
+        if (cancelled) return
+        if (restored) {
+          resetMismatchFired()
+        }
+
         const me = await getMe()
         if (cancelled) return
 
         lastApiActivity.current = Date.now()
-        const isUnlocked = await keyManager.isUnlocked()
+        const isUnlocked = restored || (await keyManager.isUnlocked())
         const pubkey = isUnlocked ? await keyManager.getPublicKeyHex() : null
         if (cancelled) return
 
