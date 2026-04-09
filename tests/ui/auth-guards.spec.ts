@@ -28,18 +28,12 @@ test.describe('Auth guards', () => {
   test('unauthenticated user is redirected from /admin', async ({ browser }) => {
     const ctx = await browser.newContext()
     const page = await ctx.newPage()
-    // Clear service workers to prevent stale cached responses in fresh context
-    await page.goto('/')
-    await page.evaluate(async () => {
-      const regs = await navigator.serviceWorker?.getRegistrations?.()
-      if (regs) await Promise.all(regs.map((r) => r.unregister()))
-    })
     await page.goto('/admin')
-    // Auth guard in AdminRoute redirects unauthenticated users to /.
-    // The root layout then redirects to /login.
-    await page.waitForURL(/\/login/, { timeout: 30000 })
-    // Verify the login page actually rendered (not just the URL change)
-    await expect(page.getByTestId('login-heading')).toBeVisible({ timeout: 15000 })
+    // AdminRoute renders <Navigate to="/" /> for unauthenticated users.
+    // The root layout then redirects to /login via useEffect. Wait for the
+    // login heading — the only reliable signal that the redirect chain
+    // completed AND the login page rendered.
+    await expect(page.getByTestId('login-heading')).toBeVisible({ timeout: 30000 })
     await ctx.close()
   })
 

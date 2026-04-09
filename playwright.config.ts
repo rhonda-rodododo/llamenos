@@ -38,13 +38,13 @@ export default defineConfig({
     },
     {
       // API setup — seeds admin from ADMIN_PUBKEY via test-reset (no browser needed).
-      // Runs AFTER UI setup completes to avoid test-reset re-creating the admin
-      // that test-reset-no-admin just deleted.
+      // Depends on "setup" to enforce serial execution — test-reset sets
+      // setupCompleted=true which would break the UI bootstrap flow if it ran first.
       name: "api-setup",
       testMatch: /api-global-setup\.ts/,
       timeout: 60_000,
       use: { trace: "off" },
-      // Independent of UI setup — API tests create their own test users via helpers.
+      dependencies: ["setup"],
     },
     {
       // API integration tests — no browser, request fixture only.

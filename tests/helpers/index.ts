@@ -40,13 +40,22 @@ export async function enterPin(page: Page, pin: string) {
   for (let i = 0; i < pin.length; i++) {
     const input = page.locator(`input[aria-label="PIN digit ${i + 1}"]`)
     await input.fill(pin[i])
-    // Verify the digit was accepted before moving on
-    await expect(input).toHaveValue(pin[i], { timeout: 1000 })
+    // Verify the digit was accepted before moving on — but skip the last digit.
+    // Some PinInputs (e.g. pin-challenge-dialog, length={6}) auto-submit on the
+    // final digit, which immediately clears state via setPin(''). The toHaveValue
+    // check then races with the clear and fails under CI load.
+    if (i < pin.length - 1) {
+      await expect(input).toHaveValue(pin[i], { timeout: 1000 })
+    }
   }
-  // Focus the last filled digit and press Enter to submit
+  // Focus the last filled digit and press Enter to submit (no-op if already auto-submitted)
   const lastFilledDigit = page.locator(`input[aria-label="PIN digit ${pin.length}"]`)
-  await lastFilledDigit.focus()
-  await page.keyboard.press('Enter')
+  await lastFilledDigit.focus().catch(() => {
+    // Input may be disabled (auto-submit in progress) — that's fine
+  })
+  await page.keyboard.press('Enter').catch(() => {
+    // Enter may fail if dialog is transitioning — that's fine
+  })
 }
 
 /**

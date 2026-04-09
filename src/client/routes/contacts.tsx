@@ -449,6 +449,7 @@ function ContactDirectoryPage() {
         onOpenChange={setCreateOpen}
         onCreated={() => {
           setCreateOpen(false)
+          // useCreateContact mutation invalidates contacts.all in onSuccess
         }}
       />
     </div>
