@@ -9,10 +9,19 @@
 # to avoid iptables corruption issues observed on Tart VMs and some
 # cloud instances where the module's disable/enable cycle breaks TCP.
 
-- name: Install UFW
-  ansible.builtin.apt:
-    name: ufw
-    state: present
+- name: Load OS-specific vars
+  ansible.builtin.include_vars: "{{ lookup('ansible.builtin.first_found', params) }}"
+  vars:
+    params:
+      files:
+        - "{{ ansible_facts.distribution }}.yml"
+        - "{{ ansible_facts.os_family }}.yml"
+        - main.yml
+      paths:
+        - "{{ role_path }}/vars"
+
+- name: Install firewall package
+  ansible.builtin.include_tasks: install.yml
 
 - name: Set UFW default forward policy to ACCEPT for Docker
   ansible.builtin.lineinfile:
@@ -58,6 +67,5 @@
 
 - name: Enable UFW at boot
   ansible.builtin.systemd:
-    name: ufw
+    name: "{{ firewall_service }}"
     enabled: true
-
