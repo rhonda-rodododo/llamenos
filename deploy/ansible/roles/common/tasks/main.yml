@@ -1,37 +1,29 @@
 ---
-# Common role: base packages, NTP, locale, unattended-upgrades
+# Common role: base packages, NTP, locale, unattended-upgrades, deploy user.
 #
-# Establishes a consistent, secure baseline for the server.
+# Establishes a consistent, secure baseline across supported distros.
+# See vars/{Family}.yml for distro-specific package lists and service names.
 
-- name: Update apt cache
-  ansible.builtin.apt:
-    update_cache: true
-    cache_valid_time: 3600
+- name: Load OS-specific vars
+  ansible.builtin.include_vars: "{{ lookup('ansible.builtin.first_found', params) }}"
+  vars:
+    params:
+      files:
+        - "{{ ansible_facts.distribution }}.yml"
+        - "{{ ansible_facts.os_family }}.yml"
+        - main.yml
+      paths:
+        - "{{ role_path }}/vars"
 
 - name: Install base packages
-  ansible.builtin.apt:
-    name:
-      - curl
-      - gnupg
-      - apt-transport-https
-      - ca-certificates
-      - software-properties-common
-      - unattended-upgrades
-      - apt-listchanges
-      - chrony
-      - logrotate
-      - jq
-      - htop
-      - ncdu
-      - tmux
-    state: present
+  ansible.builtin.include_tasks: install.yml
 
-- name: Set timezone to {{ timezone }}
+- name: Set timezone
   community.general.timezone:
     name: "{{ timezone }}"
 
-- name: Set locale to {{ locale }}
-  ansible.builtin.locale_gen:
+- name: Set locale
+  community.general.locale_gen:
     name: "{{ locale }}"
     state: present
 
@@ -46,13 +38,13 @@
 
 - name: Enable and start Chrony
   ansible.builtin.systemd:
-    name: chrony
+    name: "{{ common_chrony_service }}"
     enabled: true
     state: started
 
 - name: Configure unattended-upgrades
   ansible.builtin.copy:
-    dest: /etc/apt/apt.conf.d/50unattended-upgrades
+    dest: "{{ common_unattended_upgrades_config_path }}"
     owner: root
     group: root
     mode: "0644"
@@ -76,10 +68,11 @@
       Unattended-Upgrade::Remove-New-Unused-Dependencies "true";
       Unattended-Upgrade::Remove-Unused-Dependencies "true";
       Unattended-Upgrade::Automatic-Reboot "false";
+  when: ansible_facts.os_family == 'Debian'
 
 - name: Enable automatic updates
   ansible.builtin.copy:
-    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    dest: "{{ common_apt_periodic_config_path }}"
     owner: root
     group: root
     mode: "0644"
@@ -88,6 +81,7 @@
       APT::Periodic::Unattended-Upgrade "1";
       APT::Periodic::Download-Upgradeable-Packages "1";
       APT::Periodic::AutocleanInterval "7";
+  when: ansible_facts.os_family == 'Debian'
 
 - name: Create deploy user
   ansible.builtin.user:
@@ -123,7 +117,7 @@
     mode: "0600"
     remote_src: true
 
-- name: Disable unused services
+- name: Disable snapd (Ubuntu only)
   ansible.builtin.systemd:
     name: "{{ item }}"
     enabled: false
@@ -132,4 +126,4 @@
     - snapd
     - snapd.socket
     - snapd.apparmor
-  ignore_errors: true
+  when: ansible_facts.distribution == 'Ubuntu'
