@@ -118,29 +118,20 @@ test.describe('GDPR Compliance', () => {
   })
 
   test.describe('Retention settings', () => {
-    test('admin can view and save retention settings', async ({ adminPage }) => {
-      await navigateAfterLogin(adminPage, '/admin/settings')
-      await adminPage.waitForTimeout(Timeouts.ASYNC_SETTLE)
-
-      // Find retention section
-      const retentionSection = adminPage.getByRole('button', { name: /data retention/i })
-      const sectionVisible = await retentionSection.isVisible({ timeout: 3000 }).catch(() => false)
-      if (sectionVisible) {
-        const expanded = await retentionSection.getAttribute('aria-expanded')
-        if (expanded === 'false') await retentionSection.click()
-      }
-
-      // Call records input should be visible
-      const callRecordsInput = adminPage.getByTestId('retention-callRecordsDays')
-      const inputVisible = await callRecordsInput.isVisible({ timeout: 3000 }).catch(() => false)
-      if (inputVisible) {
-        await callRecordsInput.fill('400')
-        await adminPage.getByTestId('retention-save-button').click()
-        // Should show success toast
-        await expect(adminPage.getByText(/retention settings saved/i)).toBeVisible({
-          timeout: 5000,
-        })
-      }
+    // Written against the pre-overhaul flat-collapsible settings page that
+    // exposed `retention-callRecordsDays` / `retention-save-button` testids.
+    // After the admin-settings UX overhaul (#44) the retention controls live
+    // under /admin/call-settings and the `voicemailRetentionDays` field is
+    // rendered disabled with a "retention not yet active" helper — the
+    // feature isn't actually wired up server-side yet. This test had
+    // guarded its interactions behind isVisible() probes, so it was a
+    // soft no-op that only ever exercised navigation. Navigation to the
+    // legacy /admin/settings route now goes through a client-side redirect
+    // to /admin/$section which `navigateAfterLogin`'s waitForURL doesn't
+    // match, so the test was just timing out. Skip until retention is
+    // actually implemented — see docs/NEXT_BACKLOG.md.
+    test.skip('admin can view and save retention settings', async ({ adminPage: _ }) => {
+      // Intentionally left blank — see block comment above.
     })
 
     test('GET /api/settings/retention returns retention config', async ({ adminPage, request }) => {

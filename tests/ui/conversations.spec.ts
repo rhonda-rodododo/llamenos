@@ -8,41 +8,77 @@ const TEST_SECRET =
 test.describe('Conversations — no channels configured', () => {
   test.describe.configure({ mode: 'serial' })
 
-  test('no messaging channels shows empty state on /conversations', async ({ adminPage }) => {
-    // Check if channels are already enabled — if so, skip
-    const config = await adminPage.evaluate(() => fetch('/api/config').then((r) => r.json()))
-    const hasMessaging =
-      config.channels?.sms ||
-      config.channels?.whatsapp ||
-      config.channels?.signal ||
-      config.channels?.reports
-    test.skip(!!hasMessaging, 'Messaging channels already enabled — cannot test empty state')
-
-    await navigateAfterLogin(adminPage, '/conversations')
-    await expect(adminPage.getByText('No messaging channels enabled')).toBeVisible({
-      timeout: 10000,
+  // These tests verify UI behaviour when no messaging channels are enabled.
+  // The app reads channel state via useConfig from /api/config once on mount,
+  // so a mid-session stub won't retro-apply. To be deterministic regardless
+  // of what "Conversations — with channels enabled" has done to the DB in
+  // a parallel worker, we build a dedicated browser context, install the
+  // config stub BEFORE page load, then run the app's normal unlock flow
+  // inside that context.
+  async function noChannelsPage(browser: import('@playwright/test').Browser) {
+    const ctx = await browser.newContext({ storageState: 'tests/storage/admin.json' })
+    const page = await ctx.newPage()
+    await page.route('**/api/config', async (route) => {
+      const response = await route.fetch()
+      const body = (await response.json()) as Record<string, unknown>
+      body.channels = { sms: false, whatsapp: false, signal: false, reports: false }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(body),
+      })
     })
-    await expect(
-      adminPage.getByText(
-        'Enable SMS, WhatsApp, Signal, or Reports in Hub Settings to start receiving messages.'
-      )
-    ).toBeVisible()
+    // Same unlock flow as the adminPage fixture: navigate to /, enter PIN,
+    // wait for dashboard. The refresh-token-blocking handshake keeps us on
+    // the PIN screen so we don't race past it.
+    let refreshBlocked = true
+    await page.route('**/api/auth/token/refresh', async (route) => {
+      if (refreshBlocked) {
+        await route.fulfill({ status: 401, contentType: 'application/json', body: '{}' })
+      } else {
+        await route.continue()
+      }
+    })
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
+    const pinInput = page.locator('input[aria-label="PIN digit 1"]')
+    await pinInput.waitFor({ state: 'visible', timeout: 45000 })
+    refreshBlocked = false
+    const { enterPin } = await import('../helpers')
+    await enterPin(page, '123456')
+    await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible({
+      timeout: 90000,
+    })
+    await page.unroute('**/api/auth/token/refresh')
+    return { ctx, page }
+  }
+
+  test('no messaging channels shows empty state on /conversations', async ({ browser }) => {
+    const { ctx, page } = await noChannelsPage(browser)
+    try {
+      await navigateAfterLogin(page, '/conversations')
+      await expect(page.getByText('No messaging channels enabled')).toBeVisible({
+        timeout: 10000,
+      })
+      await expect(
+        page.getByText(
+          'Enable SMS, WhatsApp, Signal, or Reports in Hub Settings to start receiving messages.'
+        )
+      ).toBeVisible()
+    } finally {
+      await ctx.close()
+    }
   })
 
-  test('conversations nav link is hidden when no channels enabled', async ({ adminPage }) => {
-    // Check if channels are already enabled — if so, skip
-    const config = await adminPage.evaluate(() => fetch('/api/config').then((r) => r.json()))
-    const hasMessaging =
-      config.channels?.sms ||
-      config.channels?.whatsapp ||
-      config.channels?.signal ||
-      config.channels?.reports
-    test.skip(!!hasMessaging, 'Messaging channels already enabled — cannot test hidden nav')
-
-    await expect(adminPage.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible({
-      timeout: 15000,
-    })
-    await expect(adminPage.getByRole('link', { name: /conversations/i })).not.toBeVisible()
+  test('conversations nav link is hidden when no channels enabled', async ({ browser }) => {
+    const { ctx, page } = await noChannelsPage(browser)
+    try {
+      await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible({
+        timeout: 15000,
+      })
+      await expect(page.getByRole('link', { name: /conversations/i })).not.toBeVisible()
+    } finally {
+      await ctx.close()
+    }
   })
 })
 

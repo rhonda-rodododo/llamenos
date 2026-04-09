@@ -17,6 +17,36 @@ test.describe('Voicemail UI', () => {
   }) => {
     const callSid = `CA_test_vm_ui_${Date.now()}`
 
+    // Force voicemailMode=always so the /telephony/language-selected handler
+    // takes the voicemail path (upsertCallRecord) regardless of whether
+    // parallel-worker tests have put users on shift. Without this, `auto`
+    // mode skips the voicemail path whenever `hasAvailableUsers` is true,
+    // and the call record is never created — leaving the history lookup
+    // unable to find this test's callSid.
+    const patchResult = await adminPage.evaluate(async () => {
+      type AuthFacade = { getAccessToken(): string | null }
+      const facade = (window as Record<string, unknown>).__TEST_AUTH_FACADE as
+        | AuthFacade
+        | undefined
+      const token = facade?.getAccessToken()
+      if (!token) return { ok: false, error: 'no token' }
+      const configRes = await fetch('/api/config')
+      if (!configRes.ok) return { ok: false, error: 'no config' }
+      const config = await configRes.json()
+      const hubId = config.defaultHubId || config.hubs?.[0]?.id
+      if (!hubId) return { ok: false, error: 'no hub' }
+      const res = await fetch(`/api/hubs/${hubId}/settings/call`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ voicemailMode: 'always' }),
+      })
+      return { ok: res.ok, status: res.status }
+    })
+    expect(patchResult.ok, `Failed to set voicemailMode: ${JSON.stringify(patchResult)}`).toBe(true)
+
     // Step 1: Simulate incoming call
     const incomingRes = await request.post('/telephony/incoming', {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
