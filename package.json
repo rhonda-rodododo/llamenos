@@ -117,5 +117,8 @@
     "workbox-precaching": "^7.4.0",
     "workbox-routing": "^7.4.0",
     "wrangler": "^4.79.0"
+  },
+  "overrides": {
+    "axios": "^1.15.0"
   }
 }
