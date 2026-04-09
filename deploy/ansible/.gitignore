@@ -1,0 +1,10 @@
+# Galaxy roles vendored at bootstrap time — see requirements.yml
+roles/galaxy/
+collections/
+
+# Local vault password file
+.vault-password
+
+# Local vars overrides
+vars.local.yml
+inventory.local.yml
