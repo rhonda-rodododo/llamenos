@@ -165,6 +165,90 @@ describe('DecryptCache', () => {
   })
 })
 
+describe('fieldNames filter', () => {
+  beforeEach(() => {
+    lockCallCount = 0
+    mockDecryptEnvelopeField.mockReset()
+    mockIsUnlocked.mockReset()
+    mockReinitialize.mockReset()
+    mockLock.mockResolvedValue(undefined)
+    resetDecryptRecoveryState()
+  })
+
+  test('only decrypts the listed fields, ignoring other encrypted fields', async () => {
+    mockDecryptEnvelopeField.mockResolvedValue('decrypted-value')
+
+    // Object carries fields encrypted under TWO different labels.
+    // Without a filter, decryptObjectFields would try to decrypt both.
+    const obj = {
+      encryptedDisplayName: 'ct-summary',
+      displayNameEnvelopes: [{ pubkey: 'aabb', ephemeralPubkey: 'ccdd', wrappedKey: 'eeff' }],
+      encryptedPhone: 'ct-pii',
+      phoneEnvelopes: [{ pubkey: 'aabb', ephemeralPubkey: '1122', wrappedKey: '3344' }],
+      displayName: '[encrypted]',
+      phone: '[encrypted]',
+    }
+
+    // Pass 1: only decrypt summary fields. Phone must NOT be touched.
+    await decryptObjectFields(obj, 'aabb', 'label:summary', ['encryptedDisplayName'])
+    expect(mockDecryptEnvelopeField).toHaveBeenCalledTimes(1)
+    expect(mockDecryptEnvelopeField).toHaveBeenCalledWith(
+      'ct-summary',
+      'ccdd',
+      'eeff',
+      'label:summary'
+    )
+    expect(obj.displayName).toBe('decrypted-value')
+    expect(obj.phone).toBe('[encrypted]') // untouched
+
+    mockDecryptEnvelopeField.mockClear()
+
+    // Pass 2: only decrypt PII fields. Display name must NOT be re-attempted
+    // with the wrong label (which was the root cause of the recovery-lock bug).
+    await decryptObjectFields(obj, 'aabb', 'label:pii', ['encryptedPhone'])
+    expect(mockDecryptEnvelopeField).toHaveBeenCalledTimes(1)
+    expect(mockDecryptEnvelopeField).toHaveBeenCalledWith('ct-pii', '1122', '3344', 'label:pii')
+    expect(obj.phone).toBe('decrypted-value')
+    // No lock was fired — proves we never hit the retry/recovery branch.
+    expect(lockCallCount).toBe(0)
+  })
+
+  test('resolveEncryptedFields skips unlisted fields even when they exist', () => {
+    const obj = {
+      encryptedName: 'ct-a',
+      nameEnvelopes: [{ pubkey: 'reader', ephemeralPubkey: 'ee', wrappedKey: 'ff' }],
+      encryptedPhone: 'ct-b',
+      phoneEnvelopes: [{ pubkey: 'reader', ephemeralPubkey: 'aa', wrappedKey: 'bb' }],
+    }
+
+    // Default (no filter): both fields returned
+    const all = resolveEncryptedFields(obj, 'reader')
+    expect(all.map((r) => r.plaintextKey).sort()).toEqual(['name', 'phone'])
+
+    // With filter: only listed field returned
+    const nameOnly = resolveEncryptedFields(obj, 'reader', ['encryptedName'])
+    expect(nameOnly.map((r) => r.plaintextKey)).toEqual(['name'])
+  })
+
+  test('mismatch handler not fired for fields excluded by the filter', () => {
+    const handler = mock(() => {})
+    setOnDecryptMismatch(handler)
+
+    // encryptedName has no envelope for 'reader', but it's filtered out.
+    // encryptedPhone has a matching envelope for 'reader' and is included.
+    const obj = {
+      encryptedName: 'ct-a',
+      nameEnvelopes: [{ pubkey: 'someone-else', ephemeralPubkey: 'ee', wrappedKey: 'ff' }],
+      encryptedPhone: 'ct-b',
+      phoneEnvelopes: [{ pubkey: 'reader', ephemeralPubkey: 'aa', wrappedKey: 'bb' }],
+    }
+
+    resolveEncryptedFields(obj, 'reader', ['encryptedPhone'])
+    expect(handler).not.toHaveBeenCalled()
+    setOnDecryptMismatch(null)
+  })
+})
+
 describe('decrypt mismatch callback', () => {
   afterEach(() => {
     setOnDecryptMismatch(null)

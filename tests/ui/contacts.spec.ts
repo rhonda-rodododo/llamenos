@@ -169,10 +169,9 @@ test.describe('Contact Directory', () => {
       await expect(row).toBeVisible({ timeout: Timeouts.API })
       await row.click()
       await adminPage.waitForURL(/\/contacts\/[^/]+$/, { timeout: Timeouts.NAVIGATION })
-      // Contact profile decrypts summary+PII tiers — under CI parallel load
-      // with PBKDF2, the React Query fetch + decrypt can take longer
+      await adminPage.waitForTimeout(Timeouts.ASYNC_SETTLE)
       await expect(adminPage.getByTestId('contact-summary-card')).toBeVisible({
-        timeout: Timeouts.API,
+        timeout: Timeouts.ELEMENT,
       })
     })
 

@@ -39,6 +39,14 @@ type ContactFilters = {
   riskLevel?: string
 }
 
+// Field name sets for decryptObjectFields / decryptArrayFields calls.
+// Contact rows carry fields encrypted under two different domain labels —
+// splitting them here prevents cross-label decrypt attempts, which would
+// fail AEAD authentication and trigger the decrypt-recovery lock flow.
+const CONTACT_SUMMARY_FIELDS = ['encryptedDisplayName', 'encryptedNotes'] as const
+const CONTACT_PII_FIELDS = ['encryptedFullName', 'encryptedPhone', 'encryptedPII'] as const
+const CONTACT_RELATIONSHIP_FIELDS = ['encryptedPayload'] as const
+
 // ---------------------------------------------------------------------------
 // contactsListOptions
 // ---------------------------------------------------------------------------
@@ -54,10 +62,13 @@ export const contactsListOptions = (filters?: ContactFilters) =>
       const { contacts } = await listContacts(filters)
       const pubkey = await keyManager.getPublicKeyHex()
       if (pubkey && (await keyManager.isUnlocked())) {
+        // List view only displays display name; don't attempt to decrypt
+        // PII fields here (different label, would fail AEAD).
         await decryptArrayFields(
           contacts as unknown as Record<string, unknown>[],
           pubkey,
-          LABEL_CONTACT_SUMMARY
+          LABEL_CONTACT_SUMMARY,
+          CONTACT_SUMMARY_FIELDS
         )
       }
       return contacts
@@ -117,10 +128,12 @@ export const contactDetailOptions = (id: string) =>
       const pubkey = await keyManager.getPublicKeyHex()
       if (pubkey && (await keyManager.isUnlocked())) {
         const obj = contact as unknown as Record<string, unknown>
-        // Decrypt summary-tier fields (displayName, notes)
-        await decryptObjectFields(obj, pubkey, LABEL_CONTACT_SUMMARY)
-        // Decrypt PII-tier fields (fullName, phone, email, address)
-        await decryptObjectFields(obj, pubkey, LABEL_CONTACT_PII)
+        // Decrypt summary-tier fields (displayName, notes) — label-scoped.
+        await decryptObjectFields(obj, pubkey, LABEL_CONTACT_SUMMARY, CONTACT_SUMMARY_FIELDS)
+        // Decrypt PII-tier fields (fullName, phone, PII blob) — label-scoped.
+        // Must use a distinct field set: passing the summary fields here
+        // would retry them with the wrong label and fail AEAD.
+        await decryptObjectFields(obj, pubkey, LABEL_CONTACT_PII, CONTACT_PII_FIELDS)
       }
       return contact
     },
@@ -172,7 +185,8 @@ export const contactRelationshipsOptions = () =>
         await decryptArrayFields(
           relationships as unknown as Record<string, unknown>[],
           pubkey,
-          LABEL_CONTACT_RELATIONSHIP
+          LABEL_CONTACT_RELATIONSHIP,
+          CONTACT_RELATIONSHIP_FIELDS
         )
       }
       return relationships

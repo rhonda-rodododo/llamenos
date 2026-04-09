@@ -40,10 +40,16 @@ export async function enterPin(page: Page, pin: string) {
   for (let i = 0; i < pin.length; i++) {
     const input = page.locator(`input[aria-label="PIN digit ${i + 1}"]`)
     await input.fill(pin[i])
-    // Verify the digit was accepted before moving on — but skip the last digit.
-    // Some PinInputs (e.g. pin-challenge-dialog, length={6}) auto-submit on the
-    // final digit, which immediately clears state via setPin(''). The toHaveValue
-    // check then races with the clear and fails under CI load.
+    // Assert the digit landed — but skip the last one. In a 6-digit PIN with
+    // a 6-slot input, the final fill triggers the consumer's onComplete in
+    // the same React event cycle. Several consumers synchronously swap the
+    // PinInput's `value` prop inside onComplete (AdminBootstrap transitions
+    // from the create step to the confirm step; PinChallengeDialog on a wrong
+    // PIN clears `pin` via the attempts-dependent useEffect). React batches
+    // those state updates into a single render, so by the time Playwright
+    // polls toHaveValue the DOM already reflects the post-transition value
+    // (empty). Skipping the assertion for the last digit mirrors the user
+    // experience — the downstream assertions verify the completion effect.
     if (i < pin.length - 1) {
       await expect(input).toHaveValue(pin[i], { timeout: 1000 })
     }

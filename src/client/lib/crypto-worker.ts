@@ -81,12 +81,12 @@ interface RateBucket {
 }
 
 // Rate limits defend against XSS exfiltration via the worker. They must allow
-// legitimate use (a dashboard page can decrypt hundreds of fields in parallel
-// across contacts, messages, user PII, timeline entries, etc.) while still
-// catching abuse patterns.
+// legitimate use (a dashboard page can decrypt many fields in parallel across
+// contacts, messages, user PII, timeline entries, etc.) while still catching
+// abuse patterns.
 const rateLimits: Record<string, RateBucket> = {
   sign: { timestamps: [], maxPerSec: 10, maxPerMin: 100 },
-  decrypt: { timestamps: [], maxPerSec: 500, maxPerMin: 5000 },
+  decrypt: { timestamps: [], maxPerSec: 100, maxPerMin: 1000 },
   encrypt: { timestamps: [], maxPerSec: 50, maxPerMin: 500 },
 }
 
