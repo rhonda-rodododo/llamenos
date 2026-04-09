@@ -131,12 +131,16 @@ telephony.post('/incoming', async (c) => {
     }
   }
 
-  // Fall back to the sole hub when no phone mapping exists (single-hub deployments)
+  // Fall back to the sole hub when no phone mapping exists (single-hub deployments).
+  // Only count active hubs here — archived/suspended hubs shouldn't count toward
+  // the "sole hub" check, otherwise an operator who archives an old hub breaks
+  // call routing on the remaining active one.
   if (!hubId) {
     const allHubs = await services.settings.getHubs()
-    if (allHubs.length === 1) {
-      hubId = allHubs[0].id
-      console.log(`[telephony] /incoming defaulted to sole hub=${hubId}`)
+    const activeHubs = allHubs.filter((h) => h.status === 'active')
+    if (activeHubs.length === 1) {
+      hubId = activeHubs[0].id
+      console.log(`[telephony] /incoming defaulted to sole active hub=${hubId}`)
     }
   }
 

@@ -34,9 +34,15 @@ test.describe('Auth guards', () => {
     // cold browser context the full chain (bundle fetch + restoreSession 401 +
     // config fetch + effect + navigate + login render) can easily exceed 30s
     // when CI is running 500+ tests across 3 parallel workers — this is not
-    // a bug, just resource contention on the GitHub runner. Use a generous
-    // timeout so the assertion reflects the redirect behaviour rather than
-    // the cold-start latency.
+    // a bug, just resource contention on the GitHub runner.
+    //
+    // We assert on login-heading visibility rather than on the browser URL
+    // because TanStack Router's internal location updates before the
+    // history API entry is committed — under concurrent rendering the page
+    // can be showing LoginPage (with login-heading in the DOM) while
+    // page.url() still reports `/`. The test's real contract is "admin
+    // redirect lands on the login screen"; visible login-heading is the
+    // authoritative signal for that.
     await expect(page.getByTestId('login-heading')).toBeVisible({ timeout: 60000 })
     await ctx.close()
   })
