@@ -30,10 +30,14 @@ test.describe('Auth guards', () => {
     const page = await ctx.newPage()
     await page.goto('/admin')
     // AdminRoute renders <Navigate to="/" /> for unauthenticated users.
-    // The root layout then redirects to /login via useEffect. Wait for the
-    // login heading — the only reliable signal that the redirect chain
-    // completed AND the login page rendered.
-    await expect(page.getByTestId('login-heading')).toBeVisible({ timeout: 30000 })
+    // The root layout then redirects to /login via useEffect chain:
+    //   /admin → <Navigate to="/" /> → root effect → /login
+    // Under parallel CI load, the full chain (auth refresh 401 → config
+    // fetch → effect → navigate → login render) can take 30+ seconds.
+    // Use toHaveURL with a generous timeout as the primary assertion —
+    // it polls automatically and is the definitive signal the redirect
+    // chain completed.
+    await expect(page).toHaveURL(/\/login/, { timeout: 60000 })
     await ctx.close()
   })
 

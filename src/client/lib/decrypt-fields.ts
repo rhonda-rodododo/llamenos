@@ -146,7 +146,7 @@ async function decryptFieldWithRecovery(
       label
     )
   } catch (firstErr) {
-    // Known locked — no point retrying
+    // Known locked — no point retrying, fire lock so PIN prompt appears
     if (isWorkerLockedError(firstErr)) {
       await fireLockOnce()
       return null
@@ -160,19 +160,38 @@ async function decryptFieldWithRecovery(
         envelope.wrappedKey,
         label
       )
-    } catch {
-      // Both attempts failed — probe worker state
+    } catch (secondErr) {
+      // Both attempts failed. Only fire lock if the worker is ACTUALLY locked
+      // (i.e., the key material is gone). A single corrupted envelope or bad
+      // ciphertext shouldn't nuke the entire session — other fields may still
+      // decrypt fine. Return null so the UI shows [encrypted] for this field.
+      if (isWorkerLockedError(secondErr)) {
+        await fireLockOnce()
+        return null
+      }
+      // Check worker state: if claims unlocked but can't decrypt, reinitialize
+      // but don't fire lock — other fields may still work after reinit.
       try {
         const unlocked = await worker.isUnlocked()
-        if (unlocked) {
-          // Worker claims unlocked but can't decrypt — broken state
-          worker.reinitialize()
+        if (!unlocked) {
+          // Worker is locked — fire lock so PIN prompt appears
+          await fireLockOnce()
+          return null
+        }
+        // Worker claims unlocked but decrypt fails — likely a bad envelope,
+        // not a session problem. Log and return null.
+        if (decryptDebugEnabled()) {
+          // eslint-disable-next-line no-console
+          console.warn('[decrypt-fields] Field decrypt failed but worker is unlocked:', {
+            label,
+            error: secondErr instanceof Error ? secondErr.message : String(secondErr),
+          })
         }
       } catch {
-        // isUnlocked itself failed — worker is definitely broken
+        // isUnlocked itself failed — worker is definitely broken, fire lock
         worker.reinitialize()
+        await fireLockOnce()
       }
-      await fireLockOnce()
       return null
     }
   }
