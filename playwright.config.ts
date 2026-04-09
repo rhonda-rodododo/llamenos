@@ -32,7 +32,7 @@ export default defineConfig({
       // full admin bootstrap + invite onboarding flow.
       // Runs BEFORE api-setup to avoid DB race conditions (both reset the DB).
       name: "setup",
-      testMatch: /global-setup\.ts/,
+      testMatch: /\/global-setup\.ts$/,
       timeout: 300_000, // 5 min for real bootstrap + 4 invite onboardings
       use: { trace: "off" }, // Disable trace for setup — avoids ENOENT on trace artifacts
     },
