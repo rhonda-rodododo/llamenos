@@ -22,20 +22,19 @@ test.describe('Voicemail UI', () => {
     // parallel-worker tests have put users on shift. Without this, `auto`
     // mode skips the voicemail path whenever `hasAvailableUsers` is true,
     // and the call record is never created — leaving the history lookup
-    // unable to find this test's callSid.
+    // unable to find this test's callSid. Settings are platform-scoped
+    // (mounted at `/api/settings`, not under `/api/hubs/:hubId/settings`);
+    // hub-specific rows fall back to the global row, so writing global
+    // `voicemailMode: 'always'` is sufficient to force the voicemail
+    // branch for the test's hub regardless of whether it has its own row.
     const patchResult = await adminPage.evaluate(async () => {
       type AuthFacade = { getAccessToken(): string | null }
       const facade = (window as Record<string, unknown>).__TEST_AUTH_FACADE as
         | AuthFacade
         | undefined
       const token = facade?.getAccessToken()
-      if (!token) return { ok: false, error: 'no token' }
-      const configRes = await fetch('/api/config')
-      if (!configRes.ok) return { ok: false, error: 'no config' }
-      const config = await configRes.json()
-      const hubId = config.defaultHubId || config.hubs?.[0]?.id
-      if (!hubId) return { ok: false, error: 'no hub' }
-      const res = await fetch(`/api/hubs/${hubId}/settings/call`, {
+      if (!token) return { ok: false, status: 0, error: 'no token' }
+      const res = await fetch('/api/settings/call', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -43,7 +42,8 @@ test.describe('Voicemail UI', () => {
         },
         body: JSON.stringify({ voicemailMode: 'always' }),
       })
-      return { ok: res.ok, status: res.status }
+      const body = await res.text().catch(() => '')
+      return { ok: res.ok, status: res.status, body: body.slice(0, 200) }
     })
     expect(patchResult.ok, `Failed to set voicemailMode: ${JSON.stringify(patchResult)}`).toBe(true)
 

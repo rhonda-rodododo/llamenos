@@ -29,9 +29,15 @@ test.describe('Auth guards', () => {
     const ctx = await browser.newContext()
     const page = await ctx.newPage()
     await page.goto('/admin')
-    // Auth guard in AdminRoute redirects unauthenticated users to /.
-    // The root layout then redirects to /login.
-    await expect(page.getByTestId('login-heading')).toBeVisible({ timeout: 30000 })
+    // Auth guard in AdminRoute renders <Navigate to="/" /> for unauthenticated
+    // users, and the root layout then redirects to /login via useEffect. On a
+    // cold browser context the full chain (bundle fetch + restoreSession 401 +
+    // config fetch + effect + navigate + login render) can easily exceed 30s
+    // when CI is running 500+ tests across 3 parallel workers — this is not
+    // a bug, just resource contention on the GitHub runner. Use a generous
+    // timeout so the assertion reflects the redirect behaviour rather than
+    // the cold-start latency.
+    await expect(page.getByTestId('login-heading')).toBeVisible({ timeout: 60000 })
     await ctx.close()
   })
 
