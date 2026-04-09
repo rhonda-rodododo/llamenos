@@ -1,0 +1,4 @@
+---
+# Debian-family overrides for the kernel-hardening role (Debian, Ubuntu).
+# Currently a placeholder for symmetry — sysctl/limits paths are standard
+# across Linux distros and live in vars/main.yml.

@@ -1,0 +1,8 @@
+---
+# Cross-distro defaults for the kernel-hardening role.
+# Per-family overrides live in vars/{OsFamily}.yml and are loaded via
+# first_found in tasks/main.yml.
+
+kernel_hardening_sysctl_drop_in_dir: /etc/sysctl.d
+kernel_hardening_sysctl_drop_in_filename: 99-llamenos-hardening.conf
+kernel_hardening_limits_drop_in_path: /etc/security/limits.d/99-llamenos-no-core.conf

@@ -5,11 +5,22 @@
 # These settings are critical for a crisis hotline server
 # that may be targeted by sophisticated adversaries.
 
+- name: Load OS-specific vars
+  ansible.builtin.include_vars: "{{ lookup('ansible.builtin.first_found', params) }}"
+  vars:
+    params:
+      files:
+        - "{{ ansible_facts.distribution }}.yml"
+        - "{{ ansible_facts.os_family }}.yml"
+        - main.yml
+      paths:
+        - "{{ role_path }}/vars"
+
 - name: Apply kernel hardening sysctl settings
   ansible.posix.sysctl:
     name: "{{ item.key }}"
     value: "{{ item.value }}"
-    sysctl_file: /etc/sysctl.d/99-llamenos-hardening.conf
+    sysctl_file: "{{ kernel_hardening_sysctl_drop_in_dir }}/{{ kernel_hardening_sysctl_drop_in_filename }}"
     reload: true
     state: present
   loop:
@@ -95,7 +106,7 @@
 
 - name: Disable core dumps via limits
   ansible.builtin.copy:
-    dest: /etc/security/limits.d/99-llamenos-no-core.conf
+    dest: "{{ kernel_hardening_limits_drop_in_path }}"
     owner: root
     group: root
     mode: "0644"
