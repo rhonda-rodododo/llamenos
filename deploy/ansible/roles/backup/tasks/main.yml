@@ -11,10 +11,19 @@
 #   5. Enforces retention policy (7 daily, 4 weekly, 3 monthly)
 # - Configures a daily cron job
 
-- name: Install age encryption tool
-  ansible.builtin.apt:
-    name: age
-    state: present
+- name: Load OS-specific vars
+  ansible.builtin.include_vars: "{{ lookup('ansible.builtin.first_found', params) }}"
+  vars:
+    params:
+      files:
+        - "{{ ansible_facts.distribution }}.yml"
+        - "{{ ansible_facts.os_family }}.yml"
+        - main.yml
+      paths:
+        - "{{ role_path }}/vars"
+
+- name: Install backup dependencies
+  ansible.builtin.include_tasks: install.yml
 
 - name: Install rclone
   ansible.builtin.shell: |
