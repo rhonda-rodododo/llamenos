@@ -1,5 +1,5 @@
 import { expect, test } from '../fixtures/auth'
-import { navigateAfterLogin, reenterPinAfterReload } from '../helpers'
+import { navigateAfterLogin } from '../helpers'
 
 test.describe('Phone Provider Settings', () => {
   test('phone provider section is accessible from admin nav', async ({ adminPage }) => {
@@ -141,7 +141,6 @@ test.describe('Phone Provider Settings', () => {
 
     // Reload to verify server-side persistence
     await adminPage.reload()
-    await reenterPinAfterReload(adminPage)
     await navigateAfterLogin(adminPage, '/admin/phone-provider')
 
     // Should show current provider banner
