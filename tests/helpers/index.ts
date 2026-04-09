@@ -134,6 +134,34 @@ export async function navigateAfterLogin(page: Page, url: string): Promise<void>
 }
 
 /**
+ * Clear the session capsule so that the next page.reload() falls through
+ * to the PIN entry flow. Also dispatches a BroadcastChannel('llamenos-lock')
+ * message so any sibling tabs in the same BrowserContext are locked too —
+ * this matches production cross-tab lock semantics.
+ *
+ * Use this before page.reload() in tests that specifically exercise the
+ * lock-on-reload behaviour. Tests that want to keep the session unlocked
+ * across a reload should NOT call this.
+ */
+export async function clearSessionCapsule(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    try {
+      sessionStorage.removeItem('llamenos-session-token')
+    } catch {
+      /* ignore */
+    }
+    try {
+      const bc = new BroadcastChannel('llamenos-lock')
+      bc.postMessage({ type: 'lock' })
+      bc.close()
+    } catch {
+      /* unsupported */
+    }
+    // IDB orphan is cleaned up automatically on next loadCapsule() call.
+  })
+}
+
+/**
  * Re-enter PIN after a page.reload() when user is already authenticated.
  * The reload clears keyManager, so the encrypted key in localStorage triggers
  * the PIN screen. After entering PIN the app redirects to /.
