@@ -6,6 +6,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, test } from 'bun:te
 import {
   SESSION_TOKEN_KEY,
   __resetExpiryDebounceForTests,
+  __setSyncChannelFactoryForTests,
   clearCapsule,
   loadCapsule,
   storeCapsule,
@@ -26,10 +27,73 @@ function makeCapsule(overrides: Partial<SessionCapsule> = {}): SessionCapsule {
   }
 }
 
+// ---- In-memory BroadcastChannel-ish mock for cross-tab sync tests ----
+//
+// Each `hub` represents one browsing-context-group. All MockChannels sharing
+// the same hub deliver postMessage calls to every OTHER channel on the hub,
+// mirroring real BroadcastChannel semantics (messages do not echo back to
+// the sender).
+
+type Listener = (e: MessageEvent<unknown>) => void
+
+class MockBroadcastHub {
+  private channels = new Set<MockBroadcastChannel>()
+  register(ch: MockBroadcastChannel) {
+    this.channels.add(ch)
+  }
+  unregister(ch: MockBroadcastChannel) {
+    this.channels.delete(ch)
+  }
+  deliver(sender: MockBroadcastChannel, data: unknown) {
+    for (const ch of this.channels) {
+      if (ch === sender || ch.isClosed()) continue
+      // Deliver asynchronously, same as real BroadcastChannel
+      queueMicrotask(() => {
+        const event = { data } as MessageEvent<unknown>
+        if (ch.onmessage) ch.onmessage(event)
+        for (const l of ch.listeners()) l(event)
+      })
+    }
+  }
+}
+
+class MockBroadcastChannel {
+  public onmessage: ((e: MessageEvent<unknown>) => void) | null = null
+  private _listeners = new Set<Listener>()
+  private closed = false
+  constructor(private hub: MockBroadcastHub) {
+    hub.register(this)
+  }
+  postMessage(data: unknown) {
+    if (this.closed) throw new Error('channel is closed')
+    this.hub.deliver(this, data)
+  }
+  addEventListener(_type: 'message', listener: Listener) {
+    this._listeners.add(listener)
+  }
+  removeEventListener(_type: 'message', listener: Listener) {
+    this._listeners.delete(listener)
+  }
+  close() {
+    this.closed = true
+    this.hub.unregister(this)
+  }
+  isClosed() {
+    return this.closed
+  }
+  listeners() {
+    return this._listeners
+  }
+}
+
 // fake-indexeddb shares state across tests — wipe between runs
 async function resetStores() {
   await clearCapsule()
   __resetExpiryDebounceForTests()
+  // Force the sync factory to null so tests don't accidentally cross-talk via
+  // the real BroadcastChannel. Tests that exercise cross-tab sync install their
+  // own mock factory explicitly.
+  __setSyncChannelFactoryForTests(() => null)
   try {
     sessionStorage.clear()
   } catch {
@@ -106,27 +170,111 @@ describe('session-capsule', () => {
     expect(loaded?.capsule.capsuleNonce).toBe('cafef00d')
   })
 
-  test('loadCapsule returns null when sessionStorage has no token', async () => {
+  test('loadCapsule returns null when sessionStorage has no token and no sibling responds', async () => {
     await storeCapsule('tok-123', makeCapsule())
     sessionStorage.removeItem(SESSION_TOKEN_KEY)
+    // No sync factory installed → no siblings → sync request times out.
+    __setSyncChannelFactoryForTests(() => null)
 
     const loaded = await loadCapsule(PUBKEY_HASH)
     expect(loaded).toBeNull()
+
+    __setSyncChannelFactoryForTests(null)
   })
 
-  test('loadCapsule deletes the IDB orphan when token is missing', async () => {
+  test('loadCapsule preserves the IDB entry when sessionStorage has no token', async () => {
     await storeCapsule('tok-123', makeCapsule())
     sessionStorage.removeItem(SESSION_TOKEN_KEY)
+    __setSyncChannelFactoryForTests(() => null)
 
-    // First call: orphan cleanup
+    // First call: no token locally, no sibling to ask — returns null.
     const first = await loadCapsule(PUBKEY_HASH)
     expect(first).toBeNull()
 
-    // Put the token back — the orphan should already be gone, so even with
-    // a token we should see null
+    // Put the token back — the IDB entry must still be there and the load
+    // must now succeed. This asserts the old "orphan cleanup" deletion has
+    // been removed so cross-tab sync can work.
     sessionStorage.setItem(SESSION_TOKEN_KEY, 'tok-123')
     const second = await loadCapsule(PUBKEY_HASH)
-    expect(second).toBeNull()
+    expect(second).not.toBeNull()
+    expect(second?.token).toBe('tok-123')
+    expect(second?.capsule.encryptedNsec).toBe('deadbeef')
+
+    __setSyncChannelFactoryForTests(null)
+  })
+
+  test('loadCapsule recovers token from a sibling tab via BroadcastChannel sync', async () => {
+    // "Tab A" stores the capsule and holds the token in its sessionStorage.
+    // We can't simulate two sessionStorages in a single test process, so we
+    // model Tab A by installing a responder channel whose onmessage directly
+    // replies with the stored token when the request's pubkeyHash matches.
+    await storeCapsule('tok-cross-tab', makeCapsule())
+    const tabATokenStore = sessionStorage.getItem(SESSION_TOKEN_KEY)
+    expect(tabATokenStore).toBe('tok-cross-tab')
+
+    const hub = new MockBroadcastHub()
+
+    // Spawn the "Tab A responder" on the hub — listens for request-token
+    // messages and responds with the stored token.
+    const tabAChannel = new MockBroadcastChannel(hub)
+    tabAChannel.onmessage = (e) => {
+      const msg = e.data as { type: string; nonce: string; pubkeyHash: string }
+      if (msg.type !== 'request-token') return
+      if (msg.pubkeyHash !== PUBKEY_HASH) return
+      tabAChannel.postMessage({
+        type: 'token-response',
+        nonce: msg.nonce,
+        pubkeyHash: PUBKEY_HASH,
+        token: 'tok-cross-tab',
+      })
+    }
+
+    // Now simulate "Tab B" — clear its local token and wire loadCapsule to
+    // use the shared hub for its own channel.
+    sessionStorage.removeItem(SESSION_TOKEN_KEY)
+    __setSyncChannelFactoryForTests(
+      () => new MockBroadcastChannel(hub) as unknown as BroadcastChannel
+    )
+
+    const loaded = await loadCapsule(PUBKEY_HASH)
+    expect(loaded).not.toBeNull()
+    expect(loaded?.token).toBe('tok-cross-tab')
+    // Tab B should have cached the token locally for subsequent reloads.
+    expect(sessionStorage.getItem(SESSION_TOKEN_KEY)).toBe('tok-cross-tab')
+
+    tabAChannel.close()
+    __setSyncChannelFactoryForTests(null)
+  })
+
+  test('loadCapsule times out when a sibling responds with a non-matching pubkeyHash', async () => {
+    await storeCapsule('tok-123', makeCapsule())
+    sessionStorage.removeItem(SESSION_TOKEN_KEY)
+
+    const hub = new MockBroadcastHub()
+
+    // Sibling responds, but with the wrong pubkeyHash — loadCapsule must
+    // ignore this response and fall through to null after the timeout.
+    const rogueChannel = new MockBroadcastChannel(hub)
+    rogueChannel.onmessage = (e) => {
+      const msg = e.data as { type: string; nonce: string }
+      if (msg.type !== 'request-token') return
+      rogueChannel.postMessage({
+        type: 'token-response',
+        nonce: msg.nonce,
+        pubkeyHash: OTHER_HASH,
+        token: 'wrong-token',
+      })
+    }
+
+    __setSyncChannelFactoryForTests(
+      () => new MockBroadcastChannel(hub) as unknown as BroadcastChannel
+    )
+
+    const loaded = await loadCapsule(PUBKEY_HASH)
+    expect(loaded).toBeNull()
+
+    rogueChannel.close()
+    __setSyncChannelFactoryForTests(null)
   })
 
   test('loadCapsule returns null and clears when expiry is in the past', async () => {

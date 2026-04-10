@@ -8,12 +8,28 @@
  * - sessionStorage `llamenos-session-token`
  *   → the 32-byte random token that decrypts the capsule
  *
+ * Cross-tab sync:
+ * - sessionStorage is per-tab, so a newly-opened tab's sessionStorage is empty
+ *   even when a sibling tab in the same context is already unlocked. Without
+ *   help, the new tab cannot decrypt the shared IDB capsule and has to re-enter
+ *   the PIN, breaking the "new tab feels instant" UX.
+ * - To fix this we run a request/response protocol over a BroadcastChannel
+ *   (`llamenos-capsule-sync`). When loadCapsule finds no local token, it
+ *   broadcasts a `request-token` message with the expected pubkeyHash and waits
+ *   briefly. Sibling tabs with a matching token respond with `token-response`.
+ *   The receiving tab caches the token in its own sessionStorage so subsequent
+ *   loads work without another round-trip.
+ *
  * Security model (see design spec amendment 2026-04-09):
- * - The capsule is undecryptable without the token, which lives only in
- *   sessionStorage (tab-scoped, cleared on tab close).
- * - XSS with access to both stores is equivalent to XSS with access to the
- *   existing postMessage KEK channel — no new attack surface.
- * - Panic wipe clears both independently via this module's clearCapsule().
+ * - The capsule is undecryptable without the token.
+ * - BroadcastChannel delivery is same-origin and same-browsing-context-group,
+ *   so the token never crosses an origin boundary. An attacker with XSS on the
+ *   origin can already read sessionStorage directly, so exposing the token over
+ *   BroadcastChannel does not widen the attack surface.
+ * - Tabs only respond if their local IDB capsule's pubkeyHash matches the
+ *   requested pubkeyHash — preventing accidental cross-user token leakage if
+ *   two users ever shared an origin (e.g. after logout without panic wipe).
+ * - Panic wipe clears IDB and sessionStorage independently via clearCapsule().
  */
 import { createDebugLog } from './debug-log'
 
@@ -23,6 +39,25 @@ const DB_NAME = 'llamenos-session'
 const STORE_NAME = 'capsules'
 const ACTIVE_KEY = 'active'
 export const SESSION_TOKEN_KEY = 'llamenos-session-token'
+
+// Cross-tab token sync — see module docstring for protocol details.
+const SYNC_CHANNEL_NAME = 'llamenos-capsule-sync'
+const SYNC_TIMEOUT_MS = 500
+
+interface SyncRequestMessage {
+  type: 'request-token'
+  nonce: string
+  pubkeyHash: string
+}
+
+interface SyncResponseMessage {
+  type: 'token-response'
+  nonce: string
+  pubkeyHash: string
+  token: string
+}
+
+type SyncMessage = SyncRequestMessage | SyncResponseMessage
 
 export interface SessionCapsule {
   /** Worker-encrypted nsec (hex). Opaque to the main thread. */
@@ -93,6 +128,159 @@ async function idbDelete(): Promise<void> {
   }
 }
 
+// ---- Cross-tab token sync (BroadcastChannel) ----
+
+let syncChannel: BroadcastChannel | null = null
+/** Test hook — lets tests replace the channel with a mock without touching globals. */
+let syncChannelFactory: () => BroadcastChannel | null = () => {
+  if (typeof BroadcastChannel === 'undefined') return null
+  try {
+    return new BroadcastChannel(SYNC_CHANNEL_NAME)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Test-only: swap the BroadcastChannel factory. Pass `null` to reset.
+ * Closes the existing channel so the next access rebuilds it.
+ */
+export function __setSyncChannelFactoryForTests(
+  factory: (() => BroadcastChannel | null) | null
+): void {
+  try {
+    syncChannel?.close()
+  } catch {
+    /* ignore */
+  }
+  syncChannel = null
+  syncChannelFactory =
+    factory ??
+    (() => {
+      if (typeof BroadcastChannel === 'undefined') return null
+      try {
+        return new BroadcastChannel(SYNC_CHANNEL_NAME)
+      } catch {
+        return null
+      }
+    })
+}
+
+function getSyncChannel(): BroadcastChannel | null {
+  if (syncChannel) return syncChannel
+  syncChannel = syncChannelFactory()
+  if (syncChannel) {
+    syncChannel.onmessage = (e: MessageEvent<SyncMessage>) => {
+      const msg = e.data
+      if (!msg || msg.type !== 'request-token') return
+      void respondToSyncRequest(msg)
+    }
+  }
+  return syncChannel
+}
+
+/**
+ * Handle an inbound request-token message. Responds only if we currently
+ * hold a token whose capsule pubkeyHash matches the requested hash.
+ */
+async function respondToSyncRequest(req: SyncRequestMessage): Promise<void> {
+  let token: string | null = null
+  try {
+    token = sessionStorage.getItem(SESSION_TOKEN_KEY)
+  } catch {
+    /* sessionStorage unavailable */
+  }
+  if (!token) return
+
+  let capsule: SessionCapsule | null
+  try {
+    capsule = await idbGet()
+  } catch {
+    return
+  }
+  if (!capsule || capsule.pubkeyHash !== req.pubkeyHash) return
+
+  const channel = getSyncChannel()
+  if (!channel) return
+  try {
+    const response: SyncResponseMessage = {
+      type: 'token-response',
+      nonce: req.nonce,
+      pubkeyHash: req.pubkeyHash,
+      token,
+    }
+    channel.postMessage(response)
+  } catch (err) {
+    log('sync response post failed:', err)
+  }
+}
+
+/**
+ * Ask sibling tabs for a token matching `pubkeyHash`. Resolves with the token
+ * on success, or null if no sibling responds within SYNC_TIMEOUT_MS.
+ *
+ * Safe to call when no siblings exist: it times out and resolves null.
+ */
+async function requestTokenFromSiblings(pubkeyHash: string): Promise<string | null> {
+  const channel = getSyncChannel()
+  if (!channel) return null
+
+  const nonce =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random()}`
+
+  return new Promise<string | null>((resolve) => {
+    let settled = false
+    const finish = (result: string | null) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      channel.removeEventListener('message', handler)
+      resolve(result)
+    }
+
+    const handler = (e: MessageEvent<SyncMessage>) => {
+      const msg = e.data
+      if (!msg || msg.type !== 'token-response') return
+      if (msg.nonce !== nonce || msg.pubkeyHash !== pubkeyHash) return
+      finish(msg.token)
+    }
+
+    const timer = setTimeout(() => finish(null), SYNC_TIMEOUT_MS)
+    channel.addEventListener('message', handler)
+
+    try {
+      const request: SyncRequestMessage = {
+        type: 'request-token',
+        nonce,
+        pubkeyHash,
+      }
+      channel.postMessage(request)
+    } catch (err) {
+      log('sync request post failed:', err)
+      finish(null)
+    }
+  })
+}
+
+// Eagerly register the listener on module load so sibling tabs can respond
+// even before this tab's restoreSession runs its first loadCapsule.
+if (typeof BroadcastChannel !== 'undefined') {
+  getSyncChannel()
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    try {
+      syncChannel?.close()
+    } catch {
+      /* ignore */
+    }
+    syncChannel = null
+  })
+}
+
 // ---- Public API ----
 
 /**
@@ -110,24 +298,40 @@ export async function storeCapsule(token: string, capsule: SessionCapsule): Prom
 }
 
 /**
- * Load the capsule + token pair. Returns null and cleans up orphans if:
- * - sessionStorage has no token (tab closed or first load) — IDB orphan deleted
+ * Load the capsule + token pair. Returns null (without deleting IDB state) if:
+ * - sessionStorage has no token and no sibling tab responds to the sync request
  * - IDB has no capsule
+ *
+ * Returns null AND clears the capsule if:
  * - autoLockExpiresAt is in the past
  * - pubkeyHash does not match the provided currentPubkeyHash
+ *
+ * The IDB capsule is intentionally NOT deleted just because the current tab
+ * lacks a token: a sibling tab may still be using it, and expired capsules
+ * get cleaned up when someone attempts to load them past their expiry.
  */
 export async function loadCapsule(
   currentPubkeyHash: string
 ): Promise<{ token: string; capsule: SessionCapsule } | null> {
-  const token = sessionStorage.getItem(SESSION_TOKEN_KEY)
+  let token: string | null = null
+  try {
+    token = sessionStorage.getItem(SESSION_TOKEN_KEY)
+  } catch {
+    /* sessionStorage unavailable */
+  }
+
   if (!token) {
-    // Orphan cleanup: token is gone, IDB entry is undecryptable — delete it.
+    // Ask sibling tabs in this browsing context whether any of them hold a
+    // matching token. On success, cache it locally so subsequent calls and
+    // reloads of THIS tab skip the round-trip.
+    const siblingToken = await requestTokenFromSiblings(currentPubkeyHash)
+    if (!siblingToken) return null
     try {
-      await idbDelete()
-    } catch (err) {
-      log('orphan cleanup failed:', err)
+      sessionStorage.setItem(SESSION_TOKEN_KEY, siblingToken)
+    } catch {
+      /* sessionStorage unavailable — still return it for this load */
     }
-    return null
+    token = siblingToken
   }
 
   let capsule: SessionCapsule | null
@@ -138,7 +342,11 @@ export async function loadCapsule(
     return null
   }
   if (!capsule) {
-    sessionStorage.removeItem(SESSION_TOKEN_KEY)
+    try {
+      sessionStorage.removeItem(SESSION_TOKEN_KEY)
+    } catch {
+      /* ignore */
+    }
     return null
   }
 
