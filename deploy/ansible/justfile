@@ -242,6 +242,16 @@ test-matrix mode='p0':
         '      ansible_python_interpreter: /usr/bin/python3' \
         > tmp-matrix-inventory-admin.yml
 
+      # ANSIBLE_CACHE_PLUGIN=memory bypasses the jsonfile fact cache
+      # (configured in ansible.cfg as /tmp/ansible_facts). Every VM in the
+      # matrix uses the same inventory host name `matrix-target`, so without
+      # this override the first VM's facts (distribution, os_family, etc.)
+      # get cached under that key and reused across subsequent iterations.
+      # That causes Debian trixie to inherit stale "Ubuntu 24.04" facts
+      # from the previous Ubuntu run — distro-conditional tasks (snapd,
+      # the preflight distro assert) then misfire. Memory cache is per-run
+      # and discarded when the playbook exits.
+      ANSIBLE_CACHE_PLUGIN=memory \
       ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook playbooks/harden.yml \
         -i tmp-matrix-inventory-admin.yml \
         --extra-vars '@vars-local-vm.yml'
@@ -264,6 +274,7 @@ test-matrix mode='p0':
         > tmp-matrix-inventory-deploy.yml
 
       echo "=== Running smoke checks against ${name} (port ${hardened_port}) ==="
+      ANSIBLE_CACHE_PLUGIN=memory \
       ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook playbooks/smoke-check.yml \
         -i tmp-matrix-inventory-deploy.yml \
         --extra-vars '@vars-local-vm.yml'
