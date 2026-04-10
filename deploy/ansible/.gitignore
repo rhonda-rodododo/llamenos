@@ -2,6 +2,9 @@
 roles/galaxy/
 collections/
 
+# ansible-lint runtime cache
+.ansible/
+
 # Local vault password file
 .vault-password
 
