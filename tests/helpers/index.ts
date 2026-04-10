@@ -1,6 +1,26 @@
 import { type APIRequestContext, type Page, expect } from '@playwright/test'
 import { TestIds } from '../test-ids'
 
+/**
+ * Navigation patterns for authenticated tests — READ THIS BEFORE WRITING NEW TESTS.
+ *
+ * - `gotoAdminPath(page, '/admin/section')` — SPA nav, preserves crypto state. DEFAULT
+ *    for navigating to admin routes from an already-authenticated page.
+ * - `navigateAfterLogin(page, '/path')` — SPA nav with auto-login fallback. Use for
+ *    non-admin paths or when the test may or may not start authenticated.
+ * - `gotoAdminSection(page, slug)` — FULL RELOAD. Only for tests that explicitly
+ *    exercise reload behaviour. Must be followed by reenterPinAfterReload() if the
+ *    test expects the PIN to be re-entered.
+ * - `page.goto('/path')` — FULL RELOAD. Wipes the crypto worker. AVOID in
+ *    authenticated tests. Acceptable only for:
+ *      1) unauthenticated flows (login, setup, onboarding)
+ *      2) tests that explicitly verify reload behaviour
+ *      3) screenshot/visual capture tests
+ * - `page.reload()` — FULL RELOAD. With the session capsule landed (PR A), the
+ *    crypto state AUTO-RESTORES after reload. If you want the old "reload clears
+ *    the worker" behaviour, call `await clearSessionCapsule(page)` first.
+ */
+
 export const ADMIN_NSEC = 'nsec174zsa94n3e7t0ugfldh9tgkkzmaxhalr78uxt9phjq3mmn6d6xas5jdffh'
 export const TEST_PIN = '123456'
 
