@@ -38,43 +38,33 @@
       ansible.builtin.command: systemctl is-active docker
       changed_when: false
 
-    # NOTE: docker userns-remap was originally listed in Plan 1 T15's smoke
-    # checklist, but the harden playbook does NOT actually wire
-    # `docker_userns_remap` (or any other userns option) into
-    # geerlingguy.docker's `docker_daemon_options`. The variable in
-    # vars-local-vm.yml is currently a no-op. We assert and warn so the gap
-    # is visible in CI without blocking the dispatcher-pattern verification
-    # this matrix exists to perform. Once the docker role is patched, flip
-    # this back to a hard failure.
-    - name: Check docker userns-remap (advisory only — see TODO above)
+    # NOTE: docker userns-remap is asserted here because operators adding
+    # new cloud providers often trip on a subtle Ansible gotcha: with
+    # inline inventory (-i 'ip,') group_vars/all/ is NOT loaded, so
+    # docker_daemon_options (which contains userns-remap: default) never
+    # reaches the target and the daemon starts with defaults. If this
+    # assertion fails, the most likely cause is a broken test harness /
+    # invocation that doesn't load group_vars properly. Do not weaken
+    # this to an advisory.
+    - name: Assert docker userns-remap is enabled
       ansible.builtin.shell: |
         set -euo pipefail
         docker info --format '{{ "{{" }}.SecurityOptions{{ "}}" }}' | grep -q userns
       args:
         executable: /bin/bash
       changed_when: false
-      failed_when: false
-      register: userns_check
 
-    - name: Warn if userns-remap is not enabled
-      ansible.builtin.debug:
-        msg: >
-          WARNING: docker userns-remap is NOT enabled on this host
-          ({{ ansible_facts.distribution }} {{ ansible_facts.distribution_version }}).
-          Plan 1 T15 lists this as a smoke-check requirement, but the
-          harden playbook does not wire docker_userns_remap into
-          geerlingguy.docker's docker_daemon_options. Track this as a
-          follow-up before flipping the assertion to hard-fail.
-      when: userns_check.rc != 0
-
-    # NOTE: cirruslabs Ubuntu/Debian images ship with cloud-init drop-ins
-    # at /etc/ssh/sshd_config.d/50-cloud-init.conf that set
-    # `PasswordAuthentication yes`. Because sshd_config.d uses first-match
-    # semantics, our 99-llamenos-hardening.conf is silently overridden.
-    # This is a pre-existing ssh-hardening role bug — track and fix
-    # separately. We assert + warn instead of hard-failing so the matrix
-    # can still validate Plan 1's distro abstraction work.
-    - name: Check sshd disables password + root login (advisory until role fix)
+    # NOTE: cirruslabs Ubuntu/Debian images (and many real cloud images:
+    # DigitalOcean, Hetzner, Linode, Vultr) ship cloud-init drop-ins at
+    # /etc/ssh/sshd_config.d/50-cloud-init.conf and/or
+    # 60-cloudimg-settings.conf that set `PasswordAuthentication yes`.
+    # sshd_config.d uses first-match-wins semantics, so any file earlier
+    # than ours silently overrides our hardening. The ssh-hardening role
+    # now (a) writes 00-llamenos-hardening.conf (wins first-match) and
+    # (b) deletes the cloud-init drop-ins. If this assertion fails on a
+    # new cloud image, the role likely needs to learn about that image's
+    # drop-in filename. Do not weaken this to an advisory.
+    - name: Assert sshd disables password + root login
       ansible.builtin.shell: |
         set -euo pipefail
         count=$(sshd -T 2>/dev/null | grep -cE '^(passwordauthentication|permitrootlogin) no$')
@@ -82,21 +72,6 @@
       args:
         executable: /bin/bash
       changed_when: false
-      failed_when: false
-      register: sshd_check
-
-    - name: Warn if sshd hardening is incomplete
-      ansible.builtin.debug:
-        msg: >
-          WARNING: sshd hardening is incomplete on this host
-          ({{ ansible_facts.distribution }} {{ ansible_facts.distribution_version }}).
-          Likely cause: cirruslabs cloud-init drop-in
-          /etc/ssh/sshd_config.d/50-cloud-init.conf reapplies
-          `PasswordAuthentication yes`, and sshd_config.d uses first-match
-          semantics so 99-llamenos-hardening.conf is silently overridden.
-          The ssh-hardening role should either delete the cloud-init
-          drop-in or write its hardening file with a lower-numbered prefix.
-      when: sshd_check.rc != 0
 
     - name: Assert tcp_syncookies is enabled
       ansible.builtin.command: sysctl -n net.ipv4.tcp_syncookies
