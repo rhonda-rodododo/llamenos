@@ -18,6 +18,19 @@
       paths:
         - "{{ role_path }}/vars"
 
+# Ensure the main sshd_config has the Include directive for sshd_config.d/*.conf.
+# Without this, drop-ins (including our hardening file) are silently ignored.
+# Stock Debian 12/13 and Ubuntu 22.04/24.04 ship with this line, but customised
+# pre-existing hosts may have removed or commented it out, bypassing all hardening.
+- name: Ensure sshd_config includes sshd_config.d/*.conf drop-ins
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    line: 'Include /etc/ssh/sshd_config.d/*.conf'
+    insertafter: BOF
+    state: present
+    validate: /usr/sbin/sshd -t -f %s
+  notify: Restart sshd
+
 # Cloud images (cirruslabs Tart, DigitalOcean, Hetzner, Linode, Vultr, etc.)
 # commonly ship /etc/ssh/sshd_config.d/50-cloud-init.conf and/or
 # 60-cloudimg-settings.conf that set `PasswordAuthentication yes`. Because
