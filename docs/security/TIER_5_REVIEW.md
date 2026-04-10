@@ -5,6 +5,12 @@
 **Spec:** `docs/superpowers/specs/2026-04-10-security-tier-5-voice-e2ee-design.md` (967 lines)
 **Plan:** `docs/superpowers/plans/2026-04-10-security-tier-5-voice-e2ee.md` (45 TDD tasks, 4127 lines)
 
+## Rhonda decisions received (2026-04-10)
+
+1. **Locale drift → corrected in spec.** Confirmed by Rhonda: "thats fine, if you need to expand the tier into 5.0 and 5.1 tiers to cover all of them you can, or it can just have a multi-session expectation, for high quality translation results by avoiding context window fatigue". I chose the multi-session split inside a single tier: §5.11.1 added, documenting the 22-locale fleet (`public/locales/*.json`) and the two-session workstream structure — session A lands code + canonical English + English-fallback placeholders, session B does the translation sweep. Success criterion #15 updated from "13 locales in src/client/locales" to "22 locales in public/locales". CI i18n check relaxed during session A via `ALLOW_TIER_5_I18N_PLACEHOLDERS=true`, re-tightened at start of session B.
+2. **CLAUDE.md drift is a separate repo-wide follow-up** — flagged in open questions. Not a Tier 5 blocker.
+3. **I-2 sim-SIP-bridge scope, I-3 Safari RTCRtpScriptTransform** remain open for implementation-time resolution.
+
 ## Summary
 
 Tier 5 is the "voice E2EE via SFrame + RTCRtpScriptTransform" tier and the spec is the most telephony-heavy of the seven. The design correctly identifies the layering problem (DTLS-SRTP is hop-by-hop, SFrame lives above RTP) and picks the Jitsi/Wire-proven path. Spec 5.7 (Asterisk media passthrough) is the load-bearing operational piece and is detailed correctly. Two important findings: **(1) locale count drift — the spec claims "all 13 locales" but the actual `public/locales/` has 22 locales**; **(2) locale path drift — the spec uses `src/client/locales/*.json` but the actual path is `public/locales/*.json`**. Also found: the spec's i18n assertions in success criterion #15 reference translation keys that must exist in every locale file, and with 22 locales the plan's translation workstream is roughly 2× larger than implied.

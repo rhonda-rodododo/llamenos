@@ -644,7 +644,7 @@ Tier 3 delivers per-device keys (each device has its own X25519 + Ed25519 keypai
 
 ### 5.11. UI/UX changes
 
-- **E2EE badge.** `src/client/components/call/ActiveCallBadge.tsx` (new) — displayed in the active-call overlay. Three states: `e2ee-direct` (SFrame active, DTLS fingerprint verified peer-to-peer), `e2ee-relayed` (SFrame active, Asterisk is a B2BUA so DTLS fingerprint check skipped), `not-e2ee` (caller on PSTN, G.711 transcoding, or browser does not support SFrame). Hover tooltip explains the state in the user's language (i18n key added to all 13 locale JSONs).
+- **E2EE badge.** `src/client/components/call/ActiveCallBadge.tsx` (new) — displayed in the active-call overlay. Three states: `e2ee-direct` (SFrame active, DTLS fingerprint verified peer-to-peer), `e2ee-relayed` (SFrame active, Asterisk is a B2BUA so DTLS fingerprint check skipped), `not-e2ee` (caller on PSTN, G.711 transcoding, or browser does not support SFrame). Hover tooltip explains the state in the user's language (i18n keys added to all 22 locale JSONs at `public/locales/*.json` — see §5.11.1 for the full list).
 - **Fallback warning banner.** `src/client/components/call/E2eeFallbackBanner.tsx` (new) — shows before the call connects when the hub policy is `preferred` and the browser/leg cannot do SFrame. Two-button modal: "Call without E2EE" / "Cancel call". The choice is remembered in per-session state, not persisted across tabs.
 - **Admin setting.** `src/client/routes/admin/settings/voice-e2ee.tsx` (new) — hub admins see a single radio group `voiceCallE2eePolicy: required | preferred | off`. Default `preferred`. Persisted via the existing hub-settings API.
 - **Incident code on failure.** `CryptoLabelMismatchError`, `sframe_key_not_received`, `dtls_fingerprint_mismatch`, `key_rotation_gap`, `aad_mismatch` all surface as toasts with a short incident code users can paste to support. Toast testids: `toast-sframe-error`, with a `data-incident-code` attribute for E2E tests.
@@ -652,6 +652,30 @@ Tier 3 delivers per-device keys (each device has its own X25519 + Ed25519 keypai
 **No microphone prompt changes.** SFrame does not affect `navigator.mediaDevices.getUserMedia` — the mic prompt appears the same way as today. No additional permissions required.
 
 **Accessibility.** The E2EE badge has `aria-label` set to the full state (e.g. "End-to-end encrypted call, direct peer-to-peer connection verified") rather than just the short label. The fallback warning banner is focus-trapped and dismissible with Escape.
+
+#### 5.11.1. Localization — 22 locales, multi-session translation workstream
+
+**Correction of earlier drift:** previous versions of this spec and `CLAUDE.md` referenced "13 locales" and `src/client/locales/*.json`. The real locale fleet is **22 locales** living at `public/locales/*.json`:
+
+```
+am, ar, de, en, es, fa, fr, hi, ht, ko, ku, mix, my, pt, quc, ru, so, tl, tr, uk, vi, zh
+```
+
+(Amharic, Arabic, German, English, Spanish, Farsi, French, Hindi, Haitian Creole, Korean, Kurdish, Mixtec, Burmese, Portuguese, K'iche', Russian, Somali, Tagalog, Turkish, Ukrainian, Vietnamese, Chinese.)
+
+**Translation scope** for Tier 5 is 12 keys × 22 locales = **264 individual translations**. Untranslated strings cause the CI i18n check to fail.
+
+**Multi-session workstream structure.** Tier 5 implementation is divided into two sessions for quality purposes — context-window fatigue across 22 locales in one session degrades translation quality and invites mistranslations that volunteers speaking underrepresented languages will notice.
+
+- **Tier 5 session A — core voice E2EE (this session):** lands all code changes, the English canonical strings for the 12 new i18n keys, and a placeholder entry in each of the other 21 locale files that falls through to English at runtime (with the existing i18n library's fallback). CI i18n check is temporarily relaxed to allow placeholder values for the 12 new keys only; a biome/lint rule catches any accidental additional placeholders.
+- **Tier 5 session B — translation sweep (follow-up session):** a dedicated session that translates the 12 keys into all 21 non-English locales. The session uses the existing locale files as style references (to match formality register and existing terminology), consults native speakers where Llamenos has them available for review, and fails the CI i18n check loudly to gate merge. Recommended approach: one locale at a time with a fresh conversation context per batch of 4–6 locales to avoid cross-language bleed.
+
+**Deliverables per session:**
+
+- Session A ships: all code, the canonical English strings, a placeholder-only entry in each non-English locale, a relaxed CI i18n check gated on a feature flag (`ALLOW_TIER_5_I18N_PLACEHOLDERS=true` during session A only), and a `docs/i18n/TIER_5_TRANSLATION_NOTES.md` document that lists the 12 keys with context (where they appear in UI, tone, constraints like max length for a toast), intended for whoever authors session B (human or LLM).
+- Session B ships: full translations, the relaxed CI flag removed, updated `docs/i18n/TIER_5_TRANSLATION_NOTES.md` marking translation status per locale, and a final sign-off commit.
+
+**Why this split:** quality over throughput. A single 3000-line conversation doing 22 locales would produce a "close enough" translation for the less-common languages that a native speaker would flag. Two sessions with a clean boundary allow the translation session to focus on cultural and linguistic accuracy rather than alongside implementation work.
 
 ### 5.12. Test fixtures — simulated SIP bridge and simulated caller
 
@@ -964,4 +988,4 @@ The spec is complete when the implementation of the accompanying plan achieves a
 12. **Browser compatibility matrix documented.** `docs/security/VOICE_E2EE_BROWSER_MATRIX.md` enumerates supported browsers, the fallback behavior for unsupported ones, and the policy interaction. UI warning copy is reviewed against the matrix for each locale.
 13. **No raw string crypto literals.** `LABEL_SFRAME_CALL_SECRET` and `LABEL_SFRAME_BASE_KEY` are in `LABEL_REGISTRY`; the Tier 0 CI grep check continues to enforce that no raw `'llamenos:sframe-*'` literals appear outside `crypto-labels.ts`.
 14. **Documentation complete.** `docs/security/VOICE_E2EE.md` (new) — user-facing explanation of what the badge means, when E2EE is active, and why the caller-PSTN path cannot be E2EE. `docs/epics/epic-sframe-voice-e2ee.md` (new, or appended to epic 75) — design reference and architecture summary linking back to this spec.
-15. **Hub policy i18n.** All 13 locales in `src/client/locales/*.json` have translations for: `voice.e2ee.badge.direct`, `voice.e2ee.badge.relayed`, `voice.e2ee.badge.none`, `voice.e2ee.fallback.title`, `voice.e2ee.fallback.body`, `voice.e2ee.fallback.continue`, `voice.e2ee.fallback.cancel`, `voice.e2ee.error.dtls_fingerprint_mismatch`, `voice.e2ee.error.sframe_key_not_received`, `voice.e2ee.policy.required`, `voice.e2ee.policy.preferred`, `voice.e2ee.policy.off`. Untranslated strings fail the CI i18n check.
+15. **Hub policy i18n.** All 22 locales in `public/locales/*.json` (see §5.11.1 for the list) have translations for: `voice.e2ee.badge.direct`, `voice.e2ee.badge.relayed`, `voice.e2ee.badge.none`, `voice.e2ee.fallback.title`, `voice.e2ee.fallback.body`, `voice.e2ee.fallback.continue`, `voice.e2ee.fallback.cancel`, `voice.e2ee.error.dtls_fingerprint_mismatch`, `voice.e2ee.error.sframe_key_not_received`, `voice.e2ee.policy.required`, `voice.e2ee.policy.preferred`, `voice.e2ee.policy.off`. Untranslated strings fail the CI i18n check. Translation sweep is a separate session per §5.11.1.
