@@ -5,6 +5,30 @@ const TEST_RESET_SECRET = process.env.DEV_RESET_SECRET || 'test-reset-secret'
 const STORAGE_DIR = 'tests/storage'
 
 /**
+ * Directly verify the test DB is in the expected reset state by querying
+ * for any remaining super-admin users. Returns true if the reset is clean.
+ * Used as defense in depth against stale config caches — the HTTP reset
+ * clears server-side state, this check is authoritative.
+ */
+async function verifyDbResetClean(): Promise<boolean> {
+  const postgres = (await import('postgres')).default
+  const dbUrl =
+    process.env.TEST_DATABASE_URL ??
+    process.env.DATABASE_URL ??
+    'postgres://llamenos:llamenos@localhost:5433/llamenos'
+  const sql = postgres(dbUrl, { max: 1 })
+  try {
+    const rows = await sql<Array<{ count: string }>>`
+      SELECT COUNT(*)::text AS count FROM users WHERE roles::text LIKE '%"role-super-admin"%'
+    `
+    const count = Number.parseInt(rows[0]?.count ?? '0', 10)
+    return count === 0
+  } finally {
+    await sql.end()
+  }
+}
+
+/**
  * Enter a PIN into the PinInput component (supports 6-8 digit PINs in 8-slot input).
  * Uses Playwright's fill() on each slot for reliable React controlled input handling.
  * After all digits are filled, verifies the value and presses Enter to submit.
@@ -431,7 +455,29 @@ test.describe('Global Setup: Provision Test Accounts', () => {
     }
     if (!resetOk) throw new Error('test-reset-no-admin never returned 200 after 10 retries')
 
-    // Verify the reset actually worked — config must show needsBootstrap=true
+    // Defense in depth: verify the reset actually worked at two levels.
+    // (1) Direct DB query — authoritative, no caches involved.
+    // (2) /api/config needsBootstrap — catches stale config cache issues.
+    let dbClean = await verifyDbResetClean()
+    let dbRetry = 0
+    while (!dbClean && dbRetry < 3) {
+      console.log(
+        `[SETUP] DB verification failed — super-admin still present (retry ${dbRetry + 1}/3)`
+      )
+      const retryRes = await request.post('/api/test-reset-no-admin', {
+        headers: { 'X-Test-Secret': TEST_RESET_SECRET },
+      })
+      if (!retryRes.ok()) throw new Error('SQL-verified retry reset failed')
+      await new Promise((r) => setTimeout(r, 500))
+      dbClean = await verifyDbResetClean()
+      dbRetry += 1
+    }
+    if (!dbClean) {
+      throw new Error(
+        'test-reset-no-admin did not clear the DB after 3 retries — check for leaked admin users'
+      )
+    }
+
     const configRes = await request.get('/api/config')
     const config = await configRes.json()
     if (!config.needsBootstrap) {
@@ -439,7 +485,7 @@ test.describe('Global Setup: Provision Test Accounts', () => {
       const retryRes = await request.post('/api/test-reset-no-admin', {
         headers: { 'X-Test-Secret': TEST_RESET_SECRET },
       })
-      if (!retryRes.ok()) throw new Error('Retry reset failed')
+      if (!retryRes.ok()) throw new Error('Config-cache retry reset failed')
       await new Promise((r) => setTimeout(r, 1000))
     }
 

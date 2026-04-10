@@ -57,6 +57,9 @@
     "decryptFailed": "Failed to decrypt backup",
     "dropOrChoose": "Drop or choose a backup file"
   },
+  "crypto": {
+    "keyMismatch": "Your encryption key doesn’t match your stored data. Contact an admin to re-verify your identity."
+  },
   "nav": {
     "dashboard": "Bảng điều khiển",
     "calls": "Cuộc gọi",

@@ -57,6 +57,9 @@
     "decryptFailed": "መጠባበቂያውን መፍታት አልተሳካም",
     "dropOrChoose": "የመጠባበቂያ ፋይል ጣል ወይም ምረጥ"
   },
+  "crypto": {
+    "keyMismatch": "Your encryption key doesn’t match your stored data. Contact an admin to re-verify your identity."
+  },
   "nav": {
     "dashboard": "ዳሽቦርድ",
     "calls": "ጥሪዎች",

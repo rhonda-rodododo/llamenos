@@ -57,6 +57,9 @@
     "decryptFailed": "Yedek dosyası çözülemedi",
     "dropOrChoose": "Yedek dosyasını sürükleyin veya seçin"
   },
+  "crypto": {
+    "keyMismatch": "Your encryption key doesn’t match your stored data. Contact an admin to re-verify your identity."
+  },
   "nav": {
     "dashboard": "Gösterge Paneli",
     "calls": "Aramalar",

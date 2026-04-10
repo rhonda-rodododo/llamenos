@@ -21,12 +21,12 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   type ContactRecord,
   checkContactDuplicate,
-  createContact,
   getContactRecipients,
   hashContactPhone,
 } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import * as keyManager from '@/lib/key-manager'
+import { useCreateContact } from '@/lib/queries/contacts'
 import { useToast } from '@/lib/toast'
 import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import { LABEL_CONTACT_PII, LABEL_CONTACT_SUMMARY } from '@shared/crypto-labels'
@@ -87,6 +87,7 @@ export function CreateContactDialog({ open, onOpenChange, onCreated }: Props) {
   const { t } = useTranslation()
   const { toast } = useToast()
   const { hasPermission } = useAuth()
+  const createContactMutation = useCreateContact()
 
   const canViewPii = hasPermission('contacts:envelope-full')
 
@@ -194,7 +195,7 @@ export function CreateContactDialog({ open, onOpenChange, onCreated }: Props) {
         }
       }
 
-      const contact = await createContact({
+      const contact = await createContactMutation.mutateAsync({
         contactType: form.contactType,
         riskLevel: form.riskLevel,
         tags,

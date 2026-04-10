@@ -33,8 +33,10 @@ test.describe('Platform Roles (super-admin)', () => {
       .fill('Created by e2e test')
     await adminPage.getByTestId('admin-platform-roles-save').click()
 
-    // Role appears in the table
-    await expect(adminPage.getByText(roleName)).toBeVisible({ timeout: 10000 })
+    // Role appears in the table — scope the text lookup to the table so it
+    // can't collide with any unrelated text elsewhere on the page.
+    const table = adminPage.getByTestId('admin-platform-roles-table')
+    await expect(table.getByText(roleName)).toBeVisible({ timeout: 10000 })
 
     // Delete it — we have to locate the row via text filter because the role id
     // is server-generated. Find the row's delete button by matching on row text.
@@ -44,8 +46,11 @@ test.describe('Platform Roles (super-admin)', () => {
     // Confirm in the delete dialog
     await adminPage.getByTestId('admin-platform-roles-confirm-delete').click()
 
-    // Role disappears from the table
-    await expect(adminPage.getByText(roleName)).not.toBeVisible({ timeout: 10000 })
+    // Role disappears from the table. Scope to the table to avoid matching
+    // the role name that appears inside the delete-confirmation dialog
+    // description ("Are you sure you want to delete '{name}'"), which Radix
+    // dialogs keep mounted briefly during their close animation.
+    await expect(table.getByText(roleName)).not.toBeVisible({ timeout: 10000 })
   })
 
   test('system super-admin role is read-only', async ({ adminPage }) => {

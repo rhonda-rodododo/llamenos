@@ -7,6 +7,7 @@
  */
 
 import * as keyManager from './key-manager'
+import { SESSION_TOKEN_KEY, clearCapsule } from './session-capsule'
 
 const REQUIRED_TAPS = 3
 const WINDOW_MS = 1000
@@ -23,14 +24,27 @@ export function performPanicWipe(): void {
   //    before storage clearing triggers React auth redirect
   panicWipeCallback?.()
 
-  // 2. Zero out the cryptographic key in memory immediately
+  // 2. Clear the session capsule synchronously-ish — fire-and-forget the
+  //    IDB delete but remove the sessionStorage token immediately so any
+  //    subsequent read can't race a partial state.
+  try {
+    sessionStorage.removeItem(SESSION_TOKEN_KEY)
+  } catch {
+    // Storage may be unavailable
+  }
+  void clearCapsule().catch((err) => {
+    console.error('[panic-wipe] clearCapsule failed, relying on IDB sweep fallback:', err)
+  })
+
+  // 3. Zero out the cryptographic key in memory immediately
+  //    (this also broadcasts a lock message to sibling tabs)
   try {
     keyManager.wipeKey()
   } catch {
     // Key may already be wiped or locked — continue
   }
 
-  // 3. Defer storage clearing and redirect — gives React one frame
+  // 4. Defer storage clearing and redirect — gives React one frame
   //    to paint the overlay before localStorage.clear() triggers auth changes
   setTimeout(() => {
     try {
@@ -44,9 +58,25 @@ export function performPanicWipe(): void {
       // Storage may be unavailable
     }
 
-    // Clear IndexedDB databases
+    // Clear IndexedDB databases.
+    //
+    // Firefox does NOT implement `indexedDB.databases()`, so the enumeration
+    // path below silently no-ops there. To guarantee scorched-earth on every
+    // browser we unconditionally delete every database this app is known to
+    // create FIRST, then attempt the enumeration sweep as belt-and-braces for
+    // any unknown DB (e.g. SW caches, future features) on Chromium.
+    //
+    // Keep this list in sync with any new openDb() callsites.
+    const KNOWN_DB_NAMES = ['llamenos-session']
     try {
       if (typeof indexedDB !== 'undefined') {
+        for (const name of KNOWN_DB_NAMES) {
+          try {
+            indexedDB.deleteDatabase(name)
+          } catch (err) {
+            console.error(`[panic-wipe] deleteDatabase(${name}) failed:`, err)
+          }
+        }
         indexedDB
           .databases?.()
           .then((dbs) => {

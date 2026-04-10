@@ -242,15 +242,14 @@ test.describe('Locale persistence', () => {
     const headingDe = adminPage.getByRole('heading', { name: /dashboard|übersicht/i })
     await expect(headingDe).toBeVisible({ timeout: 5_000 })
 
-    // Reload
+    // Reload — capsule auto-restores the worker, so no PIN re-entry needed
     await adminPage.reload()
-    await adminPage.waitForTimeout(1000)
 
-    // German should still be active
+    // German should still be active after reload
     const pageText = await adminPage.evaluate(() => document.body.innerText)
     // The page should NOT be displaying raw English "Dashboard" if German persisted
-    // Check that the locale selector shows German
-    const langSelector = adminPage.getByRole('combobox', { name: /wechseln|language|switch to/i })
+    // Check that the locale selector shows German (use sidebar selector specifically)
+    const langSelector = adminPage.getByTestId('nav-sidebar').getByRole('combobox')
     const langSelectorCount = await langSelector.count()
     if (langSelectorCount > 0) {
       const selectedText = await langSelector.textContent()

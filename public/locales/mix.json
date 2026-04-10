@@ -57,6 +57,9 @@
     "decryptFailed": "Ñá ni̱ kúu descifrar respaldo",
     "dropOrChoose": "Sandátuu xi kaji iin archivo de respaldo"
   },
+  "crypto": {
+    "keyMismatch": "Your encryption key doesn’t match your stored data. Contact an admin to re-verify your identity."
+  },
   "nav": {
     "dashboard": "Panel",
     "calls": "Llamada",

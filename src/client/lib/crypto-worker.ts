@@ -52,6 +52,14 @@ type WorkerRequest =
       label: string
     }
   | { type: 'computeHmac'; id: string; input: string; secretHex: string }
+  | { type: 'exportSession'; id: string }
+  | {
+      type: 'importSession'
+      id: string
+      tokenHex: string
+      encryptedNsecHex: string
+      capsuleNonceHex: string
+    }
 
 interface WorkerSuccessResponse {
   type: 'success'
@@ -80,10 +88,14 @@ interface RateBucket {
   maxPerMin: number
 }
 
+// Rate limits defend against XSS exfiltration via the worker. They must allow
+// legitimate use (a dashboard page can decrypt many fields in parallel across
+// contacts, messages, user PII, timeline entries, etc.) while still catching
+// abuse patterns.
 const rateLimits: Record<string, RateBucket> = {
   sign: { timestamps: [], maxPerSec: 10, maxPerMin: 100 },
   decrypt: { timestamps: [], maxPerSec: 100, maxPerMin: 1000 },
-  encrypt: { timestamps: [], maxPerSec: 10, maxPerMin: 100 },
+  encrypt: { timestamps: [], maxPerSec: 50, maxPerMin: 500 },
 }
 
 function checkRateLimit(operation: string): boolean {
@@ -333,6 +345,64 @@ function handleProvisionNsec(recipientEphemeralPubkeyHex: string): {
   }
 }
 
+/**
+ * Export the unlocked nsec as an opaque session capsule encrypted under a
+ * random token. The main thread stores the capsule + token separately so a
+ * page reload can call `importSession` and skip PBKDF2.
+ *
+ * Threat model: capsule in IDB + token in sessionStorage together re-grant
+ * access, which is equivalent to the existing XSS-exposes-KEK surface. A
+ * lock() or wipeKey() must be called to clear both.
+ */
+function handleExportSession(): {
+  token: string
+  encryptedNsecHex: string
+  capsuleNonceHex: string
+} {
+  if (!secretKey) throw new Error('Worker is locked')
+
+  const token = randomBytes(32)
+  const nonce = randomBytes(24)
+  const cipher = xchacha20poly1305(token, nonce)
+  // Encode nsec as hex — matches the unlock/reEncrypt format
+  const nsecHex = bytesToHex(secretKey)
+  const plaintext = utf8ToBytes(nsecHex)
+  const ciphertext = cipher.encrypt(plaintext)
+  plaintext.fill(0)
+
+  return {
+    token: bytesToHex(token),
+    encryptedNsecHex: bytesToHex(ciphertext),
+    capsuleNonceHex: bytesToHex(nonce),
+  }
+}
+
+/**
+ * Restore worker state from a session capsule created by handleExportSession.
+ * Returns the x-only public key hex on success (same shape as handleUnlock).
+ * Throws if the capsule is invalid / tampered.
+ */
+function handleImportSession(
+  tokenHex: string,
+  encryptedNsecHex: string,
+  capsuleNonceHex: string
+): string {
+  const token = hexToBytes(tokenHex)
+  const nonce = hexToBytes(capsuleNonceHex)
+  const ciphertext = hexToBytes(encryptedNsecHex)
+
+  const cipher = xchacha20poly1305(token, nonce)
+  const decrypted = cipher.decrypt(ciphertext)
+  const nsecHex = new TextDecoder().decode(decrypted)
+  decrypted.fill(0)
+
+  secretKey = hexToBytes(nsecHex)
+  publicKeyHex = bytesToHex(schnorr.getPublicKey(secretKey))
+
+  resetRateLimits()
+  return publicKeyHex
+}
+
 // ---- Message handler ----
 
 self.onmessage = (event: MessageEvent<WorkerRequest>) => {
@@ -398,6 +468,12 @@ self.onmessage = (event: MessageEvent<WorkerRequest>) => {
         result = bytesToHex(mac)
         break
       }
+      case 'exportSession':
+        result = handleExportSession()
+        break
+      case 'importSession':
+        result = handleImportSession(req.tokenHex, req.encryptedNsecHex, req.capsuleNonceHex)
+        break
       case 'decryptEnvelopeField': {
         if (!secretKey) throw new Error('Worker is locked')
         if (!checkRateLimit('decrypt')) {

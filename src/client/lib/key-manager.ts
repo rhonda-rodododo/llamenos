@@ -29,6 +29,98 @@ import {
   storeEncryptedKeyV2,
   syntheticIdpValue,
 } from './key-store-v2'
+import { clearCapsule, loadCapsule, storeCapsule, updateAutoLockExpiry } from './session-capsule'
+
+// ---- Cross-tab lock propagation ----
+// Tabs share IDB but each has its own Worker closure. When one tab locks,
+// we broadcast to sibling tabs so they lock their own Worker state too.
+const LOCK_CHANNEL_NAME = 'llamenos-lock'
+let lockChannel: BroadcastChannel | null = null
+let suppressBroadcast = false
+
+// Test seam — mirrors session-capsule's pattern so key-manager.test.ts can
+// inject a MockBroadcastChannel hub without touching globalThis.
+let lockChannelFactory: () => BroadcastChannel | null = defaultLockChannelFactory
+
+function defaultLockChannelFactory(): BroadcastChannel | null {
+  if (typeof BroadcastChannel === 'undefined') return null
+  try {
+    return new BroadcastChannel(LOCK_CHANNEL_NAME)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Test-only: swap the lock-channel factory. Pass `null` to reset and
+ * close the current channel so the next access rebuilds via the default.
+ *
+ * When a non-null factory is installed, the new channel is instantiated
+ * eagerly so the onmessage listener is wired up before any sibling post.
+ * This matches production semantics where the channel is created at
+ * module-load time (see the eager `getLockChannel()` call below).
+ */
+export function __setLockChannelFactoryForTests(
+  factory: (() => BroadcastChannel | null) | null
+): void {
+  try {
+    lockChannel?.close()
+  } catch {
+    /* ignore */
+  }
+  lockChannel = null
+  suppressBroadcast = false
+  lockChannelFactory = factory ?? defaultLockChannelFactory
+  if (factory !== null) {
+    // Eagerly bind onmessage so injected mock channels are ready to
+    // receive sibling broadcasts in the same tick.
+    getLockChannel()
+  }
+}
+
+function getLockChannel(): BroadcastChannel | null {
+  if (lockChannel) return lockChannel
+  lockChannel = lockChannelFactory()
+  if (lockChannel) {
+    lockChannel.onmessage = (e: MessageEvent<{ type: string }>) => {
+      if (e.data?.type !== 'lock') return
+      // Sibling tab locked — lock this one too, but do NOT re-broadcast
+      // (otherwise we'd loop forever).
+      suppressBroadcast = true
+      void lock().finally(() => {
+        suppressBroadcast = false
+      })
+    }
+  }
+  return lockChannel
+}
+
+function broadcastLock(): void {
+  if (suppressBroadcast) return
+  const ch = getLockChannel()
+  try {
+    ch?.postMessage({ type: 'lock' })
+  } catch {
+    /* channel closed or unsupported */
+  }
+}
+
+// Eagerly register the listener on module load so tab B receives tab A's
+// lock even if tab B never called lock() itself.
+if (typeof BroadcastChannel !== 'undefined') {
+  getLockChannel()
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    try {
+      lockChannel?.close()
+    } catch {
+      /* ignore */
+    }
+    lockChannel = null
+  })
+}
 
 const log = createDebugLog('llamenos:keys')
 
@@ -43,6 +135,7 @@ const DEFAULT_AUTO_LOCK_MS = 15 * 60 * 1000 // 15 minutes
 const MIN_AUTO_LOCK_MS = 60_000 // 1 minute
 const MAX_AUTO_LOCK_MS = 60 * 60 * 1000 // 60 minutes
 
+let autoLockReadErrorReported = false
 function getAutoLock(): number {
   try {
     const stored = localStorage.getItem(AUTO_LOCK_KEY)
@@ -50,8 +143,17 @@ function getAutoLock(): number {
       const ms = Number.parseInt(stored, 10)
       if (ms >= MIN_AUTO_LOCK_MS && ms <= MAX_AUTO_LOCK_MS) return ms
     }
-  } catch {
-    /* localStorage unavailable */
+  } catch (err) {
+    // localStorage may be unavailable (private browsing, SSR, tests). A user
+    // who had explicitly configured a non-default auto-lock silently loses
+    // it — surface the first occurrence per session so the drift is visible.
+    if (!autoLockReadErrorReported) {
+      autoLockReadErrorReported = true
+      console.warn(
+        '[key-manager] getAutoLock localStorage read failed — falling back to default (15 min):',
+        err
+      )
+    }
   }
   return DEFAULT_AUTO_LOCK_MS
 }
@@ -73,9 +175,12 @@ export function getAutoLockMs(): number {
 export function resetAutoLockTimer(): void {
   if (autoLockDisabled) return
   if (autoLockTimer) clearTimeout(autoLockTimer)
+  const expiresAt = Date.now() + getAutoLock()
   autoLockTimer = setTimeout(() => {
     void lock()
   }, getAutoLock())
+  // Debounced write — best effort, safe to fire-and-forget
+  void updateAutoLockExpiry(expiresAt)
 }
 
 function notifyCallbacks(callbacks: Set<() => void>) {
@@ -120,6 +225,23 @@ async function handleRotation(
     ciphertext: reEncrypted.ciphertext,
   }
   storeEncryptedKeyV2(newBlob)
+  // Re-export the capsule with the new blob's pubkeyHash — the Worker now
+  // holds a re-encrypted-at-rest nsec but the nsec bytes are unchanged, so
+  // the exported capsule just needs to match the new blob's pubkeyHash.
+  try {
+    const session = await cryptoWorker.exportSession()
+    await storeCapsule(session.token, {
+      encryptedNsec: session.encryptedNsecHex,
+      capsuleNonce: session.capsuleNonceHex,
+      autoLockExpiresAt: Date.now() + getAutoLock(),
+      pubkeyHash: newBlob.pubkeyHash,
+    })
+  } catch (err) {
+    // Capsule refresh failure is unexpected (the worker just re-encrypted
+    // successfully). The next PIN unlock will re-seed the capsule, so this
+    // is recoverable — but we want visibility in prod logs.
+    console.error('[key-manager] post-rotation capsule export failed:', err)
+  }
   await authFacadeClient.confirmRotation()
 }
 
@@ -133,10 +255,22 @@ async function rotateSyntheticToReal(
   currentBlob: EncryptedKeyDataV2,
   prfOutput?: Uint8Array
 ): Promise<void> {
+  // Phase 1: resolve the real IdP value. A failure here is expected
+  // (IdP unreachable, cold cache, first boot) and rotation will retry
+  // silently on the next unlock.
+  let realUserInfo: Awaited<ReturnType<typeof authFacadeClient.getUserInfo>>
   try {
-    const realUserInfo = await authFacadeClient.getUserInfo()
-    if (!realUserInfo) return // IdP not reachable — retry next unlock
+    realUserInfo = await authFacadeClient.getUserInfo()
+  } catch {
+    return // IdP not reachable — retry next unlock
+  }
+  if (!realUserInfo) return
 
+  // Phase 2: re-encrypt with the real IdP value. Failures here are
+  // unexpected (crypto worker bug, storage full, KEK derivation error)
+  // and must be surfaced — silently leaving the user on a synthetic key
+  // forever is a real defect.
+  try {
     const newSalt = crypto.getRandomValues(new Uint8Array(32))
     const newKek = deriveKEK({
       pin,
@@ -154,12 +288,63 @@ async function rotateSyntheticToReal(
       idpIssuer: realUserInfo.pubkey,
     }
     storeEncryptedKeyV2(newBlob)
-  } catch {
-    // IdP not reachable or re-encryption failed — rotation will happen on next unlock
+    // Re-export the capsule with the new blob's pubkeyHash — the Worker now
+    // holds a re-encrypted-at-rest nsec but the nsec bytes are unchanged, so
+    // the exported capsule just needs to match the new blob's pubkeyHash.
+    try {
+      const session = await cryptoWorker.exportSession()
+      await storeCapsule(session.token, {
+        encryptedNsec: session.encryptedNsecHex,
+        capsuleNonce: session.capsuleNonceHex,
+        autoLockExpiresAt: Date.now() + getAutoLock(),
+        pubkeyHash: newBlob.pubkeyHash,
+      })
+    } catch (err) {
+      console.error('[key-manager] post-rotation capsule export failed:', err)
+    }
+  } catch (err) {
+    console.error('[key-manager] rotateSyntheticToReal re-encrypt failed:', err)
   }
 }
 
 // --- Public API ---
+
+/**
+ * Attempt a fast-path unlock by restoring the Worker from a previously
+ * exported session capsule. Called on app mount before any PIN prompt.
+ *
+ * Returns true on success (worker is now unlocked, unlock callbacks fired),
+ * false if no capsule was found, it's expired, or restore failed. Callers
+ * should fall through to the PIN entry flow on false.
+ */
+export async function trySessionRestore(): Promise<boolean> {
+  const blob = loadEncryptedKeyV2()
+  if (!blob) return false
+
+  const loaded = await loadCapsule(blob.pubkeyHash)
+  if (!loaded) return false
+
+  try {
+    await cryptoWorker.importSession(
+      loaded.token,
+      loaded.capsule.encryptedNsec,
+      loaded.capsule.capsuleNonce
+    )
+    resetAutoLockTimer()
+    notifyCallbacks(unlockCallbacks)
+    return true
+  } catch (err) {
+    // Import failure after a successful loadCapsule means the capsule was
+    // present and pubkeyHash-matched but decryption failed. Legitimate cases
+    // are rare (worker-side corruption or a token/capsule mismatch from a
+    // partial clearCapsule race); suspicious cases include devtools
+    // tampering with IDB. Surface it in prod logs and clear the capsule so
+    // the next unlock goes through PIN.
+    console.error('[key-manager] trySessionRestore importSession failed, clearing capsule:', err)
+    await clearCapsule()
+    return false
+  }
+}
 
 /**
  * Unlock the key store by decrypting the nsec with multi-factor authentication.
@@ -227,6 +412,21 @@ export async function unlock(pin: string): Promise<string | null> {
     if (pubkey) {
       resetAutoLockTimer()
       notifyCallbacks(unlockCallbacks)
+      // Export a session capsule so subsequent reloads can skip PBKDF2.
+      // Fire-and-forget — capsule persistence is an optimisation, not a
+      // correctness requirement — but surface failures because this path
+      // should succeed (the worker was just unlocked).
+      try {
+        const session = await cryptoWorker.exportSession()
+        await storeCapsule(session.token, {
+          encryptedNsec: session.encryptedNsecHex,
+          capsuleNonce: session.capsuleNonceHex,
+          autoLockExpiresAt: Date.now() + getAutoLock(),
+          pubkeyHash: blob.pubkeyHash,
+        })
+      } catch (err) {
+        console.error('[key-manager] session capsule export failed:', err)
+      }
 
       // Handle idp_value rotation if pending (real IdP changed)
       if (userInfo?.pendingRotation) {
@@ -253,14 +453,19 @@ export async function unlock(pin: string): Promise<string | null> {
 }
 
 /**
- * Lock the key manager — delegates zeroing to the crypto worker.
+ * Lock the key manager — delegates zeroing to the crypto worker, clears the
+ * session capsule, and broadcasts a lock message to sibling tabs.
  */
 export async function lock(): Promise<void> {
+  // Broadcast BEFORE destruction so sibling tabs see the message even if
+  // this tab races to close.
+  broadcastLock()
   await cryptoWorker.lock()
   if (autoLockTimer) {
     clearTimeout(autoLockTimer)
     autoLockTimer = null
   }
+  await clearCapsule()
   notifyCallbacks(lockCallbacks)
 }
 
@@ -349,6 +554,7 @@ export async function wipeKey(): Promise<void> {
 /**
  * Disable the unified auto-lock timer.
  * Used in demo mode where frequent lock-outs ruin the experience.
+ * Also extends the session capsule expiry effectively indefinitely.
  */
 export function disableAutoLock() {
   autoLockDisabled = true
@@ -356,6 +562,8 @@ export function disableAutoLock() {
     clearTimeout(autoLockTimer)
     autoLockTimer = null
   }
+  // Bump the capsule expiry far into the future so restore always wins.
+  void updateAutoLockExpiry(Number.MAX_SAFE_INTEGER)
 }
 
 /**

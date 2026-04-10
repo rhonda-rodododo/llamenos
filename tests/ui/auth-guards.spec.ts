@@ -29,9 +29,30 @@ test.describe('Auth guards', () => {
     const ctx = await browser.newContext()
     const page = await ctx.newPage()
     await page.goto('/admin')
-    // Auth guard in AdminRoute redirects unauthenticated users to /.
-    // The root layout then redirects to /login.
-    await expect(page.getByTestId('login-heading')).toBeVisible({ timeout: 30000 })
+    // Auth guard in AdminRoute schedules `navigate({ to: '/' })` via useEffect
+    // for unauthenticated users; the root layout then redirects to /login via
+    // its own useEffect. The test's contract is "the admin path lands on the
+    // login screen".
+    //
+    // Under CI parallel-worker load two things conspire:
+    //   1. The cold-context bundle fetch + restoreSession 401 + config fetch
+    //      + effect + navigate + login render chain routinely takes 30s+ on
+    //      the GitHub runner.
+    //   2. TanStack Router's internal location updates before the history
+    //      API entry commits, so `page.url()` can report `/` even after
+    //      LoginPage has already mounted with login-heading in the DOM. And
+    //      under concurrent rendering a transient auth-context update can
+    //      flag login-heading as "not visible" during a re-render tick even
+    //      though it's in the DOM.
+    //
+    // Use a raw DOM query via waitForFunction — "login-heading exists in the
+    // DOM" is the authoritative signal the redirect reached the login route,
+    // and it isn't affected by React's concurrent render visibility state.
+    await page.waitForFunction(
+      () => !!document.querySelector('[data-testid="login-heading"]'),
+      null,
+      { timeout: 60000 }
+    )
     await ctx.close()
   })
 

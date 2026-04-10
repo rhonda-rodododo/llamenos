@@ -1,6 +1,26 @@
 import { type APIRequestContext, type Page, expect } from '@playwright/test'
 import { TestIds } from '../test-ids'
 
+/**
+ * Navigation patterns for authenticated tests — READ THIS BEFORE WRITING NEW TESTS.
+ *
+ * - `gotoAdminPath(page, '/admin/section')` — SPA nav, preserves crypto state. DEFAULT
+ *    for navigating to admin routes from an already-authenticated page.
+ * - `navigateAfterLogin(page, '/path')` — SPA nav with auto-login fallback. Use for
+ *    non-admin paths or when the test may or may not start authenticated.
+ * - `gotoAdminSection(page, slug)` — FULL RELOAD. Only for tests that explicitly
+ *    exercise reload behaviour. Must be followed by reenterPinAfterReload() if the
+ *    test expects the PIN to be re-entered.
+ * - `page.goto('/path')` — FULL RELOAD. Wipes the crypto worker. AVOID in
+ *    authenticated tests. Acceptable only for:
+ *      1) unauthenticated flows (login, setup, onboarding)
+ *      2) tests that explicitly verify reload behaviour
+ *      3) screenshot/visual capture tests
+ * - `page.reload()` — FULL RELOAD. With the session capsule landed (PR A), the
+ *    crypto state AUTO-RESTORES after reload. If you want the old "reload clears
+ *    the worker" behaviour, call `await clearSessionCapsule(page)` first.
+ */
+
 export const ADMIN_NSEC = 'nsec174zsa94n3e7t0ugfldh9tgkkzmaxhalr78uxt9phjq3mmn6d6xas5jdffh'
 export const TEST_PIN = '123456'
 
@@ -40,13 +60,28 @@ export async function enterPin(page: Page, pin: string) {
   for (let i = 0; i < pin.length; i++) {
     const input = page.locator(`input[aria-label="PIN digit ${i + 1}"]`)
     await input.fill(pin[i])
-    // Verify the digit was accepted before moving on
-    await expect(input).toHaveValue(pin[i], { timeout: 1000 })
+    // Assert the digit landed — but skip the last one. In a 6-digit PIN with
+    // a 6-slot input, the final fill triggers the consumer's onComplete in
+    // the same React event cycle. Several consumers synchronously swap the
+    // PinInput's `value` prop inside onComplete (AdminBootstrap transitions
+    // from the create step to the confirm step; PinChallengeDialog on a wrong
+    // PIN clears `pin` via the attempts-dependent useEffect). React batches
+    // those state updates into a single render, so by the time Playwright
+    // polls toHaveValue the DOM already reflects the post-transition value
+    // (empty). Skipping the assertion for the last digit mirrors the user
+    // experience — the downstream assertions verify the completion effect.
+    if (i < pin.length - 1) {
+      await expect(input).toHaveValue(pin[i], { timeout: 1000 })
+    }
   }
-  // Focus the last filled digit and press Enter to submit
+  // Focus the last filled digit and press Enter to submit (no-op if already auto-submitted)
   const lastFilledDigit = page.locator(`input[aria-label="PIN digit ${pin.length}"]`)
-  await lastFilledDigit.focus()
-  await page.keyboard.press('Enter')
+  await lastFilledDigit.focus().catch(() => {
+    // Input may be disabled (auto-submit in progress) — that's fine
+  })
+  await page.keyboard.press('Enter').catch(() => {
+    // Enter may fail if dialog is transitioning — that's fine
+  })
 }
 
 /**
@@ -119,78 +154,56 @@ export async function navigateAfterLogin(page: Page, url: string): Promise<void>
 }
 
 /**
- * Re-enter PIN after a page.reload() when user is already authenticated.
- * The reload clears keyManager, so the encrypted key in localStorage triggers
- * the PIN screen. After entering PIN the app redirects to /.
- * If currentPath is provided, the helper then navigates back to that path
- * via the sidebar or page.goto as appropriate.
+ * Clear the session capsule so that the next page.reload() falls through
+ * to the PIN entry flow. Also dispatches a BroadcastChannel('llamenos-lock')
+ * message so any sibling tabs in the same BrowserContext are locked too —
+ * this matches production cross-tab lock semantics.
+ *
+ * Use this before page.reload() in tests that specifically exercise the
+ * lock-on-reload behaviour. Tests that want to keep the session unlocked
+ * across a reload should NOT call this.
+ */
+export async function clearSessionCapsule(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    try {
+      sessionStorage.removeItem('llamenos-session-token')
+    } catch {
+      /* ignore */
+    }
+    try {
+      const bc = new BroadcastChannel('llamenos-lock')
+      bc.postMessage({ type: 'lock' })
+      bc.close()
+    } catch {
+      /* unsupported */
+    }
+    // IDB orphan is cleaned up automatically on next loadCapsule() call.
+  })
+}
+
+/**
+ * Re-enter PIN after a clearSessionCapsule() + page.reload() sequence.
+ *
+ * Prerequisite: the caller cleared the session capsule first. Otherwise
+ * the capsule auto-restores on reload and this helper's wait for /login
+ * will time out.
+ *
+ * After PR #48 the app redirects to /login automatically when the key is
+ * locked, so this helper just waits for that redirect, enters the PIN,
+ * and waits for the authenticated layout to re-render.
  */
 export async function reenterPinAfterReload(page: Page): Promise<void> {
-  // After reload, wait for the page to settle — Session Expired modal may flash
-  await page.waitForLoadState('domcontentloaded')
-
-  // Dismiss Session Expired modal if it appears before PIN input
-  const sessionExpired = page.getByText('Session Expired')
-  if (await sessionExpired.isVisible({ timeout: 1000 }).catch(() => false)) {
-    const reconnectBtn = page.getByRole('button', { name: /reconnect/i })
-    if (await reconnectBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
-      await reconnectBtn.click({ timeout: 3000 }).catch(() => {})
-    }
-  }
+  // Wait for the locked-key redirect to fire
+  await page.waitForURL(/\/login/, { timeout: 15000 })
 
   const pinInput = page.locator('input[aria-label="PIN digit 1"]')
-
-  // After reload, the refresh cookie may restore the API session without
-  // showing a PIN prompt (user stays on dashboard with locked keys).
-  // Use waitFor (NOT isVisible) — isVisible resolves immediately for absent elements.
-  let pinVisible = await pinInput
-    .waitFor({ state: 'visible', timeout: 10000 })
-    .then(() => true)
-    .catch(() => false)
-
-  if (!pinVisible) {
-    // Block refresh endpoint and reload to force the login/PIN screen
-    await page.route('**/api/auth/token/refresh', async (route) => {
-      await route.fulfill({
-        status: 401,
-        contentType: 'application/json',
-        body: '{"error":"blocked"}',
-      })
-    })
-    await page.reload({ waitUntil: 'domcontentloaded' })
-    // Wait for the login/PIN screen to appear (the blocked refresh triggers redirect)
-    pinVisible = await pinInput
-      .waitFor({ state: 'visible', timeout: 15000 })
-      .then(() => true)
-      .catch(() => false)
-    // Unblock refresh so the PIN unlock flow can complete
-    await page.unroute('**/api/auth/token/refresh')
-  }
-
-  if (!pinVisible) {
-    // Last resort: navigate directly to /login to force PIN screen
-    await page.goto('/login', { waitUntil: 'domcontentloaded' })
-    pinVisible = await pinInput
-      .waitFor({ state: 'visible', timeout: 10000 })
-      .then(() => true)
-      .catch(() => false)
-  }
-
-  if (!pinVisible) {
-    throw new Error(
-      'reenterPinAfterReload: PIN screen never appeared after reload + blocked refresh + goto /login'
-    )
-  }
+  await pinInput.waitFor({ state: 'visible', timeout: 10000 })
 
   await enterPin(page, TEST_PIN)
-  // PBKDF2 600K + unlockWithPin + loadHubKeys + invalidateQueries can take 60s+
-  // under parallel worker load (3 workers each doing PBKDF2 simultaneously)
+
+  // PBKDF2 600K + unlockWithPin + loadHubKeys + invalidateQueries can take
+  // 60s+ under parallel worker load.
   await page.waitForURL((u) => !u.toString().includes('/login'), { timeout: 90000 })
-  // Wait for the authenticated layout to render (sidebar, dashboard heading)
-  const dashHeading = page.getByRole('heading', { name: 'Dashboard', exact: true })
-  await dashHeading.waitFor({ state: 'visible', timeout: 30000 }).catch(() => {
-    // May have gone to profile-setup instead — that's OK
-  })
 }
 
 export async function logout(page: Page) {

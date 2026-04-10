@@ -1,5 +1,5 @@
 import { expect, test } from '../fixtures/auth'
-import { navigateAfterLogin, reenterPinAfterReload } from '../helpers'
+import { navigateAfterLogin } from '../helpers'
 
 async function gotoPhoneProvider(page: import('@playwright/test').Page) {
   await navigateAfterLogin(page, '/admin/phone-provider')
@@ -179,7 +179,6 @@ test.describe('WebRTC & Call Preference Settings', () => {
 
     // Reload to verify server-side persistence
     await adminPage.reload()
-    await reenterPinAfterReload(adminPage)
     await gotoPhoneProvider(adminPage)
 
     // WebRTC toggle is inside AdvancedReveal (closed by default after reload)

@@ -1,5 +1,5 @@
 import { expect, test } from '../fixtures/auth'
-import { navigateAfterLogin, reenterPinAfterReload } from '../helpers'
+import { clearSessionCapsule, navigateAfterLogin, reenterPinAfterReload } from '../helpers'
 
 test.describe('Profile self-service', () => {
   test('admin can edit profile name and it persists', async ({ adminPage }) => {
@@ -21,7 +21,9 @@ test.describe('Profile self-service', () => {
     await adminPage.getByRole('button', { name: /update profile/i }).click()
     await expect(adminPage.getByText(/profile updated/i)).toBeVisible({ timeout: 5000 })
 
-    // Reload and verify name persisted via /auth/me
+    // Reload and verify name persisted via /auth/me; clear capsule so the
+    // locked-key redirect fires and PIN re-entry validates the full decrypt cycle.
+    await clearSessionCapsule(adminPage)
     await adminPage.reload()
     await reenterPinAfterReload(adminPage)
     // PIN unlock may redirect to profile-setup — handle it
@@ -155,7 +157,9 @@ test.describe('Profile self-service', () => {
     await volunteerPage.getByRole('button', { name: /update profile/i }).click()
     await expect(volunteerPage.getByText(/profile updated/i)).toBeVisible({ timeout: 5000 })
 
-    // Verify name persists after reload
+    // Verify name persists after reload; clear capsule so the locked-key
+    // redirect fires and PIN re-entry validates the full decrypt cycle.
+    await clearSessionCapsule(volunteerPage)
     await volunteerPage.reload()
     await reenterPinAfterReload(volunteerPage)
     // PIN unlock may redirect to profile-setup — handle it
