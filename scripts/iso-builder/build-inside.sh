@@ -174,11 +174,16 @@ PY
 fi
 
 # --- 7. Update md5sum.txt for d-i integrity check ---
+# NOTE: The Debian netinst ISO ships a self-referencing `./debian -> .`
+# symlink that makes `find -follow` loop forever. We drop `-follow` so
+# symlinks are emitted as symlinks (skipped by `-type f`) instead of being
+# traversed. d-i's integrity check only needs regular-file checksums.
 echo "==> Refreshing md5sum.txt"
 (
   cd "${WORK_DIR}/iso-root"
   rm -f md5sum.txt
-  find . -follow -type f ! -name md5sum.txt -print0 \
+  find . -type f ! -name md5sum.txt -print0 \
+    | LC_ALL=C sort -z \
     | xargs -0 md5sum > md5sum.txt
 )
 

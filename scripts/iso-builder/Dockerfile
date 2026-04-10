@@ -28,6 +28,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       gzip \
       xz-utils \
       busybox-static \
+      gettext-base \
+      python3 \
     && rm -rf /var/lib/apt/lists/*
 
 # Workspace
