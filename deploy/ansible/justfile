@@ -157,14 +157,17 @@ test-matrix mode='p0':
     #!/usr/bin/env bash
     set -euo pipefail
 
+    # cirruslabs publishes Debian images under codename tags only (trixie,
+    # bookworm) — there are no numeric `:13`/`:12` tags. Ubuntu uses numeric.
+    # Verified via `curl https://ghcr.io/v2/cirruslabs/{debian,ubuntu}/tags/list`.
     case "{{mode}}" in
-      p0)  images=("ghcr.io/cirruslabs/ubuntu:24.04" "ghcr.io/cirruslabs/debian:13") ;;
-      p1)  images=("ghcr.io/cirruslabs/ubuntu:22.04" "ghcr.io/cirruslabs/debian:12") ;;
+      p0)  images=("ghcr.io/cirruslabs/ubuntu:24.04" "ghcr.io/cirruslabs/debian:trixie") ;;
+      p1)  images=("ghcr.io/cirruslabs/ubuntu:22.04" "ghcr.io/cirruslabs/debian:bookworm") ;;
       all) images=(
             "ghcr.io/cirruslabs/ubuntu:24.04"
             "ghcr.io/cirruslabs/ubuntu:22.04"
-            "ghcr.io/cirruslabs/debian:13"
-            "ghcr.io/cirruslabs/debian:12"
+            "ghcr.io/cirruslabs/debian:trixie"
+            "ghcr.io/cirruslabs/debian:bookworm"
            ) ;;
       *)   echo "usage: just test-matrix [p0|p1|all]" >&2; exit 2 ;;
     esac
