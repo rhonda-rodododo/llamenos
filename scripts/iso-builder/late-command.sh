@@ -39,15 +39,39 @@ ClientAliveInterval 300
 ClientAliveCountMax 2
 EOF
 
+# Helper: write failure sentinel and motd warning, then exit 1.
+# Called explicitly on critical failures (POSIX sh has no ERR trap).
+fail_sentinel() {
+  reason="${1:-unknown}"
+  printf 'late-command: FAILED: %s\n' "$reason" > /var/lib/llamenos-iso-build-failed
+  chmod 644 /var/lib/llamenos-iso-build-failed
+  cat > /etc/motd <<'FAILMOTD'
+
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  WARNING: Llamenos ISO late-command FAILED during install!
+  Remote LUKS unlock (dropbear) may NOT work correctly.
+  Check /var/lib/llamenos-iso-build-failed for details.
+  Re-image the system before putting it into service.
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+FAILMOTD
+  exit 1
+}
+
 # 3. Set up dropbear-initramfs if requested
 if [ "${UNLOCK_MODE}" = "dropbear" ]; then
-  /tmp/dropbear-setup.sh "${SSH_PUBKEY}" "${STATIC_IP}" "${GATEWAY}"
+  /tmp/dropbear-setup.sh "${SSH_PUBKEY}" "${STATIC_IP}" "${GATEWAY}" || \
+    fail_sentinel "dropbear-setup.sh failed"
 fi
 
 # 4. Ensure NTP is on (chrony will replace this in Ansible)
-systemctl enable systemd-timesyncd || true
+systemctl enable systemd-timesyncd 2>&1 || echo "WARNING: systemd-timesyncd enable failed (non-fatal)" >&2
 
-# 5. First-boot welcome banner with next steps
+# 5. Write success sentinel
+touch /var/lib/llamenos-iso-build-ok
+chmod 644 /var/lib/llamenos-iso-build-ok
+
+# 6. First-boot welcome banner with next steps
 cat > /etc/motd <<EOF
 
   Llamenos Hotline — fresh install (Debian 13)
@@ -55,6 +79,7 @@ cat > /etc/motd <<EOF
   Disk encryption:  LUKS2 + LVM (active)
   Unlock mode:      ${UNLOCK_MODE}
   SSH user:         ${USERNAME} (sudo, key-only)
+  Install status:   OK (see /var/lib/llamenos-iso-build-ok)
 
   NEXT STEP — from your workstation:
 
