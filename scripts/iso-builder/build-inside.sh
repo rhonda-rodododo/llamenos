@@ -137,7 +137,18 @@ mkdir -p "$INITRD_WORK"
   cd "$INITRD_WORK"
   gunzip < "$INITRD_PATH" | cpio -id --quiet
   cp "${WORK_DIR}/preseed.cfg" ./preseed.cfg
-  find . | cpio -H newc -o --quiet --reproducible \
+  # Reproducibility for the initrd repack requires three fixes:
+  #   1. Sorted `find` input so cpio sees a deterministic order.
+  #   2. `touch -h -d @SOURCE_DATE_EPOCH` on every node so every mtime is
+  #      the same — `cpio --reproducible` zeros some metadata but NOT the
+  #      mtime of the top-level `.` directory entry, which otherwise
+  #      reflects the mkdir time (non-deterministic between runs).
+  #   3. `cpio --reproducible --null` + `gzip -9 -n` for stream
+  #      determinism.
+  find . -print0 | xargs -0 touch -h -d "@${SOURCE_DATE_EPOCH}"
+  find . -print0 \
+    | LC_ALL=C sort -z \
+    | cpio -H newc -o --quiet --reproducible --null \
     | gzip -9 -n > "$INITRD_PATH"
 )
 
@@ -186,6 +197,18 @@ echo "==> Refreshing md5sum.txt"
     | LC_ALL=C sort -z \
     | xargs -0 md5sum > md5sum.txt
 )
+
+# --- 7b. Pin every file in iso-root to SOURCE_DATE_EPOCH ---
+# xorriso records the mtime of each file into the ISO9660 directory entry.
+# Files extracted from the upstream ISO keep their original mtimes (fine
+# and deterministic), but the iso-root dir itself and any files we wrote
+# (late-command.sh, md5sum.txt, patched initrd.gz, patched txt.cfg) get
+# the current wall-clock time. That leaks non-determinism into the root
+# directory record and every file we touched. Pinning every node to
+# SOURCE_DATE_EPOCH solves both.
+echo "==> Pinning iso-root mtimes for reproducibility"
+find "${WORK_DIR}/iso-root" -print0 \
+  | xargs -0 touch -h -d "@${SOURCE_DATE_EPOCH}"
 
 # --- 8. Extract isohybrid MBR template + repack ---
 echo "==> Extracting isohybrid MBR template"
