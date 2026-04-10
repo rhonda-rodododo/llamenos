@@ -58,6 +58,84 @@ err() {
   exit 2
 }
 
+# --- Input validators ---
+
+validate_ip() {
+  local ip="$1"
+  # Must match dotted-quad pattern
+  if ! printf '%s' "$ip" | grep -qE '^([0-9]{1,3}\.){3}[0-9]{1,3}$'; then
+    return 1
+  fi
+  # Each octet must be 0-255
+  local IFS='.'
+  # shellcheck disable=SC2086
+  set -- $ip
+  for octet in "$@"; do
+    if [ "$octet" -gt 255 ] 2>/dev/null; then
+      return 1
+    fi
+  done
+  return 0
+}
+
+validate_cidr() {
+  local cidr="$1"
+  local ip="${cidr%/*}"
+  local prefix="${cidr#*/}"
+  if ! validate_ip "$ip"; then
+    return 1
+  fi
+  # prefix must be numeric 0-32
+  if ! printf '%s' "$prefix" | grep -qE '^[0-9]+$'; then
+    return 1
+  fi
+  if [ "$prefix" -gt 32 ] 2>/dev/null; then
+    return 1
+  fi
+  return 0
+}
+
+validate_dns_list() {
+  local dns="$1"
+  # Must be non-empty
+  [ -n "$dns" ] || return 1
+  # Split on commas and validate each entry
+  local IFS=','
+  # shellcheck disable=SC2086
+  set -- $dns
+  [ $# -ge 1 ] || return 1
+  for entry in "$@"; do
+    if ! validate_ip "$entry"; then
+      return 1
+    fi
+  done
+  return 0
+}
+
+validate_user() {
+  local user="$1"
+  if ! printf '%s' "$user" | grep -qE '^[a-z_][a-z0-9_-]{0,31}$'; then
+    return 1
+  fi
+  return 0
+}
+
+validate_locale() {
+  local locale="$1"
+  if ! printf '%s' "$locale" | grep -qE '^[a-z]{2,3}(_[A-Z]{2})?(\.[A-Za-z0-9-]+)?$'; then
+    return 1
+  fi
+  return 0
+}
+
+validate_timezone() {
+  local tz="$1"
+  if ! printf '%s' "$tz" | grep -qE '^[A-Za-z]+(/[A-Za-z_+-]+){0,2}$'; then
+    return 1
+  fi
+  return 0
+}
+
 # Parse flags
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -119,6 +197,30 @@ fi
 # Validate debian version (Debian 13 only in this PR)
 if ! printf '%s' "$DEBIAN_VERSION" | grep -qE '^13\.[0-9]+\.[0-9]+$'; then
   err "--debian-version: only Debian 13 supported in this builder (got: $DEBIAN_VERSION)"
+fi
+
+# Validate network + identity inputs to prevent shell injection in late_command
+if ! validate_dns_list "$DNS"; then
+  err "invalid --dns: $DNS (must be comma-separated IPv4 addresses)"
+fi
+if [ "$STATIC_IP" != "dhcp" ]; then
+  if ! validate_cidr "$STATIC_IP"; then
+    err "invalid --static-ip: $STATIC_IP (must be CIDR notation, e.g. 192.0.2.10/24)"
+  fi
+fi
+if [ -n "$GATEWAY" ]; then
+  if ! validate_ip "$GATEWAY"; then
+    err "invalid --gateway: $GATEWAY (must be a valid IPv4 address)"
+  fi
+fi
+if ! validate_user "$USERNAME"; then
+  err "invalid --user: $USERNAME (must match POSIX username: ^[a-z_][a-z0-9_-]{0,31}\$)"
+fi
+if ! validate_locale "$LOCALE"; then
+  err "invalid --locale: $LOCALE (must match e.g. en_US.UTF-8)"
+fi
+if ! validate_timezone "$TIMEZONE"; then
+  err "invalid --timezone: $TIMEZONE (must be IANA TZ name, e.g. UTC or America/New_York)"
 fi
 
 # Validate out dir is writable (or creatable)
