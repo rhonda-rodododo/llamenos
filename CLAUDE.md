@@ -48,7 +48,7 @@ src/
     lib/            # Client utilities (auth, crypto, ws, i18n, hooks)
                     #   key-store-v2.ts — multi-factor KEK key store (PIN + recovery + WebAuthn)
                     #   crypto-worker.ts / crypto-worker-client.ts — Web Worker crypto isolation
-    locales/        # 13 locale JSON files (en, es, zh, tl, vi, ar, fr, ht, ko, ru, hi, pt, de)
+                    #   i18n.ts — i18next loader; locales live at public/locales/ (NOT src/client/locales)
   server/           # Bun/Hono backend
     routes/         # REST API route handlers (includes auth-facade.ts for /api/auth/*)
     services/       # PostgreSQL-backed business logic services
@@ -66,6 +66,13 @@ src/
     types.ts        # Branded types (Ciphertext fields), constants, re-exports from schemas
     languages.ts    # Centralized language config (codes, labels, Twilio voice IDs)
     crypto-labels.ts # 25 domain separation constants for all cryptographic operations
+public/
+  locales/          # 22 locale JSON files served as static assets by Vite/Caddy.
+                    # Codes: am, ar, de, en, es, fa, fr, hi, ht, ko, ku, mix, my, pt, quc,
+                    #        ru, so, tl, tr, uk, vi, zh.
+                    # Every i18n key must have an entry in every locale or the CI
+                    # i18n check fails. New locales are added by copying en.json and
+                    # translating — do not introduce keys that only exist in English.
 ```
 
 **Path aliases** (tsconfig.json + vite.config.ts):
