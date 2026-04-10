@@ -3,6 +3,7 @@
 // specific combinations of named + type imports from another module are
 // present in the same file. Using require() inside beforeAll avoids this.
 import { afterEach, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
+import { MockBroadcastChannel, MockBroadcastHub } from './__test-helpers__/mock-broadcast-channel'
 import {
   SESSION_TOKEN_KEY,
   __resetExpiryDebounceForTests,
@@ -24,65 +25,6 @@ function makeCapsule(overrides: Partial<SessionCapsule> = {}): SessionCapsule {
     autoLockExpiresAt: Date.now() + 60_000,
     pubkeyHash: PUBKEY_HASH,
     ...overrides,
-  }
-}
-
-// ---- In-memory BroadcastChannel-ish mock for cross-tab sync tests ----
-//
-// Each `hub` represents one browsing-context-group. All MockChannels sharing
-// the same hub deliver postMessage calls to every OTHER channel on the hub,
-// mirroring real BroadcastChannel semantics (messages do not echo back to
-// the sender).
-
-type Listener = (e: MessageEvent<unknown>) => void
-
-class MockBroadcastHub {
-  private channels = new Set<MockBroadcastChannel>()
-  register(ch: MockBroadcastChannel) {
-    this.channels.add(ch)
-  }
-  unregister(ch: MockBroadcastChannel) {
-    this.channels.delete(ch)
-  }
-  deliver(sender: MockBroadcastChannel, data: unknown) {
-    for (const ch of this.channels) {
-      if (ch === sender || ch.isClosed()) continue
-      // Deliver asynchronously, same as real BroadcastChannel
-      queueMicrotask(() => {
-        const event = { data } as MessageEvent<unknown>
-        if (ch.onmessage) ch.onmessage(event)
-        for (const l of ch.listeners()) l(event)
-      })
-    }
-  }
-}
-
-class MockBroadcastChannel {
-  public onmessage: ((e: MessageEvent<unknown>) => void) | null = null
-  private _listeners = new Set<Listener>()
-  private closed = false
-  constructor(private hub: MockBroadcastHub) {
-    hub.register(this)
-  }
-  postMessage(data: unknown) {
-    if (this.closed) throw new Error('channel is closed')
-    this.hub.deliver(this, data)
-  }
-  addEventListener(_type: 'message', listener: Listener) {
-    this._listeners.add(listener)
-  }
-  removeEventListener(_type: 'message', listener: Listener) {
-    this._listeners.delete(listener)
-  }
-  close() {
-    this.closed = true
-    this.hub.unregister(this)
-  }
-  isClosed() {
-    return this.closed
-  }
-  listeners() {
-    return this._listeners
   }
 }
 

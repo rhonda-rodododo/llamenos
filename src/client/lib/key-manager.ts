@@ -38,22 +38,58 @@ const LOCK_CHANNEL_NAME = 'llamenos-lock'
 let lockChannel: BroadcastChannel | null = null
 let suppressBroadcast = false
 
-function getLockChannel(): BroadcastChannel | null {
+// Test seam — mirrors session-capsule's pattern so key-manager.test.ts can
+// inject a MockBroadcastChannel hub without touching globalThis.
+let lockChannelFactory: () => BroadcastChannel | null = defaultLockChannelFactory
+
+function defaultLockChannelFactory(): BroadcastChannel | null {
   if (typeof BroadcastChannel === 'undefined') return null
-  if (!lockChannel) {
-    try {
-      lockChannel = new BroadcastChannel(LOCK_CHANNEL_NAME)
-      lockChannel.onmessage = (e: MessageEvent<{ type: string }>) => {
-        if (e.data?.type !== 'lock') return
-        // Sibling tab locked — lock this one too, but do NOT re-broadcast
-        // (otherwise we'd loop forever).
-        suppressBroadcast = true
-        void lock().finally(() => {
-          suppressBroadcast = false
-        })
-      }
-    } catch {
-      lockChannel = null
+  try {
+    return new BroadcastChannel(LOCK_CHANNEL_NAME)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Test-only: swap the lock-channel factory. Pass `null` to reset and
+ * close the current channel so the next access rebuilds via the default.
+ *
+ * When a non-null factory is installed, the new channel is instantiated
+ * eagerly so the onmessage listener is wired up before any sibling post.
+ * This matches production semantics where the channel is created at
+ * module-load time (see the eager `getLockChannel()` call below).
+ */
+export function __setLockChannelFactoryForTests(
+  factory: (() => BroadcastChannel | null) | null
+): void {
+  try {
+    lockChannel?.close()
+  } catch {
+    /* ignore */
+  }
+  lockChannel = null
+  suppressBroadcast = false
+  lockChannelFactory = factory ?? defaultLockChannelFactory
+  if (factory !== null) {
+    // Eagerly bind onmessage so injected mock channels are ready to
+    // receive sibling broadcasts in the same tick.
+    getLockChannel()
+  }
+}
+
+function getLockChannel(): BroadcastChannel | null {
+  if (lockChannel) return lockChannel
+  lockChannel = lockChannelFactory()
+  if (lockChannel) {
+    lockChannel.onmessage = (e: MessageEvent<{ type: string }>) => {
+      if (e.data?.type !== 'lock') return
+      // Sibling tab locked — lock this one too, but do NOT re-broadcast
+      // (otherwise we'd loop forever).
+      suppressBroadcast = true
+      void lock().finally(() => {
+        suppressBroadcast = false
+      })
     }
   }
   return lockChannel

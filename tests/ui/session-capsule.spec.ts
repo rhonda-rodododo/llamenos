@@ -4,7 +4,7 @@ import { TEST_PIN, clearSessionCapsule, enterPin } from '../helpers'
 test.describe('session capsule', () => {
   test('reload preserves unlocked state — no PIN prompt', async ({ adminPage }) => {
     // Precondition: adminPage fixture is already logged in and unlocked
-    await expect(adminPage.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible({
+    await expect(adminPage.getByTestId('dashboard-heading')).toBeVisible({
       timeout: 10000,
     })
 
@@ -12,15 +12,56 @@ test.describe('session capsule', () => {
     await adminPage.reload()
 
     // Dashboard renders without a PIN prompt
-    await expect(adminPage.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible({
+    await expect(adminPage.getByTestId('dashboard-heading')).toBeVisible({
       timeout: 10000,
     })
     const pinInput = adminPage.locator('input[aria-label="PIN digit 1"]')
     await expect(pinInput).toBeHidden()
   })
 
+  test('reload re-populates the hub key cache via restoreSession', async ({ adminPage }) => {
+    // Commit 247e9cae added loadHubKeysForUser() inside restoreSession so
+    // hub-key-encrypted fields (Twilio SID, report type names, role labels,
+    // …) decrypt after a capsule fast-path restore. Without that call the
+    // dashboard still renders but the module-level hub key cache is empty
+    // and every hub-encrypted query silently shows [encrypted] placeholders.
+    //
+    // Directly pin the contract: after reload the hub key cache is
+    // non-empty. The capsule-reload test above only asserts the dashboard
+    // heading, which is NOT encrypted, and would pass even if
+    // loadHubKeysForUser had been accidentally removed.
+    await expect(adminPage.getByTestId('dashboard-heading')).toBeVisible({
+      timeout: 10000,
+    })
+
+    // Wait for the initial unlockWithPin path to have populated the cache
+    // (unlockWithPin also calls loadHubKeysForUser asynchronously).
+    await expect
+      .poll(async () => adminPage.evaluate(() => window.__TEST_HUB_KEY_CACHE?.size() ?? 0), {
+        timeout: 10_000,
+        message: 'hub key cache should be populated after initial unlock',
+      })
+      .toBeGreaterThan(0)
+
+    // Reload — capsule auto-restore path must reload hub keys.
+    await adminPage.reload()
+    await expect(adminPage.getByTestId('dashboard-heading')).toBeVisible({
+      timeout: 10000,
+    })
+
+    // The cache starts empty in the fresh module instance and must be
+    // re-populated asynchronously by loadHubKeysForUser inside
+    // restoreSession. Poll up to 10s.
+    await expect
+      .poll(async () => adminPage.evaluate(() => window.__TEST_HUB_KEY_CACHE?.size() ?? 0), {
+        timeout: 10_000,
+        message: 'hub key cache should be re-populated after capsule-restore reload',
+      })
+      .toBeGreaterThan(0)
+  })
+
   test('clearSessionCapsule + reload falls through to PIN prompt', async ({ adminPage }) => {
-    await expect(adminPage.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible({
+    await expect(adminPage.getByTestId('dashboard-heading')).toBeVisible({
       timeout: 10000,
     })
 
@@ -38,7 +79,7 @@ test.describe('session capsule', () => {
   })
 
   test('expired capsule falls through to PIN prompt on reload', async ({ adminPage }) => {
-    await expect(adminPage.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible({
+    await expect(adminPage.getByTestId('dashboard-heading')).toBeVisible({
       timeout: 10000,
     })
 
@@ -81,14 +122,14 @@ test.describe('session capsule', () => {
   })
 
   test('cross-tab lock: BroadcastChannel lock locks sibling tab', async ({ adminPage }) => {
-    await expect(adminPage.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible({
+    await expect(adminPage.getByTestId('dashboard-heading')).toBeVisible({
       timeout: 10000,
     })
 
     // Open a second page in the same context (shares IDB, BroadcastChannel)
     const tabB = await adminPage.context().newPage()
     await tabB.goto('/')
-    await expect(tabB.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible({
+    await expect(tabB.getByTestId('dashboard-heading')).toBeVisible({
       timeout: 15000,
     })
 
