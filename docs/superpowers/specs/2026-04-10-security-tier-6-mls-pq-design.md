@@ -127,6 +127,16 @@ The monorepo `package.json` lists the vendored module via a file: dependency: `"
 
 The two PQ ciphersuite numeric codepoints are pending IANA allocation as of April 2026 (the IETF drafts are in-progress). ts-mls hardcodes provisional codepoints matching the draft authors' proposals. Llamenos pins the codepoint in the `hub_create` audit entry at hub creation time, which anchors us to whatever codepoint we used; if IANA allocates a different number later, a ciphersuite-upgrade flow (6.3) re-bootstraps the group under the final codepoint.
 
+**Fallback — if XWing is not yet MLS-registered at implementation time.** Tier 6 is a months-long workstream. At implementation kickoff, the engineer runs three checks before writing any MLS code:
+
+1. `npm view ts-mls` to confirm the package is still maintained.
+2. Grep the installed `ts-mls` source for `MLS_256_XWING_AES256GCM_SHA512_Ed25519` to confirm the suite is exposed by the library.
+3. Check https://www.iana.org/assignments/mls/mls.xhtml (or the IETF datatracker for `draft-mahy-mls-xwing`) to see whether XWing has an IANA-allocated codepoint.
+
+If all three pass, proceed with XWing as default. **If (2) or (3) fails, the fallback is `MLS_256_DHKEMP384_AES256GCM_SHA512_P384` (IETF codepoint 0x0007, IANA-registered).** That suite is RFC 9420 baseline and drops PQ coverage for the first post-Tier-6 release — a temporary regression that the Tier 6.1 release (scheduled the day XWing codepoint lands) removes. Clients that opt out of PQ-is-required are happy; hubs that need PQ today can opt into `cryptoProfile: 'high'` with `MLS_256_MLKEM1024_AES256GCM_SHA512_Ed25519` (pure PQ, no classical hybrid — slightly worse-than-XWing because a break in ML-KEM leaves the hub fully open, but still better than classical-only and the ciphersuite is also IANA-pending via `draft-ietf-mls-pq-ciphersuites` which has higher consensus than `draft-mahy-mls-xwing`).
+
+**This fallback is NOT a backcompat shim.** It is a ciphersuite choice made at Tier 6 implementation time based on the standards landscape at that moment. The spec commits to `XWing-if-available, P-384-if-not` as the decision algorithm, not to a specific suite. Every future rotation of the ciphersuite (triggered by XWing landing on IANA, by ML-KEM-1024 becoming default, by a hypothetical suite compromise) is a `hub_ciphersuite_upgrade` audit entry per §6.3, not a silent backcompat path.
+
 **Downgrade defense.** The ciphersuite is pinned per hub in the initial `hub_create` audit entry (Tier 0 signed sigchain). Every Commit re-asserts the ciphersuite; clients reject a Commit that changes it. An attacker cannot trick a Tier 6 hub into accepting a classical-only ciphersuite even if they compromise a single device's MLS state — the chain verification catches it.
 
 ### 6.3. MLS group lifecycle per hub
