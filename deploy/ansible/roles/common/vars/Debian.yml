@@ -1,9 +1,12 @@
 ---
 # Debian-family overrides for the common role (Debian, Ubuntu).
 
+# software-properties-common (historical Ubuntu-era `add-apt-repository`
+# helper) was dropped from Debian 13 trixie and is unused by the rest of
+# the playbook — geerlingguy.docker adds the docker apt repo via the
+# deb822_repository module directly. Do not re-add it.
 common_base_packages_family:
   - apt-transport-https
-  - software-properties-common
   - apt-listchanges
   - unattended-upgrades
 
