@@ -611,9 +611,9 @@ git commit -m "feat(hub-field): WebCrypto AES-256-GCM via non-extractable Crypto
 grep -rn "from ['\"].*hub-field-crypto['\"]" src --include="*.ts" --include="*.tsx"
 ```
 
-- [ ] **Step 2: Repoint every import**
+- [ ] **Step 2: Repoint every import + rewrite every call site**
 
-For each hit, change:
+For each hit from Step 1, change:
 
 ```typescript
 import { encryptHubField, decryptHubField } from './hub-field-crypto'
@@ -623,9 +623,103 @@ to:
 
 ```typescript
 import { hubFieldEncrypt, hubFieldDecrypt } from './hub-field-crypto-v3'
+import { getHubKeyCryptoKeyForId } from './hub-key-cache'
 ```
 
-API naming changed (`encryptHubField` → `hubFieldEncrypt`) — fix the call sites to use the new names and pass the non-extractable hub CryptoKey (fetched from the hub-key-cache which is updated in Task 8).
+**API shape changed between Tier 0 and Tier 1.** Tier 0's signatures:
+
+```typescript
+encryptHubField(value: string, hubId: string, recordId: string, fieldName: string): Ciphertext | undefined
+decryptHubField(encrypted: string, hubId: string, recordId: string, fieldName: string, placeholder?: string): string
+```
+
+Tier 1's signatures take a `CryptoKey` directly:
+
+```typescript
+hubFieldEncrypt(hubKey: CryptoKey, value: string, recordId: string, fieldName: string): Promise<Ciphertext>
+hubFieldDecrypt(hubKey: CryptoKey, packed: Ciphertext, recordId: string, fieldName: string): Promise<string>
+```
+
+The Tier 0 caller resolved `hubId → raw key bytes` internally via `getHubKeyForId(hubId)`. The Tier 1 caller must do the resolution itself via a new helper `getHubKeyCryptoKeyForId(hubId): CryptoKey | null` (added to `hub-key-cache.ts` in Task 6a below — extracted because this is now a shared pattern). The resolution returns the cached non-extractable `CryptoKey` handle imported via `importHubKey()`.
+
+**Call-site rewrite recipe (mechanical):**
+
+```typescript
+// BEFORE (Tier 0):
+const ct = encryptHubField(name, hubId, row.id, 'encrypted_name')
+const decrypted = decryptHubField(row.encryptedName, hubId, row.id, 'encrypted_name', '[locked]')
+
+// AFTER (Tier 1):
+const hubKey = getHubKeyCryptoKeyForId(hubId)
+if (!hubKey) throw new Error('hub key not loaded')  // or: return placeholder
+const ct = await hubFieldEncrypt(hubKey, name, row.id, 'encrypted_name')
+const decrypted = hubKey
+  ? await hubFieldDecrypt(hubKey, row.encryptedName as Ciphertext, row.id, 'encrypted_name').catch(() => '[locked]')
+  : '[locked]'
+```
+
+Note: Tier 0's `decryptHubField` was synchronous and returned a placeholder string on failure. Tier 1's `hubFieldDecrypt` is async and throws on AEAD failure. Every React Query `queryFn` callback that used the sync version now needs `await` + a try/catch around the failure path to preserve the "show placeholder when locked" behavior. The `useDecrypted` hook in `src/client/lib/use-decrypted.ts` is likely the central place this fan-out hits — check there first.
+
+**Expected call-site count:** 20–40 across `src/client/queries/**`, `src/client/components/**`, `note-sheet-context.tsx`, `hub-settings-*`, `team-*`, `report-types-*`, `tags-*`, `custom-fields-*`, `shifts-*`. Run the grep from Step 1 and work through every hit. Typecheck will catch any missed ones because the Tier 0 signature no longer exists.
+
+### Task 6a: Add `getHubKeyCryptoKeyForId` helper to hub-key-cache
+
+**Files:**
+- Modify: `src/client/lib/hub-key-cache.ts`
+- Modify: `src/client/lib/hub-key-cache.test.ts`
+
+- [ ] **Step 1: Write failing test**
+
+```typescript
+// src/client/lib/hub-key-cache.test.ts (append)
+import { importHubKey } from './hub-field-crypto-v3'
+import { cacheHubKey, getHubKeyCryptoKeyForId } from './hub-key-cache'
+
+test('getHubKeyCryptoKeyForId returns a non-extractable CryptoKey', async () => {
+  const raw = new Uint8Array(32).fill(9)
+  const ck = await importHubKey(raw)
+  cacheHubKey('hub-xyz', ck)
+  const resolved = getHubKeyCryptoKeyForId('hub-xyz')
+  expect(resolved).toBe(ck)
+  await expect(crypto.subtle.exportKey('raw', resolved!)).rejects.toThrow()
+})
+```
+
+- [ ] **Step 2: Implement the cache helper**
+
+```typescript
+// src/client/lib/hub-key-cache.ts (add)
+const cache = new Map<string, CryptoKey>()
+
+export function cacheHubKey(hubId: string, key: CryptoKey): void {
+  cache.set(hubId, key)
+}
+
+export function getHubKeyCryptoKeyForId(hubId: string): CryptoKey | null {
+  return cache.get(hubId) ?? null
+}
+
+export function clearHubKeyCache(): void {
+  cache.clear()  // called on lock
+}
+```
+
+Wire `clearHubKeyCache` into the lock handler (`key-manager.ts`) so the `CryptoKey` handles are released when the worker locks — the underlying AES-GCM key material lives inside the non-extractable handle and is zeroed by the browser when the handle is GCd.
+
+- [ ] **Step 3: Run the test**
+
+```bash
+bun test src/client/lib/hub-key-cache.test.ts -t "getHubKeyCryptoKeyForId"
+```
+
+Expected: PASS.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add src/client/lib/hub-key-cache.ts src/client/lib/hub-key-cache.test.ts
+git commit -m "feat(hub-key-cache): add getHubKeyCryptoKeyForId helper for Tier 1 field crypto"
+```
 
 - [ ] **Step 3: Delete the old module**
 
