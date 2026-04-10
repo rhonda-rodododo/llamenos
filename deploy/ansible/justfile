@@ -219,23 +219,26 @@ test-matrix mode='p0':
       echo "=== Running harden playbook against ${name} ==="
       cd "${REMOTE_DIR}"
 
-      # Write a per-run inventory file inside REMOTE_DIR so Ansible loads
-      # group_vars/all/ from the playbook directory. With inline `-i 'ip,'`
-      # syntax Ansible only loads group_vars relative to the inventory file's
-      # directory, which means group_vars/all/docker.yml (containing
-      # docker_daemon_options with userns-remap, no-new-privileges, etc.)
-      # is silently dropped. The matrix would then test the unhardened
-      # default daemon config — masking the very thing the smoke-check
-      # exists to verify.
-      cat > tmp-matrix-inventory-admin.yml <<EOF
-all:
-  hosts:
-    matrix-target:
-      ansible_host: ${vm_ip}
-      ansible_user: admin
-      ansible_ssh_private_key_file: ${SSH_KEY}
-      ansible_python_interpreter: /usr/bin/python3
-EOF
+      # Build a per-run inventory FILE (not inline `-i ip,`) so Ansible
+      # loads group_vars/all/ from the playbook directory. With inline
+      # inventory Ansible only loads group_vars relative to the inventory
+      # file's directory, which (with no file) means group_vars/all/docker.yml
+      # (containing docker_daemon_options with userns-remap, no-new-privileges,
+      # etc.) is silently dropped. We'd then test an unhardened default daemon.
+      #
+      # NOTE: just requires consistent recipe-body indentation, so we cannot
+      # use a bare heredoc — its body lines would be at column 0 and just
+      # would treat them as ending the recipe. Use `printf` instead.
+      printf '%s\n' \
+        'all:' \
+        '  hosts:' \
+        '    matrix-target:' \
+        "      ansible_host: ${vm_ip}" \
+        '      ansible_user: admin' \
+        "      ansible_ssh_private_key_file: ${SSH_KEY}" \
+        '      ansible_python_interpreter: /usr/bin/python3' \
+        > tmp-matrix-inventory-admin.yml
+
       ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook playbooks/harden.yml \
         -i tmp-matrix-inventory-admin.yml \
         --extra-vars '@vars-local-vm.yml'
@@ -246,16 +249,16 @@ EOF
       hardened_port="$(awk '/^ssh_port:/ {print $2}' vars-local-vm.yml)"
       hardened_port="${hardened_port:-22}"
 
-      cat > tmp-matrix-inventory-deploy.yml <<EOF
-all:
-  hosts:
-    matrix-target:
-      ansible_host: ${vm_ip}
-      ansible_user: deploy
-      ansible_port: ${hardened_port}
-      ansible_ssh_private_key_file: ${SSH_KEY}
-      ansible_python_interpreter: /usr/bin/python3
-EOF
+      printf '%s\n' \
+        'all:' \
+        '  hosts:' \
+        '    matrix-target:' \
+        "      ansible_host: ${vm_ip}" \
+        '      ansible_user: deploy' \
+        "      ansible_port: ${hardened_port}" \
+        "      ansible_ssh_private_key_file: ${SSH_KEY}" \
+        '      ansible_python_interpreter: /usr/bin/python3' \
+        > tmp-matrix-inventory-deploy.yml
 
       echo "=== Running smoke checks against ${name} (port ${hardened_port}) ==="
       ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook playbooks/smoke-check.yml \
