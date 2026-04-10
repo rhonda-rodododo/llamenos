@@ -532,7 +532,7 @@ jobs:
       - name: Install galaxy roles and collections from requirements.yml
         run: |
           cd deploy/ansible
-          ansible-galaxy install -r requirements.yml -p roles/galaxy/ --upgrade
+          ansible-galaxy install -r requirements.yml -p roles/galaxy/ --force
           ansible-galaxy collection install -r requirements.yml --upgrade
 
       - name: Run ansible-lint
