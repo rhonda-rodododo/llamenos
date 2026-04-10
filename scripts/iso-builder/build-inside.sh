@@ -173,14 +173,16 @@ path = sys.argv[1]
 with open(path) as f:
     txt = f.read()
 # Inject preseed/file into the linux line of the first menuentry
-txt = re.sub(
+new, n = re.subn(
     r'(menuentry .* \{[^}]*linux\s+/install\.amd/vmlinuz)([^\n]*)',
     r'\1 auto=true priority=critical preseed/file=/preseed.cfg\2',
     txt,
     count=1,
 )
+if n != 1:
+    sys.exit(f'grub.cfg: expected 1 preseed injection, got {n}')
 with open(path, 'w') as f:
-    f.write(txt)
+    f.write(new)
 PY
 fi
 
