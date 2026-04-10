@@ -247,6 +247,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Decrypt envelope-encrypted fields (e.g. name) via crypto worker
         if (pubkey) {
           await decryptObjectFields(me as unknown as Record<string, unknown>, pubkey)
+          // Load hub keys so hub-key-encrypted fields (Twilio SID, report type
+          // names, etc.) can decrypt. Normally unlockWithPin handles this after
+          // PIN entry; when the capsule auto-restores we must do it here too.
+          const hubIds = (me.hubRoles ?? []).map((hr) => hr.hubId)
+          await loadHubKeysForUser(hubIds)
+          if (cancelled) return
+          invalidateEncryptedQueries()
         }
 
         setState(
