@@ -4,7 +4,9 @@
 **Master doc:** [`../SECURITY_IMPROVEMENTS_MASTER.md`](../SECURITY_IMPROVEMENTS_MASTER.md) §3.5.4 (state of the art), §3.7 (Jitsi), §7 Tier 5
 **Effort:** Weeks
 **Depends on:** Tier 1 (HPKE for key distribution), partial Tier 3 (per-device keys give cleaner per-participant key targets)
-**Status:** Ready for spec authoring
+**Status:** Absorbed into spec
+**Spec:** [`../../superpowers/specs/2026-04-10-security-tier-5-voice-e2ee-design.md`](../../superpowers/specs/2026-04-10-security-tier-5-voice-e2ee-design.md)
+**Plan:** [`../../superpowers/plans/2026-04-10-security-tier-5-voice-e2ee.md`](../../superpowers/plans/2026-04-10-security-tier-5-voice-e2ee.md)
 
 ## Goal
 
