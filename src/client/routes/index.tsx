@@ -129,7 +129,9 @@ function DashboardPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <LayoutDashboard className="h-6 w-6 text-primary" />
-        <h1 className="text-xl font-bold sm:text-2xl">{t('dashboard.title')}</h1>
+        <h1 className="text-xl font-bold sm:text-2xl" data-testid="dashboard-heading">
+          {t('dashboard.title')}
+        </h1>
         <WebRtcStatus />
       </div>
 

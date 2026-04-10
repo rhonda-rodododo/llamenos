@@ -201,7 +201,11 @@ export function hasStoredKeyV2(): boolean {
  * Clear the v2 encrypted key from localStorage.
  */
 export function clearStoredKeyV2(): void {
-  localStorage.removeItem(STORAGE_KEY)
+  try {
+    localStorage.removeItem(STORAGE_KEY)
+  } catch {
+    // localStorage may be unavailable in private browsing or when storage is full
+  }
 }
 
 /**

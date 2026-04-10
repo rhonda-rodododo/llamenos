@@ -81,3 +81,14 @@ export function clearHubKeyCache(): void {
 export function setHubKeyForTest(hubId: string, key: Uint8Array): void {
   hubKeyCache.set(hubId, key)
 }
+
+/**
+ * Return the number of hub keys currently cached.
+ *
+ * For E2E tests only — lets tests verify that `loadHubKeysForUser` actually
+ * populated the cache after an unlock or capsule-restore path, without
+ * needing to know which hub id to look up.
+ */
+export function getHubKeyCacheSizeForTest(): number {
+  return hubKeyCache.size
+}

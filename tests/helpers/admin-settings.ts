@@ -2,6 +2,14 @@ import type { Page } from '@playwright/test'
 import { expect } from '@playwright/test'
 
 /**
+ * See tests/helpers/index.ts for the full navigation-pattern guide.
+ *
+ * Quick reference for admin test authors:
+ * - `gotoAdminPath(page, '/admin/{slug}')` — default SPA nav, preserves auth
+ * - `gotoAdminSection(page, '{slug}')` — FULL RELOAD (testing reload behaviour only)
+ */
+
+/**
  * Navigate to an admin path via the in-page TanStack Router, preserving
  * in-memory auth/key state. Use this in tests that start from an
  * already-authenticated page fixture — avoids a full page reload (which

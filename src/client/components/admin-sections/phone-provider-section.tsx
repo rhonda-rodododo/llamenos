@@ -45,16 +45,33 @@ export function PhoneProviderSection() {
   })
 
   const [draft, setDraft] = useState<TelephonyProviderDraft | null>(null)
+  // When true, draft holds a loading placeholder (not yet seeded from real server
+  // data). The next resolved config value will overwrite it.
+  const [draftIsPlaceholder, setDraftIsPlaceholder] = useState(false)
   const [showSaved, setShowSaved] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; error?: string } | null>(null)
 
   useEffect(() => {
-    if (config && !draft) {
-      setDraft(config as TelephonyProviderDraft)
-    } else if (!config && !draft) {
+    if (config !== undefined && (!draft || draftIsPlaceholder)) {
+      // Real server data arrived — seed draft (overwriting any loading placeholder).
+      // This handles the capsule-restore path where the component mounts before the
+      // query settles and draft was pre-filled with { type: 'twilio' } as a UI
+      // placeholder while waiting for the actual config to arrive from the server.
+      // When config has no type (server returns {} for no-provider-configured),
+      // default to twilio so the credential fields render correctly.
+      const seeded =
+        config?.type != null
+          ? (config as TelephonyProviderDraft)
+          : ({ type: 'twilio', ...(config ?? {}) } as TelephonyProviderDraft)
+      setDraft(seeded)
+      setDraftIsPlaceholder(false)
+    } else if (config === undefined && !draft) {
+      // Query is still loading — show an empty form so the page isn't blank.
+      // Marked as a placeholder so it will be replaced once the query settles.
       setDraft({ type: 'twilio' })
+      setDraftIsPlaceholder(true)
     }
-  }, [config, draft])
+  }, [config, draft, draftIsPlaceholder])
 
   const saveMutation = useMutation({
     mutationFn: (next: TelephonyProviderDraft) =>
