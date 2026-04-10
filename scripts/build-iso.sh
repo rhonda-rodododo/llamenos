@@ -148,6 +148,45 @@ if [ "${BUILD_ISO_DRY_RUN:-0}" = "1" ]; then
   exit 0
 fi
 
-# Real run path: invoke the docker builder. Filled in by Task 4.
-echo "build-iso: docker invocation not yet implemented (see Task 4)" >&2
-exit 1
+# Real run path: build the image (cached) and run the container.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BUILDER_DIR="${SCRIPT_DIR}/iso-builder"
+
+echo "==> Building builder image (uses cache when possible)"
+docker build -t llamenos-iso-builder:latest "$BUILDER_DIR" >/dev/null
+
+CACHE_DIR="${HOME}/.cache/llamenos-iso"
+mkdir -p "$CACHE_DIR"
+
+# Read the SSH key contents into a variable to pass via env
+SSH_PUBKEY_CONTENTS="$(cat "$SSH_KEY_ABS")"
+
+# Network flags: pass --network=none if --offline; otherwise default network
+NET_FLAGS=()
+if [ "$OFFLINE" = "1" ]; then
+  NET_FLAGS+=(--network=none)
+fi
+
+echo "==> Running builder container"
+docker run --rm \
+  "${NET_FLAGS[@]}" \
+  -v "${CACHE_DIR}:/cache" \
+  -v "${OUT_DIR_ABS}:/out" \
+  -e HOSTNAME="$HOSTNAME" \
+  -e USERNAME="$USERNAME" \
+  -e LOCALE="$LOCALE" \
+  -e TIMEZONE="$TIMEZONE" \
+  -e DISK="$DISK" \
+  -e UNLOCK_MODE="$UNLOCK" \
+  -e STATIC_IP="$STATIC_IP" \
+  -e GATEWAY="$GATEWAY" \
+  -e DNS="$DNS" \
+  -e SSH_PUBKEY="$SSH_PUBKEY_CONTENTS" \
+  -e DEBIAN_VERSION="$DEBIAN_VERSION" \
+  -e NO_CACHE="$NO_CACHE" \
+  -e OFFLINE="$OFFLINE" \
+  llamenos-iso-builder:latest
+
+echo
+echo "==> Done. Output:"
+ls -lh "${OUT_DIR_ABS}/llamenos-debian13-${UNLOCK}.iso"{,.sha256}
