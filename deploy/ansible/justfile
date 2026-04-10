@@ -119,16 +119,40 @@ edit-demo-vars:
 # See: docs/plans/2026-03-25-local-vm-ansible-testing.md
 
 # Multi-distro Tart matrix test. Provisions a fresh VM per image, runs the
-# full setup playbook, executes smoke assertions, then tears down.
+# hardening playbook, executes smoke assertions via Ansible, then tears down.
 #
 # P0 distros (must pass on every PR): Ubuntu 24.04, Debian 13
 # P1 distros (nightly + tags):        Ubuntu 22.04, Debian 12
 # all:                                everything above
 #
-# Usage:
+# Bootstrap: cirruslabs Tart images ship with default user `admin` (password
+# `admin`), no pre-injected SSH keys, and broken DNS (Tart's IPv6 link-local
+# resolver doesn't work). The recipe handles all three: copies the operator's
+# Mac SSH key as admin's authorized_keys via sshpass, then writes a static
+# /etc/resolv.conf inside the VM so apt can reach archive.ubuntu.com /
+# deb.debian.org.
+#
+# After hardening succeeds, the recipe reconnects on the new SSH port (2222)
+# as the `deploy` user that the common role created, and runs
+# playbooks/smoke-check.yml to assert ufw/fail2ban/docker/sshd state. This
+# matches Plan 1's T15 merge gate exactly.
+#
+# Requires (on the Mac):
+#   - Tart CLI on PATH (sourced via ~/.zprofile)
+#   - sshpass (brew install sshpass)
+#   - ~/.ssh/id_ed25519 with a passphrase-less key (the operator's existing
+#     deploy key — same one used by `vm-deploy`)
+#   - ~/llamenos-distro-test/ansible/ checked out with vars-local-vm.yml in
+#     place. The wrapper recipe `test-matrix-sync` below rsyncs the current
+#     working tree onto the Mac before running the matrix.
+#
+# Usage (from Mac, with `just` installed):
 #   just test-matrix              # P0 only (default)
 #   just test-matrix p1
 #   just test-matrix all
+#
+# Usage (from any host that can `ssh mac`):
+#   just test-matrix-sync         # rsync + run P0
 test-matrix mode='p0':
     #!/usr/bin/env bash
     set -euo pipefail
@@ -145,48 +169,112 @@ test-matrix mode='p0':
       *)   echo "usage: just test-matrix [p0|p1|all]" >&2; exit 2 ;;
     esac
 
+    REMOTE_DIR="${LLAMENOS_DISTRO_TEST_DIR:-$HOME/llamenos-distro-test/ansible}"
+    SSH_KEY="${LLAMENOS_TART_SSH_KEY:-$HOME/.ssh/id_ed25519}"
+
     for image in "${images[@]}"; do
       slug="$(basename "$image" | tr ':' '-')"
       name="llamenos-test-${slug}"
       echo "=== Provisioning ${name} from ${image} ==="
 
-      ssh mac "source ~/.zprofile && tart stop ${name} 2>/dev/null || true"
-      ssh mac "source ~/.zprofile && tart delete ${name} 2>/dev/null || true"
-      ssh mac "source ~/.zprofile && tart clone ${image} ${name} && tart set ${name} --cpu 4 --memory 8192 --disk-size 20"
-      ssh mac "source ~/.zprofile && nohup tart run --no-graphics ${name} >/tmp/${name}.log 2>&1 &"
+      source ~/.zprofile
+      tart stop "${name}" 2>/dev/null || true
+      tart delete "${name}" 2>/dev/null || true
+      tart clone "${image}" "${name}"
+      tart set "${name}" --cpu 4 --memory 8192 --disk-size 20
+      nohup tart run --no-graphics "${name}" >"/tmp/${name}.log" 2>&1 &
+      disown
 
-      echo "=== Waiting 30s for ${name} to boot ==="
-      sleep 30
-
-      vm_ip="$(ssh mac "source ~/.zprofile && tart ip ${name}")"
+      echo "=== Waiting for ${name} to boot ==="
+      vm_ip=""
+      for i in $(seq 1 30); do
+        sleep 3
+        vm_ip="$(tart ip "${name}" 2>/dev/null || true)"
+        [ -n "$vm_ip" ] && break
+      done
+      if [ -z "$vm_ip" ]; then
+        echo "ERROR: ${name} never got an IP" >&2
+        exit 1
+      fi
       echo "=== ${name} reachable at ${vm_ip} ==="
 
-      echo "=== Running setup playbook against ${name} ==="
-      ssh mac "cd ~/projects/llamenos-hotline/deploy/ansible && source ~/.zprofile && \
-        ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook setup.yml \
-          -i '${vm_ip},' \
-          -u admin \
-          --private-key ~/.ssh/tart_test_ed25519 \
-          --extra-vars '@vars.example.yml'"
+      echo "=== Waiting for SSH on ${vm_ip}:22 ==="
+      for i in $(seq 1 30); do
+        if sshpass -p admin ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            -o ConnectTimeout=3 admin@"${vm_ip}" "echo ready" >/dev/null 2>&1; then
+          break
+        fi
+        sleep 3
+      done
 
-      echo "=== Running smoke assertions on ${name} ==="
-      ssh mac "ssh -o StrictHostKeyChecking=no -i ~/.ssh/tart_test_ed25519 admin@${vm_ip} 'sudo bash -s'" <<'SMOKE'
-    set -euo pipefail
-    ufw status verbose | grep -q "Status: active"
-    ufw status verbose | grep -q "Default: deny (incoming)"
-    systemctl is-active fail2ban
-    systemctl is-active docker
-    docker info --format '{{ "{{" }}.SecurityOptions{{ "}}" }}' | grep -q userns
-    sshd -T | grep -E '^(passwordauthentication|permitrootlogin) no$' | wc -l | grep -q 2
-    sysctl -n net.ipv4.tcp_syncookies | grep -q 1
-    dpkg -l unattended-upgrades | grep -q '^ii'
-    echo "all smoke checks passed"
-    SMOKE
+      echo "=== Bootstrapping SSH key + DNS on ${name} ==="
+      sshpass -p admin ssh-copy-id -f \
+        -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+        -i "${SSH_KEY}.pub" admin@"${vm_ip}" >/dev/null
+      ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+        -i "${SSH_KEY}" admin@"${vm_ip}" \
+        "sudo rm -f /etc/resolv.conf && printf 'nameserver 1.1.1.1\nnameserver 8.8.8.8\n' | sudo tee /etc/resolv.conf >/dev/null" \
+        >/dev/null
+
+      echo "=== Running harden playbook against ${name} ==="
+      cd "${REMOTE_DIR}"
+      ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook playbooks/harden.yml \
+        -i "${vm_ip}," \
+        -u admin \
+        --private-key "${SSH_KEY}" \
+        --extra-vars '@vars-local-vm.yml' \
+        --extra-vars "ansible_python_interpreter=/usr/bin/python3"
+
+      # Read the hardened SSH port from the test vars so the smoke-check
+      # connects on the right port (vars-local-vm.yml uses 22 by default,
+      # but operators can bump it to 2222 for closer-to-prod testing).
+      hardened_port="$(awk '/^ssh_port:/ {print $2}' vars-local-vm.yml)"
+      hardened_port="${hardened_port:-22}"
+
+      echo "=== Running smoke checks against ${name} (port ${hardened_port}) ==="
+      ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook playbooks/smoke-check.yml \
+        -i "${vm_ip}," \
+        -u deploy \
+        --private-key "${SSH_KEY}" \
+        --extra-vars '@vars-local-vm.yml' \
+        --extra-vars "ansible_port=${hardened_port} ansible_python_interpreter=/usr/bin/python3"
 
       echo "=== Tearing down ${name} ==="
-      ssh mac "source ~/.zprofile && tart stop ${name} && tart delete ${name}"
+      tart stop "${name}" 2>/dev/null || true
+      tart delete "${name}"
       echo "=== ${image} PASS ==="
     done
+
+    echo
+    echo "=== test-matrix {{mode}} PASS for ${#images[@]} distro(s) ==="
+
+# Sync the current working tree's deploy/ansible to the Mac and run the
+# Tart matrix test there. Use this from the Linux workstation when iterating
+# on the multi-distro hardening roles.
+#
+# Usage:
+#   just test-matrix-sync          # P0
+#   just test-matrix-sync p1
+#   just test-matrix-sync all
+test-matrix-sync mode='p0':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    REMOTE="${LLAMENOS_TART_HOST:-mac}"
+    REMOTE_DIR="${LLAMENOS_DISTRO_TEST_DIR:-llamenos-distro-test/ansible}"
+    echo "=== Syncing $(pwd) → ${REMOTE}:~/${REMOTE_DIR} ==="
+    rsync -az --delete \
+      --exclude='.ansible' \
+      --exclude='vars.yml' \
+      --exclude='inventory.yml' \
+      ./ "${REMOTE}:${REMOTE_DIR}/"
+    # Drop a stub vars.yml so include_vars: ../vars.yml succeeds; extra-vars
+    # from vars-local-vm.yml has higher precedence and overrides everything.
+    ssh "${REMOTE}" "echo '{}' > ${REMOTE_DIR}/vars.yml"
+    # Copy the test vars file from the operator's existing checkout (the same
+    # one `vm-deploy` uses) into the synced tree.
+    ssh "${REMOTE}" "cp ~/projects/llamenos-hotline/deploy/ansible/vars-local-vm.yml ${REMOTE_DIR}/vars-local-vm.yml"
+    echo "=== Running test-matrix {{mode}} on ${REMOTE} ==="
+    ssh "${REMOTE}" "source ~/.zprofile && cd ${REMOTE_DIR} && just test-matrix {{mode}}"
 
 # Create and configure a fresh Tart VM for testing (4 CPU / 8GB matches a small VPS)
 vm-create:
