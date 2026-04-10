@@ -161,7 +161,11 @@ export async function loadCapsule(
  * Clear both IDB entry and sessionStorage token. Idempotent.
  */
 export async function clearCapsule(): Promise<void> {
-  sessionStorage.removeItem(SESSION_TOKEN_KEY)
+  try {
+    sessionStorage.removeItem(SESSION_TOKEN_KEY)
+  } catch {
+    // sessionStorage may be unavailable (test environment, private browsing)
+  }
   try {
     await idbDelete()
   } catch (err) {

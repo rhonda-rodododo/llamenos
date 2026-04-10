@@ -1,14 +1,17 @@
-import 'fake-indexeddb/auto'
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+// NOTE: Do NOT use `import 'fake-indexeddb/auto'` here — Bun has a quirk
+// where static CJS side-effect imports fail to apply their globals when
+// specific combinations of named + type imports from another module are
+// present in the same file. Using require() inside beforeAll avoids this.
+import { afterEach, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import {
   SESSION_TOKEN_KEY,
-  type SessionCapsule,
   __resetExpiryDebounceForTests,
   clearCapsule,
   loadCapsule,
   storeCapsule,
   updateAutoLockExpiry,
 } from './session-capsule'
+import type { SessionCapsule } from './session-capsule'
 
 const PUBKEY_HASH = 'abcdef0123456789'
 const OTHER_HASH = '0123456789abcdef'
@@ -23,21 +26,6 @@ function makeCapsule(overrides: Partial<SessionCapsule> = {}): SessionCapsule {
   }
 }
 
-// Provide a sessionStorage polyfill in case bun:test doesn't ship one
-if (typeof globalThis.sessionStorage === 'undefined') {
-  const store = new Map<string, string>()
-  ;(globalThis as unknown as { sessionStorage: Storage }).sessionStorage = {
-    getItem: (k: string) => store.get(k) ?? null,
-    setItem: (k: string, v: string) => void store.set(k, v),
-    removeItem: (k: string) => void store.delete(k),
-    clear: () => store.clear(),
-    key: (i: number) => Array.from(store.keys())[i] ?? null,
-    get length() {
-      return store.size
-    },
-  } as Storage
-}
-
 // fake-indexeddb shares state across tests — wipe between runs
 async function resetStores() {
   await clearCapsule()
@@ -50,6 +38,56 @@ async function resetStores() {
 }
 
 describe('session-capsule', () => {
+  beforeAll(() => {
+    // Directly install fake-indexeddb globals imperatively. This is more
+    // reliable than `import 'fake-indexeddb/auto'` or `require('fake-indexeddb/auto')`
+    // because both rely on module caching — if the module ran before (e.g. during
+    // a sibling file's evaluation via a Bun ESM/CJS interop quirk), the cached
+    // version won't re-run Object.defineProperties(). Direct assignment always works.
+    const {
+      indexedDB: fakeIDB,
+      IDBCursor,
+      IDBCursorWithValue,
+      IDBDatabase,
+      IDBFactory: FakeIDBFactory,
+      IDBIndex,
+      IDBKeyRange,
+      IDBObjectStore,
+      IDBOpenDBRequest,
+      IDBRequest,
+      IDBTransaction,
+      IDBVersionChangeEvent,
+    } = require('fake-indexeddb') as Record<string, unknown>
+    const g = globalThis as unknown as Record<string, unknown>
+    g.indexedDB = fakeIDB
+    g.IDBCursor = IDBCursor
+    g.IDBCursorWithValue = IDBCursorWithValue
+    g.IDBDatabase = IDBDatabase
+    g.IDBFactory = FakeIDBFactory
+    g.IDBIndex = IDBIndex
+    g.IDBKeyRange = IDBKeyRange
+    g.IDBObjectStore = IDBObjectStore
+    g.IDBOpenDBRequest = IDBOpenDBRequest
+    g.IDBRequest = IDBRequest
+    g.IDBTransaction = IDBTransaction
+    g.IDBVersionChangeEvent = IDBVersionChangeEvent
+
+    // Ensure sessionStorage is available (Bun test environment doesn't provide it)
+    if (typeof globalThis.sessionStorage === 'undefined') {
+      const store = new Map<string, string>()
+      ;(globalThis as unknown as { sessionStorage: Storage }).sessionStorage = {
+        getItem: (k: string) => store.get(k) ?? null,
+        setItem: (k: string, v: string) => void store.set(k, v),
+        removeItem: (k: string) => void store.delete(k),
+        clear: () => store.clear(),
+        key: (i: number) => Array.from(store.keys())[i] ?? null,
+        get length() {
+          return store.size
+        },
+      } as Storage
+    }
+  })
+
   beforeEach(async () => {
     await resetStores()
   })
