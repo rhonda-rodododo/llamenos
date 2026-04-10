@@ -14,6 +14,7 @@ import type { Ciphertext } from '@shared/crypto-types'
 import type { MessagingChannelType } from '@shared/types'
 import { getMessagingAdapter } from '../lib/adapters'
 import type { CryptoService } from '../lib/crypto-service'
+import { createLogger } from '../lib/logger'
 import { deriveServerKeypair } from '../lib/nostr-publisher'
 import type { MessagingAdapter } from '../messaging/adapter'
 import type { Services } from '../services'
@@ -43,6 +44,8 @@ const CHANNEL_DELAYS: Record<string, number> = {
   signal: 500,
   rcs: 200,
 }
+
+const log = createLogger('jobs.blast-processor')
 
 const BATCH_SIZE = 50
 
@@ -100,7 +103,7 @@ export class BlastProcessor {
       hubKey = await this._getHubKey(blast.hubId)
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err)
-      console.error(`[blast-processor] Failed to get hub key for blast ${blast.id}:`, errorMsg)
+      log.error('Failed to get hub key for blast', err, { blastId: blast.id })
       await this.services.blasts.updateBlast(blast.id, {
         status: 'failed' as string,
         error: `Hub key error: ${errorMsg}`,
@@ -119,7 +122,7 @@ export class BlastProcessor {
       blastText = this._decryptBlastContent(blast)
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err)
-      console.error(`[blast-processor] Failed to decrypt blast content for ${blast.id}:`, errorMsg)
+      log.error('Failed to decrypt blast content', err, { blastId: blast.id })
       await this.services.blasts.updateBlast(blast.id, {
         status: 'failed' as string,
         error: `Blast decryption error: ${errorMsg}`,
@@ -268,7 +271,7 @@ export class BlastProcessor {
           for (const r of results) {
             if (r.status === 'rejected') {
               failedCount++
-              console.error('[blast-processor] Unexpected send error:', r.reason)
+              log.error('Unexpected send error', r.reason)
             }
           }
 
@@ -356,10 +359,8 @@ export function scheduleBlastProcessor(
 ): NodeJS.Timeout {
   const processor = new BlastProcessor(services, crypto, serverSecret)
   // Run once immediately on startup (resume any in-progress blasts)
-  processor
-    .processOnce()
-    .catch((err) => console.error('[blast-processor] Initial run failed:', err))
+  processor.processOnce().catch((err) => log.error('Initial run failed', err))
   return setInterval(() => {
-    processor.processOnce().catch((err) => console.error('[blast-processor] Poll failed:', err))
+    processor.processOnce().catch((err) => log.error('Poll failed', err))
   }, 30_000)
 }

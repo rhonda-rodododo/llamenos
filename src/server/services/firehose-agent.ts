@@ -12,6 +12,7 @@ import type { Database } from '../db'
 import { getNostrPublisher } from '../lib/adapters'
 import { unsealAgentNsec } from '../lib/agent-identity'
 import type { CryptoService } from '../lib/crypto-service'
+import { createLogger } from '../lib/logger'
 import type { ConversationService } from './conversations'
 import type { FirehoseService } from './firehose'
 import type {
@@ -24,6 +25,8 @@ import type {
 import type { IdentityService } from './identity'
 import type { RecordsService } from './records'
 import type { SettingsService } from './settings'
+
+const log = createLogger('services.firehose-agent')
 
 /** In-memory state for a running extraction agent */
 interface AgentInstance {
@@ -81,24 +84,22 @@ export class FirehoseAgentService {
    */
   async init(): Promise<void> {
     const connections = await this.firehose.listActiveConnections()
-    console.log(`[firehose-agent] Initializing ${connections.length} active agents`)
+    log.info('Initializing active agents', { count: connections.length })
 
     for (const conn of connections) {
       try {
         await this.startAgent(conn.id)
       } catch (err) {
-        console.error(`[firehose-agent] Failed to start agent for ${conn.id}:`, err)
+        log.error('Failed to start agent', err, { connectionId: conn.id })
       }
     }
 
     const started = this.agents.size
     const failed = connections.length - started
     if (failed > 0) {
-      console.warn(
-        `[firehose-agent] ${started}/${connections.length} agents started (${failed} failed)`
-      )
+      log.warn('Partial agent startup', { started, total: connections.length, failed })
     } else {
-      console.log(`[firehose-agent] All ${started} agents started successfully`)
+      log.info('All agents started successfully', { started })
     }
   }
 
@@ -109,7 +110,7 @@ export class FirehoseAgentService {
    */
   async startAgent(connectionId: string): Promise<void> {
     if (this.agents.has(connectionId)) {
-      console.warn(`[firehose-agent] Agent already running for ${connectionId}`)
+      log.warn('Agent already running', { connectionId })
       return
     }
 
@@ -138,7 +139,7 @@ export class FirehoseAgentService {
     const intervalMs = (conn.extractionIntervalSec ?? 60) * 1000
     const intervalHandle = setInterval(() => {
       this.runExtractionLoop(connectionId).catch((err) => {
-        console.error(`[firehose-agent] Extraction loop error for ${connectionId}:`, err)
+        log.error('Extraction loop error', err, { connectionId })
       })
     }, intervalMs)
 
@@ -153,9 +154,7 @@ export class FirehoseAgentService {
     // Reset circuit breaker state on (re)start
     this.extractionFailureCounts.set(connectionId, 0)
 
-    console.log(
-      `[firehose-agent] Started agent for ${connectionId} (interval: ${conn.extractionIntervalSec}s)`
-    )
+    log.info('Started agent', { connectionId, intervalSec: conn.extractionIntervalSec })
   }
 
   /**
@@ -172,14 +171,14 @@ export class FirehoseAgentService {
     this.agents.delete(connectionId)
     this.extractionFailureCounts.delete(connectionId)
 
-    console.log(`[firehose-agent] Stopped agent for ${connectionId}`)
+    log.info('Stopped agent', { connectionId })
   }
 
   /**
    * Graceful shutdown — stop all running agents.
    */
   shutdown(): void {
-    console.log(`[firehose-agent] Shutting down ${this.agents.size} agents`)
+    log.info('Shutting down agents', { count: this.agents.size })
     for (const connectionId of this.agents.keys()) {
       this.stopAgent(connectionId)
     }
@@ -225,7 +224,7 @@ export class FirehoseAgentService {
         const senderEnvelope = senderParsed.envelopes.find((e) => e.pubkey === agentPubkey)
 
         if (!contentEnvelope || !senderEnvelope) {
-          console.warn(`[firehose-agent] No agent envelope found for message ${msg.id}`)
+          log.warn('No agent envelope found for message', { messageId: msg.id })
           continue
         }
 
@@ -257,7 +256,7 @@ export class FirehoseAgentService {
           timestamp: msg.signalTimestamp.toISOString(),
         })
       } catch (err) {
-        console.error(`[firehose-agent] Failed to decrypt message ${msg.id}:`, err)
+        log.error('Failed to decrypt message', err, { messageId: msg.id })
         // Audit so admins can see decryption issues in the UI
         this.records
           .addAuditEntry(agent.hubId, 'firehoseDecryptionFailed', agent.agentPubkey, {
@@ -297,9 +296,10 @@ export class FirehoseAgentService {
 
         // Skip low-confidence extractions
         if (extraction.confidence < CONFIDENCE_THRESHOLD) {
-          console.log(
-            `[firehose-agent] Skipping low-confidence extraction (${extraction.confidence}) for cluster ${cluster.id}`
-          )
+          log.info('Skipping low-confidence extraction', {
+            confidence: extraction.confidence,
+            clusterId: cluster.id,
+          })
           continue
         }
 
@@ -313,20 +313,23 @@ export class FirehoseAgentService {
         // Reset circuit breaker on success
         this.extractionFailureCounts.set(connectionId, 0)
 
-        console.log(
-          `[firehose-agent] Extracted report ${reportId} from ${messageIds.length} messages (confidence: ${extraction.confidence})`
-        )
+        log.info('Extracted report', {
+          reportId,
+          sourceMessageCount: messageIds.length,
+          confidence: extraction.confidence,
+        })
       } catch (err) {
-        console.error(`[firehose-agent] Extraction failed for cluster ${cluster.id}:`, err)
+        log.error('Extraction failed for cluster', err, { clusterId: cluster.id })
 
         // Circuit breaker: track consecutive failures and auto-pause after threshold
         const failures = (this.extractionFailureCounts.get(connectionId) ?? 0) + 1
         this.extractionFailureCounts.set(connectionId, failures)
 
         if (failures >= CIRCUIT_BREAKER_THRESHOLD) {
-          console.warn(
-            `[firehose-agent] Circuit breaker tripped for connection ${connectionId} after ${failures} consecutive extraction failures — pausing`
-          )
+          log.warn('Circuit breaker tripped — pausing connection', {
+            connectionId,
+            failures,
+          })
           this.stopAgent(connectionId)
           await this.firehose.updateConnection(connectionId, { status: 'paused' })
           await this.records
@@ -481,11 +484,11 @@ export class FirehoseAgentService {
             confidence: extraction.confidence,
           }),
         })
-        .catch((err) => console.error('[firehose-agent] Nostr publish failed:', err))
+        .catch((err) => log.error('Nostr publish failed', err))
     } catch (err) {
       // Only log unexpected errors — missing publisher config is expected in some envs
       if (err instanceof Error && !err.message.includes('not configured')) {
-        console.error('[firehose-agent] Unexpected Nostr error:', err)
+        log.error('Unexpected Nostr error', err)
       }
     }
 
@@ -522,7 +525,7 @@ export class FirehoseAgentService {
     // Fetch the full connection record to get display name and notifyViaSignal flag
     const connection = await this.firehose.getConnection(conn.id)
     if (!connection) {
-      console.warn(`[firehose-agent] Connection ${conn.id} disappeared during notification`)
+      log.warn('Connection disappeared during notification', { connectionId: conn.id })
       return
     }
 
@@ -545,11 +548,11 @@ export class FirehoseAgentService {
             confidence,
           }),
         })
-        .catch((err) => console.error('[firehose-agent] Nostr notify publish failed:', err))
+        .catch((err) => log.error('Nostr notify publish failed', err))
     } catch (err) {
       // Only log unexpected errors — missing publisher config is expected in some envs
       if (err instanceof Error && !err.message.includes('not configured')) {
-        console.error('[firehose-agent] Unexpected Nostr error:', err)
+        log.error('Unexpected Nostr error', err)
       }
     }
 
@@ -575,23 +578,24 @@ export class FirehoseAgentService {
       try {
         const optedOut = await this.firehose.isOptedOut(connection.id, pubkey)
         if (optedOut) {
-          console.log(
-            `[firehose-agent] Skipping Signal DM for opted-out admin ${pubkey.slice(0, 8)} on connection ${connection.id}`
-          )
+          log.info('Skipping Signal DM for opted-out admin', {
+            adminPubkeyPrefix: pubkey.slice(0, 8),
+            connectionId: connection.id,
+          })
           continue
         }
 
         // TODO: Send actual Signal DM via MessagingAdapter once admin Signal phone
         // mapping is available. Requires IdentityService.getSignalIdentifierForUser(pubkey)
         // and a configured Signal MessagingAdapter for this hub.
-        console.log(
-          `[firehose-agent] Would send Signal DM to admin ${pubkey.slice(0, 8)} for connection ${connection.id}:\n${message}`
-        )
+        log.info('Would send Signal DM to admin', {
+          adminPubkeyPrefix: pubkey.slice(0, 8),
+          connectionId: connection.id,
+        })
       } catch (err) {
-        console.error(
-          `[firehose-agent] Failed to check opt-out for admin ${pubkey.slice(0, 8)}:`,
-          err
-        )
+        log.error('Failed to check opt-out for admin', err, {
+          adminPubkeyPrefix: pubkey.slice(0, 8),
+        })
       }
     }
   }

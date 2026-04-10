@@ -1,5 +1,8 @@
 import { existsSync } from 'node:fs'
 import maxmind, { type CityResponse, type Reader } from 'maxmind'
+import { createLogger } from './logger'
+
+const log = createLogger('lib.geoip')
 
 export interface GeoLookupResult {
   city: string
@@ -29,7 +32,7 @@ async function getReader(dbPath: string): Promise<Reader<CityResponse> | null> {
     cachedPath = dbPath
     return cachedReader
   } catch (err) {
-    console.error('[geoip] failed to open database:', err)
+    log.error('failed to open database', err instanceof Error ? err : new Error(String(err)))
     return null
   }
 }
@@ -60,7 +63,7 @@ export async function lookupIp(ip: string, dbPath: string): Promise<GeoLookupRes
       lon: resp.location?.longitude ?? null,
     }
   } catch (err) {
-    console.error('[geoip] lookup failed for IP:', err)
+    log.error('lookup failed', err instanceof Error ? err : new Error(String(err)))
     return UNKNOWN
   }
 }

@@ -1,6 +1,9 @@
+import { createLogger } from '../lib/logger'
 import type { AuthEventsService } from './auth-events'
 import type { SecurityPrefsService } from './security-prefs'
 import type { SignalContactsService } from './signal-contacts'
+
+const log = createLogger('services.user-notifications')
 
 export type AlertInput =
   | { type: 'new_device'; city: string; country: string; userAgent: string }
@@ -113,7 +116,7 @@ export class UserNotificationsService {
       await new Promise((r) => setTimeout(r, 200 * 2 ** attempt))
     }
 
-    console.error(`[user-notifications] delivery failed for ${userPubkey}: ${lastErr}`)
+    log.error('delivery failed', { lastErr })
     return { delivered: false }
   }
 }

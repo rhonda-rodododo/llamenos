@@ -6,8 +6,11 @@
  * redirects to the login page. No confirmation dialog is shown.
  */
 
+import { createDebugLog } from '@/lib/debug-log'
 import * as keyManager from './key-manager'
 import { SESSION_TOKEN_KEY, clearCapsule } from './session-capsule'
+
+const log = createDebugLog('llamenos:panic-wipe')
 
 const REQUIRED_TAPS = 3
 const WINDOW_MS = 1000
@@ -33,7 +36,7 @@ export function performPanicWipe(): void {
     // Storage may be unavailable
   }
   void clearCapsule().catch((err) => {
-    console.error('[panic-wipe] clearCapsule failed, relying on IDB sweep fallback:', err)
+    log('clearCapsule failed, relying on IDB sweep fallback', { err })
   })
 
   // 3. Zero out the cryptographic key in memory immediately
@@ -74,7 +77,7 @@ export function performPanicWipe(): void {
           try {
             indexedDB.deleteDatabase(name)
           } catch (err) {
-            console.error(`[panic-wipe] deleteDatabase(${name}) failed:`, err)
+            log(`deleteDatabase(${name}) failed`, { err })
           }
         }
         indexedDB

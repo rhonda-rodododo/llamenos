@@ -35,7 +35,7 @@
  */
 import { createDebugLog } from './debug-log'
 
-const log = createDebugLog('session-capsule')
+const log = createDebugLog('llamenos:session-capsule')
 
 const DB_NAME = 'llamenos-session'
 const STORE_NAME = 'capsules'
@@ -200,7 +200,7 @@ async function respondToSyncRequest(req: SyncRequestMessage): Promise<void> {
   } catch (err) {
     // IDB failing here silently means we stop responding to siblings,
     // which breaks cross-tab unlock without any signal. Surface it.
-    console.error('[session-capsule] respondToSyncRequest idbGet failed:', err)
+    log('respondToSyncRequest idbGet failed', { err })
     return
   }
   if (!capsule || capsule.pubkeyHash !== req.pubkeyHash) return
@@ -346,7 +346,7 @@ export async function loadCapsule(
   try {
     capsule = await idbGet()
   } catch (err) {
-    console.error('[session-capsule] loadCapsule idbGet failed:', err)
+    log('loadCapsule idbGet failed', { err })
     return null
   }
   if (!capsule) {
@@ -400,7 +400,7 @@ const EXPIRY_WRITE_DEBOUNCE_MS = 30_000
  * Update only the `autoLockExpiresAt` field on the active capsule.
  * Debounced to once per 30s to avoid IDB write spam on every activity tick.
  * Writes are best-effort — failures are reported ONCE per session via
- * console.error so a broken IDB surfaces in prod logs without flooding.
+ * log() so a broken IDB surfaces in dev logs without flooding.
  */
 export async function updateAutoLockExpiry(expiresAt: number): Promise<void> {
   const now = Date.now()
@@ -419,10 +419,7 @@ export async function updateAutoLockExpiry(expiresAt: number): Promise<void> {
   } catch (err) {
     if (!expiryWriteErrorReported) {
       expiryWriteErrorReported = true
-      console.error(
-        '[session-capsule] updateAutoLockExpiry failed (this error is reported once per session):',
-        err
-      )
+      log('updateAutoLockExpiry failed (this error is reported once per session)', { err })
     }
   }
 }

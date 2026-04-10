@@ -5,6 +5,9 @@ import type { CryptoService } from '../lib/crypto-service'
 import type { FilesService } from '../services/files'
 import type { RecordsService } from '../services/records'
 import type { TelephonyAdapter } from '../telephony/adapter'
+import { createLogger } from './logger'
+
+const log = createLogger('lib.voicemail-storage')
 
 interface StoreVoicemailParams {
   callSid: string
@@ -45,9 +48,11 @@ export async function storeVoicemailAudio(
 
   // 2. Validate size — if over limit, log warning and keep provider copy as fallback
   if (audioBytes.length > maxBytes) {
-    console.warn(
-      `[voicemail] Audio (${audioBytes.length} bytes) exceeds max (${maxBytes} bytes) for call ${callSid} — keeping provider copy`
-    )
+    log.warn('Audio exceeds max size — keeping provider copy', {
+      audioBytes: audioBytes.length,
+      maxBytes,
+      callSid,
+    })
     return 'oversized'
   }
 

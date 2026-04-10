@@ -1,95 +1,198 @@
-/**
- * Structured JSON logger for production observability.
- *
- * Outputs JSON lines to stdout for consumption by log aggregators
- * (Loki, Elasticsearch, CloudWatch, etc.).
- *
- * Emits structured JSON with timestamps, levels, and component tags.
- * Falls back to console methods when running outside of a Node/Bun process.
- */
+import type { Loggable } from '@shared/logger-types'
+import { getLogContext } from './log-context'
+import { type LogLevel, type RateLimits, createRateLimiter } from './log-rate-limiter'
+import { redact } from './log-redactor'
 
-type LogLevel = 'debug' | 'info' | 'warn' | 'error'
+const LEVEL_PRIORITY: Record<LogLevel, number> = { debug: 0, info: 1, warn: 2, error: 3 }
 
-const LEVEL_PRIORITY: Record<LogLevel, number> = {
-  debug: 0,
-  info: 1,
-  warn: 2,
-  error: 3,
+interface LoggerConfig {
+  minLevel: LogLevel
+  namespaces: string[] // globs; ['*'] = all
+  rateLimits: Required<RateLimits>
+  stripStacks: boolean
 }
 
-const isNode = typeof process !== 'undefined' && process.env?.PLATFORM === 'node'
-
-// Minimum log level — configurable via LOG_LEVEL env var
-const minLevel: LogLevel = isNode ? (process.env.LOG_LEVEL as LogLevel) || 'info' : 'info'
-
-interface LogEntry {
-  level: LogLevel
-  ts: string
-  component: string
-  msg: string
-  [key: string]: unknown
-}
-
-function shouldLog(level: LogLevel): boolean {
-  return LEVEL_PRIORITY[level] >= LEVEL_PRIORITY[minLevel]
-}
-
-function emit(entry: LogEntry): void {
-  if (!shouldLog(entry.level)) return
-
-  if (isNode) {
-    // Structured JSON output for log aggregators
-    const line = JSON.stringify(entry)
-    if (entry.level === 'error') {
-      process.stderr.write(`${line}\n`)
-    } else {
-      process.stdout.write(`${line}\n`)
-    }
-  } else {
-    // Fallback: use console methods for non-Node/Bun environments
-    const { level, component, msg, ...extra } = entry
-    const prefix = `[${component}]`
-    const hasExtra = Object.keys(extra).length > 1 // ts is always there
-    switch (level) {
-      case 'debug':
-        console.debug(prefix, msg, ...(hasExtra ? [extra] : []))
-        break
-      case 'info':
-        console.log(prefix, msg, ...(hasExtra ? [extra] : []))
-        break
-      case 'warn':
-        console.warn(prefix, msg, ...(hasExtra ? [extra] : []))
-        break
-      case 'error':
-        console.error(prefix, msg, ...(hasExtra ? [extra] : []))
-        break
-    }
+function parseRateLimits(env: string | undefined): Required<RateLimits> {
+  const defaults: Required<RateLimits> = {
+    debug: 50,
+    info: 200,
+    warn: 500,
+    error: Number.POSITIVE_INFINITY,
+  }
+  if (!env) return defaults
+  try {
+    const parsed = JSON.parse(env) as Partial<RateLimits>
+    return { ...defaults, ...parsed }
+  } catch (err) {
+    process.stderr.write(
+      `{"level":"warn","component":"logger","msg":"Invalid LOG_RATE_LIMITS JSON, using defaults","error":"${err instanceof Error ? err.message : String(err)}"}\n`
+    )
+    return defaults
   }
 }
 
-/**
- * Create a component-scoped logger.
- *
- * @example
- * const log = createLogger('auth')
- * log.info('Token verified', { pubkey: '...' })
- * // → {"level":"info","ts":"...","component":"auth","msg":"Token verified","pubkey":"..."}
- */
-export function createLogger(component: string) {
-  function log(level: LogLevel, msg: string, extra?: Record<string, unknown>) {
-    emit({
+function loadConfig(): LoggerConfig {
+  const minLevel = (process.env.LOG_LEVEL as LogLevel) || 'info'
+  const namespaces = (process.env.LOG_NAMESPACES || '*')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  return {
+    minLevel: LEVEL_PRIORITY[minLevel] !== undefined ? minLevel : 'info',
+    namespaces: namespaces.length ? namespaces : ['*'],
+    rateLimits: parseRateLimits(process.env.LOG_RATE_LIMITS),
+    stripStacks: process.env.LOG_STACKS !== 'true',
+  }
+}
+
+let config: LoggerConfig = loadConfig()
+let rateLimiter = createRateLimiter(config.rateLimits)
+
+// Exposed for tests only — do not use in app code.
+export function _setLoggerConfigForTests(next: LoggerConfig): void {
+  config = next
+  rateLimiter = createRateLimiter(next.rateLimits)
+}
+
+function globMatches(namespace: string, pattern: string): boolean {
+  if (pattern === '*') return true
+  if (pattern.endsWith('.*')) {
+    const prefix = pattern.slice(0, -2)
+    return namespace === prefix || namespace.startsWith(`${prefix}.`)
+  }
+  return namespace === pattern
+}
+
+function namespaceAllowed(ns: string): boolean {
+  return config.namespaces.some((p) => globMatches(ns, p))
+}
+
+function levelAllowed(level: LogLevel): boolean {
+  return LEVEL_PRIORITY[level] >= LEVEL_PRIORITY[config.minLevel]
+}
+
+function circularReplacer() {
+  const seen = new WeakSet<object>()
+  return (_: string, value: unknown) => {
+    if (value !== null && typeof value === 'object') {
+      if (seen.has(value as object)) return '[circular]'
+      seen.add(value as object)
+    }
+    return value
+  }
+}
+
+function emit(entry: Record<string, unknown>, level: LogLevel): void {
+  try {
+    const line = `${JSON.stringify(entry, circularReplacer())}\n`
+    if (level === 'error') process.stderr.write(line)
+    else process.stdout.write(line)
+  } catch (emitErr) {
+    // Last-ditch: logger must never throw.
+    const safeComponent = typeof entry.component === 'string' ? entry.component : 'unknown'
+    const safeMsg = typeof entry.msg === 'string' ? entry.msg.slice(0, 100) : 'unknown'
+    process.stderr.write(
+      `{"level":"error","component":"logger","msg":"emit failed","failedComponent":"${safeComponent}","failedMsg":"${safeMsg}","error":"${emitErr instanceof Error ? emitErr.message : String(emitErr)}"}\n`
+    )
+  }
+}
+
+interface UnwrappedError {
+  errName: string
+  errMsg: string
+  stack?: string
+}
+
+function unwrapError(err: unknown, stripStacks: boolean): UnwrappedError {
+  if (err instanceof Error) {
+    const base: UnwrappedError = { errName: err.name, errMsg: err.message }
+    if (!stripStacks) base.stack = err.stack
+    return base
+  }
+  return { errName: 'Unknown', errMsg: String(err) }
+}
+
+export interface Logger {
+  debug<E extends Record<string, unknown>>(msg: string, extra?: Loggable<E>): void
+  info<E extends Record<string, unknown>>(msg: string, extra?: Loggable<E>): void
+  warn<E extends Record<string, unknown>>(msg: string, extra?: Loggable<E>): void
+  error(msg: string): void
+  error(msg: string, err: Error): void
+  error<E extends Record<string, unknown>>(msg: string, extra: Loggable<E>): void
+  error<E extends Record<string, unknown>>(msg: string, err: Error, extra: Loggable<E>): void
+  error(msg: string, err: unknown): void
+  error(msg: string, err: unknown, extra: Record<string, unknown>): void
+}
+
+/** Create a namespaced structured logger. Namespaces are dot-separated (e.g. `telephony.twilio`). */
+export function createLogger(namespace: string): Logger {
+  function write(level: LogLevel, msg: string, extra?: Record<string, unknown>): void {
+    if (!levelAllowed(level)) return
+    if (!namespaceAllowed(namespace)) return
+    if (!rateLimiter.check(namespace, level)) return
+
+    const ctx = getLogContext()
+    const redactedExtra = extra ? redact(extra) : {}
+    const entry = {
       level,
       ts: new Date().toISOString(),
-      component,
+      component: namespace,
       msg,
-      ...extra,
-    })
+      ...ctx,
+      ...redactedExtra,
+    }
+    emit(entry, level)
   }
 
   return {
-    debug: (msg: string, extra?: Record<string, unknown>) => log('debug', msg, extra),
-    info: (msg: string, extra?: Record<string, unknown>) => log('info', msg, extra),
-    warn: (msg: string, extra?: Record<string, unknown>) => log('warn', msg, extra),
-    error: (msg: string, extra?: Record<string, unknown>) => log('error', msg, extra),
+    debug: (msg, extra) => write('debug', msg, extra),
+    info: (msg, extra) => write('info', msg, extra),
+    warn: (msg, extra) => write('warn', msg, extra),
+    error: (msg: string, errOrExtra?: unknown, maybeExtra?: Record<string, unknown>) => {
+      let errorFields: UnwrappedError | undefined
+      let extraFields: Record<string, unknown> = {}
+
+      if (errOrExtra instanceof Error) {
+        // error(msg, Error) or error(msg, Error, extra)
+        errorFields = unwrapError(errOrExtra, config.stripStacks)
+        extraFields = maybeExtra ?? {}
+      } else if (
+        errOrExtra !== null &&
+        errOrExtra !== undefined &&
+        typeof errOrExtra === 'object' &&
+        !Array.isArray(errOrExtra)
+      ) {
+        // error(msg, plainObject) — treat as extras, not an error
+        extraFields = errOrExtra as Record<string, unknown>
+      } else if (errOrExtra !== undefined && errOrExtra !== null) {
+        // Primitive (string, number, etc.) — treat as error value
+        errorFields = unwrapError(errOrExtra, config.stripStacks)
+        extraFields = maybeExtra ?? {}
+      } else {
+        // errOrExtra is undefined/null — only maybeExtra matters
+        extraFields = maybeExtra ?? {}
+      }
+
+      write('error', msg, { ...extraFields, ...(errorFields ?? {}) })
+    },
   }
+}
+
+// Background task: drain overflow summaries every 10s.
+if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'test') {
+  const overflowInterval = setInterval(() => {
+    const summaries = rateLimiter.drainOverflows()
+    for (const s of summaries) {
+      emit(
+        {
+          level: 'warn',
+          ts: new Date().toISOString(),
+          component: 'logger',
+          msg: `Suppressed ${s.suppressed} ${s.level} logs for ${s.namespace} in last 10s`,
+        },
+        'warn'
+      )
+    }
+  }, 10_000)
+  overflowInterval.unref?.()
 }

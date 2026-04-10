@@ -40,32 +40,32 @@ describe('resolveStorageCredentials', () => {
     process.env.MINIO_APP_USER = 'app-user'
     process.env.MINIO_APP_PASSWORD = 'app-pass'
 
-    const warnSpy = mock(() => {})
-    const origWarn = console.warn
-    console.warn = warnSpy
+    const writeSpy = mock(() => true)
+    const origWrite = process.stdout.write
+    process.stdout.write = writeSpy as typeof process.stdout.write
 
     const result = resolveStorageCredentials()
     expect(result.accessKeyId).toBe('app-user')
     expect(result.secretAccessKey).toBe('app-pass')
-    expect(warnSpy).toHaveBeenCalled()
+    expect(writeSpy).toHaveBeenCalled()
 
-    console.warn = origWarn
+    process.stdout.write = origWrite
   })
 
   it('falls back to MINIO_ACCESS_KEY/MINIO_SECRET_KEY', () => {
     process.env.MINIO_ACCESS_KEY = 'root-key'
     process.env.MINIO_SECRET_KEY = 'root-secret'
 
-    const warnSpy = mock(() => {})
-    const origWarn = console.warn
-    console.warn = warnSpy
+    const writeSpy = mock(() => true)
+    const origWrite = process.stdout.write
+    process.stdout.write = writeSpy as typeof process.stdout.write
 
     const result = resolveStorageCredentials()
     expect(result.accessKeyId).toBe('root-key')
     expect(result.secretAccessKey).toBe('root-secret')
-    expect(warnSpy).toHaveBeenCalled()
+    expect(writeSpy).toHaveBeenCalled()
 
-    console.warn = origWarn
+    process.stdout.write = origWrite
   })
 
   it('throws if no credentials are found', () => {

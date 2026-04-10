@@ -1,7 +1,9 @@
+import { createHash } from 'node:crypto'
 import { createMiddleware } from 'hono/factory'
 import type { Role } from '../../shared/permissions'
 import { resolvePermissions } from '../../shared/permissions'
 import { authenticateRequest } from '../lib/auth'
+import { runWithLogContext } from '../lib/log-context'
 import type { AppEnv } from '../types'
 
 export const auth = createMiddleware<AppEnv>(async (c, next) => {
@@ -31,5 +33,14 @@ export const auth = createMiddleware<AppEnv>(async (c, next) => {
   c.set('user', authResult.user)
   c.set('permissions', permissions)
   c.set('allRoles', allRoles)
-  await next()
+
+  let userIdHash: string
+  try {
+    userIdHash = createHash('sha256').update(authResult.pubkey).digest('hex').slice(0, 8)
+  } catch {
+    userIdHash = 'hash-err'
+  }
+  await runWithLogContext({ userId: userIdHash }, async () => {
+    await next()
+  })
 })

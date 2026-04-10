@@ -1,4 +1,5 @@
 import { ConsentGate } from '@/components/consent-gate'
+import { createDebugLog } from '@/lib/debug-log'
 import { decryptObjectFields, resetMismatchFired, setOnDecryptMismatch } from '@/lib/decrypt-fields'
 import { permissionGranted } from '@shared/permissions'
 import {
@@ -22,6 +23,8 @@ import { clearHubKeyCache, loadHubKeysForUser } from './hub-key-cache'
 import * as keyManager from './key-manager'
 import { invalidateEncryptedQueries } from './query-client'
 import { loginWithPasskey as webauthnLogin } from './webauthn'
+
+const log = createDebugLog('llamenos:auth')
 
 interface AuthState {
   isKeyUnlocked: boolean
@@ -282,7 +285,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // their authenticated session rather than kicking them to /login.
         // The root-layout effect will then redirect to /login where they
         // can re-enter their PIN, which retries the decrypt+hub-key path.
-        console.error('[auth] post-auth enrichment failed:', err)
+        log('post-auth enrichment failed', { err })
         isUnlocked = false
         pubkey = null
       }
@@ -483,7 +486,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       )
       return true
     } catch (err) {
-      console.error('[auth] completePasskeyKeySetup failed:', err)
+      log('completePasskeyKeySetup failed:', err instanceof Error ? err.message : 'unknown')
       setState((s) => ({
         ...s,
         error: err instanceof Error ? err.message : 'Key setup failed',

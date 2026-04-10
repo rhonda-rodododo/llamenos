@@ -1,5 +1,6 @@
 import type { Context, Next } from 'hono'
 import { permissionGranted, resolveHubPermissions } from '../../shared/permissions'
+import { runWithLogContext } from '../lib/log-context'
 import type { AppEnv } from '../types'
 
 /**
@@ -33,7 +34,9 @@ export async function hubContext(c: Context<AppEnv>, next: Next): Promise<Respon
   c.set('hubId', hubId)
   c.set('hubPermissions', hubPermissions)
 
-  await next()
+  await runWithLogContext({ hubId }, async () => {
+    await next()
+  })
 }
 
 /**

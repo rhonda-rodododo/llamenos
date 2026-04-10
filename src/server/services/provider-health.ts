@@ -1,4 +1,7 @@
 import type { ConnectionTestResult, MessagingChannelType } from '@shared/types'
+import { createLogger } from '../lib/logger'
+
+const log = createLogger('services.provider-health')
 
 export interface HealthCheckResult {
   provider: string
@@ -53,14 +56,19 @@ export class ProviderHealthService {
     const prev = this.results.get(key)
     if (prev && prev.status !== result.status) {
       if (result.status === 'down')
-        console.error(
-          `[health] ERROR: ${name} DOWN — ${consecutiveFailures} consecutive failures: ${result.error}`
-        )
+        log.error('Provider DOWN', undefined, {
+          providerName: name,
+          consecutiveFailures,
+          error: result.error,
+        })
       else if (result.status === 'degraded')
-        console.warn(
-          `[health] WARNING: ${name} connection failed (${consecutiveFailures}/${DOWN_THRESHOLD}): ${result.error}`
-        )
-      else console.log(`[health] ${name} recovered — now healthy (${result.latencyMs}ms)`)
+        log.warn('Provider connection failed', {
+          providerName: name,
+          consecutiveFailures,
+          threshold: DOWN_THRESHOLD,
+          error: result.error,
+        })
+      else log.info('Provider recovered', { providerName: name, latencyMs: result.latencyMs })
     }
 
     this.results.set(key, result)
@@ -78,9 +86,9 @@ export class ProviderHealthService {
 
   start(checkFn: () => Promise<void>, intervalMs = 60_000): void {
     this.stop()
-    checkFn().catch((err) => console.error('[health] Initial check failed:', err))
+    checkFn().catch((err) => log.error('Initial check failed', err))
     this.interval = setInterval(() => {
-      checkFn().catch((err) => console.error('[health] Check failed:', err))
+      checkFn().catch((err) => log.error('Check failed', err))
     }, intervalMs)
   }
 

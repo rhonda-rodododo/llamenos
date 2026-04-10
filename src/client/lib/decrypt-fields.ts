@@ -9,10 +9,13 @@
  * → decrypted value written to `foo`.
  */
 
+import { createDebugLog } from '@/lib/debug-log'
 import { LABEL_USER_PII } from '@shared/crypto-labels'
 import type { RecipientEnvelope } from '@shared/types'
 import { CryptoWorkerLockedError, cryptoWorker, isWorkerLockedError } from './crypto-worker-client'
 import * as keyManager from './key-manager'
+
+const log = createDebugLog('llamenos:decrypt')
 
 /**
  * Decryption diagnostics are enabled in dev builds automatically, OR at
@@ -186,8 +189,7 @@ async function decryptFieldWithRecovery(
         // happen during normal operation — reinitialize the worker and force
         // the PIN prompt so the user lands in a clean state.
         if (decryptDebugEnabled()) {
-          // eslint-disable-next-line no-console
-          console.warn('[decrypt-fields] Field decrypt failed but worker is unlocked:', {
+          log('Field decrypt failed but worker is unlocked', {
             label,
             error: secondErr instanceof Error ? secondErr.message : String(secondErr),
           })
@@ -276,8 +278,7 @@ export function resolveEncryptedFields(
       if (readerPubkey) {
         const envelopePubkeys = (envelopes as RecipientEnvelope[]).map((e) => e.pubkey)
         if (decryptDebugEnabled()) {
-          // eslint-disable-next-line no-console
-          console.warn(`[decrypt-fields] No envelope for reader on field "${key}":`, {
+          log(`No envelope for reader on field "${key}"`, {
             readerPubkey,
             envelopePubkeys,
           })
@@ -286,9 +287,8 @@ export function resolveEncryptedFields(
           mismatchFired = true
           // Always log mismatch — this is a security-relevant event (key doesn't
           // match stored envelopes). Per-field debug detail is gated above.
-          // eslint-disable-next-line no-console
-          console.warn(
-            `[decrypt-fields] Pubkey/envelope mismatch detected on field "${key}". Reader pubkey does not match any envelope.`
+          log(
+            `Pubkey/envelope mismatch detected on field "${key}". Reader pubkey does not match any envelope.`
           )
           mismatchHandler?.({ field: key, readerPubkey, envelopePubkeys })
         }
@@ -332,9 +332,8 @@ export async function decryptObjectFields<T extends Record<string, unknown>>(
 ): Promise<T> {
   const refs = resolveEncryptedFields(obj, readerPubkey, fieldNames)
   if (decryptDebugEnabled() && refs.length > 0) {
-    // eslint-disable-next-line no-console
-    console.warn(
-      `[decrypt-fields] trying to decrypt ${refs.length} field(s): label=${label} readerPubkey=${readerPubkey?.slice(0, 12)} fields=${refs.map((r) => r.plaintextKey).join(',')}`
+    log(
+      `trying to decrypt ${refs.length} field(s): label=${label} readerPubkey=${readerPubkey?.slice(0, 12)} fields=${refs.map((r) => r.plaintextKey).join(',')}`
     )
   }
   if (refs.length === 0) return obj
@@ -353,8 +352,7 @@ export async function decryptObjectFields<T extends Record<string, unknown>>(
         decryptCache.set(ciphertext, label, plaintext)
         ;(obj as Record<string, unknown>)[plaintextKey] = plaintext
       } else if (decryptDebugEnabled()) {
-        // eslint-disable-next-line no-console
-        console.warn(`[decrypt-fields] Decryption returned null for "${plaintextKey}"`)
+        log(`Decryption returned null for "${plaintextKey}"`)
       }
       // If null, field keeps its server placeholder ("[encrypted]")
       // but lock has been fired — PIN prompt will appear

@@ -18,6 +18,7 @@ import {
 import { useAuth } from '@/lib/auth'
 import { authFacadeClient } from '@/lib/auth-facade-client'
 import { cryptoWorker } from '@/lib/crypto-worker-client'
+import { createDebugLog } from '@/lib/debug-log'
 import { getNotificationPrefs, setNotificationPrefs } from '@/lib/notifications'
 import { getProvisioningRoom, packProvisionPayload, sendProvisionedKey } from '@/lib/provisioning'
 import {
@@ -59,6 +60,8 @@ import {
 import { nip19 } from 'nostr-tools'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+
+const log = createDebugLog('llamenos:settings')
 
 export const Route = createFileRoute('/settings')({
   component: SettingsPage,
@@ -358,7 +361,7 @@ function SettingsPage() {
                   setWebauthnLabel('')
                   toast(t('webauthn.registerSuccess'), 'success')
                 } catch (err) {
-                  console.error('[passkey-register]', err)
+                  log('passkey-register failed:', err instanceof Error ? err.message : 'unknown')
                   toast(t('common.error'), 'error')
                 } finally {
                   setWebauthnRegistering(false)

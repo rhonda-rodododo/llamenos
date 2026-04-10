@@ -8,7 +8,8 @@
   "scripts": {
     "dev": "vite",
     "dev:all": "concurrently -n vite,server,bridge -c cyan,green,magenta \"bun run dev\" \"bun run dev:server\" \"bun run dev:bridge\"",
-    "build": "vite build",
+    "build": "vite build && scripts/verify-no-console.sh dist/client",
+    "verify:no-console": "scripts/verify-no-console.sh dist/client",
     "preview": "vite preview",
     "deploy": "bun run deploy:site",
     "deploy:site": "cd site && bun run deploy",

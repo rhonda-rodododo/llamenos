@@ -122,7 +122,7 @@ if (typeof window !== 'undefined') {
   })
 }
 
-const log = createDebugLog('key-manager')
+const log = createDebugLog('llamenos:keys')
 
 // --- Unified auto-lock ---
 let autoLockTimer: ReturnType<typeof setTimeout> | null = null
@@ -149,10 +149,7 @@ function getAutoLock(): number {
     // it — surface the first occurrence per session so the drift is visible.
     if (!autoLockReadErrorReported) {
       autoLockReadErrorReported = true
-      console.warn(
-        '[key-manager] getAutoLock localStorage read failed — falling back to default (15 min):',
-        err
-      )
+      log('getAutoLock localStorage read failed — falling back to default (15 min)', { err })
     }
   }
   return DEFAULT_AUTO_LOCK_MS
@@ -240,7 +237,7 @@ async function handleRotation(
     // Capsule refresh failure is unexpected (the worker just re-encrypted
     // successfully). The next PIN unlock will re-seed the capsule, so this
     // is recoverable — but we want visibility in prod logs.
-    console.error('[key-manager] post-rotation capsule export failed:', err)
+    log('post-rotation capsule export failed', { err })
   }
   await authFacadeClient.confirmRotation()
 }
@@ -300,10 +297,10 @@ async function rotateSyntheticToReal(
         pubkeyHash: newBlob.pubkeyHash,
       })
     } catch (err) {
-      console.error('[key-manager] post-rotation capsule export failed:', err)
+      log('post-rotation capsule export failed', { err })
     }
   } catch (err) {
-    console.error('[key-manager] rotateSyntheticToReal re-encrypt failed:', err)
+    log('rotateSyntheticToReal re-encrypt failed', { err })
   }
 }
 
@@ -340,7 +337,7 @@ export async function trySessionRestore(): Promise<boolean> {
     // partial clearCapsule race); suspicious cases include devtools
     // tampering with IDB. Surface it in prod logs and clear the capsule so
     // the next unlock goes through PIN.
-    console.error('[key-manager] trySessionRestore importSession failed, clearing capsule:', err)
+    log('trySessionRestore importSession failed, clearing capsule', { err })
     await clearCapsule()
     return false
   }
@@ -377,11 +374,11 @@ export async function unlock(pin: string): Promise<string | null> {
         userInfo = await authFacadeClient.getUserInfo()
         log('getUserInfo after refresh:', !!userInfo)
       } catch (err) {
-        console.error('[key-manager] refresh failed:', (err as Error)?.message)
+        log('refresh failed:', (err as Error)?.message)
       }
     }
     if (!userInfo) {
-      console.error('[key-manager] no userInfo available — cannot derive KEK')
+      log('no userInfo available — cannot derive KEK')
       return null
     }
     idpValue = userInfo.nsecSecret
@@ -425,7 +422,7 @@ export async function unlock(pin: string): Promise<string | null> {
           pubkeyHash: blob.pubkeyHash,
         })
       } catch (err) {
-        console.error('[key-manager] session capsule export failed:', err)
+        log('session capsule export failed', { err })
       }
 
       // Handle idp_value rotation if pending (real IdP changed)
@@ -447,7 +444,7 @@ export async function unlock(pin: string): Promise<string | null> {
     }
     return pubkey
   } catch (err) {
-    console.error('[key-manager] unlock failed:', err)
+    log('unlock failed:', err instanceof Error ? err.message : 'unknown')
     return null
   }
 }

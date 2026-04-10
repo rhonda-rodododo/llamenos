@@ -1,5 +1,6 @@
 import { DEFAULT_LANGUAGE, IVR_LANGUAGES } from '../../shared/languages'
 import { IVR_PROMPTS, getPrompt, getVoicemailThanks } from '../../shared/voice-prompts'
+import { createLogger } from '../lib/logger'
 import type {
   AudioUrlMap,
   CallAnsweredParams,
@@ -18,6 +19,8 @@ import type {
   WebhookRecordingStatus,
   WebhookVerificationResult,
 } from './adapter'
+
+const log = createLogger('telephony.vonage')
 
 /**
  * Vonage voice language codes, keyed by ISO 639-1.
@@ -383,14 +386,14 @@ export class VonageAdapter implements TelephonyAdapter {
       if (result.status === 'fulfilled') {
         callSids.push(result.value)
       } else {
-        console.error('[telephony:vonage] Failed to ring volunteer:', result.reason)
+        log.error('Failed to ring volunteer', result.reason)
       }
     }
 
     if (callSids.length === 0 && outboundTargets.length > 0) {
-      console.error(
-        `[telephony:vonage] CRITICAL: All ${outboundTargets.length} outbound calls failed — no volunteers are being rung`
-      )
+      log.error('CRITICAL: All outbound calls failed — no volunteers are being rung', undefined, {
+        targetCount: outboundTargets.length,
+      })
     }
 
     return callSids
@@ -409,7 +412,7 @@ export class VonageAdapter implements TelephonyAdapter {
     )
     for (const result of results) {
       if (result.status === 'rejected') {
-        console.warn('[telephony:vonage] Failed to cancel ringing:', result.reason)
+        log.warn('Failed to cancel ringing', { reason: String(result.reason) })
       }
     }
   }
@@ -473,9 +476,11 @@ export class VonageAdapter implements TelephonyAdapter {
     // Fetch from the Vonage recordings API
     const res = await this.vonageApi(`/v1/calls/${callSid}`, { method: 'GET' })
     if (!res.ok) {
-      console.error(
-        `[telephony:vonage] Failed to get call info for ${callSid}: ${res.status} ${res.statusText}`
-      )
+      log.error('Failed to get call info', undefined, {
+        callSid,
+        status: res.status,
+        statusText: res.statusText,
+      })
       return null
     }
 
@@ -486,9 +491,11 @@ export class VonageAdapter implements TelephonyAdapter {
       headers: { Authorization: `Basic ${btoa(`${this.apiKey}:${this.apiSecret}`)}` },
     })
     if (!audioRes.ok) {
-      console.error(
-        `[telephony:vonage] Failed to get recording audio for call ${callSid}: ${audioRes.status} ${audioRes.statusText}`
-      )
+      log.error('Failed to get recording audio for call', undefined, {
+        callSid,
+        status: audioRes.status,
+        statusText: audioRes.statusText,
+      })
       return null
     }
     return audioRes.arrayBuffer()
@@ -500,9 +507,11 @@ export class VonageAdapter implements TelephonyAdapter {
       headers: { Authorization: `Basic ${btoa(`${this.apiKey}:${this.apiSecret}`)}` },
     })
     if (!audioRes.ok) {
-      console.error(
-        `[telephony:vonage] Failed to get recording audio ${recordingSid}: ${audioRes.status} ${audioRes.statusText}`
-      )
+      log.error('Failed to get recording audio', undefined, {
+        recordingSid,
+        status: audioRes.status,
+        statusText: audioRes.statusText,
+      })
       return null
     }
     return audioRes.arrayBuffer()
@@ -519,7 +528,7 @@ export class VonageAdapter implements TelephonyAdapter {
         headers: { Authorization: `Basic ${btoa(`${this.apiKey}:${this.apiSecret}`)}` },
       })
     } catch (err) {
-      console.error('[vonage] Failed to delete recording:', err)
+      log.error('Failed to delete recording', err)
     }
   }
 
