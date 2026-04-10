@@ -32,9 +32,8 @@ export function performPanicWipe(): void {
   } catch {
     // Storage may be unavailable
   }
-  void clearCapsule().catch(() => {
-    // IDB may be unavailable — the indexedDB.databases() sweep below will
-    // catch it as part of the scorched-earth cleanup.
+  void clearCapsule().catch((err) => {
+    console.error('[panic-wipe] clearCapsule failed, relying on IDB sweep fallback:', err)
   })
 
   // 3. Zero out the cryptographic key in memory immediately
@@ -59,9 +58,25 @@ export function performPanicWipe(): void {
       // Storage may be unavailable
     }
 
-    // Clear IndexedDB databases
+    // Clear IndexedDB databases.
+    //
+    // Firefox does NOT implement `indexedDB.databases()`, so the enumeration
+    // path below silently no-ops there. To guarantee scorched-earth on every
+    // browser we unconditionally delete every database this app is known to
+    // create FIRST, then attempt the enumeration sweep as belt-and-braces for
+    // any unknown DB (e.g. SW caches, future features) on Chromium.
+    //
+    // Keep this list in sync with any new openDb() callsites.
+    const KNOWN_DB_NAMES = ['llamenos-session']
     try {
       if (typeof indexedDB !== 'undefined') {
+        for (const name of KNOWN_DB_NAMES) {
+          try {
+            indexedDB.deleteDatabase(name)
+          } catch (err) {
+            console.error(`[panic-wipe] deleteDatabase(${name}) failed:`, err)
+          }
+        }
         indexedDB
           .databases?.()
           .then((dbs) => {

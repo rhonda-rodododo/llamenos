@@ -223,6 +223,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false
     async function restoreSession() {
+      // Phase 1 — Authentication. Any failure here means the user has no
+      // valid session and must log in again.
+      let me: Awaited<ReturnType<typeof getMe>> | null = null
+      let restored = false
       try {
         // Attempt silent token refresh using the httpOnly refresh cookie
         await authFacadeClient.refreshToken()
@@ -230,18 +234,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // Fast path: restore Worker from a session capsule if one is present.
         // This skips PBKDF2 and keeps the user on their current page.
-        const restored = await keyManager.trySessionRestore()
+        restored = await keyManager.trySessionRestore()
         if (cancelled) return
         if (restored) {
           resetMismatchFired()
         }
 
-        const me = await getMe()
+        me = await getMe()
         if (cancelled) return
+      } catch {
+        // No valid refresh cookie, network failure, or /auth/me rejection —
+        // the user needs to log in.
+        if (!cancelled) {
+          setState((s) => ({ ...s, isLoading: false }))
+        }
+        return
+      }
 
-        lastApiActivity.current = Date.now()
-        const isUnlocked = restored || (await keyManager.isUnlocked())
-        const pubkey = isUnlocked ? await keyManager.getPublicKeyHex() : null
+      if (!me) return // cancelled mid-try
+
+      // Phase 2 — Post-auth enrichment (decrypt PII, load hub keys, warm
+      // the React Query cache). This is best-effort: if anything throws we
+      // still set auth state from `me` so the user lands authenticated-
+      // but-locked. Returning early here would silently redirect the user
+      // to /login despite a valid session.
+      lastApiActivity.current = Date.now()
+      let isUnlocked = false
+      let pubkey: string | null = null
+      try {
+        isUnlocked = restored || (await keyManager.isUnlocked())
+        pubkey = isUnlocked ? await keyManager.getPublicKeyHex() : null
         if (cancelled) return
 
         // Decrypt envelope-encrypted fields (e.g. name) via crypto worker
@@ -255,19 +277,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (cancelled) return
           invalidateEncryptedQueries()
         }
-
-        setState(
-          stateFromMe(me, {
-            isKeyUnlocked: isUnlocked,
-            publicKey: pubkey ?? me.pubkey,
-          })
-        )
-      } catch {
-        // No valid refresh cookie — user needs to log in
-        if (!cancelled) {
-          setState((s) => ({ ...s, isLoading: false }))
-        }
+      } catch (err) {
+        // Enrichment failed — land the user on the locked-key screen via
+        // their authenticated session rather than kicking them to /login.
+        // The root-layout effect will then redirect to /login where they
+        // can re-enter their PIN, which retries the decrypt+hub-key path.
+        console.error('[auth] post-auth enrichment failed:', err)
+        isUnlocked = false
+        pubkey = null
       }
+
+      if (cancelled) return
+      setState(
+        stateFromMe(me, {
+          isKeyUnlocked: isUnlocked,
+          publicKey: pubkey ?? me.pubkey,
+        })
+      )
     }
     void restoreSession()
     return () => {

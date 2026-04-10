@@ -99,6 +99,7 @@ const DEFAULT_AUTO_LOCK_MS = 15 * 60 * 1000 // 15 minutes
 const MIN_AUTO_LOCK_MS = 60_000 // 1 minute
 const MAX_AUTO_LOCK_MS = 60 * 60 * 1000 // 60 minutes
 
+let autoLockReadErrorReported = false
 function getAutoLock(): number {
   try {
     const stored = localStorage.getItem(AUTO_LOCK_KEY)
@@ -106,8 +107,17 @@ function getAutoLock(): number {
       const ms = Number.parseInt(stored, 10)
       if (ms >= MIN_AUTO_LOCK_MS && ms <= MAX_AUTO_LOCK_MS) return ms
     }
-  } catch {
-    /* localStorage unavailable */
+  } catch (err) {
+    // localStorage may be unavailable (private browsing, SSR, tests). A user
+    // who had explicitly configured a non-default auto-lock silently loses
+    // it — surface the first occurrence per session so the drift is visible.
+    if (!autoLockReadErrorReported) {
+      autoLockReadErrorReported = true
+      console.warn(
+        '[key-manager] getAutoLock localStorage read failed — falling back to default (15 min):',
+        err
+      )
+    }
   }
   return DEFAULT_AUTO_LOCK_MS
 }
@@ -191,7 +201,10 @@ async function handleRotation(
       pubkeyHash: newBlob.pubkeyHash,
     })
   } catch (err) {
-    log('post-rotation capsule export failed:', err)
+    // Capsule refresh failure is unexpected (the worker just re-encrypted
+    // successfully). The next PIN unlock will re-seed the capsule, so this
+    // is recoverable — but we want visibility in prod logs.
+    console.error('[key-manager] post-rotation capsule export failed:', err)
   }
   await authFacadeClient.confirmRotation()
 }
@@ -206,10 +219,22 @@ async function rotateSyntheticToReal(
   currentBlob: EncryptedKeyDataV2,
   prfOutput?: Uint8Array
 ): Promise<void> {
+  // Phase 1: resolve the real IdP value. A failure here is expected
+  // (IdP unreachable, cold cache, first boot) and rotation will retry
+  // silently on the next unlock.
+  let realUserInfo: Awaited<ReturnType<typeof authFacadeClient.getUserInfo>>
   try {
-    const realUserInfo = await authFacadeClient.getUserInfo()
-    if (!realUserInfo) return // IdP not reachable — retry next unlock
+    realUserInfo = await authFacadeClient.getUserInfo()
+  } catch {
+    return // IdP not reachable — retry next unlock
+  }
+  if (!realUserInfo) return
 
+  // Phase 2: re-encrypt with the real IdP value. Failures here are
+  // unexpected (crypto worker bug, storage full, KEK derivation error)
+  // and must be surfaced — silently leaving the user on a synthetic key
+  // forever is a real defect.
+  try {
     const newSalt = crypto.getRandomValues(new Uint8Array(32))
     const newKek = deriveKEK({
       pin,
@@ -239,10 +264,10 @@ async function rotateSyntheticToReal(
         pubkeyHash: newBlob.pubkeyHash,
       })
     } catch (err) {
-      log('post-rotation capsule export failed:', err)
+      console.error('[key-manager] post-rotation capsule export failed:', err)
     }
-  } catch {
-    // IdP not reachable or re-encryption failed — rotation will happen on next unlock
+  } catch (err) {
+    console.error('[key-manager] rotateSyntheticToReal re-encrypt failed:', err)
   }
 }
 
@@ -273,7 +298,13 @@ export async function trySessionRestore(): Promise<boolean> {
     notifyCallbacks(unlockCallbacks)
     return true
   } catch (err) {
-    log('trySessionRestore failed, clearing capsule:', err)
+    // Import failure after a successful loadCapsule means the capsule was
+    // present and pubkeyHash-matched but decryption failed. Legitimate cases
+    // are rare (worker-side corruption or a token/capsule mismatch from a
+    // partial clearCapsule race); suspicious cases include devtools
+    // tampering with IDB. Surface it in prod logs and clear the capsule so
+    // the next unlock goes through PIN.
+    console.error('[key-manager] trySessionRestore importSession failed, clearing capsule:', err)
     await clearCapsule()
     return false
   }
@@ -347,7 +378,8 @@ export async function unlock(pin: string): Promise<string | null> {
       notifyCallbacks(unlockCallbacks)
       // Export a session capsule so subsequent reloads can skip PBKDF2.
       // Fire-and-forget — capsule persistence is an optimisation, not a
-      // correctness requirement. Log failures but don't block unlock.
+      // correctness requirement — but surface failures because this path
+      // should succeed (the worker was just unlocked).
       try {
         const session = await cryptoWorker.exportSession()
         await storeCapsule(session.token, {
@@ -357,7 +389,7 @@ export async function unlock(pin: string): Promise<string | null> {
           pubkeyHash: blob.pubkeyHash,
         })
       } catch (err) {
-        log('session capsule export failed:', err)
+        console.error('[key-manager] session capsule export failed:', err)
       }
 
       // Handle idp_value rotation if pending (real IdP changed)

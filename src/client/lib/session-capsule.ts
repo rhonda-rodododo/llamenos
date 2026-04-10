@@ -195,7 +195,10 @@ async function respondToSyncRequest(req: SyncRequestMessage): Promise<void> {
   let capsule: SessionCapsule | null
   try {
     capsule = await idbGet()
-  } catch {
+  } catch (err) {
+    // IDB failing here silently means we stop responding to siblings,
+    // which breaks cross-tab unlock without any signal. Surface it.
+    console.error('[session-capsule] respondToSyncRequest idbGet failed:', err)
     return
   }
   if (!capsule || capsule.pubkeyHash !== req.pubkeyHash) return
@@ -338,7 +341,7 @@ export async function loadCapsule(
   try {
     capsule = await idbGet()
   } catch (err) {
-    log('idbGet failed:', err)
+    console.error('[session-capsule] loadCapsule idbGet failed:', err)
     return null
   }
   if (!capsule) {
@@ -385,12 +388,14 @@ export async function clearCapsule(): Promise<void> {
 
 let pendingExpiryWrite: number | null = null
 let lastExpiryWriteAt = 0
+let expiryWriteErrorReported = false
 const EXPIRY_WRITE_DEBOUNCE_MS = 30_000
 
 /**
  * Update only the `autoLockExpiresAt` field on the active capsule.
  * Debounced to once per 30s to avoid IDB write spam on every activity tick.
- * Writes are best-effort — failures are logged but not thrown.
+ * Writes are best-effort — failures are reported ONCE per session via
+ * console.error so a broken IDB surfaces in prod logs without flooding.
  */
 export async function updateAutoLockExpiry(expiresAt: number): Promise<void> {
   const now = Date.now()
@@ -407,7 +412,13 @@ export async function updateAutoLockExpiry(expiresAt: number): Promise<void> {
     capsule.autoLockExpiresAt = expiresAt
     await idbPut(capsule)
   } catch (err) {
-    log('updateAutoLockExpiry failed:', err)
+    if (!expiryWriteErrorReported) {
+      expiryWriteErrorReported = true
+      console.error(
+        '[session-capsule] updateAutoLockExpiry failed (this error is reported once per session):',
+        err
+      )
+    }
   }
 }
 
@@ -418,4 +429,5 @@ export async function updateAutoLockExpiry(expiresAt: number): Promise<void> {
 export function __resetExpiryDebounceForTests(): void {
   pendingExpiryWrite = null
   lastExpiryWriteAt = 0
+  expiryWriteErrorReported = false
 }
