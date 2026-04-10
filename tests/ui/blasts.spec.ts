@@ -9,7 +9,7 @@ test.describe('Blasts — UI', () => {
   test.describe('Volunteer access restrictions', () => {
     test('user cannot access the blasts page (redirected or denied)', async ({ volunteerPage }) => {
       // Try to navigate to the blasts page
-      await volunteerPage.goto('/blasts')
+      await navigateAfterLogin(volunteerPage, '/blasts')
       await volunteerPage.waitForTimeout(Timeouts.ASYNC_SETTLE)
 
       // User should NOT see the Message Blasts heading — they should be
