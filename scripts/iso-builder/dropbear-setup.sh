@@ -41,6 +41,10 @@ cidr_to_netmask() {
   echo "$mask"
 }
 
+# TEST_MODE=1 allows sourcing this file to access cidr_to_netmask without
+# running the installer body (which requires apt-get, system paths, etc.).
+if [ "${TEST_MODE:-0}" != "1" ]; then
+
 SSH_PUBKEY="$1"
 STATIC_IP="$2"
 GATEWAY="$3"
@@ -77,3 +81,5 @@ fi
 
 # Rebuild initramfs to include dropbear, keys, and network config
 update-initramfs -u -k all
+
+fi # end TEST_MODE guard
