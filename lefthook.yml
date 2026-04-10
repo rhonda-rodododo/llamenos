@@ -9,4 +9,9 @@ pre-commit:
         bunx biome check --diagnostic-level=error --files-ignore-unknown=true --no-errors-on-unmatched {staged_files}
       stage_fixed: true
     - name: pii-check
-      run: "test -x scripts/pii-check.sh && scripts/pii-check.sh || true"
+      # Blocks commits that introduce content matching PII_CHECK_PATTERNS.
+      # Patterns are read from the env var at commit time — see scripts/pii-check.sh
+      # for setup instructions (add `export PII_CHECK_PATTERNS='...'` to ~/.zshrc).
+      # If the env var is unset the script warns and passes; if it is set and a
+      # match is found in the staged diff, the commit is blocked.
+      run: scripts/pii-check.sh

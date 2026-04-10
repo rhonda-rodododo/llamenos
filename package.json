@@ -37,7 +37,7 @@
     "changelog": "git-cliff --output CHANGELOG.md",
     "changelog:preview": "git-cliff --unreleased",
     "version:bump": "bun run scripts/bump-version.ts",
-    "prepare": "lefthook install || true"
+    "prepare": "lefthook install"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1021.0",
