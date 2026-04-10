@@ -358,6 +358,13 @@
       "when": 1775574000006,
       "tag": "0049_users_kek_proof_hash",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1776076800000,
+      "tag": "0050_repair_user_security_prefs_column",
+      "breakpoints": true
     }
   ]
 }
