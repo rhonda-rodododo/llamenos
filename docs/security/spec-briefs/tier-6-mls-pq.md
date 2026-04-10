@@ -4,7 +4,13 @@
 **Master doc:** [`../SECURITY_IMPROVEMENTS_MASTER.md`](../SECURITY_IMPROVEMENTS_MASTER.md) §3.5.2 (Wire MLS), §3.5.3 (MLS brief), §3.10 (Tuta PQ), §6.3, §7 Tier 6
 **Effort:** Months — optional long-term evolution
 **Depends on:** Tier 1 (HPKE is the MLS pre-requisite), Tier 3 (per-device keys become MLS members), Tier 5 (SFrame key derivation moves to MLS exporter)
-**Status:** Ready for spec authoring — but lowest priority; not load-bearing
+**Status:** Absorbed into spec
+**Spec:** [`../../superpowers/specs/2026-04-10-security-tier-6-mls-pq-design.md`](../../superpowers/specs/2026-04-10-security-tier-6-mls-pq-design.md)
+**Plan:** [`../../superpowers/plans/2026-04-10-security-tier-6-mls-pq.md`](../../superpowers/plans/2026-04-10-security-tier-6-mls-pq.md)
+
+> **Absorbed:** This brief has been superseded by the design spec above. The spec resolves every open question in this brief (MLS library, ciphersuite, group granularity, items_key integration, epoch cache, commit frequency, delivery service, KeyPackage lifetime, ciphersuite upgrade, migration trigger, provable-delete scope, fingerprint UX ordering, PQ signature adoption). The plan decomposes the work into 44 tasks across two PRs: PR #1 (Tasks 1–14) ships fingerprint verification UX + vendored ts-mls skeleton; PR #2 (Tasks 15–44) ships the MLS code path feature-flagged off by default, followed by a 3-month staged rollout gated on an external audit.
+
+> **Key deltas from this brief:** (1) MLS library is `LukaJCB/ts-mls` vendored into `vendor/ts-mls/`, NOT Wire core-crypto — decided on bundle-size + keystore-conflict + MIT-license grounds; (2) ciphersuite is `MLS_256_XWING_AES256GCM_SHA512_Ed25519` (XWing hybrid), NOT a hand-rolled three-secret HKDF combine — XWing is the IETF-formalized version of exactly the pattern this brief sketches; (3) PQ is baked into the MLS ciphersuite, not a parallel envelope format — one decision covers both MLS and PQ; (4) provable-delete via epoch advancement (the §8.3 wild idea) is made concrete in the plan.
 
 ## Goal
 
