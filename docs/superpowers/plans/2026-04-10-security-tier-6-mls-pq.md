@@ -10,6 +10,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-04-10-security-tier-6-mls-pq-design.md`
 
+**Implementation note — migration numbering:** All `drizzle/migrations/NNNN_*.sql` paths in this plan are **placeholders**. These numbers were computed against pre-v0.41.0 main. At implementation time, run `ls drizzle/migrations/ | sort | tail -5` in your worktree and use the next unused integer for every migration this plan creates, maintaining relative order. The spec's database design is number-agnostic — only the filenames need renumbering. Also verify each cross-tier plan is not stepping on a number another landing tier used.
+
 ---
 
 ## File Map
