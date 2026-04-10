@@ -934,7 +934,20 @@ The brief recommended a fall-back to `@noble/curves`. We reject this for three r
 2. As of April 2026, Chrome, Firefox, and Safari all ship both X25519 and Ed25519 in WebCrypto (verified via WebKit, Bugzilla, and chromestatus). Llamenos targets modern browsers (the PWA minimum is already Chrome ≥120 / Firefox ≥115 / Safari ≥17).
 3. A fall-back creates a two-path crypto architecture that doubles audit surface forever.
 
-On unsupported browsers, the app displays a **hard error on first load** ("Your browser does not support the cryptographic primitives required by Llamenos. Please use Chrome 133+, Firefox 135+, or Safari 17.4+."). The error page is static, does not require the app bundle to run past the feature check, and is served from the same origin as the main app.
+On unsupported browsers, the app displays a **hard error on first load**. The error page is static, does not require the app bundle to run past the feature check, and is served from the same origin as the main app. Copy:
+
+> **Llámenos requires a modern secure browser.** Your browser does not support the cryptographic primitives we need to protect volunteer and caller data.
+>
+> **Please update your browser to a recent version:**
+> - **Firefox 135 or newer** *(recommended — strongest privacy posture out of the box)*
+> - **Chrome / Chromium / Edge 133 or newer**
+> - **Safari 17.4 or newer**
+>
+> If your current browser is up to date but still shows this message, you may be on a build that disables WebCrypto curve support. Switch to Firefox or a recent Chromium-based browser.
+
+The specific missing primitive (X25519 vs Ed25519 vs both) is surfaced in a collapsible "Technical details" disclosure so volunteers can report it to admins if they want to. Copy is i18n-keyed so every locale carries the same messaging.
+
+**Decision confirmed 2026-04-10:** hard-fail is the right answer. Volunteers supporting crisis callers deserve a browser whose crypto platform has been audited and shipped by multiple teams. A soft-warn path would leave volunteers with a false sense of security while they run cryptographically-downgraded code.
 
 This is a deliberate raising of the minimum browser bar. Llamenos serves crisis hotline volunteers; the typical device is a modern laptop or phone. The master doc §6.5 explicitly lists browser-minimum tightening as part of the target architecture.
 

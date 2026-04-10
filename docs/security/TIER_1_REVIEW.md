@@ -5,6 +5,11 @@
 **Spec:** `docs/superpowers/specs/2026-04-10-security-tier-1-hpke-primitives-design.md` (1409 lines)
 **Plan:** `docs/superpowers/plans/2026-04-10-security-tier-1-hpke-primitives.md` (26 TDD tasks)
 
+## Rhonda decisions received (2026-04-10)
+
+1. **C-1 Ed25519 WebCrypto Safari support → hard-fail.** Confirmed by Rhonda: "hard fail - if using an old version of safari, prompt them either to update or use firefox or more secure browser". Spec §1.3.2 already commits to hard-fail; updated the error copy to explicitly enumerate update paths (Firefox 135+, Chromium-based 133+, Safari 17.4+) with Firefox recommended as the strongest privacy posture. Copy is i18n-keyed.
+2. **I-1, I-2, I-3, I-4 remain open** for implementation-time resolution. Non-blocking for landing the spec.
+
 ## Summary
 
 Tier 1's design is the strongest of the seven tiers on technical choices (single suite, no negotiation, non-extractable CryptoKey via generate-export-reimport, `items_key` indirection). The spec is unusually careful about the hpke-js API — it reads source files and cites exact line numbers, which is the right kind of rigor. The plan has three gaps I'd want the implementer to close: **(1) the native Ed25519 WebCrypto browser-support claim needs a second verification pass** (Safari 17.4 shipped X25519 but Ed25519 support lagged), **(2) the Tier 1 `decryptFromHub` / `encryptForHub` API break is not reconciled with Tier 0's AAD-bound API**, and **(3) the migration wipes any Tier 0 audit-log entries, which means the Tier 0 chain-verifier trust anchor needs to be re-bootstrapped during the Tier 1 migration**.
