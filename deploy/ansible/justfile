@@ -218,12 +218,27 @@ test-matrix mode='p0':
 
       echo "=== Running harden playbook against ${name} ==="
       cd "${REMOTE_DIR}"
+
+      # Write a per-run inventory file inside REMOTE_DIR so Ansible loads
+      # group_vars/all/ from the playbook directory. With inline `-i 'ip,'`
+      # syntax Ansible only loads group_vars relative to the inventory file's
+      # directory, which means group_vars/all/docker.yml (containing
+      # docker_daemon_options with userns-remap, no-new-privileges, etc.)
+      # is silently dropped. The matrix would then test the unhardened
+      # default daemon config — masking the very thing the smoke-check
+      # exists to verify.
+      cat > tmp-matrix-inventory-admin.yml <<EOF
+all:
+  hosts:
+    matrix-target:
+      ansible_host: ${vm_ip}
+      ansible_user: admin
+      ansible_ssh_private_key_file: ${SSH_KEY}
+      ansible_python_interpreter: /usr/bin/python3
+EOF
       ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook playbooks/harden.yml \
-        -i "${vm_ip}," \
-        -u admin \
-        --private-key "${SSH_KEY}" \
-        --extra-vars '@vars-local-vm.yml' \
-        --extra-vars "ansible_python_interpreter=/usr/bin/python3"
+        -i tmp-matrix-inventory-admin.yml \
+        --extra-vars '@vars-local-vm.yml'
 
       # Read the hardened SSH port from the test vars so the smoke-check
       # connects on the right port (vars-local-vm.yml uses 22 by default,
@@ -231,13 +246,23 @@ test-matrix mode='p0':
       hardened_port="$(awk '/^ssh_port:/ {print $2}' vars-local-vm.yml)"
       hardened_port="${hardened_port:-22}"
 
+      cat > tmp-matrix-inventory-deploy.yml <<EOF
+all:
+  hosts:
+    matrix-target:
+      ansible_host: ${vm_ip}
+      ansible_user: deploy
+      ansible_port: ${hardened_port}
+      ansible_ssh_private_key_file: ${SSH_KEY}
+      ansible_python_interpreter: /usr/bin/python3
+EOF
+
       echo "=== Running smoke checks against ${name} (port ${hardened_port}) ==="
       ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook playbooks/smoke-check.yml \
-        -i "${vm_ip}," \
-        -u deploy \
-        --private-key "${SSH_KEY}" \
-        --extra-vars '@vars-local-vm.yml' \
-        --extra-vars "ansible_port=${hardened_port} ansible_python_interpreter=/usr/bin/python3"
+        -i tmp-matrix-inventory-deploy.yml \
+        --extra-vars '@vars-local-vm.yml'
+
+      rm -f tmp-matrix-inventory-admin.yml tmp-matrix-inventory-deploy.yml
 
       echo "=== Tearing down ${name} ==="
       tart stop "${name}" 2>/dev/null || true
