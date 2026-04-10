@@ -54,6 +54,11 @@ SUMS_URL="https://cdimage.debian.org/debian-cd/${DEBIAN_VERSION}/amd64/iso-cd/SH
 SIGN_URL="https://cdimage.debian.org/debian-cd/${DEBIAN_VERSION}/amd64/iso-cd/SHA512SUMS.sign"
 
 CACHED_ISO="${CACHE_DIR}/${ISO_NAME}"
+# SHA512SUMS and .sign are cached alongside the ISO so offline builds work.
+# For offline builds, operators must pre-populate $CACHE_DIR with the ISO +
+# SHA512SUMS-${DEBIAN_VERSION} + SHA512SUMS-${DEBIAN_VERSION}.sign.
+CACHED_SUMS="${CACHE_DIR}/SHA512SUMS-${DEBIAN_VERSION}"
+CACHED_SIGN="${CACHE_DIR}/SHA512SUMS-${DEBIAN_VERSION}.sign"
 
 # --- 1. Fetch upstream ISO + verify ---
 fetch_with_offline_check() {
@@ -75,18 +80,23 @@ if [ "$NO_CACHE" = "1" ] || [ ! -f "$CACHED_ISO" ]; then
 fi
 
 echo "==> Downloading SHA512SUMS + signature"
-fetch_with_offline_check "$SUMS_URL" "${WORK_DIR}/SHA512SUMS"
-fetch_with_offline_check "$SIGN_URL" "${WORK_DIR}/SHA512SUMS.sign"
+fetch_with_offline_check "$SUMS_URL" "$CACHED_SUMS"
+fetch_with_offline_check "$SIGN_URL" "$CACHED_SIGN"
 
 echo "==> Verifying GPG signature against debian-keyring"
 gpg --no-default-keyring \
     --keyring /usr/share/keyrings/debian-role-keys.gpg \
-    --verify "${WORK_DIR}/SHA512SUMS.sign" "${WORK_DIR}/SHA512SUMS"
+    --verify "$CACHED_SIGN" "$CACHED_SUMS"
 
 echo "==> Verifying SHA512 of cached ISO"
 (
   cd "$CACHE_DIR"
-  grep "  ${ISO_NAME}\$" "${WORK_DIR}/SHA512SUMS" | sha512sum -c -
+  SUMS_LINE=$(grep -F "  ${ISO_NAME}" "$CACHED_SUMS" || true)
+  if [ -z "$SUMS_LINE" ]; then
+    echo "build-inside.sh: no SHA512 entry for ${ISO_NAME} in SHA512SUMS" >&2
+    exit 2
+  fi
+  printf '%s\n' "$SUMS_LINE" | sha512sum -c -
 )
 
 # --- 2. Extract ISO ---
