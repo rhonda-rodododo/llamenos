@@ -25,16 +25,11 @@
 - name: Install backup dependencies
   ansible.builtin.include_tasks: install.yml
 
-- name: Install rclone
-  ansible.builtin.shell: |
-    if command -v rclone &>/dev/null; then
-      echo "already installed"
-    else
-      curl -fsSL https://rclone.org/install.sh | bash
-      echo "installed"
-    fi
-  register: rclone_install
-  changed_when: "'installed' in rclone_install.stdout"
+- name: Install rclone from apt
+  ansible.builtin.apt:
+    name: rclone
+    state: present
+    update_cache: true
 
 - name: Create backup directories
   ansible.builtin.file:
