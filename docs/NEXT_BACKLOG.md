@@ -1,5 +1,12 @@
 # Next Backlog
 
+## Follow-up: Type-brand hardening for session-capsule types (PR #50 review item #9)
+- **What:** `SessionCapsule`, `SyncMessage`, and the `exportSession`/`importSession` worker RPC types are a sea of untyped hex strings. Field-swap bugs (e.g. `encryptedNsec` ↔ `capsuleNonce`) typecheck today because both are `string`. The codebase already has `src/shared/crypto-types.ts` with a `Ciphertext` brand — the session-capsule module should follow the same pattern.
+- **Scope:** Introduce `HexString<N>`, `SessionToken`, `CapsuleNonceHex`, `EncryptedNsecHex`, `PubkeyHash16` brands. Add `parseSessionCapsule(raw: unknown)` inside `idbGet()` and `parseSyncMessage(data: unknown)` at both BroadcastChannel boundaries. Symmetrize worker RPC field names (`token` vs `tokenHex`). Consolidate cross-tab message types (lock + sync) in one module. Type `CryptoWorkerClient.call<R>` generically to eliminate per-method casts.
+- **Why follow-up, not in PR #50:** touches `crypto-types.ts`, `crypto-worker.ts`, `crypto-worker-client.ts`, `key-manager.ts`, and `session-capsule.ts` — the blast radius warrants its own spec/plan cycle. PR #50 already addresses all critical/high/medium findings; this is a medium-priority type-level hardening pass.
+- **Files:** `src/shared/crypto-types.ts`, `src/client/lib/session-capsule.ts`, `src/client/lib/crypto-worker.ts`, `src/client/lib/crypto-worker-client.ts`, `src/client/lib/key-manager.ts`
+- **See:** type-design-analyzer report in PR #50 review
+
 ## High Priority (Pre-Launch)
 - [x] Set up Cloudflare Tunnel for local dev with telephony webhooks (`scripts/dev-tunnel.sh`)
 - [x] Configure production wrangler secrets (TWILIO_*, ADMIN_PUBKEY) — deployed and running
