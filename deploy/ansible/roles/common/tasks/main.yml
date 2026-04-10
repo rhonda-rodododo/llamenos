@@ -110,7 +110,7 @@
 
 - name: Copy authorized keys to deploy user
   ansible.builtin.copy:
-    src: "/home/{{ ansible_user }}/.ssh/authorized_keys"
+    src: "{{ ansible_env.HOME }}/.ssh/authorized_keys"
     dest: "/home/{{ deploy_user }}/.ssh/authorized_keys"
     owner: "{{ deploy_user }}"
     group: "{{ deploy_group }}"
