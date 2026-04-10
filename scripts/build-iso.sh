@@ -6,7 +6,7 @@
 set -euo pipefail
 
 # Defaults
-HOSTNAME=""
+TARGET_HOSTNAME=""
 SSH_KEY=""
 UNLOCK="dropbear"
 STATIC_IP="dhcp"
@@ -14,7 +14,7 @@ GATEWAY=""
 DNS="9.9.9.9,149.112.112.112"
 LOCALE="en_US.UTF-8"
 TIMEZONE="UTC"
-USERNAME="deploy"
+DEPLOY_USER="deploy"
 DISK="/dev/sda"
 DEBIAN_VERSION="13.4.0"
 OUT_DIR="./dist/iso"
@@ -139,7 +139,7 @@ validate_timezone() {
 # Parse flags
 while [ $# -gt 0 ]; do
   case "$1" in
-    --hostname) HOSTNAME="$2"; shift 2 ;;
+    --hostname) TARGET_HOSTNAME="$2"; shift 2 ;;
     --ssh-key) SSH_KEY="$2"; shift 2 ;;
     --unlock) UNLOCK="$2"; shift 2 ;;
     --static-ip) STATIC_IP="$2"; shift 2 ;;
@@ -147,7 +147,7 @@ while [ $# -gt 0 ]; do
     --dns) DNS="$2"; shift 2 ;;
     --locale) LOCALE="$2"; shift 2 ;;
     --timezone) TIMEZONE="$2"; shift 2 ;;
-    --user) USERNAME="$2"; shift 2 ;;
+    --user) DEPLOY_USER="$2"; shift 2 ;;
     --disk) DISK="$2"; shift 2 ;;
     --debian-version) DEBIAN_VERSION="$2"; shift 2 ;;
     --out) OUT_DIR="$2"; shift 2 ;;
@@ -159,12 +159,12 @@ while [ $# -gt 0 ]; do
 done
 
 # Validate required
-[ -n "$HOSTNAME" ] || err "--hostname is required"
+[ -n "$TARGET_HOSTNAME" ] || err "--hostname is required"
 [ -n "$SSH_KEY" ] || err "--ssh-key is required"
 
 # Validate hostname (RFC 1123 label)
-if ! printf '%s' "$HOSTNAME" | grep -qE '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'; then
-  err "invalid hostname: $HOSTNAME (must match ^[a-z0-9]([a-z0-9-]*[a-z0-9])?\$)"
+if ! printf '%s' "$TARGET_HOSTNAME" | grep -qE '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'; then
+  err "invalid hostname: $TARGET_HOSTNAME (must match ^[a-z0-9]([a-z0-9-]*[a-z0-9])?\$)"
 fi
 
 # Validate ssh key file exists and is readable
@@ -213,8 +213,8 @@ if [ -n "$GATEWAY" ]; then
     err "invalid --gateway: $GATEWAY (must be a valid IPv4 address)"
   fi
 fi
-if ! validate_user "$USERNAME"; then
-  err "invalid --user: $USERNAME (must match POSIX username: ^[a-z_][a-z0-9_-]{0,31}\$)"
+if ! validate_user "$DEPLOY_USER"; then
+  err "invalid --user: $DEPLOY_USER (must match POSIX username: ^[a-z_][a-z0-9_-]{0,31}\$)"
 fi
 if ! validate_locale "$LOCALE"; then
   err "invalid --locale: $LOCALE (must match e.g. en_US.UTF-8)"
@@ -233,7 +233,7 @@ OUT_DIR_ABS="$(readlink -f "$OUT_DIR")"
 
 if [ "${BUILD_ISO_DRY_RUN:-0}" = "1" ]; then
   echo "DRY RUN — resolved arguments:"
-  echo "  hostname=$HOSTNAME"
+  echo "  hostname=$TARGET_HOSTNAME"
   echo "  ssh_key=$SSH_KEY_ABS"
   echo "  unlock=$UNLOCK"
   echo "  static_ip=$STATIC_IP"
@@ -241,7 +241,7 @@ if [ "${BUILD_ISO_DRY_RUN:-0}" = "1" ]; then
   echo "  dns=$DNS"
   echo "  locale=$LOCALE"
   echo "  timezone=$TIMEZONE"
-  echo "  username=$USERNAME"
+  echo "  username=$DEPLOY_USER"
   echo "  disk=$DISK"
   echo "  debian_version=$DEBIAN_VERSION"
   echo "  out_dir=$OUT_DIR_ABS"
@@ -274,8 +274,8 @@ docker run --rm \
   "${NET_FLAGS[@]}" \
   -v "${CACHE_DIR}:/cache" \
   -v "${OUT_DIR_ABS}:/out" \
-  -e HOSTNAME="$HOSTNAME" \
-  -e USERNAME="$USERNAME" \
+  -e HOSTNAME="$TARGET_HOSTNAME" \
+  -e USERNAME="$DEPLOY_USER" \
   -e LOCALE="$LOCALE" \
   -e TIMEZONE="$TIMEZONE" \
   -e DISK="$DISK" \
