@@ -23,6 +23,7 @@ COPY package.json bun.lockb ./
 COPY --from=deps /app/node_modules/ node_modules/
 COPY src/ src/
 COPY public/ public/
+COPY scripts/verify-no-console.sh scripts/verify-no-console.sh
 COPY index.html vite.config.ts tsconfig.json ./
 COPY tailwind.config.ts* ./
 ARG BUILD_VERSION
