@@ -18,9 +18,36 @@
       paths:
         - "{{ role_path }}/vars"
 
+# Cloud images (cirruslabs Tart, DigitalOcean, Hetzner, Linode, Vultr, etc.)
+# commonly ship /etc/ssh/sshd_config.d/50-cloud-init.conf and/or
+# 60-cloudimg-settings.conf that set `PasswordAuthentication yes`. Because
+# sshd_config.d uses first-match-wins semantics (alphabetical order), any
+# file earlier than our drop-in silently overrides our hardening. We delete
+# these drop-ins so the effective config reflects our intent. Our own file
+# is written as `00-llamenos-hardening.conf` below so even if cloud-init
+# recreates its drop-in on reboot, ours still wins first-match.
+- name: Remove cloud-init sshd drop-ins that would override hardening
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ ssh_hardening_config_d_path }}/50-cloud-init.conf"
+    - "{{ ssh_hardening_config_d_path }}/60-cloudimg-settings.conf"
+  notify: Restart sshd
+
+# Remove any leftover 99-llamenos-hardening.conf from previous role
+# versions. Operators running this on a previously hardened host would
+# otherwise have both 00- and 99- drop-ins present, which is confusing
+# even though first-match semantics make the 00- file authoritative.
+- name: Remove legacy 99-llamenos-hardening.conf if present
+  ansible.builtin.file:
+    path: "{{ ssh_hardening_config_d_path }}/99-llamenos-hardening.conf"
+    state: absent
+  notify: Restart sshd
+
 - name: Configure SSH server
   ansible.builtin.copy:
-    dest: "{{ ssh_hardening_config_d_path }}/99-llamenos-hardening.conf"
+    dest: "{{ ssh_hardening_config_d_path }}/00-llamenos-hardening.conf"
     owner: root
     group: root
     mode: "0600"
