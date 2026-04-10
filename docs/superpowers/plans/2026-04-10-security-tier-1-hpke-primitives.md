@@ -10,6 +10,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-04-10-security-tier-1-hpke-primitives-design.md`
 
+**Implementation note — migration numbering:** All `drizzle/migrations/NNNN_*.sql` paths in this plan are **placeholders**. These numbers were computed against pre-v0.41.0 main. At implementation time, run `ls drizzle/migrations/ | sort | tail -5` in your worktree and use the next unused integer for every migration this plan creates, maintaining relative order. The spec's database design is number-agnostic — only the filenames need renumbering. Also verify each cross-tier plan is not stepping on a number another landing tier used.
+
 **Prerequisites:** Tier 0 (Albrecht hardening) must be merged first. Tier 1 builds on the branded `CryptoLabel` type, the `LABEL_REGISTRY`, the AAD-required `symmetricEncrypt/Decrypt`, the signed audit log chain, and the CSP L3 middleware. Tier 0 `EnvelopeV2` is replaced wholesale by `EnvelopeV3`; no backward compat.
 
 ---
