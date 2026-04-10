@@ -1,10 +1,6 @@
 import { ConsentGate } from '@/components/consent-gate'
 import { createDebugLog } from '@/lib/debug-log'
-import {
-  decryptObjectFields,
-  resetMismatchFired,
-  setOnDecryptMismatch,
-} from '@/lib/decrypt-fields'
+import { decryptObjectFields, resetMismatchFired, setOnDecryptMismatch } from '@/lib/decrypt-fields'
 import { permissionGranted } from '@shared/permissions'
 import {
   type ReactNode,
@@ -289,7 +285,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // their authenticated session rather than kicking them to /login.
         // The root-layout effect will then redirect to /login where they
         // can re-enter their PIN, which retries the decrypt+hub-key path.
-        console.error('[auth] post-auth enrichment failed:', err)
+        log('post-auth enrichment failed', { err })
         isUnlocked = false
         pubkey = null
       }
