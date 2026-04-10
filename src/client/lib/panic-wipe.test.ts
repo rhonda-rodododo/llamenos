@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 // We let the real wipeKey() run and verify via side effects (redirect, storage clear).
 
 import { initPanicWipe, performPanicWipe } from './panic-wipe'
+import { SESSION_TOKEN_KEY } from './session-capsule'
 
 // --- State containers (module-level, not global pollution) ---
 
@@ -99,7 +100,7 @@ beforeEach(() => {
   globalThis.document = {
     addEventListener: (type: string, fn: EventHandler) => {
       if (!listeners.has(type)) listeners.set(type, [])
-      listeners.get(type)!.push(fn)
+      listeners.get(type)?.push(fn)
     },
     removeEventListener: (type: string, fn: EventHandler) => {
       const fns = listeners.get(type)
@@ -209,6 +210,42 @@ describe('performPanicWipe', () => {
   test('redirect has not happened before setTimeout fires', () => {
     performPanicWipe()
     expect(lastHref).toBe('')
+  })
+
+  test('session capsule token is removed SYNCHRONOUSLY before the flash delay', () => {
+    // The panic wipe's synchronous phase (before the 200ms setTimeout) must
+    // remove the capsule token from sessionStorage so no subsequent code path
+    // can read it during the flash delay. This test pins the ordering —
+    // the blanket sessionStorage.clear() that runs after the delay would mask
+    // a missing synchronous removeItem if we only checked after the delay.
+    sessionStore.set(SESSION_TOKEN_KEY, 'sensitive-token')
+
+    performPanicWipe()
+
+    // Synchronous phase has run; setTimeout has NOT fired yet.
+    expect(sessionStore.has(SESSION_TOKEN_KEY)).toBe(false)
+  })
+
+  test('panic wipe unconditionally deletes the llamenos-session IDB database', async () => {
+    // PR #50 review finding: the old `indexedDB.databases()` sweep doesn't
+    // work in Firefox (not implemented). The fix added an unconditional
+    // `indexedDB.deleteDatabase('llamenos-session')` before the enumeration.
+    // Verify the known-DB-name deletion fires.
+    const deletedDbs: string[] = []
+    globalThis.indexedDB = {
+      databases: async () => [{ name: 'other-db' }],
+      deleteDatabase: (name: string) => {
+        deletedDbs.push(name)
+        return { result: undefined }
+      },
+    } as unknown as IDBFactory
+
+    performPanicWipe()
+    await new Promise((r) => setTimeout(r, 250))
+
+    expect(deletedDbs).toContain('llamenos-session')
+    // Also expect the enumeration sweep to delete 'other-db'
+    expect(deletedDbs).toContain('other-db')
   })
 })
 

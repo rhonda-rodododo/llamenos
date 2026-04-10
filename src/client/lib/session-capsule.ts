@@ -29,7 +29,9 @@
  * - Tabs only respond if their local IDB capsule's pubkeyHash matches the
  *   requested pubkeyHash — preventing accidental cross-user token leakage if
  *   two users ever shared an origin (e.g. after logout without panic wipe).
- * - Panic wipe clears IDB and sessionStorage independently via clearCapsule().
+ * - Panic wipe invokes clearCapsule(), which tolerates independent failures
+ *   of the IDB delete and sessionStorage removal so partial cleanup in one
+ *   store never blocks scorched-earth of the other.
  */
 import { createDebugLog } from './debug-log'
 
@@ -301,17 +303,20 @@ export async function storeCapsule(token: string, capsule: SessionCapsule): Prom
 }
 
 /**
- * Load the capsule + token pair. Returns null (without deleting IDB state) if:
- * - sessionStorage has no token and no sibling tab responds to the sync request
- * - IDB has no capsule
+ * Load the capsule + token pair.
  *
- * Returns null AND clears the capsule if:
+ * Returns null, leaving IDB and sessionStorage untouched, if:
+ * - this tab's sessionStorage has no token AND no sibling responds to the
+ *   cross-tab sync request (loadCapsule does NOT delete the IDB capsule in
+ *   this case — a sibling tab may still be using it, and expired capsules
+ *   get cleaned up when someone loads them past their expiry)
+ *
+ * Returns null AND clears the orphaned sessionStorage token if:
+ * - IDB has no capsule (sessionStorage.removeItem is called)
+ *
+ * Returns null AND clears both IDB and sessionStorage if:
  * - autoLockExpiresAt is in the past
  * - pubkeyHash does not match the provided currentPubkeyHash
- *
- * The IDB capsule is intentionally NOT deleted just because the current tab
- * lacks a token: a sibling tab may still be using it, and expired capsules
- * get cleaned up when someone attempts to load them past their expiry.
  */
 export async function loadCapsule(
   currentPubkeyHash: string

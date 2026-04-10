@@ -219,6 +219,137 @@ describe('session-capsule', () => {
     __setSyncChannelFactoryForTests(null)
   })
 
+  test('loadCapsule ignores a sibling response with a stale nonce', async () => {
+    await storeCapsule('tok-123', makeCapsule())
+    sessionStorage.removeItem(SESSION_TOKEN_KEY)
+
+    const hub = new MockBroadcastHub()
+
+    // Sibling responds with the correct pubkeyHash + token but a stale
+    // nonce. loadCapsule's handler filters on nonce, so this must be
+    // ignored and the 500ms timeout must fire → null.
+    const siblingChannel = new MockBroadcastChannel(hub)
+    siblingChannel.onmessage = (e) => {
+      const msg = e.data as { type: string }
+      if (msg.type !== 'request-token') return
+      siblingChannel.postMessage({
+        type: 'token-response',
+        nonce: 'stale-nonce-from-a-previous-request',
+        pubkeyHash: PUBKEY_HASH,
+        token: 'tok-123',
+      })
+    }
+
+    __setSyncChannelFactoryForTests(
+      () => new MockBroadcastChannel(hub) as unknown as BroadcastChannel
+    )
+
+    const loaded = await loadCapsule(PUBKEY_HASH)
+    expect(loaded).toBeNull()
+
+    siblingChannel.close()
+    __setSyncChannelFactoryForTests(null)
+  })
+
+  test('loadCapsule returns the first sibling response even when multiple reply', async () => {
+    await storeCapsule('tok-correct', makeCapsule())
+    sessionStorage.removeItem(SESSION_TOKEN_KEY)
+
+    const hub = new MockBroadcastHub()
+
+    // Two siblings both respond with the same nonce+hash. The `settled`
+    // guard in requestTokenFromSiblings must ensure only the first response
+    // wins — a double-resolve would crash or corrupt the cached token.
+    const fastSibling = new MockBroadcastChannel(hub)
+    fastSibling.onmessage = (e) => {
+      const msg = e.data as { type: string; nonce: string }
+      if (msg.type !== 'request-token') return
+      fastSibling.postMessage({
+        type: 'token-response',
+        nonce: msg.nonce,
+        pubkeyHash: PUBKEY_HASH,
+        token: 'tok-correct',
+      })
+    }
+    const slowSibling = new MockBroadcastChannel(hub)
+    slowSibling.onmessage = (e) => {
+      const msg = e.data as { type: string; nonce: string }
+      if (msg.type !== 'request-token') return
+      // Respond slightly later — still within the 500ms window — with a
+      // different token value. This simulates two tabs racing to answer.
+      setTimeout(() => {
+        slowSibling.postMessage({
+          type: 'token-response',
+          nonce: msg.nonce,
+          pubkeyHash: PUBKEY_HASH,
+          token: 'tok-wrong-second-responder',
+        })
+      }, 5)
+    }
+
+    __setSyncChannelFactoryForTests(
+      () => new MockBroadcastChannel(hub) as unknown as BroadcastChannel
+    )
+
+    const loaded = await loadCapsule(PUBKEY_HASH)
+    expect(loaded).not.toBeNull()
+    expect(loaded?.token).toBe('tok-correct')
+
+    // Give the slow responder time to fire — we're asserting that a
+    // late-arriving response does NOT overwrite the already-cached token
+    // or throw inside the (already-removed) message handler.
+    await new Promise((r) => setTimeout(r, 20))
+    expect(sessionStorage.getItem(SESSION_TOKEN_KEY)).toBe('tok-correct')
+
+    fastSibling.close()
+    slowSibling.close()
+    __setSyncChannelFactoryForTests(null)
+  })
+
+  test('a sibling response arriving after timeout does not throw or resolve', async () => {
+    await storeCapsule('tok-123', makeCapsule())
+    sessionStorage.removeItem(SESSION_TOKEN_KEY)
+
+    const hub = new MockBroadcastHub()
+
+    // Sibling waits until AFTER the 500ms SYNC_TIMEOUT_MS window before
+    // responding. loadCapsule must have already resolved to null and
+    // removed its listener; the late post must not throw or trigger any
+    // state change.
+    const lateSibling = new MockBroadcastChannel(hub)
+    lateSibling.onmessage = (e) => {
+      const msg = e.data as { type: string; nonce: string }
+      if (msg.type !== 'request-token') return
+      setTimeout(() => {
+        try {
+          lateSibling.postMessage({
+            type: 'token-response',
+            nonce: msg.nonce,
+            pubkeyHash: PUBKEY_HASH,
+            token: 'tok-too-late',
+          })
+        } catch {
+          /* channel may have been closed by test teardown */
+        }
+      }, 700)
+    }
+
+    __setSyncChannelFactoryForTests(
+      () => new MockBroadcastChannel(hub) as unknown as BroadcastChannel
+    )
+
+    const loaded = await loadCapsule(PUBKEY_HASH)
+    expect(loaded).toBeNull()
+    expect(sessionStorage.getItem(SESSION_TOKEN_KEY)).toBeNull()
+
+    // Wait for the late post to actually fire so we observe the no-op.
+    await new Promise((r) => setTimeout(r, 750))
+    expect(sessionStorage.getItem(SESSION_TOKEN_KEY)).toBeNull()
+
+    lateSibling.close()
+    __setSyncChannelFactoryForTests(null)
+  })
+
   test('loadCapsule returns null and clears when expiry is in the past', async () => {
     await storeCapsule('tok-123', makeCapsule({ autoLockExpiresAt: Date.now() - 1000 }))
 
