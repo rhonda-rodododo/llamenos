@@ -2,9 +2,11 @@
 # dropbear-setup.sh — configure dropbear-initramfs for remote LUKS unlock.
 # Runs in the installer chroot. Called by late-command.sh when --unlock=dropbear.
 #
-# Args: $1=SSH_PUBKEY  $2=STATIC_IP_OR_DHCP  $3=GATEWAY  $4=DNS
+# Args: $1=SSH_PUBKEY  $2=STATIC_IP_OR_DHCP  $3=GATEWAY
 #
 # Trixie path: /etc/dropbear/initramfs/ (NOT the bookworm /etc/dropbear-initramfs/)
+# Note: DNS is intentionally not passed — resolved name lookups happen in the
+# live system, not in initramfs.
 set -eu
 
 # Helper functions must be defined BEFORE first use (POSIX shell does not hoist).
@@ -42,8 +44,6 @@ cidr_to_netmask() {
 SSH_PUBKEY="$1"
 STATIC_IP="$2"
 GATEWAY="$3"
-# DNS variable accepted for forward-compat but not used by initramfs config —
-# resolved name lookups happen in the live system, not in initramfs.
 
 # Install dropbear-initramfs
 apt-get install -y --no-install-recommends dropbear-initramfs

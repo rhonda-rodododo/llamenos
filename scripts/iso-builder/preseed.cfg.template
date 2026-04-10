@@ -98,7 +98,7 @@ d-i grub-installer/bootdev string ${DISK}
 d-i preseed/late_command string \
   cp /cdrom/llamenos/late-command.sh /cdrom/llamenos/dropbear-setup.sh /target/tmp/ && \
   in-target chmod +x /tmp/late-command.sh /tmp/dropbear-setup.sh && \
-  in-target /tmp/late-command.sh "${UNLOCK_MODE}" "${SSH_PUBKEY_B64}" "${STATIC_IP}" "${GATEWAY}" "${DNS}" && \
+  in-target /tmp/late-command.sh "${USERNAME}" "${UNLOCK_MODE}" "${SSH_PUBKEY_B64}" "${STATIC_IP}" "${GATEWAY}" "${DNS}" && \
   in-target rm /tmp/late-command.sh /tmp/dropbear-setup.sh
 
 #--- Reboot when done ---
