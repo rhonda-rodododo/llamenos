@@ -248,12 +248,17 @@
 
       log "Backup complete: ${DB_FILENAME} (${DB_SIZE} bytes DB, ${TOTAL_BLOB_SIZE} bytes blobs)"
 
-- name: Run initial backup
+- name: Run initial backup (non-fatal)
   ansible.builtin.command: "{{ app_dir }}/scripts/backup.sh"
   become_user: "{{ deploy_user }}"
-  register: initial_backup
-  changed_when: "'Backup complete' in initial_backup.stdout"
-  ignore_errors: true
+  register: initial_backup_result
+  changed_when: "'Backup complete' in initial_backup_result.stdout"
+  failed_when: false
+
+- name: Warn if initial backup failed
+  ansible.builtin.debug:
+    msg: "WARNING: Initial backup returned rc={{ initial_backup_result.rc }}. Check next scheduled run at T+24h. stderr: {{ initial_backup_result.stderr | default('') }}"
+  when: initial_backup_result.rc != 0
 
 - name: Configure daily backup cron job
   ansible.builtin.cron:
