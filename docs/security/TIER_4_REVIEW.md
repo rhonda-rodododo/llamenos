@@ -5,6 +5,12 @@
 **Spec:** `docs/superpowers/specs/2026-04-10-security-tier-4-delivery-hardening-design.md` (890 lines)
 **Plan:** `docs/superpowers/plans/2026-04-10-security-tier-4-delivery-hardening.md` (25 TDD tasks — written directly by main session after subagent hit output cap)
 
+## Rhonda decisions received (2026-04-10)
+
+1. **C-1 Opaque-origin iframe CORS → iframe `connect-src 'none'`.** Confirmed. Spec §4.2.6 added — the crypto iframe has ZERO network access at the CSP layer. All ciphertext flows in via postMessage; all plaintext flows out via postMessage. This eliminates the opaque-origin CORS trap (`Origin: null` would have been rejected by the API CORS pin) by making network access structurally impossible from inside the sandbox. New UI E2E test `tests/ui/crypto-iframe-no-network.spec.ts` asserts zero runtime network requests from the iframe.
+2. **Compile-time origin config for self-hosters.** Confirmed: "the CORS origin should be configurable at UI compile time, because our main deployment vehicle is self hosted installs." Spec §4.2.7 added — all three origins (`VITE_APP_ORIGIN`, `VITE_API_ORIGIN`, `VITE_CRYPTO_ORIGIN`) plus `VITE_CSP_REPORT_URI` are Vite build-time env vars. Matching server-side `APP_ORIGIN` / `API_ORIGIN` / `CRYPTO_ORIGIN` vars are read by Hono + Caddy at runtime. Reproducible-build implication is acknowledged: bundle SHAs differ per self-hoster, so each deployment needs its own scoped third-party verifier.
+3. **I-1 Partitioned cookie fallback, I-2 minimum 2 verifiers, I-3 client-side hash is a participation signal** — all remain as implementation-time guidance (non-blocking for landing the spec).
+
 ## Summary
 
 Tier 4 is the tier where "trusting-trust for web apps" is honestly engaged with — split origins, sandbox iframe, third-party verifier, fleet gossip, public whitepaper, residual-risk disclosure, warrant canary. The spec is strong on the "independence of detection layers" principle and honestly marks which attacks it can catch vs contain. Two important findings: **(1) the sandbox iframe communicating with the API via `connect-src https://api.llamenos.example` inside a `sandbox="allow-scripts"` context may be blocked by modern Chromium's opaque-origin CORS behavior** — this needs a live browser smoke-test before shipping; **(2) the plan assumes cross-origin cookies with `SameSite=None; Partitioned` work reliably on all target browsers, but Safari ITP + Brave Shields' behavior on `Partitioned` is still inconsistent as of 2026**.

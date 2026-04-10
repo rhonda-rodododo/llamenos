@@ -419,6 +419,97 @@ The WebAuthn ceremony runs in the UI frame because the user-gesture requirement 
 
 **Iframe reload / orphan recovery.** If the iframe errors out (onerror, load failure, navigation abort), the client destroys it and reboots. An iframe boot retry budget of 3 attempts with exponential backoff is wired into `crypto-worker-client.ts`; if all three fail the UI surfaces a hard error screen and refuses to proceed.
 
+#### 4.2.6. Iframe CSP and the zero-network isolation guarantee
+
+**Decision: the crypto iframe has `connect-src 'none'` in its own CSP and makes ZERO network requests at runtime.** All ciphertext arrives via postMessage from the parent frame; all plaintext leaves via postMessage responses. The iframe is an offline crypto oracle, not a network participant.
+
+This closes a subtle correctness trap that a deep review caught: a `sandbox="allow-scripts"` iframe without `allow-same-origin` has an **opaque origin**. When an opaque-origin document issues a cross-origin `fetch()`, the `Origin` header is the literal string `null` — *not* the URL-derived origin. The API CORS middleware pins to `APP_ORIGIN` with no wildcards, so an `Origin: null` request is rejected with 403. An implementation that relied on the iframe issuing direct API requests would fail in production and the failure mode would look like "iframe cannot fetch, maybe add 'null' to allowed origins" — which would be catastrophic because `Origin: null` is also what malicious file:// and data: origins produce.
+
+The correct design eliminates the trap by making the iframe incapable of network access at the CSP layer. The iframe's CSP:
+
+```
+default-src 'none';
+script-src 'self';
+style-src 'self';
+img-src 'self' data:;
+font-src 'self';
+connect-src 'none';
+worker-src 'self';
+frame-ancestors <app-origin>;
+base-uri 'none';
+form-action 'none';
+require-trusted-types-for 'script';
+trusted-types llamenos;
+report-uri <api-origin>/api/csp-report;
+```
+
+`connect-src 'none'` makes `fetch()`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `navigator.sendBeacon`, and `Server-Sent Events` all throw at network-request time. The iframe CANNOT hit the API even by accident. Encrypted blobs flow in via postMessage (already validated against `CryptoRpcRequestSchema`). Decrypted plaintext flows out via postMessage responses, bounded by the rate limiter.
+
+An explicit UI E2E test (`tests/ui/crypto-iframe-no-network.spec.ts`) asserts that the iframe cannot make any network request:
+
+```typescript
+test('crypto iframe cannot issue network requests', async ({ page }) => {
+  await page.goto('/')
+  const requestsFromIframe: string[] = []
+  page.on('request', (req) => {
+    const frame = req.frame()
+    if (frame?.url().includes('crypto.llamenos')) {
+      // Initial load of sandbox.html + its subresources is allowed;
+      // any subsequent request from inside the iframe is not.
+      if (!req.resourceType().match(/document|script|stylesheet|font|image/)) {
+        requestsFromIframe.push(req.url())
+      }
+    }
+  })
+  await page.waitForSelector('[data-testid="app-shell"]')
+  await page.evaluate(() => {
+    const frame = document.querySelector<HTMLIFrameElement>('[data-testid="crypto-sandbox-iframe"]')!
+    frame.contentWindow!.postMessage(
+      { op: 'isUnlocked', id: 'a1b2c3d4-5678-90ab-cdef-1234567890ab' },
+      'https://crypto.llamenos.example',
+    )
+  })
+  await page.waitForTimeout(1_000)
+  expect(requestsFromIframe).toEqual([])
+})
+```
+
+The test exercises the happy path (iframe boots, receives an RPC, responds) and asserts the network activity log is empty.
+
+#### 4.2.7. Compile-time origin configuration for self-hosters
+
+**Decision: all three origins are compile-time build arguments, configurable by self-hosters without modifying source.** Llamenos' primary distribution vehicle is self-hosted installs, so the public-demo hostnames (`app.llamenos.example`, `api.llamenos.example`, `crypto.llamenos.example`) are placeholders — every self-hoster deploys under their own domain triplet.
+
+The build exposes four environment variables that Vite substitutes at build time via `import.meta.env`:
+
+| Variable | Purpose | Used by |
+|---|---|---|
+| `VITE_APP_ORIGIN` | The origin serving `dist/client/` (the SPA). | Parent-frame postMessage target check when the crypto iframe needs to identify the parent; unlock-flow redirects. |
+| `VITE_API_ORIGIN` | The origin serving `/api/*`, `/telephony/*`, `/messaging/*`. | Every `fetch()` from the SPA; Nostr WebSocket base URL; CORS `Access-Control-Allow-Origin` value the API middleware pins to on the server side. |
+| `VITE_CRYPTO_ORIGIN` | The origin serving `dist/crypto-sandbox/`. | Parent frame's `iframe.src`; `CryptoIframeClient` origin check on every `postMessage` receive. |
+| `VITE_CSP_REPORT_URI` | Absolute URL the CSP violation reports go to. Usually `${VITE_API_ORIGIN}/api/csp-report` but a self-hoster may route reports to an external aggregator. | The CSP header's `report-uri` value; built into the compiled CSP string. |
+
+On the server side, three corresponding non-`VITE_` env vars are read at runtime by Hono + Caddy:
+
+| Variable | Purpose |
+|---|---|
+| `APP_ORIGIN` | CORS allow-origin single-value pin; `Access-Control-Allow-Origin` response header. |
+| `API_ORIGIN` | Self-reference for constructing absolute URLs in emails / redirects / cosign bundle manifests. |
+| `CRYPTO_ORIGIN` | Emitted into the SPA-origin CSP's `frame-src` directive by Caddy's template substitution; emitted into the API-origin CSP's `report-to` group for cross-origin CSP reports. |
+
+**Self-hoster flow:**
+
+1. Ansible or Docker-Compose reads a single `root_domain` (or three explicit subdomain vars) from the operator's `deploy_vars.yml` / `.env.deploy`.
+2. The build pipeline exports the three `VITE_*` vars BEFORE `bun run build`, Vite substitutes them, and the resulting `dist/client/` + `dist/crypto-sandbox/` are origin-specific artefacts.
+3. Operator deploys the built artefacts to the three origins via the Caddy multi-host config (Tier 4 plan task 6).
+4. Caddy reads the three server-side env vars and emits per-origin headers with the operator-specific origins baked in.
+
+**Reproducible-build implication.** Because the origins are build-time, two self-hosters produce *different* `dist/` bundles — the same source code, different embedded URLs. The cosign signature + SLSA provenance still verify the builder identity + source commit, but bundle SHAs diverge per self-hoster. The third-party verifier (§4.3) consequently must be scoped to a specific operator: one verifier per distinct Llamenos deployment, attesting *that deployment's* bundle specifically. This is documented in `docs/security/VERIFIER_RUNBOOK.md`.
+
+**Dev defaults.** `bun run dev` reads from a dev-only `.env.development` that pins the three origins to `http://app.llamenos.localhost:5173`, `http://api.llamenos.localhost:3000`, `http://crypto.llamenos.localhost:5174`. The `scripts/dev-hosts.sh` installer adds the three hostnames to `/etc/hosts`. Dev runs cleartext HTTP on the three names because TLS for localhost is painful and the threat model doesn't apply.
+
+**Demo defaults.** The public demo deployment uses `app.demo.llamenos.example`, `api.demo.llamenos.example`, `crypto.demo.llamenos.example`, set via `deploy/ansible/demo_vars.yml`. The primary demo is self-hosted on a single VPS via Ansible and runs the Caddy multi-host topology (4.1.4).
+
 ### 4.3. Third-party bundle-hash verifier
 
 **Threat model.** Even with origin split and sandbox iframe, a root compromise of the static host (the state-of-the-art adversary we explicitly worry about) can still ship a modified `dist/client/` or `dist/crypto-sandbox/` bundle. The compromise cannot reach the crypto keys directly, but it can (a) exfiltrate the ciphertext the API returns by rewriting the fetch pipeline, (b) render user input to the DOM before encryption for UI-layer keyloggers, or (c) degrade the postMessage RPC in subtle ways that weaken tag verification. Structural containment (4.2) is not sufficient without continuous verification.
