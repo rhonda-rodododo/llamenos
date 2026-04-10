@@ -170,8 +170,10 @@ fi
 # Validate ssh key file exists and is readable
 [ -r "$SSH_KEY" ] || err "ssh key not found or not readable: $SSH_KEY"
 
-# Validate ssh key type — reject RSA
-KEY_TYPE="$(awk '{print $1}' "$SSH_KEY" 2>/dev/null || echo unknown)"
+# Validate ssh key type — reject RSA.
+# Use awk to scan all fields for one starting with ssh- or ecdsa- to handle
+# authorized_keys option prefixes (e.g., "no-agent-forwarding ssh-ed25519 ...").
+KEY_TYPE="$(awk '{for(i=1;i<=NF;i++)if($i~/^(ssh-|ecdsa-)/){print $i;exit}}' "$SSH_KEY" 2>/dev/null || echo unknown)"
 case "$KEY_TYPE" in
   ssh-ed25519|ecdsa-sha2-nistp256|ecdsa-sha2-nistp384|ecdsa-sha2-nistp521) ;;
   ssh-rsa) err "unsupported ssh key type: ssh-rsa (use ed25519 — RSA is rejected for dropbear-initramfs in this builder)" ;;

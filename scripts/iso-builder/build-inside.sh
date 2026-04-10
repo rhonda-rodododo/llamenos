@@ -17,6 +17,7 @@
 #   llamenos-debian13-${UNLOCK_MODE}.iso
 #   llamenos-debian13-${UNLOCK_MODE}.iso.sha256
 set -euo pipefail
+umask 022
 
 require_env() {
   local var="$1"
@@ -36,6 +37,7 @@ require_env STATIC_IP
 require_env DNS
 require_env SSH_PUBKEY
 require_env DEBIAN_VERSION
+require_env SOURCE_DATE_EPOCH
 
 GATEWAY="${GATEWAY:-}"
 NO_CACHE="${NO_CACHE:-0}"
