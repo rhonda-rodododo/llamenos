@@ -72,6 +72,12 @@ ping:
 facts:
     ansible all -m setup --ask-vault-pass
 
+# Install galaxy roles + collections from requirements.yml
+# Run once after a fresh checkout, then re-run when requirements.yml changes
+bootstrap:
+    ansible-galaxy install -r requirements.yml -p roles/galaxy/ --force
+    ansible-galaxy collection install -r requirements.yml --upgrade
+
 # Deploy or update the demo instance
 deploy-demo *ARGS:
     ansible-playbook playbooks/deploy-demo.yml --ask-vault-pass {{ARGS}}
@@ -111,6 +117,206 @@ edit-demo-vars:
 # ─── Local VM Testing (Tart on Mac) ──────────────────────────────
 # Requires: Tart + Docker on Mac, SSH access as 'mac'
 # See: docs/plans/2026-03-25-local-vm-ansible-testing.md
+
+# Multi-distro Tart matrix test. Provisions a fresh VM per image, runs the
+# hardening playbook, executes smoke assertions via Ansible, then tears down.
+#
+# P0 distros (must pass on every PR): Ubuntu 24.04, Debian 13
+# P1 distros (nightly + tags):        Ubuntu 22.04, Debian 12
+# all:                                everything above
+#
+# Bootstrap: cirruslabs Tart images ship with default user `admin` (password
+# `admin`), no pre-injected SSH keys, and broken DNS (Tart's IPv6 link-local
+# resolver doesn't work). The recipe handles all three: copies the operator's
+# Mac SSH key as admin's authorized_keys via sshpass, then writes a static
+# /etc/resolv.conf inside the VM so apt can reach archive.ubuntu.com /
+# deb.debian.org.
+#
+# After hardening succeeds, the recipe reconnects on the new SSH port (2222)
+# as the `deploy` user that the common role created, and runs
+# playbooks/smoke-check.yml to assert ufw/fail2ban/docker/sshd state. This
+# matches Plan 1's T15 merge gate exactly.
+#
+# Requires (on the Mac):
+#   - Tart CLI on PATH (sourced via ~/.zprofile)
+#   - sshpass (brew install sshpass)
+#   - ~/.ssh/id_ed25519 with a passphrase-less key (the operator's existing
+#     deploy key — same one used by `vm-deploy`)
+#   - ~/llamenos-distro-test/ansible/ checked out with vars-local-vm.yml in
+#     place. The wrapper recipe `test-matrix-sync` below rsyncs the current
+#     working tree onto the Mac before running the matrix.
+#
+# Usage (from Mac, with `just` installed):
+#   just test-matrix              # P0 only (default)
+#   just test-matrix p1
+#   just test-matrix all
+#
+# Usage (from any host that can `ssh mac`):
+#   just test-matrix-sync         # rsync + run P0
+test-matrix mode='p0':
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    # cirruslabs publishes Debian images under codename tags only (trixie,
+    # bookworm) — there are no numeric `:13`/`:12` tags. Ubuntu uses numeric.
+    # Verified via `curl https://ghcr.io/v2/cirruslabs/{debian,ubuntu}/tags/list`.
+    case "{{mode}}" in
+      p0)  images=("ghcr.io/cirruslabs/ubuntu:24.04" "ghcr.io/cirruslabs/debian:trixie") ;;
+      p1)  images=("ghcr.io/cirruslabs/ubuntu:22.04" "ghcr.io/cirruslabs/debian:bookworm") ;;
+      all) images=(
+            "ghcr.io/cirruslabs/ubuntu:24.04"
+            "ghcr.io/cirruslabs/ubuntu:22.04"
+            "ghcr.io/cirruslabs/debian:trixie"
+            "ghcr.io/cirruslabs/debian:bookworm"
+           ) ;;
+      *)   echo "usage: just test-matrix [p0|p1|all]" >&2; exit 2 ;;
+    esac
+
+    REMOTE_DIR="${LLAMENOS_DISTRO_TEST_DIR:-$HOME/llamenos-distro-test/ansible}"
+    SSH_KEY="${LLAMENOS_TART_SSH_KEY:-$HOME/.ssh/id_ed25519}"
+
+    for image in "${images[@]}"; do
+      slug="$(basename "$image" | tr ':' '-')"
+      name="llamenos-test-${slug}"
+      echo "=== Provisioning ${name} from ${image} ==="
+
+      source ~/.zprofile
+      tart stop "${name}" 2>/dev/null || true
+      tart delete "${name}" 2>/dev/null || true
+      tart clone "${image}" "${name}"
+      tart set "${name}" --cpu 4 --memory 8192 --disk-size 20
+      nohup tart run --no-graphics "${name}" >"/tmp/${name}.log" 2>&1 &
+      disown
+
+      echo "=== Waiting for ${name} to boot ==="
+      vm_ip=""
+      for i in $(seq 1 30); do
+        sleep 3
+        vm_ip="$(tart ip "${name}" 2>/dev/null || true)"
+        [ -n "$vm_ip" ] && break
+      done
+      if [ -z "$vm_ip" ]; then
+        echo "ERROR: ${name} never got an IP" >&2
+        exit 1
+      fi
+      echo "=== ${name} reachable at ${vm_ip} ==="
+
+      echo "=== Waiting for SSH on ${vm_ip}:22 ==="
+      for i in $(seq 1 30); do
+        if sshpass -p admin ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            -o ConnectTimeout=3 admin@"${vm_ip}" "echo ready" >/dev/null 2>&1; then
+          break
+        fi
+        sleep 3
+      done
+
+      echo "=== Bootstrapping SSH key + DNS on ${name} ==="
+      sshpass -p admin ssh-copy-id -f \
+        -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+        -i "${SSH_KEY}.pub" admin@"${vm_ip}" >/dev/null
+      ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+        -i "${SSH_KEY}" admin@"${vm_ip}" \
+        "sudo rm -f /etc/resolv.conf && printf 'nameserver 1.1.1.1\nnameserver 8.8.8.8\n' | sudo tee /etc/resolv.conf >/dev/null" \
+        >/dev/null
+
+      echo "=== Running harden playbook against ${name} ==="
+      cd "${REMOTE_DIR}"
+
+      # Build a per-run inventory FILE (not inline `-i ip,`) so Ansible
+      # loads group_vars/all/ from the playbook directory. With inline
+      # inventory Ansible only loads group_vars relative to the inventory
+      # file's directory, which (with no file) means group_vars/all/docker.yml
+      # (containing docker_daemon_options with userns-remap, no-new-privileges,
+      # etc.) is silently dropped. We'd then test an unhardened default daemon.
+      #
+      # NOTE: just requires consistent recipe-body indentation, so we cannot
+      # use a bare heredoc — its body lines would be at column 0 and just
+      # would treat them as ending the recipe. Use `printf` instead.
+      printf '%s\n' \
+        'all:' \
+        '  hosts:' \
+        '    matrix-target:' \
+        "      ansible_host: ${vm_ip}" \
+        '      ansible_user: admin' \
+        "      ansible_ssh_private_key_file: ${SSH_KEY}" \
+        '      ansible_python_interpreter: /usr/bin/python3' \
+        > tmp-matrix-inventory-admin.yml
+
+      # ANSIBLE_CACHE_PLUGIN=memory bypasses the jsonfile fact cache
+      # (configured in ansible.cfg as /tmp/ansible_facts). Every VM in the
+      # matrix uses the same inventory host name `matrix-target`, so without
+      # this override the first VM's facts (distribution, os_family, etc.)
+      # get cached under that key and reused across subsequent iterations.
+      # That causes Debian trixie to inherit stale "Ubuntu 24.04" facts
+      # from the previous Ubuntu run — distro-conditional tasks (snapd,
+      # the preflight distro assert) then misfire. Memory cache is per-run
+      # and discarded when the playbook exits.
+      ANSIBLE_CACHE_PLUGIN=memory \
+      ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook playbooks/harden.yml \
+        -i tmp-matrix-inventory-admin.yml \
+        --extra-vars '@vars-local-vm.yml'
+
+      # Read the hardened SSH port from the test vars so the smoke-check
+      # connects on the right port (vars-local-vm.yml uses 22 by default,
+      # but operators can bump it to 2222 for closer-to-prod testing).
+      hardened_port="$(awk '/^ssh_port:/ {print $2}' vars-local-vm.yml)"
+      hardened_port="${hardened_port:-22}"
+
+      printf '%s\n' \
+        'all:' \
+        '  hosts:' \
+        '    matrix-target:' \
+        "      ansible_host: ${vm_ip}" \
+        '      ansible_user: deploy' \
+        "      ansible_port: ${hardened_port}" \
+        "      ansible_ssh_private_key_file: ${SSH_KEY}" \
+        '      ansible_python_interpreter: /usr/bin/python3' \
+        > tmp-matrix-inventory-deploy.yml
+
+      echo "=== Running smoke checks against ${name} (port ${hardened_port}) ==="
+      ANSIBLE_CACHE_PLUGIN=memory \
+      ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook playbooks/smoke-check.yml \
+        -i tmp-matrix-inventory-deploy.yml \
+        --extra-vars '@vars-local-vm.yml'
+
+      rm -f tmp-matrix-inventory-admin.yml tmp-matrix-inventory-deploy.yml
+
+      echo "=== Tearing down ${name} ==="
+      tart stop "${name}" 2>/dev/null || true
+      tart delete "${name}"
+      echo "=== ${image} PASS ==="
+    done
+
+    echo
+    echo "=== test-matrix {{mode}} PASS for ${#images[@]} distro(s) ==="
+
+# Sync the current working tree's deploy/ansible to the Mac and run the
+# Tart matrix test there. Use this from the Linux workstation when iterating
+# on the multi-distro hardening roles.
+#
+# Usage:
+#   just test-matrix-sync          # P0
+#   just test-matrix-sync p1
+#   just test-matrix-sync all
+test-matrix-sync mode='p0':
+    #!/usr/bin/env bash
+    set -euo pipefail
+    REMOTE="${LLAMENOS_TART_HOST:-mac}"
+    REMOTE_DIR="${LLAMENOS_DISTRO_TEST_DIR:-llamenos-distro-test/ansible}"
+    echo "=== Syncing $(pwd) → ${REMOTE}:~/${REMOTE_DIR} ==="
+    rsync -az --delete \
+      --exclude='.ansible' \
+      --exclude='vars.yml' \
+      --exclude='inventory.yml' \
+      ./ "${REMOTE}:${REMOTE_DIR}/"
+    # Drop a stub vars.yml so include_vars: ../vars.yml succeeds; extra-vars
+    # from vars-local-vm.yml has higher precedence and overrides everything.
+    ssh "${REMOTE}" "echo '{}' > ${REMOTE_DIR}/vars.yml"
+    # Copy the test vars file from the operator's existing checkout (the same
+    # one `vm-deploy` uses) into the synced tree.
+    ssh "${REMOTE}" "cp ~/projects/llamenos-hotline/deploy/ansible/vars-local-vm.yml ${REMOTE_DIR}/vars-local-vm.yml"
+    echo "=== Running test-matrix {{mode}} on ${REMOTE} ==="
+    ssh "${REMOTE}" "source ~/.zprofile && cd ${REMOTE_DIR} && just test-matrix {{mode}}"
 
 # Create and configure a fresh Tart VM for testing (4 CPU / 8GB matches a small VPS)
 vm-create:

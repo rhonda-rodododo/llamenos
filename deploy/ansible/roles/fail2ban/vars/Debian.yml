@@ -1,0 +1,5 @@
+---
+# Debian-family overrides for the fail2ban role (Debian, Ubuntu).
+
+fail2ban_package: fail2ban
+fail2ban_service: fail2ban

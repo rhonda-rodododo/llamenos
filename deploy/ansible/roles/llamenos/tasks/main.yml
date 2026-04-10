@@ -8,6 +8,17 @@
 # - Starts the stack with docker compose
 # - Waits for the health check endpoint to respond
 
+- name: Load OS-specific vars
+  ansible.builtin.include_vars: "{{ lookup('ansible.builtin.first_found', params) }}"
+  vars:
+    params:
+      files:
+        - "{{ ansible_facts.distribution }}.yml"
+        - "{{ ansible_facts.os_family }}.yml"
+        - main.yml
+      paths:
+        - "{{ role_path }}/vars"
+
 - name: Configure LUKS encryption for storage volume
   ansible.builtin.include_tasks: luks.yml
   when: luks_enabled | default(false) | bool

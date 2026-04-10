@@ -1,0 +1,13 @@
+# Galaxy roles vendored at bootstrap time — see requirements.yml
+roles/galaxy/
+collections/
+
+# ansible-lint runtime cache
+.ansible/
+
+# Local vault password file
+.vault-password
+
+# Local vars overrides
+vars.local.yml
+inventory.local.yml

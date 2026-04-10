@@ -39,5 +39,5 @@
       tags: [kernel, harden]
     - role: fail2ban
       tags: [fail2ban, harden]
-    - role: docker
+    - role: geerlingguy.docker
       tags: [docker, harden]

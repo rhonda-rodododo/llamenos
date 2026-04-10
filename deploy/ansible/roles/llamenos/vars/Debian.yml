@@ -1,0 +1,4 @@
+---
+# Debian-family overrides for the llamenos role (Debian, Ubuntu).
+# Currently a placeholder for symmetry — cryptsetup is the same package
+# name across supported families and lives in vars/main.yml.

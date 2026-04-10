@@ -529,8 +529,11 @@ jobs:
       - name: Install Ansible and ansible-lint
         run: pip install ansible ansible-lint
 
-      - name: Install required collections
-        run: ansible-galaxy collection install community.docker
+      - name: Install galaxy roles and collections from requirements.yml
+        run: |
+          cd deploy/ansible
+          ansible-galaxy install -r requirements.yml -p roles/galaxy/ --force
+          ansible-galaxy collection install -r requirements.yml --upgrade
 
       - name: Run ansible-lint
         run: cd deploy/ansible && ansible-lint .

@@ -1,0 +1,19 @@
+---
+# Debian-family overrides for the common role (Debian, Ubuntu).
+
+# software-properties-common (historical Ubuntu-era `add-apt-repository`
+# helper) was dropped from Debian 13 trixie and is unused by the rest of
+# the playbook — geerlingguy.docker adds the docker apt repo via the
+# deb822_repository module directly. Do not re-add it.
+common_base_packages_family:
+  - apt-transport-https
+  - apt-listchanges
+  - unattended-upgrades
+
+common_base_packages: "{{ common_base_packages_common + common_base_packages_family }}"
+
+common_chrony_package: chrony
+common_chrony_service: chrony
+common_unattended_upgrades_package: unattended-upgrades
+common_unattended_upgrades_config_path: /etc/apt/apt.conf.d/50unattended-upgrades
+common_apt_periodic_config_path: /etc/apt/apt.conf.d/20auto-upgrades

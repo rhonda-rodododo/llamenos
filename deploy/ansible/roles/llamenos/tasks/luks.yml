@@ -27,11 +27,9 @@
     fail_msg: "luks_device must be set when luks_enabled is true (e.g., /dev/sdb)"
 
 - name: Install cryptsetup
-  ansible.builtin.apt:
-    name: cryptsetup
+  ansible.builtin.package:
+    name: "{{ llamenos_cryptsetup_package }}"
     state: present
-    update_cache: true
-    cache_valid_time: 3600
 
 - name: Check if device is already LUKS-formatted
   ansible.builtin.command: cryptsetup isLuks {{ luks_device }}

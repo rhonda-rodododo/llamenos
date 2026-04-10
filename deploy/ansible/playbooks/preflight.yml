@@ -7,6 +7,43 @@
 # This playbook is imported by setup.yml, harden.yml, and deploy.yml.
 # It is safe to run in --check mode (no changes made).
 
+- name: Validate target distribution before any role runs
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Assert supported distribution
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.os_family == 'Debian'
+          - >
+            (
+              ansible_facts.distribution == 'Debian'
+              and ansible_facts.distribution_major_version | int >= 12
+            )
+            or
+            (
+              ansible_facts.distribution == 'Ubuntu'
+              and ansible_facts.distribution_release in supported_ubuntu_releases
+            )
+        fail_msg: |
+          Unsupported target distribution.
+
+          Detected: {{ ansible_facts.distribution }} {{ ansible_facts.distribution_version }} ({{ ansible_facts.distribution_release | default('unknown') }})
+
+          Supported targets:
+            - Debian 12 (bookworm) or newer
+            - Ubuntu 22.04 (jammy)
+            - Ubuntu 24.04 (noble)
+
+          RHEL-family support is planned but not yet implemented.
+          See deploy/ansible/README.md for the full supported list.
+        success_msg: "Target {{ ansible_facts.distribution }} {{ ansible_facts.distribution_version }} is supported."
+      vars:
+        supported_ubuntu_releases:
+          - jammy
+          - noble
+      tags: always
+
 - name: Preflight variable validation
   hosts: all
   gather_facts: false

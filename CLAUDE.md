@@ -16,7 +16,7 @@ Llámenos is a secure crisis response hotline webapp. Callers dial a phone numbe
 - **Telephony**: Twilio via a `TelephonyAdapter` interface (designed for future provider swaps, e.g. SIP trunks)
 - **Auth**: JWT + Authentik IdP (OIDC) + multi-factor KEK (PIN + recovery key + WebAuthn) + WebAuthn passkeys
 - **i18n**: Built-in from day one — all user-facing strings must be translatable
-- **Deployment**: VPS (Ansible/Docker), EU/GDPR-compatible hosting
+- **Deployment**: VPS (Ansible/Docker), Debian 12+/Ubuntu 22.04+, EU/GDPR-compatible hosting
 - **Testing**: Three suites — unit (`bun:test`), API integration (Playwright, no browser), UI E2E (Playwright, Chromium)
 - **PWA**: Service worker via vite-plugin-pwa + Workbox; manifest uses generic name "Hotline" for security
 
@@ -145,6 +145,9 @@ Every query key domain in `queryKeys` must be classified as either `ENCRYPTED_QU
 - Dev/test mode uses synthetic IdP values (no real Authentik needed) — controlled by `AUTH_MODE=synthetic` env var
 - Auth facade endpoints live at `/api/auth/*` — clients never call Authentik APIs directly
 - Authentik first-boot takes ~60s to initialize (database migrations + default flows) — `docker-setup.sh` waits automatically
+- Ansible roles use the dispatcher pattern (`tasks/install.yml` → `install_{family}.yml`) plus per-family vars files. When adding distro-specific behavior, never put `when: ansible_distribution == ...` in role bodies — use the dispatcher and a vars file. See `roles/common/` for the canonical example.
+- Ansible vars must be prefixed with the role name (e.g., `firewall_service`, `common_chrony_package`) to satisfy ansible-lint's `var-naming[no-role-prefix]` production rule. Bare names will fail lint.
+- After cloning, run `cd deploy/ansible && just bootstrap` once to vendor `geerlingguy.docker` and other galaxy dependencies into `roles/galaxy/` (gitignored).
 
 ## Development Commands
 

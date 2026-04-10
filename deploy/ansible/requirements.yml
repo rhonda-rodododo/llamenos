@@ -1,0 +1,16 @@
+---
+# Galaxy roles vendored into roles/galaxy/ via `just bootstrap`
+# Pinned by version tag. Verify SHA before bumping.
+roles:
+  - name: geerlingguy.docker
+    src: https://github.com/geerlingguy/ansible-role-docker
+    version: 8.0.0  # https://github.com/geerlingguy/ansible-role-docker/releases/tag/8.0.0
+
+# Galaxy collections used by playbooks. Pinned to compatible ranges.
+collections:
+  - name: community.docker
+    version: ">=3.10.0,<4.0.0"
+  - name: ansible.posix
+    version: ">=1.5.0,<2.0.0"
+  - name: community.general
+    version: ">=8.0.0,<11.0.0"
