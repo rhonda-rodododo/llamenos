@@ -23,6 +23,7 @@ import configRoutes from './routes/config'
 import contactsRoutes from './routes/contacts'
 import contactImportRoutes from './routes/contacts-import'
 import conversationsRoutes from './routes/conversations'
+import cspReportRoutes from './routes/csp-report'
 import devRoutes from './routes/dev'
 import filesRoutes from './routes/files'
 import firehoseRoutes from './routes/firehose'
@@ -132,6 +133,7 @@ api.get(
 api.use('*', cors)
 
 // Public routes (no auth)
+api.route('/csp-report', cspReportRoutes)
 api.route('/config', configRoutes)
 api.route('/', devRoutes)
 api.route('/auth', authRoutes)
@@ -296,6 +298,7 @@ authenticated.route('/hubs/:hubId', hubScoped)
 // leaking information about which route prefixes exist.
 const KNOWN_API_PREFIXES = new Set([
   // Public routes
+  'csp-report',
   'health',
   'metrics',
   'openapi.json',
