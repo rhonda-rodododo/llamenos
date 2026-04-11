@@ -1,6 +1,6 @@
 # Security Overhaul — Implementation Queue
 
-**Last updated:** 2026-04-10
+**Last updated:** 2026-04-11
 **Target:** Weekend of 2026-04-11 / 2026-04-12, with Tier 6 PR #2 landing on its own months-long schedule per the spec.
 
 ## Purpose
@@ -11,15 +11,17 @@ The "pick up where we left off" breadcrumb for the seven-tier security overhaul 
 
 | Tier | Spec+Plan PR | Status | Implementation PR(s) | Blockers |
 |---|---|---|---|---|
-| **docs** | #60 PII hook | Open, mergeable | — | None |
-| **docs** | #61 CLAUDE.md drift | Open, mergeable | — | None |
-| **0 Albrecht** | #52 | Open, mergeable | — | None; ready to implement |
-| **1 HPKE** | #53 | Open, mergeable | — | Waits on Tier 0 implementation |
-| **2 Unlock+Recovery** | #54 | Open, mergeable | — | Waits on Tier 1 implementation |
-| **3 Per-device keys** | #55 | Open, mergeable | — | Waits on Tier 0+1 and Tier 2 Diceware phrase |
-| **4 Delivery hardening** | #56 | Open, mergeable | — | Waits on Tier 0 only; parallel with Tier 1/2/3 |
-| **5 Voice E2EE** | #57 | Open, mergeable | — | Waits on Tier 1; prereq sim-SIP-bridge PR can start anytime |
-| **6 MLS + PQ** | #58 | Open, mergeable | — | Waits on Tier 1 + Tier 3 |
+| **docs** | #60 PII hook | **Merged** | — | — |
+| **docs** | #61 CLAUDE.md drift | **Merged** | — | — |
+| **docs** | #62 implementation queue + kickoff template | **Merged** | — | — |
+| **docs** | #63 tier session prompts | **Merged** | — | — |
+| **0 Albrecht** | #52 | **Merged** | — | None; **ready to implement — queue head** |
+| **1 HPKE** | #53 | **Merged** | — | Waits on Tier 0 implementation |
+| **2 Unlock+Recovery** | #54 | **Merged** | — | Waits on Tier 1 implementation |
+| **3 Per-device keys** | #55 | **Merged** | — | Waits on Tier 2 Diceware (2.B) |
+| **4 Delivery hardening** | #56 | **Merged** | — | Waits on Tier 0 only; parallel with Tier 1/2/3 |
+| **5 Voice E2EE** | #57 | **Merged** | — | Main waits on Tier 1; prereq sim-SIP-bridge PR has **no tier dependency** |
+| **6 MLS + PQ** | #58 | **Merged** | — | PR #1 waits on Tier 3.A; PR #2 waits on Tier 3.C |
 
 ## Dependency graph
 
@@ -116,19 +118,27 @@ Every session MUST:
 9. **Update this file** at session end with the PR link, status, and any notes for the next session.
 10. **Never use `--no-verify`.** The PII hook and lint are load-bearing.
 
-## Current queue head: **Tier 0 implementation**
+## Current queue head: **Tier 0 implementation** (ready now)
 
-### Ready to start (once #60, #61, #52 merge):
+All prep merged to main as of 2026-04-11:
 
-**Prerequisites to confirm on main before creating the implementation branch:**
+- [x] PR #60 (PII hook) merged
+- [x] PR #61 (CLAUDE.md drift) merged
+- [x] PR #62 (implementation queue + kickoff template) merged
+- [x] PR #52 (Tier 0 spec+plan+review) merged
+- [x] PRs #53–#58 (Tiers 1–6 spec+plan+review) merged
+- [x] PR #63 (tier session prompts) merged
 
-- [ ] PR #60 (PII hook) merged — needed so every new worktree has a working hook
-- [ ] PR #61 (CLAUDE.md drift) merged — prevents drift from propagating
-- [ ] PR #52 (Tier 0 spec+plan+review) merged — provides the spec contract to implement against
-
-**Session kickoff:** see `docs/superpowers/SESSION_KICKOFF_TEMPLATE.md` for the paste-ready template.
+**Session kickoff:** use the paste-ready prompts in `docs/superpowers/TIER_SESSION_PROMPTS.md` — one fully-fleshed prompt per implementation PR. For generic session mechanics see `docs/superpowers/SESSION_KICKOFF_TEMPLATE.md`.
 
 **First task in the Tier 0 plan:** Task 1 — Branded `CryptoLabel` type + `LABEL_REGISTRY`. File: `src/shared/crypto-labels.ts`. See plan step 1 for the failing test to write first.
+
+### Parallel session opportunities (as of 2026-04-11)
+
+- **Session A:** Tier 0 implementation (queue head).
+- **Session B:** Tier 5 prerequisite PR (sim-SIP-bridge fixtures). Zero tier dependency — safe to start in parallel with Session A immediately.
+
+Once Tier 0 lands, the next parallel wave is Tier 1 PR-A (Session A) + Tier 4 PR-A (Session B).
 
 ## Open cross-tier considerations for implementers
 
@@ -161,3 +171,4 @@ Support typically responds in 24–48 h.
 ## Revision history
 
 - **2026-04-10 (Rhonda + Claude Opus 4.6):** Initial queue created. All 7 tier specs + plans + reviews in PRs #52–#58. Doc hygiene PRs #60, #61 in flight. Tier 0 is queue head.
+- **2026-04-11 (Rhonda + Claude Opus 4.6):** All prep PRs merged — #60, #61, #62, #52, #53, #54, #55, #56, #57, #58, #63. Main now contains every tier's spec+plan+review plus the 16 paste-ready implementation prompts in `TIER_SESSION_PROMPTS.md`. Ready for parallel implementation sessions (Session A on Tier 0, Session B on Tier 5 prereq).
