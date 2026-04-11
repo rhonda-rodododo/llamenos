@@ -6,7 +6,7 @@ import { computeEntryHash } from '@shared/lib/audit-entry-hash'
 const TEST_PRIVKEY = 'ab'.repeat(32)
 const TEST_PUBKEY = bytesToHex(schnorr.getPublicKey(hexToBytes(TEST_PRIVKEY)))
 
-const mockGetPublicKey = mock(async () => TEST_PUBKEY)
+const mockGetPublicKey = mock(async (): Promise<string | null> => TEST_PUBKEY)
 const mockSignAuditEntry = mock(async (entryHashHex: string) => {
   const sig = schnorr.sign(hexToBytes(entryHashHex), hexToBytes(TEST_PRIVKEY))
   return bytesToHex(sig)
