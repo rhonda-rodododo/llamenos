@@ -454,6 +454,8 @@ export type AppEnv = {
     hubPermissions?: string[]
     /** Injected service instances */
     services: Services
+    /** CSP nonce for the current response (base64, 16 random bytes) */
+    cspNonce: string
   }
 }
 

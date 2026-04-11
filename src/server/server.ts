@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 /**
  * Node.js server entry point.
@@ -286,14 +287,25 @@ async function main() {
 
   app.onError(errorHandler)
 
-  // Static file serving (replaces CF ASSETS binding)
-  // The worker app's catch-all calls next() when ASSETS is null,
-  // allowing these middleware to serve static files on Node.js.
   const staticDir = path.resolve(process.cwd(), 'dist', 'client')
   app.use('*', serveStatic({ root: staticDir }))
 
-  // SPA fallback — serve index.html for all unmatched routes
-  app.use('*', serveStatic({ root: staticDir, path: '/index.html' }))
+  // SPA fallback with CSP nonce injection — replaces __CSP_NONCE__ in built HTML
+  const indexPath = path.join(staticDir, 'index.html')
+  let indexTemplate: string | null = null
+  try {
+    indexTemplate = readFileSync(indexPath, 'utf-8')
+  } catch {
+    // Built index.html not available (dev mode) — no SPA fallback needed
+  }
+  if (indexTemplate) {
+    const tmpl = indexTemplate
+    app.use('*', async (c) => {
+      const nonce = (c.get as (key: string) => string | undefined)('cspNonce') ?? ''
+      const html = tmpl.replaceAll('__CSP_NONCE__', nonce)
+      return c.html(html)
+    })
+  }
 
   const port = Number(process.env.PORT) || 3000
   const server = serve(
