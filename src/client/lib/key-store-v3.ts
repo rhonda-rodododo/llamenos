@@ -77,22 +77,24 @@ async function deriveKek(
   pin: string,
   kdf: KdfParams
 ): Promise<{ kekEnc: CryptoKey; kekWrap: CryptoKey }> {
+  const pinBytes = new TextEncoder().encode(pin)
   const base = await crypto.subtle.importKey(
     'raw',
-    new TextEncoder().encode(pin),
+    pinBytes.buffer as ArrayBuffer,
     'PBKDF2',
     false,
     ['deriveKey']
   )
+  const saltBuf = kdf.salt.buffer as ArrayBuffer
   const kekEnc = await crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt: kdf.salt, iterations: kdf.iterations, hash: kdf.hash },
+    { name: 'PBKDF2', salt: saltBuf, iterations: kdf.iterations, hash: kdf.hash },
     base,
     { name: 'AES-GCM', length: 256 },
     false,
     ['encrypt', 'decrypt']
   )
   const kekWrap = await crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt: kdf.salt, iterations: kdf.iterations, hash: kdf.hash },
+    { name: 'PBKDF2', salt: saltBuf, iterations: kdf.iterations, hash: kdf.hash },
     base,
     { name: 'AES-KW', length: 256 },
     false,
@@ -104,10 +106,13 @@ async function deriveKek(
 async function wrapHubKey(rawHub: Uint8Array, kekWrap: CryptoKey): Promise<Uint8Array> {
   // Import raw hub bytes briefly as an extractable AES-GCM key so we can
   // hand them to wrapKey — they never leave this scope unwrapped.
-  const temp = await crypto.subtle.importKey('raw', rawHub, { name: 'AES-GCM' }, true, [
-    'encrypt',
-    'decrypt',
-  ])
+  const temp = await crypto.subtle.importKey(
+    'raw',
+    rawHub.buffer as ArrayBuffer,
+    { name: 'AES-GCM' },
+    true,
+    ['encrypt', 'decrypt']
+  )
   const wrapped = await crypto.subtle.wrapKey('raw', temp, kekWrap, 'AES-KW')
   return new Uint8Array(wrapped)
 }
@@ -115,7 +120,7 @@ async function wrapHubKey(rawHub: Uint8Array, kekWrap: CryptoKey): Promise<Uint8
 async function unwrapHubKey(wrapped: Uint8Array, kekWrap: CryptoKey): Promise<CryptoKey> {
   return crypto.subtle.unwrapKey(
     'raw',
-    wrapped,
+    wrapped.buffer as ArrayBuffer,
     kekWrap,
     'AES-KW',
     { name: 'AES-GCM', length: 256 },
@@ -130,12 +135,12 @@ async function wrapIdentity(identityRaw: Uint8Array, kekEnc: CryptoKey): Promise
     await crypto.subtle.encrypt(
       {
         name: 'AES-GCM',
-        iv: nonce,
-        additionalData: IDENTITY_WRAP_AAD,
+        iv: nonce.buffer as ArrayBuffer,
+        additionalData: IDENTITY_WRAP_AAD.buffer as ArrayBuffer,
         tagLength: AES_GCM_TAG_BITS,
       },
       kekEnc,
-      identityRaw
+      identityRaw.buffer as ArrayBuffer
     )
   )
   return { nonce, ciphertext }
@@ -145,12 +150,12 @@ async function unwrapIdentity(wrap: AesGcmDataWrap, kekEnc: CryptoKey): Promise<
   const pt = await crypto.subtle.decrypt(
     {
       name: 'AES-GCM',
-      iv: wrap.nonce,
-      additionalData: IDENTITY_WRAP_AAD,
+      iv: wrap.nonce.buffer as ArrayBuffer,
+      additionalData: IDENTITY_WRAP_AAD.buffer as ArrayBuffer,
       tagLength: AES_GCM_TAG_BITS,
     },
     kekEnc,
-    wrap.ciphertext
+    wrap.ciphertext.buffer as ArrayBuffer
   )
   return new Uint8Array(pt)
 }
@@ -243,7 +248,7 @@ export class KeyStoreV3 {
       // key here and re-export — the bytes only exist for the rotation scope.
       const tmpHub = await crypto.subtle.unwrapKey(
         'raw',
-        blob.wrappedHubKey,
+        blob.wrappedHubKey.buffer as ArrayBuffer,
         oldWrap,
         'AES-KW',
         { name: 'AES-GCM', length: 256 },

@@ -6,6 +6,24 @@
  *
  * Communication: structured postMessage with request/response IDs.
  * Rate limiting: auto-locks if operations exceed safe thresholds.
+ *
+ * Tier 1 transition state (PR-A):
+ *   This worker is in a dual-era state. The legacy ECIES/XChaCha20 surface
+ *   is still here because the 20+ call sites that depend on it
+ *   (file-crypto, hub-key-manager, signal-contact, device provisioning,
+ *   key-store-v2 KEK rotation) are being migrated in PR-B.
+ *
+ *   Tier 1 PR-A adds an HPKE sidecar:
+ *     - `hpkeSeal` / `hpkeOpen` — RFC 9180 seal/open against EnvelopeV3.
+ *     - `hubFieldEncryptV3` / `hubFieldDecryptV3` — AES-GCM hub-key field crypto.
+ *     - `unlockFromKeyStoreV3` — accept non-extractable CryptoKey handles from
+ *       key-store-v3 in addition to the legacy raw-nsec unlock path.
+ *
+ *   Rules until PR-B lands:
+ *     - Never add a NEW caller that uses the ECIES surface; use HPKE.
+ *     - Never silently fall back from HPKE to ECIES on open failure.
+ *     - The nsec still backs `sign` + `signAuditEntry` (schnorr) because
+ *       Tier 0's audit chain depends on it — HPKE does not replace signing.
  */
 
 import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
@@ -15,9 +33,12 @@ import { hkdf } from '@noble/hashes/hkdf.js'
 import { hmac } from '@noble/hashes/hmac.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
-import { LABEL_DEVICE_PROVISION, SAS_INFO, SAS_SALT } from '@shared/crypto-labels'
 import type { CryptoLabel } from '@shared/crypto-labels'
+import { LABEL_DEVICE_PROVISION, SAS_INFO, SAS_SALT } from '@shared/crypto-labels'
 import { unbiasedSixDigitCode } from '@shared/crypto-primitives'
+import type { EnvelopeV3 } from '@shared/envelope-v3'
+import { buildAad, hpkeOpen, hpkeSeal } from '@shared/hpke-primitives'
+import { decryptHubFieldV3, encryptHubFieldV3 } from './hub-field-crypto-v3.js'
 
 // ---- Message protocol types ----
 
@@ -75,6 +96,62 @@ type WorkerRequest =
       encryptedNsecHex: string
       capsuleNonceHex: string
     }
+  // ---- Tier 1 HPKE sidecar ----
+  | {
+      // HPKE single-shot seal. The main thread ships the recipient's HPKE
+      // public key bytes; the worker imports them and produces an EnvelopeV3.
+      // Public-key operations do not need our secret, but we still require
+      // the worker to be unlocked so an XSS attacker cannot invoke sealing
+      // as a grinder primitive while the user is logged out.
+      type: 'hpkeSeal'
+      id: string
+      plaintext: string
+      recipientPublicKeyRaw: Uint8Array
+      label: CryptoLabel
+      recordId: string
+      fieldName: string
+    }
+  | {
+      // HPKE single-shot open. The envelope is decoded in the worker against
+      // the held HPKE private CryptoKey. Throws if version, labelId, or AAD
+      // mismatches — never falls back to ECIES.
+      type: 'hpkeOpen'
+      id: string
+      envelope: EnvelopeV3
+      expectedLabel: CryptoLabel
+      recordId: string
+      fieldName: string
+    }
+  | {
+      // Hub-field AES-GCM encrypt using the held non-extractable hub key.
+      type: 'hubFieldEncryptV3'
+      id: string
+      plaintext: string
+      recordId: string
+      fieldName: string
+    }
+  | {
+      // Hub-field AES-GCM decrypt using the held non-extractable hub key.
+      // Returns null on any failure so callers don't mask real errors as data.
+      type: 'hubFieldDecryptV3'
+      id: string
+      ciphertext: string
+      recordId: string
+      fieldName: string
+    }
+  | {
+      // Unlock from key-store-v3. The main thread runs KeyStoreV3.unlock(pin)
+      // which returns non-extractable CryptoKey handles; we transfer those
+      // handles into the worker via structured clone. The nsec still arrives
+      // as raw bytes because no current runtime offers a non-extractable
+      // wrapKey path for X25519 schnorr/secp256k1 — see native-curves-check.
+      type: 'unlockFromKeyStoreV3'
+      id: string
+      nsecRaw: Uint8Array
+      hpkePrivateKey: CryptoKey
+      hubKey: CryptoKey
+    }
+  | { type: 'hpkePublicKeyRaw'; id: string }
 
 interface WorkerSuccessResponse {
   type: 'success'
@@ -94,6 +171,14 @@ type WorkerResponse = WorkerSuccessResponse | WorkerErrorResponse
 
 let secretKey: Uint8Array | null = null
 let publicKeyHex: string | null = null
+
+// Tier 1 HPKE handles. Populated by `unlockFromKeyStoreV3` and cleared on
+// `lock()`. These are non-extractable CryptoKey objects when the runtime
+// supports native X25519 wrapKey; otherwise the private key is an @hpke/*
+// key object wrapping a raw-byte view (see `native-curves-check.ts`).
+let hpkePrivateKey: CryptoKey | null = null
+let hpkePublicKeyRawCache: Uint8Array | null = null
+let hubKey: CryptoKey | null = null
 
 // ---- Rate limiting ----
 
@@ -145,6 +230,14 @@ function autoLock(): void {
   }
   secretKey = null
   publicKeyHex = null
+  // Tier 1 handles. CryptoKey is not zeroable — we drop the reference and
+  // rely on GC. Raw public key cache is zeroed.
+  hpkePrivateKey = null
+  hubKey = null
+  if (hpkePublicKeyRawCache) {
+    hpkePublicKeyRawCache.fill(0)
+    hpkePublicKeyRawCache = null
+  }
   resetRateLimits()
 }
 
@@ -432,9 +525,110 @@ function handleImportSession(
   return publicKeyHex
 }
 
+// ---- Tier 1 HPKE sidecar handlers ----
+
+/**
+ * Unlock the worker from a key-store-v3 unlock result. The main thread runs
+ * `KeyStoreV3.unlock(pin)` and transfers the non-extractable CryptoKey
+ * handles (hub key, HPKE private key) plus the raw nsec bytes here.
+ *
+ * This sits alongside `handleUnlock` (legacy kek/nonce path) — callers
+ * migrate at their own pace while Tier 1 rolls out. Both paths populate
+ * `secretKey` + `publicKeyHex` identically so `signAuditEntry` and
+ * `sign` keep working without caring which path was used.
+ */
+function handleUnlockFromKeyStoreV3(
+  nsecRaw: Uint8Array,
+  hpkePriv: CryptoKey,
+  hub: CryptoKey
+): string {
+  if (nsecRaw.byteLength !== 32) {
+    throw new Error(`key-store-v3 nsec must be 32 bytes, got ${nsecRaw.byteLength}`)
+  }
+  secretKey = new Uint8Array(nsecRaw)
+  nsecRaw.fill(0)
+  publicKeyHex = bytesToHex(schnorr.getPublicKey(secretKey))
+  hpkePrivateKey = hpkePriv
+  hubKey = hub
+  hpkePublicKeyRawCache = null
+  resetRateLimits()
+  return publicKeyHex
+}
+
+async function handleHpkeSeal(
+  plaintext: string,
+  recipientPublicKeyRaw: Uint8Array,
+  label: CryptoLabel,
+  recordId: string,
+  fieldName: string
+): Promise<EnvelopeV3> {
+  if (!secretKey) throw new Error('Worker is locked')
+  if (!checkRateLimit('encrypt')) {
+    autoLock()
+    throw new Error('Rate limit exceeded — worker auto-locked')
+  }
+  const { createHpkeSuite } = await import('@shared/crypto-suite')
+  const suite = createHpkeSuite()
+  const recipientKey = await suite.kem.deserializePublicKey(recipientPublicKeyRaw)
+  const aad = buildAad(label, recordId, fieldName)
+  return hpkeSeal(new TextEncoder().encode(plaintext), recipientKey, label, aad)
+}
+
+async function handleHpkeOpen(
+  envelope: EnvelopeV3,
+  expectedLabel: CryptoLabel,
+  recordId: string,
+  fieldName: string
+): Promise<string> {
+  if (!secretKey || !hpkePrivateKey) throw new Error('Worker is locked')
+  if (!checkRateLimit('decrypt')) {
+    autoLock()
+    throw new Error('Rate limit exceeded — worker auto-locked')
+  }
+  const aad = buildAad(expectedLabel, recordId, fieldName)
+  const pt = await hpkeOpen(envelope, hpkePrivateKey, expectedLabel, aad)
+  return new TextDecoder().decode(pt)
+}
+
+async function handleHubFieldEncryptV3(
+  plaintext: string,
+  recordId: string,
+  fieldName: string
+): Promise<string> {
+  if (!hubKey) throw new Error('Worker is locked (hub key not loaded)')
+  if (!checkRateLimit('encrypt')) {
+    autoLock()
+    throw new Error('Rate limit exceeded — worker auto-locked')
+  }
+  return encryptHubFieldV3(plaintext, hubKey, recordId, fieldName)
+}
+
+async function handleHubFieldDecryptV3(
+  ciphertext: string,
+  recordId: string,
+  fieldName: string
+): Promise<string | null> {
+  if (!hubKey) throw new Error('Worker is locked (hub key not loaded)')
+  if (!checkRateLimit('decrypt')) {
+    autoLock()
+    throw new Error('Rate limit exceeded — worker auto-locked')
+  }
+  return decryptHubFieldV3(ciphertext, hubKey, recordId, fieldName)
+}
+
+async function handleHpkePublicKeyRaw(): Promise<Uint8Array | null> {
+  if (!hpkePrivateKey) return null
+  if (hpkePublicKeyRawCache) return hpkePublicKeyRawCache
+  // @hpke/core doesn't expose a public-from-private derive, so we require
+  // the main thread to publish the HPKE pubkey separately — it's stored in
+  // the StoredKeyBlob (identityPublicKey) and does not need to live here.
+  // Returning null tells the client to read it from the key store.
+  return null
+}
+
 // ---- Message handler ----
 
-self.onmessage = (event: MessageEvent<WorkerRequest>) => {
+self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
   const req = event.data
   let response: WorkerResponse
 
@@ -444,6 +638,30 @@ self.onmessage = (event: MessageEvent<WorkerRequest>) => {
     switch (req.type) {
       case 'unlock':
         result = handleUnlock(req.kekHex, req.nonceHex, req.ciphertextHex)
+        break
+      case 'unlockFromKeyStoreV3':
+        result = handleUnlockFromKeyStoreV3(req.nsecRaw, req.hpkePrivateKey, req.hubKey)
+        break
+      case 'hpkeSeal':
+        result = await handleHpkeSeal(
+          req.plaintext,
+          req.recipientPublicKeyRaw,
+          req.label,
+          req.recordId,
+          req.fieldName
+        )
+        break
+      case 'hpkeOpen':
+        result = await handleHpkeOpen(req.envelope, req.expectedLabel, req.recordId, req.fieldName)
+        break
+      case 'hubFieldEncryptV3':
+        result = await handleHubFieldEncryptV3(req.plaintext, req.recordId, req.fieldName)
+        break
+      case 'hubFieldDecryptV3':
+        result = await handleHubFieldDecryptV3(req.ciphertext, req.recordId, req.fieldName)
+        break
+      case 'hpkePublicKeyRaw':
+        result = await handleHpkePublicKeyRaw()
         break
       case 'lock':
         handleLock()

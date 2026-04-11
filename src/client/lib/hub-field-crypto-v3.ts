@@ -52,9 +52,14 @@ export async function encryptHubFieldV3(
   const pt = new TextEncoder().encode(value)
   const ct = new Uint8Array(
     await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv: nonce, additionalData: aad, tagLength: TAG_LEN * 8 },
+      {
+        name: 'AES-GCM',
+        iv: nonce.buffer as ArrayBuffer,
+        additionalData: aad.buffer as ArrayBuffer,
+        tagLength: TAG_LEN * 8,
+      },
       hubKey,
-      pt
+      pt.buffer as ArrayBuffer
     )
   )
   const packed = new Uint8Array(NONCE_LEN + ct.length)
@@ -78,13 +83,18 @@ export async function decryptHubFieldV3(
   try {
     const packed = b64urlDecode(encrypted)
     if (packed.length < NONCE_LEN + TAG_LEN) return null
-    const nonce = packed.subarray(0, NONCE_LEN)
-    const ct = packed.subarray(NONCE_LEN)
+    const nonce = new Uint8Array(packed.subarray(0, NONCE_LEN))
+    const ct = new Uint8Array(packed.subarray(NONCE_LEN))
     const aad = hubFieldAad(recordId, fieldName)
     const pt = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: nonce, additionalData: aad, tagLength: TAG_LEN * 8 },
+      {
+        name: 'AES-GCM',
+        iv: nonce.buffer as ArrayBuffer,
+        additionalData: aad.buffer as ArrayBuffer,
+        tagLength: TAG_LEN * 8,
+      },
       hubKey,
-      ct
+      ct.buffer as ArrayBuffer
     )
     return new TextDecoder().decode(pt)
   } catch {
