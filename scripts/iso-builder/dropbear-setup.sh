@@ -49,8 +49,17 @@ SSH_PUBKEY="$1"
 STATIC_IP="$2"
 GATEWAY="$3"
 
-# Install dropbear-initramfs
-apt-get install -y --no-install-recommends dropbear-initramfs
+# Install dropbear-initramfs.
+# DEBIAN_FRONTEND=noninteractive is REQUIRED here: the dropbear-initramfs
+# postinst triggers debconf prompts that would otherwise block on a tty
+# that doesn't exist inside the d-i chroot, hanging the installer
+# indefinitely during the late_command phase. Discovered during T11
+# headless qemu testing (2026-04-11).
+export DEBIAN_FRONTEND=noninteractive
+apt-get install -y --no-install-recommends \
+  -o Dpkg::Options::="--force-confdef" \
+  -o Dpkg::Options::="--force-confold" \
+  dropbear-initramfs
 
 # Trixie path
 mkdir -p /etc/dropbear/initramfs
