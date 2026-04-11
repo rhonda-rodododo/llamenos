@@ -451,3 +451,42 @@ What PR-A does put in place for the later column-by-column migration:
 
 Cross-reference: `docs/security/HPKE_MIGRATION_NOTES.md` is the authoritative PR-A changelog and rules-until-PR-B list.
 
+### Tier 1 PR-B — hub-field call-site migration + `items_key` indirection (2026-04-11)
+
+Tier 1 PR-B migrates the *hub-field* call sites to the envelope v3 path, resolves the remaining Tier 0 findings that required cryptographic changes (not just audit notes), and reserves the schema surface for the `items_key` indirection pattern that Tier 6 will use for primitive rotation without re-encrypting artifacts.
+
+**Resolved FIX rows (hub-field family — now fully per-record-AAD-bound):**
+
+- **`roles.encrypted_name` / `roles.encrypted_description`** — `src/server/services/settings/role-management.ts` (seeding path, `listRoles`) was already aligned in a Tier 0 follow-up commit (`d6f84b06`). Server-side seeding passes `r.id` plus `'encrypted_name'` / `'encrypted_description'` to `cryptoService.hubEncryptField(...)`, matching the client's `hubFieldAad(recordId, fieldName)` at decrypt time. PR-B only verifies alignment — no code change was needed here.
+- **`custom_field_definitions.encrypted_field_name` / `encrypted_label` / `encrypted_options`** — `src/client/components/admin-sections/custom-fields-section.tsx` now pre-encrypts every field definition on the client via `encryptHubField(value, hubId, field.id, 'encrypted_<col>')` before calling `updateCustomFields`. This closes the Tier 0 gap where the client sent plaintext and relied on the server's passthrough branch. The server's `encryptOrPassthrough` in `src/server/services/settings/custom-fields.ts` retains its per-record AAD fallback for compatibility but, in the common path, the ciphertext arrives already bound to the correct `(recordId, fieldName)`.
+- **Worker-boundary AAD propagation (inner AEAD)** — `cryptoWorker.encryptEnvelopeField` / `decryptEnvelopeField` RPCs now thread AAD end-to-end into the inner XChaCha20-Poly1305 (already shipped as the `aad` parameter in Tier 0; PR-B makes the call sites actually use it). `decryptFieldWithRecovery` in `src/client/lib/decrypt-fields.ts` takes an optional `aadOverride` so future per-record-AAD migrations for envelope-encrypted fields can pass the record-bound AAD without a second function-signature change.
+
+**Schema surface reserved (no migration, no re-encryption):**
+
+- **`drizzle/migrations/0054_tier1_items_key_indirection.sql`** adds `users.items_key_version INTEGER` and `users.items_key_wrapped TEXT` (both NULL until a client materialises its `items_key` via `generateItemsKey(master, 1)`). The contract is documented in the migration header: monotonic integer starting at 1, base64 of the 40-byte AES-KW ciphertext, server treats both columns as opaque. PR-B does **not** migrate any existing ciphertext to use `items_key` indirection — that is Tier 6's job. PR-B only reserves the schema so the later work can write without another migration.
+- **`src/client/lib/items-key.ts`** (new) provides `generateItemsKey`, `unwrapItemsKey`, and a byte-equivalent rewrap path (`rewrapItemsKeyForNewMaster`) that Tier 6 will call during primitive rotation. The 40-byte AES-KW wrap is byte-equivalent across classical and PQ master KEKs, so rotating primitives costs O(users) rewraps of a 40-byte blob rather than O(artifacts) re-encryption.
+- **`tests/unit/items-key.test.ts`** (new) covers the wrap/unwrap round-trip, version bump, and rewrap-under-new-master byte-equivalence invariants.
+
+**FIX rows explicitly deferred (require coordinated encrypt+decrypt migration across many columns):**
+
+- **Envelope-encrypted fields on `contacts`, `user_signal_contacts`, `conversations`, `call_records`, `bans`** — every `encryptedFoo` + `fooEnvelopes` pair currently encrypts with label-only AAD (`utf8ToBytes(label)`) via `cryptoWorker.envelopeEncryptField(...)`. Migrating these to per-record AAD requires:
+  1. A coordinated encrypt-side change in every create/update dialog (contacts, conversations, bans, call records).
+  2. A matching decrypt-side change in every `queryFn` that scans these objects, plus plumbing `recordId + fieldName` through `decryptObjectFields` / `decryptArrayFields` / `resolveEncryptedFields`.
+  3. A wire-format break for any stored ciphertext (same blast radius as PR-A's v2→v3 break). Acceptable pre-production but should be bundled with any other envelope-v3 column rewrites to minimise the number of TRUNCATE migrations.
+  
+  PR-B puts the API surface in place (`decryptFieldWithRecovery` now accepts an optional `aadOverride: Uint8Array`) so the follow-up can land without another signature change. The full migration is tracked as a follow-up in `docs/security/HPKE_MIGRATION_NOTES.md`.
+- **Server-side primitive family (`provider_config`, `ivr_audio`, `active_calls`, `call_legs`)** — these are encrypted/decrypted entirely server-side via `cryptoService.encrypt` / `decrypt` with the hub key. They already pass per-record AAD in most call sites (verified during Tier 0 audit); the remaining gap is that the underlying primitive is still XChaCha20-Poly1305 rather than HPKE/AES-GCM. Migrating the server primitive is deferred to the Tier 1 server work (Task 19 in the Tier 1 plan), not PR-B.
+
+**Crypto worker boundary change (`create-contact-dialog`):**
+
+`src/client/components/contacts/create-contact-dialog.tsx` previously held an inline `envelopeEncrypt` helper that called `eciesWrapKey` + `symmetricEncrypt` directly on the main thread, bypassing the crypto worker. PR-B replaces the helper with `envelopeEncryptViaWorker(plaintext, recipientPubkeys, label)`, which routes through `cryptoWorker.envelopeEncryptField(...)`. This brings contact creation in line with every other encrypt call site in the app (worker-isolated key material, single RPC boundary for rate limiting, no main-thread ECDH). The helper's output shape (`{ encrypted: Ciphertext; envelopes: RecipientEnvelope[] }`) is preserved so no downstream mutation payload changes.
+
+**Build / test verification at branch tip:**
+
+- `bun run typecheck` — clean.
+- `bun run lint` — 266 warnings, 0 errors; none attributable to PR-B changes.
+- `bun run test:unit` — 1524 pass, 1 skip, 0 fail (includes new `items-key.test.ts`).
+- `bun run build` — clean; `verify-no-console` guard passes.
+
+Cross-reference: `docs/security/HPKE_MIGRATION_NOTES.md` § "PR-B scope" tracks the deferred envelope-field migration as the immediate next slice after PR-B merges.
+
