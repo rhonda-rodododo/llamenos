@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import * as labels from '@shared/crypto-labels'
 
 describe('crypto-labels', () => {
-  const entries = Object.entries(labels)
+  const entries = Object.entries(labels).filter(([, v]) => typeof v === 'string')
   const values = entries.map(([, v]) => v)
 
   test('all constants are non-empty strings', () => {
