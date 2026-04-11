@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.41.1] - 2026-04-11
+
+### Bug Fixes
+
+- commit pii-check.sh with env-var-sourced patterns (#60)
+
+### Miscellaneous
+
+- v0.41.1 [skip ci]
+
 ## [0.41.0] - 2026-04-10
 
 ### Features
@@ -14,6 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Miscellaneous
 
 - v0.41.0 [skip ci]
+
+### Ansible
+
+- multi-distro abstraction (Debian 12/13 + Ubuntu 22/24) (#49)
 
 ## [0.40.0] - 2026-04-10
 
