@@ -20,8 +20,10 @@
 |---|---|
 | `src/shared/sframe/cipher-suite.ts` | Pinned SFrame cipher suite constant + `deriveBaseKey` + `importAesKey` |
 | `src/shared/sframe/cipher-suite.test.ts` | Cipher suite + key derivation unit tests |
-| `src/shared/sframe/frame-codec.ts` | `sealFrame`/`openFrame`/`parseTrailer` — pure functions over Uint8Array |
+| `src/shared/sframe/frame-codec.ts` | `sealFrame`/`openFrame`/`parseTrailer` — pure functions over `Uint8Array`, returns `CiphertextBytes` / `PlaintextBytes` |
 | `src/shared/sframe/frame-codec.test.ts` | Round-trip + adversarial tamper tests |
+| `src/shared/sframe/sframe-types.ts` | `CiphertextBytes` / `PlaintextBytes` branded `Uint8Array` types + `asCiphertextBytes` / `asPlaintextBytes` helpers (Task 19c) |
+| `src/shared/sframe/sframe-types.test.ts` | Brand helper unit tests (Task 19c) |
 | `src/shared/schemas/sframe-worker-messages.ts` | Zod schemas for worker request/response message union |
 | `src/shared/schemas/sframe-worker-messages.test.ts` | Schema round-trip tests |
 | `src/client/lib/webrtc/sframe-worker.ts` | SFrame Web Worker — receives rtctransform events, runs TransformStreams |
@@ -2765,6 +2767,157 @@ Expected: all tests PASS.
 ```bash
 git add tests/fixtures/sim-caller.ts tests/fixtures/sim-caller.test.ts
 git commit -m "test(fixtures): extend SimCaller with SFrame produce/consume"
+```
+
+### Task 19c: Export `CiphertextBytes` / `PlaintextBytes` brands (Tier 5 main PR)
+
+**Added 2026-04-11 during the prereq PR review cycle.** The type-design pass on PR #66 surfaced that the most load-bearing Tier 5 adversarial assertion — "the SIP bridge never saw plaintext audio" — is currently implementable only via byte-pattern sniffing in tests. Shipping `Uint8Array`-based brands from the SFrame production layer makes the same assertion expressible at compile time, which is strictly stronger and cheaper.
+
+**Files:**
+- Create: `src/shared/sframe/sframe-types.ts` (or extend `cipher-suite.ts` if it is already home to other shared type aliases)
+- Modify: `src/shared/sframe/frame-codec.ts` — retype `sealFrame` return and `openFrame` input
+- Modify: `tests/fixtures/sim-sip-bridge.ts` — see Task 19d
+
+- [ ] **Step 1: Write failing test**
+
+```typescript
+// src/shared/sframe/sframe-types.test.ts
+import { describe, expect, test } from 'bun:test'
+import { asCiphertextBytes, asPlaintextBytes } from './sframe-types'
+
+describe('SFrame byte brands', () => {
+  test('asCiphertextBytes / asPlaintextBytes are runtime identity', () => {
+    const bytes = new Uint8Array([0x01, 0x02, 0x03])
+    expect(asCiphertextBytes(bytes)).toBe(bytes)
+    expect(asPlaintextBytes(bytes)).toBe(bytes)
+  })
+})
+```
+
+Plus a compile-time negative test via `// @ts-expect-error` that assigning a `PlaintextBytes` into a `CiphertextBytes` parameter fails. Bun does not strictly enforce `@ts-expect-error` at runtime, but the existing typecheck gate catches drift.
+
+- [ ] **Step 2: Run failing test**
+
+Run: `bun test src/shared/sframe/sframe-types.test.ts`
+Expected: FAIL — module missing.
+
+- [ ] **Step 3: Implement**
+
+```typescript
+// src/shared/sframe/sframe-types.ts
+declare const __CiphertextBytesBrand: unique symbol
+declare const __PlaintextBytesBrand: unique symbol
+
+/** Raw RTP payload bytes that have been sealed via SFrame / AES-GCM. */
+export type CiphertextBytes = Uint8Array & { readonly [__CiphertextBytesBrand]: never }
+
+/** Raw RTP payload bytes that have NOT been sealed — plaintext audio. */
+export type PlaintextBytes = Uint8Array & { readonly [__PlaintextBytesBrand]: never }
+
+/** Runtime identity; the brand exists only at compile time. */
+export const asCiphertextBytes = (bytes: Uint8Array): CiphertextBytes => bytes as CiphertextBytes
+
+export const asPlaintextBytes = (bytes: Uint8Array): PlaintextBytes => bytes as PlaintextBytes
+```
+
+Then in `frame-codec.ts`:
+- `sealFrame(...)` returns `CiphertextBytes`
+- `openFrame(key, wire, ...)` accepts `wire: CiphertextBytes` and returns `PlaintextBytes`
+
+- [ ] **Step 4: Re-run test** — all pass.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/shared/sframe/sframe-types.ts src/shared/sframe/sframe-types.test.ts src/shared/sframe/frame-codec.ts
+git commit -m "feat(sframe): add CiphertextBytes + PlaintextBytes brands"
+```
+
+### Task 19d: Retype `SimSipBridge.bridgePacket` + `CapturedPacket.bytes` (Tier 5 main PR)
+
+**Blocked on Task 19c.** Once the byte brands exist, the Tier 5 prereq fixture retypes its media-plane surface so the "bridge never saw plaintext" assertion is a `never` check instead of a byte-pattern search. Zero runtime change — pure type widening of existing fields via the brand aliases.
+
+**Files:**
+- Modify: `tests/fixtures/sim-sip-bridge.ts`
+- Modify: `tests/fixtures/sim-sip-bridge.test.ts`
+- Modify: `docs/testing/TEST_FIXTURES_SFRAME.md` — update the "what assertions this fixture enables" section.
+
+- [ ] **Step 1: Write failing test**
+
+```typescript
+// tests/fixtures/sim-sip-bridge.test.ts (addendum — runs in Tier 5 main PR)
+import { describe, expect, test } from 'bun:test'
+import { asCiphertextBytes } from '../../src/shared/sframe/sframe-types'
+import { SimSipBridge } from './sim-sip-bridge'
+
+describe('SimSipBridge — byte-brand assertions', () => {
+  test('captured packets are typed as CiphertextBytes | PlaintextBytes', () => {
+    const bridge = new SimSipBridge()
+    const ct = asCiphertextBytes(new Uint8Array([0x01, 0x02]))
+    bridge.bridgePacket('caller', ct)
+    const [captured] = bridge.getCapturedPackets()
+    // Compile-time: assignment to `Uint8Array` must still work (structural);
+    // direct assignment to `PlaintextBytes` must NOT compile.
+    const _asBytes: Uint8Array = captured.bytes
+    // @ts-expect-error — CiphertextBytes is not assignable to PlaintextBytes
+    const _mustFail: PlaintextBytes = captured.bytes
+    expect(_asBytes).toBeInstanceOf(Uint8Array)
+  })
+})
+```
+
+- [ ] **Step 2: Run failing test** — tsc fails if the brand migration is incomplete.
+
+- [ ] **Step 3: Implement**
+
+In `tests/fixtures/sim-sip-bridge.ts`:
+
+```typescript
+import type { CiphertextBytes, PlaintextBytes } from '../../src/shared/sframe/sframe-types'
+
+export interface CapturedPacket {
+  direction: 'a-to-b' | 'b-to-a'
+  bytes: CiphertextBytes | PlaintextBytes
+  time: number
+}
+
+// bridgePacket accepts either — real Asterisk forwards whatever RTP hits its ear.
+bridgePacket(
+  from: 'caller' | 'volunteer',
+  bytes: CiphertextBytes | PlaintextBytes,
+): CiphertextBytes | PlaintextBytes | null {
+  this.captured.push({
+    direction: from === 'caller' ? 'a-to-b' : 'b-to-a',
+    bytes: new Uint8Array(bytes) as CiphertextBytes | PlaintextBytes,
+    time: Date.now(),
+  })
+  return bytes
+}
+```
+
+The single runtime cast at the `new Uint8Array(bytes)` call is unavoidable because `Uint8Array(Uint8Array)` copies the bytes and loses the structural brand; callers re-brand via `asCiphertextBytes` / `asPlaintextBytes` at the entry point of each call-path test.
+
+- [ ] **Step 4: Re-run tests** — typecheck + unit tests pass.
+
+The adversarial test from Task 20 can now include:
+
+```typescript
+for (const packet of bridge.getCapturedPackets()) {
+  // This narrows at compile time — if the branch is dead, the bridge
+  // never received plaintext frames. No byte-pattern sniffing needed.
+  if (!isCiphertextBytes(packet.bytes)) {
+    throw new Error('SimSipBridge saw plaintext — SFrame pipeline is broken')
+  }
+}
+```
+
+(`isCiphertextBytes` is a runtime predicate using a private `WeakSet` tagged in `asCiphertextBytes`; add it in Task 19c if the adversarial tests need runtime discrimination as well as compile-time.)
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add tests/fixtures/sim-sip-bridge.ts tests/fixtures/sim-sip-bridge.test.ts docs/testing/TEST_FIXTURES_SFRAME.md
+git commit -m "test(fixtures): retype bridgePacket + CapturedPacket with SFrame byte brands"
 ```
 
 ### Task 20: Adversarial bridge subclass (Tier 5 main PR)
