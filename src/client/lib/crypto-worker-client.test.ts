@@ -1,4 +1,11 @@
-import { describe, expect, test } from 'bun:test'
+import { afterEach, describe, expect, test } from 'bun:test'
+import { schnorr } from '@noble/curves/secp256k1.js'
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
+import {
+  _test_clearSecretKey,
+  _test_handleSignAuditEntry,
+  _test_setSecretKey,
+} from './crypto-worker'
 import { CryptoWorkerLockedError, isWorkerLockedError } from './crypto-worker-client'
 
 describe('CryptoWorkerLockedError', () => {
@@ -29,33 +36,43 @@ describe('CryptoWorkerLockedError', () => {
   })
 })
 
-describe('signAuditEntry op', () => {
-  test('signAuditEntry locked error is recognized by isWorkerLockedError', () => {
-    // The "Worker is locked" error that signAuditEntry throws when locked is
-    // a CryptoWorkerLockedError on the client side. Verify the pattern matches.
-    const lockedErr = new Error('Worker is locked')
-    expect(isWorkerLockedError(lockedErr)).toBe(true)
+describe('handleSignAuditEntry', () => {
+  afterEach(() => _test_clearSecretKey())
+
+  test('signs an audit entry hash and produces a cryptographically valid Schnorr signature', () => {
+    // Use a deterministic key so we can verify against a known pubkey
+    const testKey = new Uint8Array(32).fill(7)
+    _test_setSecretKey(testKey)
+
+    const entryHash = new Uint8Array(32).fill(0xab)
+    const entryHashHex = bytesToHex(entryHash)
+
+    const sigHex = _test_handleSignAuditEntry(entryHashHex)
+
+    // Shape check: 64-byte Schnorr signature = 128 lowercase hex chars
+    expect(sigHex).toMatch(/^[0-9a-f]{128}$/)
+
+    // Cryptographic validity: verify against the public key derived from testKey
+    const pubkey = schnorr.getPublicKey(testKey)
+    const sig = hexToBytes(sigHex)
+    expect(schnorr.verify(sig, entryHash, pubkey)).toBe(true)
   })
 
-  test('CryptoWorkerLockedError is thrown when worker responds with locked message', () => {
-    // Simulate the path through handleMessage: locked worker error string →
-    // CryptoWorkerLockedError. This mirrors what signAuditEntry raises when the
-    // worker fires back "Worker is locked".
-    const err = new CryptoWorkerLockedError('Worker is locked')
-    expect(err).toBeInstanceOf(CryptoWorkerLockedError)
-    expect(err.message).toBe('Worker is locked')
-    expect(isWorkerLockedError(err)).toBe(true)
+  test('throws "Worker is locked" when secretKey is null', () => {
+    _test_clearSecretKey()
+    expect(() => _test_handleSignAuditEntry('deadbeef'.repeat(8))).toThrow('Worker is locked')
   })
 
-  test('signAuditEntry response matches 128-char hex signature pattern', () => {
-    // Verify the regex used to validate signAuditEntry results matches a valid
-    // 64-byte Schnorr signature encoded as 128 hex chars.
-    const sigPattern = /^[0-9a-f]{128}$/
-    const fakeSig = 'a'.repeat(128)
-    expect(sigPattern.test(fakeSig)).toBe(true)
-    // Non-matching: wrong length
-    expect(sigPattern.test('a'.repeat(64))).toBe(false)
-    // Non-matching: uppercase hex chars
-    expect(sigPattern.test('A'.repeat(128))).toBe(false)
+  test('locked error is recognized as a CryptoWorkerLockedError pattern', () => {
+    // Confirm the error message thrown by the handler matches the client-side detection pattern
+    _test_clearSecretKey()
+    let caught: Error | undefined
+    try {
+      _test_handleSignAuditEntry('deadbeef'.repeat(8))
+    } catch (err) {
+      caught = err as Error
+    }
+    expect(caught).toBeDefined()
+    expect(isWorkerLockedError(caught as Error)).toBe(true)
   })
 })

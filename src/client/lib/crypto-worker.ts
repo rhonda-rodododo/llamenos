@@ -474,7 +474,7 @@ self.onmessage = (event: MessageEvent<WorkerRequest>) => {
         // ECIES-wrap the key for each recipient. Returns { encryptedHex, envelopes }.
         const messageKey = randomBytes(32)
         const fieldNonce = randomBytes(24)
-        const fieldCipher = xchacha20poly1305(messageKey, fieldNonce)
+        const fieldCipher = xchacha20poly1305(messageKey, fieldNonce, hexToBytes(req.aad))
         const ct = fieldCipher.encrypt(utf8ToBytes(req.plaintext))
         const packed = new Uint8Array(fieldNonce.length + ct.length)
         packed.set(fieldNonce)
@@ -519,7 +519,7 @@ self.onmessage = (event: MessageEvent<WorkerRequest>) => {
         const fieldData = hexToBytes(req.encryptedHex)
         const fieldNonce = fieldData.slice(0, 24)
         const fieldCiphertext = fieldData.slice(24)
-        const fieldCipher = xchacha20poly1305(messageKey, fieldNonce)
+        const fieldCipher = xchacha20poly1305(messageKey, fieldNonce, hexToBytes(req.aad))
         const plaintext = fieldCipher.decrypt(fieldCiphertext)
         result = new TextDecoder().decode(plaintext)
         break
@@ -545,3 +545,22 @@ self.onmessage = (event: MessageEvent<WorkerRequest>) => {
 
   self.postMessage(response)
 }
+
+// ---- Test-only exports (prefixed _test_ — do NOT use in production code) ----
+// These allow unit tests to exercise handler logic directly without a real Worker.
+
+/** @internal Test only — set the module-level secretKey for handler tests. */
+export function _test_setSecretKey(key: Uint8Array): void {
+  secretKey = key
+  publicKeyHex = bytesToHex(schnorr.getPublicKey(key))
+}
+
+/** @internal Test only — zero and clear the module-level secretKey. */
+export function _test_clearSecretKey(): void {
+  if (secretKey) secretKey.fill(0)
+  secretKey = null
+  publicKeyHex = null
+}
+
+/** @internal Test only — direct access to handleSignAuditEntry for unit testing. */
+export { handleSignAuditEntry as _test_handleSignAuditEntry }
