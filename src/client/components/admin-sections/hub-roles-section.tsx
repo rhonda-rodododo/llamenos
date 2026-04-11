@@ -295,13 +295,17 @@ export function HubRolesSection() {
     if (editingId === 'new') {
       const trimmedName = form.name.trim()
       const trimmedDesc = form.description.trim()
+      // Pre-generate a client UUID for the new role so the AAD can be bound to a stable ID.
+      const newId = crypto.randomUUID()
       createRole.mutate(
         {
           name: trimmedName,
           description: trimmedDesc,
           permissions: form.permissions,
-          encryptedName: encryptHubField(trimmedName, hubId),
-          encryptedDescription: trimmedDesc ? encryptHubField(trimmedDesc, hubId) : undefined,
+          encryptedName: encryptHubField(trimmedName, hubId, newId, 'encrypted_name'),
+          encryptedDescription: trimmedDesc
+            ? encryptHubField(trimmedDesc, hubId, newId, 'encrypted_description')
+            : undefined,
         },
         {
           onSuccess: () => {
@@ -322,8 +326,10 @@ export function HubRolesSection() {
             name: trimmedName,
             description: trimmedDesc,
             permissions: form.permissions,
-            encryptedName: encryptHubField(trimmedName, hubId),
-            encryptedDescription: trimmedDesc ? encryptHubField(trimmedDesc, hubId) : undefined,
+            encryptedName: encryptHubField(trimmedName, hubId, editingId, 'encrypted_name'),
+            encryptedDescription: trimmedDesc
+              ? encryptHubField(trimmedDesc, hubId, editingId, 'encrypted_description')
+              : undefined,
           },
         },
         {

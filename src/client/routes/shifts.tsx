@@ -249,9 +249,12 @@ function ShiftForm({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    // For a new shift (shift === null) pre-generate a client UUID for AAD binding.
+    // For an existing shift, use the server-assigned ID.
+    const recordId = shift?.id ?? crypto.randomUUID()
     onSave({
       name,
-      encryptedName: encryptHubField(name, hubId),
+      encryptedName: encryptHubField(name, hubId, recordId, 'encrypted_name'),
       startTime,
       endTime,
       days,

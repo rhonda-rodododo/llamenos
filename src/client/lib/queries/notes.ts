@@ -212,11 +212,29 @@ export const customFieldsOptions = (hubId = 'global') =>
     queryFn: async (): Promise<CustomFieldDefinition[]> => {
       const res = await getCustomFields()
       return (res.fields ?? []).map((field) => {
-        const decryptedOptions = decryptHubField(field.encryptedOptions, hubId, '')
+        const decryptedOptions = decryptHubField(
+          field.encryptedOptions,
+          hubId,
+          field.id,
+          'encrypted_options',
+          ''
+        )
         return {
           ...field,
-          name: decryptHubField(field.encryptedFieldName, hubId, field.name),
-          label: decryptHubField(field.encryptedLabel, hubId, field.label),
+          name: decryptHubField(
+            field.encryptedFieldName,
+            hubId,
+            field.id,
+            'encrypted_field_name',
+            field.name
+          ),
+          label: decryptHubField(
+            field.encryptedLabel,
+            hubId,
+            field.id,
+            'encrypted_label',
+            field.label
+          ),
           options: decryptedOptions
             ? (() => {
                 try {

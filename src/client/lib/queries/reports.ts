@@ -247,8 +247,14 @@ export const reportTypesOptions = (hubId = 'global') =>
       const { reportTypes } = await listReportTypes()
       return reportTypes.map((rt) => ({
         ...rt,
-        name: decryptHubField(rt.encryptedName, hubId, rt.name),
-        description: decryptHubField(rt.encryptedDescription, hubId, rt.description),
+        name: decryptHubField(rt.encryptedName, hubId, rt.id, 'encrypted_name', rt.name),
+        description: decryptHubField(
+          rt.encryptedDescription,
+          hubId,
+          rt.id,
+          'encrypted_description',
+          rt.description
+        ),
       }))
     },
     staleTime: 5 * 60 * 1000, // 5 minutes

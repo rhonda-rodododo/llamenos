@@ -50,7 +50,7 @@ export const blastsListOptions = (hubId = 'global') =>
       const res = await listBlasts()
       const blasts = res.blasts.map((blast) => ({
         ...blast,
-        name: decryptHubField(blast.encryptedName, hubId, blast.name),
+        name: decryptHubField(blast.encryptedName, hubId, blast.id, 'encrypted_name', blast.name),
       }))
 
       const unlocked = await keyManager.isUnlocked()

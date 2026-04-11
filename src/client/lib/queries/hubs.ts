@@ -29,8 +29,14 @@ export const hubsListOptions = (_hubId = 'global') =>
       const { hubs } = await listHubs()
       return hubs.map((hub) => ({
         ...hub,
-        name: decryptHubField(hub.encryptedName, hub.id, hub.name),
-        description: decryptHubField(hub.encryptedDescription, hub.id, hub.description),
+        name: decryptHubField(hub.encryptedName, hub.id, hub.id, 'encrypted_name', hub.name),
+        description: decryptHubField(
+          hub.encryptedDescription,
+          hub.id,
+          hub.id,
+          'encrypted_description',
+          hub.description
+        ),
       }))
     },
     staleTime: 10 * 60 * 1000,

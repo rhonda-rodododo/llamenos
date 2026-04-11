@@ -31,7 +31,7 @@ export const shiftsListOptions = (hubId = 'global') =>
       const { shifts } = await listShifts()
       return shifts.map((shift) => ({
         ...shift,
-        name: decryptHubField(shift.encryptedName, hubId, shift.name),
+        name: decryptHubField(shift.encryptedName, hubId, shift.id, 'encrypted_name', shift.name),
       }))
     },
   })

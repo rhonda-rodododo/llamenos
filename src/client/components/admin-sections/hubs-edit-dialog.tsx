@@ -83,8 +83,10 @@ export function HubsEditDialog({
           name: trimmedName,
           description: trimmedDesc || undefined,
           phoneNumber: phoneNumber.trim() || undefined,
-          encryptedName: encryptHubField(trimmedName, hub.id),
-          encryptedDescription: trimmedDesc ? encryptHubField(trimmedDesc, hub.id) : undefined,
+          encryptedName: encryptHubField(trimmedName, hub.id, hub.id, 'encrypted_name'),
+          encryptedDescription: trimmedDesc
+            ? encryptHubField(trimmedDesc, hub.id, hub.id, 'encrypted_description')
+            : undefined,
         },
       },
       {

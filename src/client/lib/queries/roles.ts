@@ -36,8 +36,14 @@ export const rolesListOptions = (hubId = 'global') =>
       const { roles } = await listRoles()
       return roles.map((role) => ({
         ...role,
-        name: decryptHubField(role.encryptedName, hubId, role.name),
-        description: decryptHubField(role.encryptedDescription, hubId, role.description),
+        name: decryptHubField(role.encryptedName, hubId, role.id, 'encrypted_name', role.name),
+        description: decryptHubField(
+          role.encryptedDescription,
+          hubId,
+          role.id,
+          'encrypted_description',
+          role.description
+        ),
       }))
     },
     staleTime: 5 * 60 * 1000,
