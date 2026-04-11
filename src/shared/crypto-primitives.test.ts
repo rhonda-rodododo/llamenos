@@ -2,6 +2,14 @@ import { describe, expect, test } from 'bun:test'
 import { secp256k1 } from '@noble/curves/secp256k1.js'
 import { bytesToHex } from '@noble/hashes/utils.js'
 import {
+  type CryptoLabel,
+  LABEL_HUB_KEY_WRAP,
+  LABEL_NOTE_KEY,
+  LABEL_REGISTRY,
+  idToLabel,
+  labelToId,
+} from './crypto-labels'
+import {
   eciesUnwrapKey,
   eciesWrapKey,
   hkdfDerive,
@@ -100,5 +108,31 @@ describe('hkdfDerive', () => {
     const a = hkdfDerive(secret, salt, new TextEncoder().encode('context:a'), 32)
     const b = hkdfDerive(secret, salt, new TextEncoder().encode('context:b'), 32)
     expect(bytesToHex(a)).not.toBe(bytesToHex(b))
+  })
+})
+
+describe('CryptoLabel brand + registry', () => {
+  test('LABEL_REGISTRY is non-empty', () => {
+    expect(LABEL_REGISTRY.length).toBeGreaterThan(0)
+  })
+
+  test('labelToId returns a stable id per label', () => {
+    expect(labelToId(LABEL_NOTE_KEY)).toBe(0)
+    expect(labelToId(LABEL_HUB_KEY_WRAP)).toBe(1)
+  })
+
+  test('idToLabel round-trips', () => {
+    expect(idToLabel(0)).toBe(LABEL_NOTE_KEY)
+    expect(idToLabel(1)).toBe(LABEL_HUB_KEY_WRAP)
+  })
+
+  test('labelToId throws on unregistered label', () => {
+    expect(() => labelToId('llamenos:nonexistent' as CryptoLabel)).toThrow(
+      'Unregistered crypto label'
+    )
+  })
+
+  test('idToLabel throws on unknown id', () => {
+    expect(() => idToLabel(999)).toThrow('Unknown crypto label id')
   })
 })
