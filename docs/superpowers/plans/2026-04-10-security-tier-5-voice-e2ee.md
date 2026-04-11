@@ -2512,7 +2512,15 @@ git commit -m "feat(webrtc-adapters): install SFrame transforms across twilio/vo
 - Create: `tests/helpers/sframe-test-utils.ts`
 - Create: `docs/testing/TEST_FIXTURES_SFRAME.md`
 
-**Scope note:** The code listing below is the minimal-stub starting point that the old plan captured. The prereq PR implementation adds (on top of it): a mock Asterisk ARI WebSocket surface, an in-memory RTP packet stream with a simple SSRC/timestamp/sequence number generator, a dialplan-event injector (`inject({ callId, callerNumber, remote, mode })` per spec §5.12.1), and a `getEvents()` accessor returning the ARI events the bridge would have dispatched. No kernel sockets — pure in-memory. Framework-agnostic. `tests/helpers/sframe-test-utils.ts` carries shared helpers that do NOT import from `@shared/sframe/` (e.g. mock RTP header layout, canned packet builders). `docs/testing/TEST_FIXTURES_SFRAME.md` documents how to wire the fixtures into unit + Playwright tests.
+**Scope note:** The code listing below is the minimal-stub starting point that the old plan captured. The prereq PR implementation adds (on top of it):
+
+- A mock Asterisk ARI WebSocket subscriber pattern (`onEvent(handler)` / `off(handler)` / `emit(event)`) whose events re-use the production `BridgeEvent` types from `sip-bridge/src/bridge-client.ts` to prevent silent drift.
+- A dialplan-event injector `inject({ callId, callerNumber, calledNumber, mode })` that emits `channel_create` then `channel_answer` with the mode stamped into `args: [mode]`, matching spec §5.12.1. Per-instance `SimChannelState` tracked in `getChannels()`. Duplicate-`callId` `inject` and unknown-`callId` `hangup` throw — silently overwriting state would only mask test bugs.
+- `emit()` fans out to a snapshot of the handler set so mid-fanout subscriptions don't mutate the recipient list, and collects handler errors into an `AggregateError` so one misbehaving subscriber can't silently suppress delivery to the others.
+- A per-instance deterministic clock starting at `2026-04-11T00:00:00Z`, advancing one second per emitted event. Two bridge instances do not share clock state.
+- `bridgePacket(from, bytes): Uint8Array | null` — base class is a recording pass-through; nullable return exists so `SimCompromisedBridge` (Tier 5 main) can return `null` for dropped packets without changing the base contract (per spec §5.12.1).
+
+No kernel sockets — pure in-memory. Framework-agnostic (no Playwright imports). `tests/helpers/sframe-test-utils.ts` carries the RTP header layout helpers (`buildMockRtpHeader` / `parseMockRtpHeader` / `buildMockRtpPacket`, symmetric CSRC guards) and mock SFrame key-material helpers (`makeMockCallSecret`, `makeMockSFrameKeyEventPayload`). Zero imports from `@shared/sframe/`. `docs/testing/TEST_FIXTURES_SFRAME.md` documents how to wire the fixtures into unit + Playwright tests.
 
 - [ ] **Step 1: Write failing test**
 

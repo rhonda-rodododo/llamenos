@@ -21,16 +21,11 @@ in CI.
 
 All three are framework-agnostic (no Playwright imports) and carry zero imports from `src/shared/sframe/`. They can be called from `bun:test` unit tests AND from Playwright API/UI tests.
 
-## Scope split with Tier 5 main
+## Codec-agnostic design
 
-The prerequisite PR intentionally ships **no SFrame production code**. The fixtures here establish shape, state tracking, and deterministic stub payloads — not cipher-suite operations.
+These fixtures are deliberately codec-agnostic: they establish shape, state tracking, and deterministic stub payloads without exercising any cipher suite. Tests that only need a fake PBX or a fake inbound caller (Tier 3/4 call-path tests, IVR regression tests, dialplan dispatch tests) use these fixtures directly. Tests that need genuine SFrame round-trips extend the fixtures at their call sites — typically by importing `@shared/sframe/frame-codec` alongside `SimCaller` and seal/open frames through `SimSipBridge.bridgePacket`.
 
-Tier 5 main PR extends these fixtures in-place:
-
-- **Task 19b** (Tier 5 main) adds `bindCall` / `loadKey` / `produceFrame` / `consumeFrame` to `SimCaller`, wired to `@shared/sframe/frame-codec` + `@shared/sframe/cipher-suite` once those production modules exist.
-- **Task 20** (Tier 5 main) adds `tests/fixtures/sim-compromised-bridge.ts`, an adversarial `SimSipBridge` subclass that tampers with ciphertext/trailer bytes, drops packets, and replays frames. Its tests depend on `SimCaller.produceFrame` from Task 19b.
-
-Tier 3 and Tier 4 call-path tests that only need a fake PBX (no SFrame crypto) can reuse `SimSipBridge` + `SimCaller` immediately from the prerequisite PR — that is the cross-tier motivation for landing them separately.
+An adversarial subclass (`SimCompromisedBridge`) that tampers with ciphertext/trailer bytes, drops packets, and replays frames lives alongside the Tier 5 SFrame code path and depends on the SFrame-capable caller path — see the Tier 5 plan's Workstream 5.8 for the dependency notes.
 
 ## SimSipBridge
 
@@ -106,8 +101,8 @@ caller.reset()
 The clip is a **stub** — not real Opus encoding. Each 20ms "frame" is a
 16-byte deterministic payload with a `0xfc` header sentinel, the tone
 frequency in bytes 1–2, the frame index in bytes 3–6, and a deterministic
-fill for the rest. Tests that need real Opus encoding should wait for
-Tier 5 main and use a production Opus encoder behind a feature flag.
+fill for the rest. See `FRAME_STUB_HEADER` and `FRAME_STUB_PAYLOAD_LEN`
+in `tests/fixtures/sim-caller.ts` for the canonical constants.
 
 The stub is deliberate: real Opus encoding via `@huggingface/transformers`
 or a native bindings library is too heavy for CI, and the SFrame layer
@@ -163,5 +158,5 @@ use the real modules from `src/shared/sframe/` once Tier 5 main lands.
 
 - **No kernel sockets.** Fixtures simulate RTP in memory as `Uint8Array` pass-through through `SimSipBridge.bridgePacket`. Nothing binds to a UDP port.
 - **No browser.** Fixtures are pure TypeScript modules. `SimCaller` holds clip state as arrays; `SimSipBridge` is a plain class. Neither touches `RTCPeerConnection`, `AudioContext`, or any Web APIs.
-- **Deterministic time.** `SimSipBridge` stamps events with a monotonic deterministic clock starting from `2026-04-11T00:00:00Z` so tests can assert over timestamps.
+- **Deterministic time.** Each `SimSipBridge` instance stamps events with a monotonic per-instance deterministic clock starting at `2026-04-11T00:00:00Z` and advancing one second per emitted event — event N gets timestamp `2026-04-11T00:00:NZ` and rolls into the next minute after 60 events. Two bridge instances do not share clock state, so per-test `beforeEach` fixtures see identical timestamps.
 - **No network calls.** No `fetch`, no WebSocket connections, no Nostr relay. Event delivery is a synchronous in-process subscriber list.

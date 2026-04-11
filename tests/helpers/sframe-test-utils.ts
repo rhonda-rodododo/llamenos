@@ -3,19 +3,12 @@
  * call pipeline fixtures (`tests/fixtures/sim-sip-bridge.ts` +
  * `tests/fixtures/sim-caller.ts`).
  *
- * **Scope:** mock RTP packet layout + mock SFrame key-material helpers
- * that carry NO imports from `src/shared/sframe/`. Those production
- * modules do not exist on main until Tier 5 Workstreams 5.1 + 5.2 land;
- * this helper intentionally stays standalone so it can ship in the Tier
- * 5 prerequisite PR without pulling production code forward.
- *
- * When the real `frame-codec.ts` lands in Tier 5 main, tests that need
- * genuine SFrame round-trips use that module directly — not the mock
- * builders here. The mocks in this file are only for tests that assert
- * over packet shape, event payloads, or fixture plumbing without
- * exercising the cipher suite.
- *
- * Related: Tier 5 spec §5.12, Tier 5 plan Workstream 5.8 header note.
+ * **Scope:** mock RTP packet layout + mock SFrame key-material helpers.
+ * Intentionally carries no imports from `@shared/sframe/` so tests that
+ * only need byte-shape assertions (no real cipher operations) can use
+ * these helpers without dragging the cipher suite into their dependency
+ * graph. Tests that need genuine SFrame round-trips import from
+ * `@shared/sframe/frame-codec` directly.
  */
 
 // ---- Mock RTP packet layout ----
@@ -68,6 +61,12 @@ export function parseMockRtpHeader(bytes: Uint8Array): MockRtpHeaderFields {
     throw new Error('parseMockRtpHeader: short header')
   }
   const b = bytes
+  // Symmetric with buildMockRtpHeader: CSRCs shift the timestamp/ssrc
+  // offset by 4 * csrcCount bytes. Refusing to parse here ensures a
+  // malformed (or real) packet cannot silently mis-decode.
+  if ((b[0] & 0xf) !== 0) {
+    throw new Error('parseMockRtpHeader: CSRC headers not supported by the mock parser')
+  }
   return {
     version: (b[0] >>> 6) & 0x3,
     padding: ((b[0] >>> 5) & 0x1) === 1,

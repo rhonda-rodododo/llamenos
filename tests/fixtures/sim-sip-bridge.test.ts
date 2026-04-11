@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { type SimBridgeEvent, SimSipBridge } from './sim-sip-bridge'
+import { type SimBridgeEvent, type SimChannelState, SimSipBridge } from './sim-sip-bridge'
 
 describe('SimSipBridge — endpoint provisioning', () => {
   test('provisionEndpoint returns deterministic-shaped creds', async () => {
@@ -196,5 +196,246 @@ describe('SimSipBridge — channel + bridge state', () => {
     })
     await bridge.hangup('ch-a', 16, 'NORMAL_CLEARING')
     expect(bridge.getChannels()).toHaveLength(0)
+  })
+
+  test('getChannels() returned array mutation does not touch internal state', async () => {
+    const bridge = new SimSipBridge()
+    await bridge.inject({
+      callId: 'ch-a',
+      callerNumber: '+1',
+      calledNumber: '+2',
+      mode: 'sframe',
+    })
+    const channels = bridge.getChannels()
+    // `readonly` is compile-time; the array at runtime is a fresh copy.
+    ;(channels as SimChannelState[]).pop()
+    expect(bridge.getChannels()).toHaveLength(1)
+  })
+})
+
+describe('SimSipBridge — misuse contracts', () => {
+  test('inject() throws when callId is already active', async () => {
+    const bridge = new SimSipBridge()
+    await bridge.inject({
+      callId: 'ch-a',
+      callerNumber: '+1',
+      calledNumber: '+2',
+      mode: 'sframe',
+    })
+    await expect(
+      bridge.inject({
+        callId: 'ch-a',
+        callerNumber: '+1',
+        calledNumber: '+2',
+        mode: 'sframe',
+      })
+    ).rejects.toThrow(/already active/)
+  })
+
+  test('inject() for a previously-hung-up callId succeeds', async () => {
+    const bridge = new SimSipBridge()
+    await bridge.inject({
+      callId: 'ch-a',
+      callerNumber: '+1',
+      calledNumber: '+2',
+      mode: 'sframe',
+    })
+    await bridge.hangup('ch-a', 16, 'NORMAL_CLEARING')
+    await expect(
+      bridge.inject({
+        callId: 'ch-a',
+        callerNumber: '+1',
+        calledNumber: '+2',
+        mode: 'sframe',
+      })
+    ).resolves.toBeUndefined()
+  })
+
+  test('hangup() throws when channelId is unknown', async () => {
+    const bridge = new SimSipBridge()
+    await expect(bridge.hangup('ghost', 16, 'NORMAL_CLEARING')).rejects.toThrow(/unknown channelId/)
+  })
+
+  test('hangup() is not idempotent — second call throws', async () => {
+    const bridge = new SimSipBridge()
+    await bridge.inject({
+      callId: 'ch-a',
+      callerNumber: '+1',
+      calledNumber: '+2',
+      mode: 'sframe',
+    })
+    await bridge.hangup('ch-a', 16, 'NORMAL_CLEARING')
+    await expect(bridge.hangup('ch-a', 16, 'NORMAL_CLEARING')).rejects.toThrow(/unknown channelId/)
+  })
+})
+
+describe('SimSipBridge — sendDtmf', () => {
+  test('emits a dtmf_received event for an active channel', async () => {
+    const bridge = new SimSipBridge()
+    await bridge.inject({
+      callId: 'ch-a',
+      callerNumber: '+1',
+      calledNumber: '+2',
+      mode: 'sframe',
+    })
+    const events: SimBridgeEvent[] = []
+    bridge.onEvent((e) => events.push(e))
+    await bridge.sendDtmf('ch-a', '5')
+    expect(events).toHaveLength(1)
+    const dtmf = events[0]
+    if (dtmf.type !== 'dtmf_received') throw new Error('unreachable')
+    expect(dtmf.channelId).toBe('ch-a')
+    expect(dtmf.digit).toBe('5')
+    expect(dtmf.durationMs).toBe(100)
+  })
+
+  test('respects a custom durationMs', async () => {
+    const bridge = new SimSipBridge()
+    await bridge.inject({
+      callId: 'ch-a',
+      callerNumber: '+1',
+      calledNumber: '+2',
+      mode: 'sframe',
+    })
+    const events: SimBridgeEvent[] = []
+    bridge.onEvent((e) => events.push(e))
+    await bridge.sendDtmf('ch-a', '7', 250)
+    const dtmf = events[0]
+    if (dtmf.type !== 'dtmf_received') throw new Error('unreachable')
+    expect(dtmf.durationMs).toBe(250)
+  })
+
+  test('throws for an unknown channel', async () => {
+    const bridge = new SimSipBridge()
+    await expect(bridge.sendDtmf('ghost', '5')).rejects.toThrow(/unknown channelId/)
+  })
+})
+
+describe('SimSipBridge — emit() error isolation', () => {
+  test('one throwing handler does not prevent others from receiving the event', () => {
+    const bridge = new SimSipBridge()
+    const received: SimBridgeEvent[] = []
+    bridge.onEvent(() => {
+      throw new Error('boom')
+    })
+    bridge.onEvent((e) => received.push(e))
+    expect(() =>
+      bridge.emit({
+        type: 'channel_answer',
+        channelId: 'ch-a',
+        timestamp: new Date().toISOString(),
+      })
+    ).toThrow(AggregateError)
+    expect(received).toHaveLength(1)
+    expect(received[0].type).toBe('channel_answer')
+  })
+
+  test('AggregateError carries every handler error', () => {
+    const bridge = new SimSipBridge()
+    bridge.onEvent(() => {
+      throw new Error('a')
+    })
+    bridge.onEvent(() => {
+      throw new Error('b')
+    })
+    let caught: unknown
+    try {
+      bridge.emit({
+        type: 'channel_answer',
+        channelId: 'ch-a',
+        timestamp: new Date().toISOString(),
+      })
+    } catch (err) {
+      caught = err
+    }
+    expect(caught).toBeInstanceOf(AggregateError)
+    if (caught instanceof AggregateError) {
+      expect(caught.errors).toHaveLength(2)
+    }
+  })
+
+  test('emit() does not fan out to handlers added during the current emission', () => {
+    const bridge = new SimSipBridge()
+    const received: SimBridgeEvent[] = []
+    bridge.onEvent(() => {
+      bridge.onEvent((e) => received.push(e))
+    })
+    bridge.emit({
+      type: 'channel_answer',
+      channelId: 'ch-a',
+      timestamp: new Date().toISOString(),
+    })
+    expect(received).toHaveLength(0)
+  })
+})
+
+describe('SimSipBridge — deterministic clock', () => {
+  test('first event stamps at 2026-04-11T00:00:00.000Z', async () => {
+    const bridge = new SimSipBridge()
+    const events: SimBridgeEvent[] = []
+    bridge.onEvent((e) => events.push(e))
+    await bridge.inject({
+      callId: 'ch-a',
+      callerNumber: '+1',
+      calledNumber: '+2',
+      mode: 'sframe',
+    })
+    expect(events[0].timestamp).toBe('2026-04-11T00:00:00.000Z')
+  })
+
+  test('sequential events advance one second each', async () => {
+    const bridge = new SimSipBridge()
+    const events: SimBridgeEvent[] = []
+    bridge.onEvent((e) => events.push(e))
+    await bridge.inject({
+      callId: 'ch-a',
+      callerNumber: '+1',
+      calledNumber: '+2',
+      mode: 'sframe',
+    })
+    // inject emits two events: channel_create + channel_answer
+    expect(events[0].timestamp).toBe('2026-04-11T00:00:00.000Z')
+    expect(events[1].timestamp).toBe('2026-04-11T00:00:01.000Z')
+  })
+
+  test('two bridge instances do not share the clock', async () => {
+    const a = new SimSipBridge()
+    const b = new SimSipBridge()
+    const eventsA: SimBridgeEvent[] = []
+    const eventsB: SimBridgeEvent[] = []
+    a.onEvent((e) => eventsA.push(e))
+    b.onEvent((e) => eventsB.push(e))
+    await a.inject({
+      callId: 'ch-a',
+      callerNumber: '+1',
+      calledNumber: '+2',
+      mode: 'sframe',
+    })
+    await b.inject({
+      callId: 'ch-b',
+      callerNumber: '+1',
+      calledNumber: '+2',
+      mode: 'sframe',
+    })
+    expect(eventsA[0].timestamp).toBe('2026-04-11T00:00:00.000Z')
+    expect(eventsB[0].timestamp).toBe('2026-04-11T00:00:00.000Z')
+  })
+})
+
+describe('SimSipBridge — bridgePacket defensive byte copy', () => {
+  test('mutating captured bytes does not affect internal state', () => {
+    const bridge = new SimSipBridge()
+    bridge.bridgePacket('caller', new Uint8Array([0x01, 0x02, 0x03]))
+    const first = bridge.getCapturedPackets()
+    first[0].bytes[0] = 0xff
+    expect(bridge.getCapturedPackets()[0].bytes[0]).toBe(0x01)
+  })
+
+  test('mutating the input after bridgePacket does not corrupt history', () => {
+    const bridge = new SimSipBridge()
+    const input = new Uint8Array([0x01, 0x02, 0x03])
+    bridge.bridgePacket('caller', input)
+    input[0] = 0xff
+    expect(bridge.getCapturedPackets()[0].bytes[0]).toBe(0x01)
   })
 })
