@@ -540,7 +540,32 @@ export function isSFrameSupported(): boolean {
 }
 ```
 
-`isSFrameSupported()` is called once at boot and cached in a module-level constant. The WebRTC manager reads it before attempting to register a call with the SFrame worker; if false, it routes the call through a **non-E2EE fallback path** (plain DTLS-SRTP to Asterisk, no SFrame transform) and surfaces a prominent UI warning. The call still completes; the volunteer can choose to cancel or proceed.
+`isSFrameSupported()` is called once at boot and cached in a module-level constant. The WebRTC manager reads it before attempting to register a call with the SFrame worker.
+
+**Unsupported-browser UX — decided 2026-04-10: modal before the call with a browser-recommendation copy.** When `isSFrameSupported()` returns `false` and the hub policy is `preferred`, an `E2eeFallbackModal` appears before the call is accepted or placed. The modal is NOT a passive banner — the volunteer must explicitly choose between two options, and the copy points them at a better browser (same Firefox/Chromium/Safari recommendation pattern as Tier 1's native-curves hard-fail). Copy:
+
+> **This browser can't do end-to-end encrypted voice calls.**
+>
+> Your browser does not implement the [`RTCRtpScriptTransform`](https://www.w3.org/TR/webrtc-encoded-transform/) API that Llámenos uses to encrypt call audio end-to-end. Your call can still connect, but the audio will be protected only by the regular hop-by-hop encryption to the hotline's SIP bridge — not to your caller.
+>
+> **We recommend switching to a browser with full support:**
+> - **Firefox (latest)** — strongest privacy posture out of the box, full `RTCRtpScriptTransform` support since Firefox 117.
+> - **Brave (latest)** — Chromium-based with stricter privacy defaults than vanilla Chrome; ships the standard API.
+> - **Chrome, Chromium, or Edge (2025 releases and newer)** — standard API support.
+> - **Safari 15.4 or newer** — full native support.
+>
+> If you need to take this call right now on this browser, you can proceed without end-to-end encryption. Your hotline admin will be notified that the call was not E2EE. Your call notes and any stored recordings remain encrypted exactly as they would be for an E2EE call.
+>
+> [**Switch browsers and reconnect later**]   [**Proceed without E2EE this one time**]
+
+The modal has two buttons with explicit semantics:
+
+- **"Switch browsers and reconnect later"** — cancels the call (outgoing) or rejects it with a polite hangup message (incoming). No fallback path is taken; the hub is informed via the existing call-missed pathway.
+- **"Proceed without E2EE this one time"** — accepts the call. The choice is remembered in `sessionStorage` under key `llamenos-accepted-non-e2ee-session` so subsequent calls in the same tab session don't re-show the modal. Closing the tab forgets the choice. A `non_e2ee_call_accepted` audit entry is signed and appended so admin can see the pattern.
+
+The modal is testid `modal-e2ee-fallback`, button testids `btn-switch-browsers` and `btn-proceed-non-e2ee`. i18n keys: `voice.e2ee.fallback.title`, `voice.e2ee.fallback.body`, `voice.e2ee.fallback.browsers.firefox`, `voice.e2ee.fallback.browsers.brave`, `voice.e2ee.fallback.browsers.chrome`, `voice.e2ee.fallback.browsers.safari`, `voice.e2ee.fallback.proceed_note`, `voice.e2ee.fallback.switch_and_reconnect`, `voice.e2ee.fallback.proceed_once`. All 22 locales per §5.11.1.
+
+Explicit-choice-over-silent-fallback was chosen because silent fallback is exactly the "false sense of security" anti-pattern the master doc §3.11 (Mega cautionary tale) warns against. Volunteers must know when the call is not E2EE and must actively consent. The modal adds ~1 second to the accept/place latency in the rare unsupported-browser case; in the happy path (supported browser) the modal never renders and latency is unchanged.
 
 **Per-hub policy.** A new hub setting `voiceCallE2eePolicy: 'required' | 'preferred' | 'off'` (stored in hub settings, hub-key-encrypted as usual) gates fallback behavior:
 
@@ -645,7 +670,7 @@ Tier 3 delivers per-device keys (each device has its own X25519 + Ed25519 keypai
 ### 5.11. UI/UX changes
 
 - **E2EE badge.** `src/client/components/call/ActiveCallBadge.tsx` (new) — displayed in the active-call overlay. Three states: `e2ee-direct` (SFrame active, DTLS fingerprint verified peer-to-peer), `e2ee-relayed` (SFrame active, Asterisk is a B2BUA so DTLS fingerprint check skipped), `not-e2ee` (caller on PSTN, G.711 transcoding, or browser does not support SFrame). Hover tooltip explains the state in the user's language (i18n keys added to all 22 locale JSONs at `public/locales/*.json` — see §5.11.1 for the full list).
-- **Fallback warning banner.** `src/client/components/call/E2eeFallbackBanner.tsx` (new) — shows before the call connects when the hub policy is `preferred` and the browser/leg cannot do SFrame. Two-button modal: "Call without E2EE" / "Cancel call". The choice is remembered in per-session state, not persisted across tabs.
+- **Fallback modal (`E2eeFallbackModal.tsx`).** See §5.8 for the complete design — before an unsupported-browser call connects, the volunteer sees a modal with the full browser-recommendation copy (Firefox / Brave / Chromium / Safari 15.4+) and must explicitly choose "Switch browsers and reconnect later" or "Proceed without E2EE this one time". The "proceed" choice is remembered in `sessionStorage` for the tab session, not persisted across tabs.
 - **Admin setting.** `src/client/routes/admin/settings/voice-e2ee.tsx` (new) — hub admins see a single radio group `voiceCallE2eePolicy: required | preferred | off`. Default `preferred`. Persisted via the existing hub-settings API.
 - **Incident code on failure.** `CryptoLabelMismatchError`, `sframe_key_not_received`, `dtls_fingerprint_mismatch`, `key_rotation_gap`, `aad_mismatch` all surface as toasts with a short incident code users can paste to support. Toast testids: `toast-sframe-error`, with a `data-incident-code` attribute for E2E tests.
 
@@ -678,6 +703,26 @@ am, ar, de, en, es, fa, fr, hi, ht, ko, ku, mix, my, pt, quc, ru, so, tl, tr, uk
 **Why this split:** quality over throughput. A single 3000-line conversation doing 22 locales would produce a "close enough" translation for the less-common languages that a native speaker would flag. Two sessions with a clean boundary allow the translation session to focus on cultural and linguistic accuracy rather than alongside implementation work.
 
 ### 5.12. Test fixtures — simulated SIP bridge and simulated caller
+
+**PR ordering — decided 2026-04-10: sim-SIP-bridge + sim-caller ship as a separate prerequisite PR BEFORE the main Tier 5 PR.** The sim-SIP-bridge (§5.12.1) and sim-caller (§5.12.2) are each several hundred lines of test infrastructure (RTP/ARI simulation, WebRTC event abstraction, Opus frame generation). Reviewing them inline with the Tier 5 SFrame code forces a reviewer to hold both contexts simultaneously and invites context-window fatigue that degrades review quality. Landing them as a separate prerequisite PR means:
+
+1. The test-infra PR gets focused review against the existing `@shared/sframe/` module and the current WebRTC adapter interface — no distraction from the SFrame encode/decode changes.
+2. The Tier 5 PR, when it opens, already has the test fixtures available on main. New tests added in Tier 5 use the pre-existing fixtures via normal imports. Reviewers of the Tier 5 PR see test code that calls `new SimSipBridge(...)` without having to read the bridge's implementation.
+3. The sim-bridge can be used by Tier 3 and Tier 4 tests that also need a fake telephony layer (e.g. Tier 3 device-revoke-during-call adversarial tests, Tier 4 iframe-to-sandbox RPC timing tests). Landing it first means those tiers can optionally reuse it.
+
+**Prerequisite PR scope** (a new PR separate from the Tier 5 PR, opened against main):
+
+- `tests/fixtures/sim-sip-bridge.ts` — full implementation
+- `tests/fixtures/sim-sip-bridge.test.ts` — unit tests of the bridge itself (bridge-packet round-trip, captured-packets ordering, mode switching)
+- `tests/fixtures/sim-caller.ts` — full implementation
+- `tests/fixtures/sim-caller.test.ts` — unit tests (frame produce/consume, Nostr subscription mocking)
+- `tests/helpers/sframe-test-utils.ts` — shared helpers (mock SFrame key generation, mock RTP packet layout)
+- `docs/testing/TEST_FIXTURES_SFRAME.md` — reference for how to use the fixtures in call tests
+
+**NO SFrame production code in the prerequisite PR.** The prerequisite is pure test infrastructure and can be reviewed without any understanding of the Tier 5 SFrame changes. Tier 5's main PR depends on the prerequisite being merged first; the Tier 5 plan explicitly notes this prerequisite in its opening block.
+
+**Why not inline.** Context-window fatigue is a real quality risk on large PRs. A prerequisite PR of pure test infra is a cheap way to split the review surface without adding merge-order complexity — the prerequisite has no runtime impact, cannot break any existing tests, and is reviewed on its own merits.
+
 
 Tier 5 introduces two new test fixtures so the entire SFrame pipeline can be exercised without a real Asterisk container:
 
