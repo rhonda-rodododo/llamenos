@@ -212,7 +212,12 @@ export function TagsSection() {
             >
               <span
                 className="h-3.5 w-3.5 rounded-full shrink-0"
-                style={{ backgroundColor: tag.color || '#888' }}
+                style={
+                  {
+                    '--tag-color': tag.color || '#888',
+                    backgroundColor: 'var(--tag-color)',
+                  } as React.CSSProperties
+                }
               />
 
               <div className="flex-1 min-w-0">
@@ -322,7 +327,12 @@ export function TagsSection() {
                         ? 'border-foreground scale-110'
                         : 'border-transparent hover:border-muted-foreground/50'
                     )}
-                    style={{ backgroundColor: color }}
+                    style={
+                      {
+                        '--swatch-color': color,
+                        backgroundColor: 'var(--swatch-color)',
+                      } as React.CSSProperties
+                    }
                     onClick={() => setForm((prev) => ({ ...prev, color }))}
                     data-testid={`admin-tags-color-${color}`}
                   >

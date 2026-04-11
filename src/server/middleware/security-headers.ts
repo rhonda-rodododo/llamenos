@@ -6,6 +6,7 @@ function buildCsp(nonce: string, host: string, relayWsOrigin: string, isHttps: b
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
     `style-src 'self' 'nonce-${nonce}'`,
+    "style-src-attr 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self'",
     `connect-src 'self' wss://${host}${relayWsOrigin}`,
