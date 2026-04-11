@@ -38,10 +38,11 @@ RUN bun install --frozen-lockfile --ignore-scripts
 # Copy source
 COPY src/ src/
 COPY public/ public/
+COPY scripts/verify-no-console.sh scripts/verify-no-console.sh
 COPY index.html vite.config.ts tsconfig.json ./
 COPY tailwind.config.ts* ./
 
-# Build frontend (Vite) — reads SOURCE_DATE_EPOCH and GITHUB_SHA
+# Build frontend (Vite + verify-no-console gate) — reads SOURCE_DATE_EPOCH and GITHUB_SHA
 RUN bun run build
 
 # Output: /build/dist/client/

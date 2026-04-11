@@ -8,6 +8,7 @@
 import type { MessagingChannelType, TelephonyProviderConfig } from '../../shared/types'
 import type { CryptoService } from '../lib/crypto-service'
 import { AppError } from '../lib/errors'
+import { createLogger } from '../lib/logger'
 import { type NostrPublisher, createNostrPublisher } from '../lib/nostr-publisher'
 import type { MessagingAdapter } from '../messaging/adapter'
 import { createRCSAdapter } from '../messaging/rcs/factory'
@@ -25,6 +26,8 @@ import { SignalWireAdapter } from '../telephony/signalwire'
 import { TelnyxAdapter } from '../telephony/telnyx'
 import { TwilioAdapter } from '../telephony/twilio'
 import { VonageAdapter } from '../telephony/vonage'
+
+const log = createLogger('lib.adapters')
 
 let cachedPublisher: NostrPublisher | null = null
 
@@ -58,10 +61,9 @@ export async function getTelephony(
     } catch (e) {
       // Config exists but is incomplete (e.g. type:'twilio' without credentials).
       // Fall through to env-var / TestAdapter fallback instead of throwing 500.
-      console.warn(
-        '[telephony] DB config invalid, falling through to fallback:',
-        (e as Error).message
-      )
+      log.warn('DB telephony config invalid, falling through to fallback', {
+        err: (e as Error).message,
+      })
     }
   }
 
@@ -148,7 +150,7 @@ export function closeNostrPublisher(): void {
     try {
       cachedPublisher.close()
     } catch (err) {
-      console.error('[nostr] publisher close failed:', err)
+      log.error('Nostr publisher close failed', err)
     }
     cachedPublisher = null
   }

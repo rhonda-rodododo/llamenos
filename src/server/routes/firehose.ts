@@ -11,10 +11,13 @@ import {
 import type { z as Zod } from 'zod/v4'
 import type { firehoseConnections } from '../db/schema/firehose'
 import { generateAgentKeypair } from '../lib/agent-identity'
+import { createLogger } from '../lib/logger'
 import { createRouter } from '../lib/openapi'
 import { requirePermission } from '../middleware/permission-guard'
 
 type FirehoseConnectionRow = typeof firehoseConnections.$inferSelect
+
+const log = createLogger('routes.firehose')
 
 const firehoseRoutes = createRouter()
 
@@ -334,7 +337,7 @@ firehoseRoutes.openapi(updateRoute, async (c) => {
     // Start agent if transitioning to active
     services.firehoseAgent
       ?.startAgent(id)
-      .catch((err) => console.error(`[firehose] Failed to start agent ${id}:`, err))
+      .catch((err) => log.error('Failed to start agent', err, { connectionId: id }))
   }
 
   await services.records.addAuditEntry(hubId, 'firehoseConnectionUpdated', pubkey, {

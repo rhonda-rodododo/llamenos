@@ -22,6 +22,7 @@ import {
   getTelephony,
 } from './lib/adapters'
 import { CryptoService } from './lib/crypto-service'
+import { createLogger } from './lib/logger'
 import { createStorageAdmin } from './lib/storage-admin'
 import { createStorageManager, resolveStorageCredentials } from './lib/storage-manager'
 import { errorHandler } from './middleware/error'
@@ -30,8 +31,10 @@ import { createServices } from './services'
 import { ProviderHealthService } from './services/provider-health'
 import type { StorageManager } from './types'
 
+const log = createLogger('server')
+
 async function main() {
-  console.log('[llamenos] Starting server...')
+  log.info('Starting server')
 
   const env = loadEnv()
 
@@ -72,32 +75,30 @@ async function main() {
 
   // Refuse to start in production with session token rotation disabled.
   if (process.env.DISABLE_TOKEN_ROTATION === 'true' && process.env.NODE_ENV === 'production') {
-    console.error('FATAL: DISABLE_TOKEN_ROTATION must not be enabled in production')
+    log.error('FATAL: DISABLE_TOKEN_ROTATION must not be enabled in production')
     process.exit(1)
   }
   if (process.env.DISABLE_TOKEN_ROTATION === 'true') {
-    console.warn('[auth] Session token rotation DISABLED (test/dev only)')
+    log.warn('Session token rotation DISABLED (test/dev only)')
   }
 
   // Phase 4: Startup diagnostics for optional env vars
   if (!env.APP_URL) {
-    console.warn('[llamenos] ⚠  APP_URL not set — invite links and webhooks may use wrong base URL')
+    log.warn('APP_URL not set — invite links and webhooks may use wrong base URL')
   }
   if (!env.CORS_ALLOWED_ORIGINS) {
-    console.warn(
-      '[llamenos] ⚠  CORS_ALLOWED_ORIGINS not set — only built-in origins allowed (localhost in dev)'
-    )
+    log.warn('CORS_ALLOWED_ORIGINS not set — only built-in origins allowed (localhost in dev)')
   }
   if (!env.TWILIO_ACCOUNT_SID || !env.TWILIO_AUTH_TOKEN) {
-    console.warn('[llamenos] ⚠  Twilio credentials missing — telephony features disabled')
+    log.warn('Twilio credentials missing — telephony features disabled')
   }
   if (!env.NOSTR_RELAY_URL) {
-    console.warn('[llamenos] ⚠  NOSTR_RELAY_URL not set — real-time relay events degraded')
+    log.warn('NOSTR_RELAY_URL not set — real-time relay events degraded')
   }
 
   const db = initDb(env.DATABASE_URL)
   await migrate(db, { migrationsFolder: path.resolve(process.cwd(), 'drizzle', 'migrations') })
-  console.log('[llamenos] Migrations applied')
+  log.info('Migrations applied')
 
   let storage: StorageManager | null = null
   try {
@@ -111,10 +112,10 @@ async function main() {
     // Check if RustFS admin API is available for per-hub IAM
     const iamAvailable = await admin.available()
     if (iamAvailable) {
-      console.log('[llamenos] RustFS admin API available — per-hub IAM enabled')
+      log.info('RustFS admin API available — per-hub IAM enabled')
     } else {
-      console.warn(
-        '[llamenos] RustFS admin API not available — per-hub IAM disabled, using root credentials for all hubs'
+      log.warn(
+        'RustFS admin API not available — per-hub IAM disabled, using root credentials for all hubs'
       )
     }
 
@@ -122,7 +123,7 @@ async function main() {
       ...storageCreds,
       admin: iamAvailable ? admin : undefined,
     })
-    console.log('[llamenos] RustFS storage manager connected')
+    log.info('RustFS storage manager connected')
 
     // Ensure the "global" fallback buckets exist for operations without hub context
     try {
@@ -131,7 +132,7 @@ async function main() {
       // Buckets may already exist — safe to ignore
     }
   } catch {
-    console.warn('[llamenos] Storage not configured — file upload/download routes will return 503')
+    log.warn('Storage not configured — file upload/download routes will return 503')
   }
 
   const crypto = new CryptoService(env.SERVER_NOSTR_SECRET ?? '', env.HMAC_SECRET ?? '')
@@ -160,9 +161,9 @@ async function main() {
       )
       services.firehoseAgent = agentService
       await agentService.init()
-      console.log('[llamenos] Firehose agent service initialized')
+      log.info('Firehose agent service initialized')
     } catch (err) {
-      console.error('[llamenos] Failed to initialize firehose agents:', err)
+      log.error('Failed to initialize firehose agents', err)
     }
   }
 
@@ -176,7 +177,7 @@ async function main() {
       const adapter = await getTelephony(services.settings)
       if (adapter) await providerHealth.checkProvider('telephony', 'active', adapter)
     } catch (err) {
-      console.error('[health] Telephony check error:', err)
+      log.error('Telephony health check error', err)
     }
 
     try {
@@ -195,14 +196,14 @@ async function main() {
         }
       }
     } catch (err) {
-      console.error('[health] Messaging check error:', err)
+      log.error('Messaging health check error', err)
     }
   }, healthInterval)
-  console.log(`[llamenos] Provider health monitoring started (interval: ${healthInterval}ms)`)
+  log.info('Provider health monitoring started', { intervalMs: healthInterval })
 
   // Schedule daily retention purge at 03:00 UTC
   scheduleRetentionPurge(services)
-  console.log('[llamenos] Data retention purge scheduled')
+  log.info('Data retention purge scheduled')
 
   // Schedule Signal digest crons
   const { runDigestCron } = await import('./services/digest-cron')
@@ -215,7 +216,9 @@ async function main() {
         services.signalContacts,
         services.userNotifications,
         'daily'
-      ).catch((err) => console.error('[digest] daily digest failed:', err))
+      ).catch((err) =>
+        log.error('daily digest failed', err instanceof Error ? err : new Error(String(err)))
+      )
     },
     24 * 3600 * 1000
   )
@@ -229,34 +232,38 @@ async function main() {
         services.signalContacts,
         services.userNotifications,
         'weekly'
-      ).catch((err) => console.error('[digest] weekly digest failed:', err))
+      ).catch((err) =>
+        log.error('weekly digest failed', err instanceof Error ? err : new Error(String(err)))
+      )
     },
     7 * 24 * 3600 * 1000
   )
   weeklyDigestInterval.unref?.()
-  console.log('[llamenos] Signal digest crons scheduled')
+  log.info('Signal digest crons scheduled')
 
   // Initialize IdP adapter (Authentik by default) — hard-fail on error; Docker restarts via restart: unless-stopped
   const { createIdPAdapter } = await import('./idp/index')
   const idpAdapter = await createIdPAdapter()
   const { setIdPAdapter } = await import('./app')
   setIdPAdapter(idpAdapter)
-  console.log(`[llamenos] IdP adapter initialized (${process.env.IDP_ADAPTER || 'authentik'})`)
+  log.info('IdP adapter initialized', { adapter: process.env.IDP_ADAPTER || 'authentik' })
 
   const blastProcessorInterval = scheduleBlastProcessor(
     services,
     crypto,
     env.SERVER_NOSTR_SECRET ?? ''
   )
-  console.log('[llamenos] Blast delivery processor started (30s poll)')
+  log.info('Blast delivery processor started (30s poll)')
 
   // Eagerly connect Nostr publisher
   const publisher = getNostrPublisher(env)
   if (publisher.connect) {
     publisher.connect().catch((err) => {
-      console.warn('[llamenos] Nostr publisher eager connect failed (will retry):', err)
+      log.warn('Nostr publisher eager connect failed (will retry)', {
+        err: err instanceof Error ? err.message : String(err),
+      })
     })
-    console.log('[llamenos] Nostr publisher connecting eagerly')
+    log.info('Nostr publisher connecting eagerly')
   }
 
   const { default: serverApp } = await import('./app')
@@ -295,13 +302,13 @@ async function main() {
       port,
     },
     (info) => {
-      console.log(`[llamenos] Server running at http://localhost:${info.port}`)
+      log.info('Server running', { url: `http://localhost:${info.port}` })
     }
   )
 
   // Graceful shutdown
   const shutdown = () => {
-    console.log('[llamenos] Shutting down...')
+    log.info('Shutting down')
 
     services.firehoseAgent?.shutdown()
     providerHealth.stop()
@@ -309,7 +316,7 @@ async function main() {
     clearInterval(blastProcessorInterval)
 
     server.close(() => {
-      console.log('[llamenos] Server stopped')
+      log.info('Server stopped')
       process.exit(0)
     })
   }
@@ -319,6 +326,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error('[llamenos] Failed to start:', err)
+  log.error('Failed to start', err)
   process.exit(1)
 })

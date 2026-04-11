@@ -49,7 +49,10 @@ const GEOIP_DB_PATH = process.env.GEOIP_DB_PATH ?? './data/geoip/dbip-city.mmdb'
 const SESSION_COOKIE_MAX_AGE = 30 * 24 * 60 * 60 // 30 days in seconds
 import type { Ciphertext } from '../../shared/crypto-types'
 import type { RecipientEnvelope } from '../../shared/types'
+import { createLogger } from '../lib/logger'
 import type { WebAuthnCredential } from '../types'
+
+const log = createLogger('routes.auth-facade')
 
 // ---------------------------------------------------------------------------
 // Type bindings for Hono context
@@ -280,7 +283,7 @@ authFacade.post('/webauthn/login-verify', async (c) => {
         payload: { ipHash, credentialId: matched.id },
       })
     } catch (err) {
-      console.error('[auth-facade] auth event recording failed:', err)
+      log.error('auth event recording failed', err instanceof Error ? err : new Error(String(err)))
     }
     return c.json({ error: 'Verification failed' }, 401)
   }
@@ -292,7 +295,7 @@ authFacade.post('/webauthn/login-verify', async (c) => {
         payload: { ipHash, credentialId: matched.id },
       })
     } catch (err) {
-      console.error('[auth-facade] auth event recording failed:', err)
+      log.error('auth event recording failed', err instanceof Error ? err : new Error(String(err)))
     }
     return c.json({ error: 'Verification failed' }, 401)
   }
@@ -346,7 +349,7 @@ authFacade.post('/webauthn/login-verify', async (c) => {
       },
     })
   } catch (err) {
-    console.error('[auth-facade] auth event recording failed:', err)
+    log.error('auth event recording failed', err instanceof Error ? err : new Error(String(err)))
   }
 
   // Fire new-device alert on first sighting of this IP hash (non-fatal, fire-and-forget)
@@ -360,7 +363,9 @@ authFacade.post('/webauthn/login-verify', async (c) => {
           country: geoCountry,
           userAgent: formatUserAgent(userAgent),
         })
-        .catch((err) => console.error('[auth-facade] notification failed:', err))
+        .catch((err) =>
+          log.error('notification failed', err instanceof Error ? err : new Error(String(err)))
+        )
     }
   }
 
@@ -526,14 +531,16 @@ authFacade.post('/webauthn/register-verify', async (c) => {
         payload: { credentialId: regCred.id, credentialLabel: newCred.label },
       })
     } catch (err) {
-      console.error('[auth-facade] auth event recording failed:', err)
+      log.error('auth event recording failed', err instanceof Error ? err : new Error(String(err)))
     }
 
     const notifications = c.get('userNotifications')
     if (notifications) {
       void notifications
         .sendAlert(pubkey, { type: 'passkey_added', credentialLabel: newCred.label })
-        .catch((err) => console.error('[auth-facade] notification failed:', err))
+        .catch((err) =>
+          log.error('notification failed', err instanceof Error ? err : new Error(String(err)))
+        )
     }
 
     return c.json({ ok: true })
@@ -584,7 +591,10 @@ authFacade.post('/token/refresh', async (c) => {
           payload: { sessionId: session.id, meta: { reason: 'replay' } },
         })
       } catch (err) {
-        console.error('[auth-facade] auth event recording failed:', err)
+        log.error(
+          'auth event recording failed',
+          err instanceof Error ? err : new Error(String(err))
+        )
       }
       const notifications = c.get('userNotifications')
       if (notifications) {
@@ -594,11 +604,16 @@ authFacade.post('/token/refresh', async (c) => {
             city: 'unknown',
             country: 'unknown',
           })
-          .catch((err) => console.error('[auth-facade] replay notification failed:', err))
+          .catch((err) =>
+            log.error(
+              'replay notification failed',
+              err instanceof Error ? err : new Error(String(err))
+            )
+          )
       }
       return c.json({ error: 'Session revoked' }, 401)
     }
-    console.warn('[auth] refresh via prev_token_hash (grace window)', { sessionId: session.id })
+    log.warn('refresh via prev_token_hash (grace window)', { sessionId: session.id })
   }
 
   // Rotate token (skip in test mode where storage-state fixtures reuse cookies).
@@ -723,7 +738,7 @@ authFacade.post('/session/revoke', async (c) => {
       payload: { sessionId: sessionIdCookie ?? undefined },
     })
   } catch (err) {
-    console.error('[auth-facade] auth event recording failed:', err)
+    log.error('auth event recording failed', err instanceof Error ? err : new Error(String(err)))
   }
 
   // Also revoke IdP session if still applicable (skipped in test mode).
@@ -790,7 +805,7 @@ authFacade.delete('/sessions/:id', async (c) => {
       payload: { sessionId: id },
     })
   } catch (err) {
-    console.error('[auth-facade] auth event recording failed:', err)
+    log.error('auth event recording failed', err instanceof Error ? err : new Error(String(err)))
   }
   return c.json({ ok: true })
 })
@@ -808,7 +823,7 @@ authFacade.post('/sessions/revoke-others', async (c) => {
       payload: { meta: { count } },
     })
   } catch (err) {
-    console.error('[auth-facade] auth event recording failed:', err)
+    log.error('auth event recording failed', err instanceof Error ? err : new Error(String(err)))
   }
   return c.json({ revokedCount: count })
 })
@@ -888,13 +903,15 @@ authFacade.post('/pin/change', async (c) => {
       payload: {},
     })
   } catch (err) {
-    console.error('[auth-facade] auth event recording failed:', err)
+    log.error('auth event recording failed', err instanceof Error ? err : new Error(String(err)))
   }
   const notifications = c.get('userNotifications')
   if (notifications) {
     void notifications
       .sendAlert(pubkey, { type: 'pin_changed' })
-      .catch((err) => console.error('[auth-facade] notification failed:', err))
+      .catch((err) =>
+        log.error('notification failed', err instanceof Error ? err : new Error(String(err)))
+      )
   }
   return c.json({ ok: true })
 })
@@ -929,13 +946,15 @@ authFacade.post('/recovery/rotate', async (c) => {
       payload: {},
     })
   } catch (err) {
-    console.error('[auth-facade] auth event recording failed:', err)
+    log.error('auth event recording failed', err instanceof Error ? err : new Error(String(err)))
   }
   const notifications = c.get('userNotifications')
   if (notifications) {
     void notifications
       .sendAlert(pubkey, { type: 'recovery_rotated' })
-      .catch((err) => console.error('[auth-facade] notification failed:', err))
+      .catch((err) =>
+        log.error('notification failed', err instanceof Error ? err : new Error(String(err)))
+      )
   }
   return c.json({ ok: true })
 })
@@ -1069,7 +1088,7 @@ authFacade.patch('/passkeys/:id', async (c) => {
         payload: { credentialId: credId },
       })
     } catch (err) {
-      console.error('[auth-facade] auth event recording failed:', err)
+      log.error('auth event recording failed', err instanceof Error ? err : new Error(String(err)))
     }
     return c.json({ ok: true })
   } catch {
@@ -1099,14 +1118,16 @@ authFacade.delete('/passkeys/:id', async (c) => {
       payload: { credentialId: credId, credentialLabel: existing?.label },
     })
   } catch (err) {
-    console.error('[auth-facade] auth event recording failed:', err)
+    log.error('auth event recording failed', err instanceof Error ? err : new Error(String(err)))
   }
   if (existing) {
     const notifications = c.get('userNotifications')
     if (notifications) {
       void notifications
         .sendAlert(pubkey, { type: 'passkey_removed', credentialLabel: existing.label })
-        .catch((err) => console.error('[auth-facade] notification failed:', err))
+        .catch((err) =>
+          log.error('notification failed', err instanceof Error ? err : new Error(String(err)))
+        )
     }
   }
   return c.json({ ok: true })
@@ -1135,14 +1156,16 @@ authFacade.delete('/devices/:id', async (c) => {
       payload: { credentialId: credId, credentialLabel: existing?.label },
     })
   } catch (err) {
-    console.error('[auth-facade] auth event recording failed:', err)
+    log.error('auth event recording failed', err instanceof Error ? err : new Error(String(err)))
   }
   if (existing) {
     const notifications = c.get('userNotifications')
     if (notifications) {
       void notifications
         .sendAlert(pubkey, { type: 'passkey_removed', credentialLabel: existing.label })
-        .catch((err) => console.error('[auth-facade] notification failed:', err))
+        .catch((err) =>
+          log.error('notification failed', err instanceof Error ? err : new Error(String(err)))
+        )
     }
   }
   return c.json({ ok: true })
@@ -1217,7 +1240,7 @@ authFacade.post('/events/:id/report', async (c) => {
       reportedEventType: updated.eventType,
     })
   } catch (err) {
-    console.error('[auth-facade] auth event recording failed:', err)
+    log.error('audit entry recording failed', err instanceof Error ? err : new Error(String(err)))
   }
   return c.json({ ok: true })
 })
@@ -1323,7 +1346,10 @@ authFacade.delete('/signal-contact', async (c) => {
         }
       )
     } catch (err) {
-      console.error('[auth-facade] signal notifier cleanup failed:', err)
+      log.error(
+        'signal notifier cleanup failed',
+        err instanceof Error ? err : new Error(String(err))
+      )
     }
     await svc.deleteByUser(pubkey)
   }

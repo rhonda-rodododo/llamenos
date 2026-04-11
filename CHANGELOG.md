@@ -5,6 +5,73 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.41.1] - 2026-04-11
+
+### Bug Fixes
+
+- commit pii-check.sh with env-var-sourced patterns (#60)
+
+### Miscellaneous
+
+- v0.41.1 [skip ci]
+
+## [0.41.0] - 2026-04-10
+
+### Features
+
+- structured logging infrastructure with PII protection (#45)
+
+### Miscellaneous
+
+- v0.41.0 [skip ci]
+
+### Ansible
+
+- multi-distro abstraction (Debian 12/13 + Ubuntu 22/24) (#49)
+
+## [0.40.0] - 2026-04-10
+
+### Bug Fixes
+
+- load hub keys after session capsule restore
+- repair user_security_prefs column drift from PR #46
+- address PR #50 critical review findings
+
+### Documentation
+
+- PR A amendments — cross-tab lock, orphan cleanup, sweep triage
+- PR A — session capsule + e2e test infra implementation plan
+- add type-brand hardening follow-up from PR #50 review
+
+### Features
+
+- exportSession/importSession handlers
+- exportSession/importSession RPC
+- IDB + sessionStorage capsule store
+- session capsule persistence + cross-tab lock
+- call trySessionRestore in restoreSession fast path
+- clear session capsule as first step
+- cross-tab token sync via BroadcastChannel
+
+### Miscellaneous
+
+- add fake-indexeddb for session-capsule unit tests
+- v0.40.0 [skip ci]
+
+### Testing
+
+- unit tests covering happy path, orphan cleanup, expiry, pubkey mismatch, debounce
+- add clearSessionCapsule helper
+- migrate reload-persistence tests to capsule auto-restore
+- direct SQL verification after test-reset
+- simplify reenterPinAfterReload to 12 lines
+- replace page.goto() with SPA nav in authenticated tests
+- document navigation patterns
+- session-capsule E2E coverage
+- fix test isolation — move globals to beforeEach/afterEach
+- add cross-tab lock unit tests + hub-key E2E + testid migration
+- sync edge cases, migration integration test, panic-wipe assertions, docstring fixes
+
 ## [0.39.1] - 2026-04-09
 
 ### Bug Fixes

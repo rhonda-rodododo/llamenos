@@ -36,7 +36,7 @@
   hosts: demo
   become: true
   roles:
-    - role: docker
+    - role: geerlingguy.docker
       tags: [docker, deploy]
     - role: llamenos
       tags: [llamenos, deploy]

@@ -242,12 +242,10 @@ test.describe('Locale persistence', () => {
     const headingDe = adminPage.getByRole('heading', { name: /dashboard|übersicht/i })
     await expect(headingDe).toBeVisible({ timeout: 5_000 })
 
-    // Reload — wipes crypto worker, so PIN re-entry is needed
+    // Reload — capsule auto-restores the worker, so no PIN re-entry needed
     await adminPage.reload()
-    const { reenterPinAfterReload } = await import('../helpers')
-    await reenterPinAfterReload(adminPage)
 
-    // German should still be active after reload + PIN re-entry
+    // German should still be active after reload
     const pageText = await adminPage.evaluate(() => document.body.innerText)
     // The page should NOT be displaying raw English "Dashboard" if German persisted
     // Check that the locale selector shows German (use sidebar selector specifically)

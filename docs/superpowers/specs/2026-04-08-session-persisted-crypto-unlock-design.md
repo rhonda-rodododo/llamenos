@@ -198,3 +198,44 @@ This happens before the existing `keyManager.isUnlocked()` check, so the flow be
 5. Lock via auto-lock timer: capsule cleared, next reload requires PIN
 6. Key rotation: new capsule exported, old one replaced
 7. No regression in existing E2E tests
+
+---
+
+## Amendment 2026-04-09 — Cross-tab lock, orphan cleanup, future work
+
+Added during PR A brainstorming. These refinements extend the original design without changing its core flow.
+
+### Cross-tab lock propagation via `BroadcastChannel`
+
+**Problem:** The original spec accepts that locking in tab A leaves tab B's Worker unlocked until tab B reloads. This violates user expectation ("lock everywhere").
+
+**Design:** Add a `BroadcastChannel('llamenos-lock')` owned by `key-manager.ts`.
+
+- `lock()`, `wipeKey()`, and panic-wipe post `{type: 'lock'}` on the channel as their first step, before any local destruction. Posting is synchronous and does not block on delivery.
+- A module-level subscriber listens for the message. On receipt, it calls `lock()` locally.
+- A `suppressBroadcast` flag guards the listener path so the secondary `lock()` does not re-broadcast and cause an infinite loop.
+- The channel is closed in a `beforeunload` handler for hygiene.
+
+This adds ~20 lines to `key-manager.ts`. No new dependencies. BroadcastChannel is baseline-supported in all target browsers; if missing (very old browsers or some private modes), cross-tab lock silently degrades to the original tabs-lock-independently behavior.
+
+**Test hook:** The new `clearSessionCapsule` test helper (see e2e-test-infrastructure spec amendment) also dispatches the lock broadcast so tests can deterministically force a lock across all tabs of a `BrowserContext`.
+
+### IDB orphan cleanup on load
+
+**Problem:** If sessionStorage is cleared (browser restart, tab close) but the user reopens the app, the IDB capsule is orphaned — undecryptable (token is gone) but still occupying storage. Over time, stale capsules accumulate.
+
+**Design:** `loadCapsule()` deletes the IDB entry as part of the "return null" path when sessionStorage has no token. No security implication — the orphan was already unreadable — but prevents storage bloat.
+
+### Debounced auto-lock expiry update cadence
+
+Confirming the spec default of **30 seconds** debounce on `updateAutoLockExpiry`. Worst-case drift is ~29 seconds, which in the pathological scenario means the capsule's stored expiry is slightly stale versus the in-memory timer; reload in that window may fall through to PIN entry even though the timer "should" still be live. Acceptable tradeoff versus IDB write frequency.
+
+### Future work (not in PR A)
+
+**Shared auto-lock timer across tabs (Option C from brainstorming).** Tabs currently each have their own idle-detection timer, so one tab can auto-lock while another is active. A future iteration could move the authoritative `autoLockExpiresAt` into IDB with a `BroadcastChannel` for activity pings, giving all tabs a single shared timer. Deferred because:
+
+- Subtle concurrency: which tab owns idle detection? How are BroadcastChannel activity pings reconciled with IDB writes?
+- Current behavior (independent per-tab timers) is defensible security-wise — an idle tab genuinely has been idle even if a sibling tab is active.
+- Not needed to unblock PR A's stated goals.
+
+Capture as a backlog item once PR A merges, so it is not lost.

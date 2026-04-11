@@ -4,9 +4,12 @@ import { eq } from 'drizzle-orm'
 import type { Hub } from '../../shared/types'
 import { getDb } from '../db'
 import { hubStorageCredentials, hubStorageSettings } from '../db/schema/storage'
+import { createLogger } from '../lib/logger'
 import { createRouter } from '../lib/openapi'
 import { checkPermission, requirePermission } from '../middleware/permission-guard'
 import { type AppEnv, STORAGE_NAMESPACES, type StorageNamespace } from '../types'
+
+const log = createLogger('routes.hubs')
 
 const routes = createRouter()
 
@@ -132,7 +135,7 @@ routes.openapi(createHubRoute, async (c) => {
         })
       }
     } catch (err) {
-      console.error(`[hubs] Failed to provision storage for hub ${hub.id}:`, err)
+      log.error('Failed to provision storage for hub', err, { hubId: hub.id })
     }
   }
 
@@ -453,7 +456,7 @@ routes.openapi(deleteHubRoute, async (c) => {
       try {
         await services.storage.destroyHub(hubId, storedUserName)
       } catch (err) {
-        console.error(`[hubs] Failed to destroy storage for hub ${hubId} — orphaned buckets:`, err)
+        log.error('Failed to destroy storage for hub — orphaned buckets', err, { hubId })
       }
     }
 
@@ -874,7 +877,7 @@ routes.openapi(updateStorageSettingsRoute, async (c) => {
     try {
       await services.storage.setRetention(hubId, ns, body.retentionDays)
     } catch (err) {
-      console.error('[hubs] Failed to apply retention to storage backend:', err)
+      log.error('Failed to apply retention to storage backend', err)
     }
   }
 

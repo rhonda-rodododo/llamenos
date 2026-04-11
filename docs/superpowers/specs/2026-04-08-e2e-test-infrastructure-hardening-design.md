@@ -133,3 +133,54 @@ Navigation patterns for authenticated tests:
 3. `reenterPinAfterReload` is <15 lines
 4. All tests that use `page.reload()` either rely on session capsule auto-restore or explicitly call `reenterPinAfterReload`
 5. Navigation patterns documented in test helpers
+
+---
+
+## Amendment 2026-04-09 — PR A scoping notes
+
+Added during PR A brainstorming. Clarifies scope and sequencing without changing the original items.
+
+### Item 2 stays as defense-in-depth
+
+Since the original spec was written, PR #48 landed `api-setup` → `setup` project dependency in `playwright.config.ts`, which eliminated the concurrent-reset race between the two setup projects. That is likely the dominant cause of the "Setup Wizard appeared" warning.
+
+The config-cache failure mode the spec describes (Workbox caching `/api/config`, browser holding a stale in-memory config) is a separate, plausible failure mode. Direct SQL verification costs ~25 lines and catches it cheaply, so item 2 stays in PR A as defense in depth. If it never fires in practice after PR A merges, we can revisit.
+
+### Item 4 — `clearSessionCapsule` helper also dispatches cross-tab lock
+
+The companion session-capsule spec adds a `BroadcastChannel('llamenos-lock')` for cross-tab lock propagation. The `clearSessionCapsule` test helper must also dispatch a lock message on that channel so tests can deterministically force a lock across all tabs of a `BrowserContext`, not just the page the helper was called on:
+
+```typescript
+export async function clearSessionCapsule(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    sessionStorage.removeItem('llamenos-session-token')
+    try {
+      const bc = new BroadcastChannel('llamenos-lock')
+      bc.postMessage({ type: 'lock' })
+      bc.close()
+    } catch {}
+    // IDB orphan is cleaned up automatically on next loadCapsule()
+  })
+}
+```
+
+### Sequencing constraint for PR A plan
+
+The plan that executes PR A must land changes in this order so every commit keeps the build and test suite green:
+
+1. **Session capsule + crypto worker changes** (client + worker). Nothing in the test suite depends on the capsule yet; `reenterPinAfterReload` still functions as before because the current callers still expect the old behavior.
+2. **`clearSessionCapsule` helper** (test helper addition, no callers yet).
+3. **Migrate tests that rely on `page.reload()` forcing a PIN prompt** — insert `clearSessionCapsule(page)` immediately before each `page.reload()` so the lock behavior is preserved. These tests now explicitly opt into lock-on-reload.
+4. **Simplify `reenterPinAfterReload`** — safe now because step 3 has already ensured every caller either wants the new simple behavior or has migrated to `clearSessionCapsule` + `page.reload()`.
+5. **`page.goto()` sweep** — orthogonal, can be interleaved anywhere.
+6. **Global-setup SQL verification + JSDoc documentation** — standalone, land last.
+
+### Sweep scope triage (item 1)
+
+Audit of `tests/ui/` found 51 total `page.goto`/`fixturePage.goto` calls. Triage:
+
+**Keep (legitimate full-reload or unauthenticated flow):** `auth-guards.spec.ts`, `bootstrap.spec.ts`, `login-restore.spec.ts`, `demo-mode.spec.ts` login paths, `device-linking.spec.ts`, `invite-onboarding.spec.ts`, `i18n.spec.ts` locale-reload paths.
+
+**Sweep candidates:** `admin-nav-config.spec.ts`, `dashboard-analytics.spec.ts`, `conversations.spec.ts`, `blasts.spec.ts`, `messaging-epics.spec.ts`, `invite-delivery.spec.ts`, `capture-screenshots.spec.ts`, `pwa-offline.spec.ts`.
+
+Target: ~10–15 file edits, not 51.

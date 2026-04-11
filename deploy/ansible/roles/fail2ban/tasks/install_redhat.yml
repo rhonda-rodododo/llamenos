@@ -1,0 +1,11 @@
+---
+# Placeholder for future RHEL/CentOS/Rocky/Alma support.
+# This file exists so the dispatcher include in install.yml can be statically
+# resolved by ansible-lint. Actual RedHat-family tasks will be added when the
+# distro allowlist is expanded to include RHEL derivatives.
+
+- name: RedHat-family install not yet implemented
+  ansible.builtin.fail:
+    msg: >-
+      The fail2ban role does not yet support {{ ansible_facts.distribution }}.
+      Supported distros: Debian 12+, Ubuntu 22.04+.

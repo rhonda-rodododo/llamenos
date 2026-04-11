@@ -16,7 +16,7 @@ const buildTime = process.env.SOURCE_DATE_EPOCH
 const buildCommit = process.env.GITHUB_SHA || 'dev'
 const buildVersion = JSON.parse(readFileSync('./package.json', 'utf-8')).version
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [
     tanstackRouter({
       target: 'react',
@@ -80,5 +80,17 @@ export default defineConfig({
   build: {
     outDir: 'dist/client',
     emptyOutDir: true,
+    ...(mode === 'production' && {
+      rolldownOptions: {
+        output: {
+          minify: {
+            compress: {
+              dropConsole: true,
+              dropDebugger: true,
+            },
+          },
+        },
+      },
+    }),
   },
-})
+}))

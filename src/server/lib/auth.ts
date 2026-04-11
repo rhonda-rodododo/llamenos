@@ -1,5 +1,8 @@
 import type { User } from '../types'
 import { verifyAccessToken } from './jwt'
+import { createLogger } from './logger'
+
+const log = createLogger('lib.auth')
 
 export async function authenticateRequest(
   request: Request,

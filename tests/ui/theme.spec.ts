@@ -1,5 +1,4 @@
 import { expect, test } from '../fixtures/auth'
-import { reenterPinAfterReload } from '../helpers'
 
 test.describe('Theme', () => {
   test('can switch to dark theme', async ({ adminPage }) => {
@@ -36,12 +35,6 @@ test.describe('Theme', () => {
     await expect(adminPage.locator('html')).toHaveClass(/dark/)
 
     await adminPage.reload()
-    await reenterPinAfterReload(adminPage)
-    // PIN unlock may redirect to profile-setup — handle it
-    if (adminPage.url().includes('profile-setup')) {
-      await adminPage.getByRole('button', { name: /complete setup/i }).click()
-      await adminPage.waitForURL((u) => !u.toString().includes('profile-setup'), { timeout: 15000 })
-    }
     await expect(adminPage.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible({
       timeout: 15000,
     })

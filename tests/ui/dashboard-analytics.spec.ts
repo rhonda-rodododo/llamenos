@@ -1,4 +1,5 @@
 import { expect, test } from '../fixtures/auth'
+import { navigateAfterLogin } from '../helpers'
 
 test.describe('Dashboard Analytics', () => {
   test('analytics section is visible to admins on the dashboard', async ({ adminPage }) => {
@@ -101,7 +102,7 @@ test.describe('Dashboard Analytics', () => {
 test.describe('Dashboard Analytics — user visibility', () => {
   test('analytics section is hidden from volunteers', async ({ volunteerPage }) => {
     // Navigate to dashboard as a volunteer
-    await volunteerPage.goto('/')
+    await navigateAfterLogin(volunteerPage, '/')
 
     // Analytics trigger should NOT be visible for volunteers
     await expect(volunteerPage.getByTestId('analytics-section-trigger')).not.toBeVisible()

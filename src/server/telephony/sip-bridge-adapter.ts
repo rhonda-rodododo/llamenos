@@ -1,4 +1,5 @@
 import type { ConnectionTestResult } from '@shared/types'
+import { createLogger } from '../lib/logger'
 import type {
   AudioUrlMap,
   CallAnsweredParams,
@@ -18,6 +19,8 @@ import type {
   WebhookVerificationResult,
 } from './adapter'
 import { BridgeClient } from './bridge-client'
+
+const log = createLogger('telephony.sip-bridge')
 
 /**
  * SipBridgeAdapter — abstract base class for telephony adapters that communicate
@@ -83,7 +86,7 @@ export abstract class SipBridgeAdapter implements TelephonyAdapter {
       }
       return null
     } catch (err) {
-      console.error(`[telephony:sip-bridge] Failed to get recording for call ${callSid}:`, err)
+      log.error('Failed to get recording for call', err, { callSid })
       return null
     }
   }
@@ -100,7 +103,7 @@ export abstract class SipBridgeAdapter implements TelephonyAdapter {
       }
       return null
     } catch (err) {
-      console.error(`[telephony:sip-bridge] Failed to get recording audio ${recordingSid}:`, err)
+      log.error('Failed to get recording audio', err, { recordingSid })
       return null
     }
   }
@@ -109,7 +112,7 @@ export abstract class SipBridgeAdapter implements TelephonyAdapter {
     try {
       await this.bridge.request('DELETE', `/recordings/${recordingSid}`)
     } catch (err) {
-      console.error('[sip-bridge] Failed to delete recording:', err)
+      log.error('Failed to delete recording', err)
     }
   }
 

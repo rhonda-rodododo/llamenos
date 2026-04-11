@@ -6,6 +6,9 @@ import type { Database } from '../db'
 import { pushSubscriptions } from '../db/schema'
 import type { CryptoService } from '../lib/crypto-service'
 import { AppError } from '../lib/errors'
+import { createLogger } from '../lib/logger'
+
+const log = createLogger('services.push')
 
 export interface PushSubscriptionData {
   pubkey: string
@@ -221,7 +224,7 @@ export class PushService {
           if (statusCode === 410 || statusCode === 404) {
             await this.removeStaleSubscription(sub.endpoint)
           } else {
-            console.warn('[push] Failed to send push:', sub.endpoint, err)
+            log.warn('Failed to send push', { statusCode: statusCode ?? 'unknown' })
           }
         }
       })

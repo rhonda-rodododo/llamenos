@@ -1,5 +1,8 @@
 import OpenAI from 'openai'
 import type { ResponseFormatJSONSchema } from 'openai/resources/shared'
+import { createLogger } from '../lib/logger'
+
+const log = createLogger('services.firehose-inference')
 
 export interface DecryptedFirehoseMessage {
   id: string
@@ -155,9 +158,9 @@ export class FirehoseInferenceClient {
 
     const content = response.choices[0]?.message?.content
     if (!content) {
-      console.warn(
-        `[firehose-inference] LLM returned no content for incident detection (model: ${this.model}), using heuristic clusters`
-      )
+      log.warn('LLM returned no content for incident detection, using heuristic clusters', {
+        model: this.model,
+      })
       return candidates
     }
 
@@ -165,16 +168,15 @@ export class FirehoseInferenceClient {
     try {
       parsed = JSON.parse(content)
     } catch (parseErr) {
-      console.error(
-        `[firehose-inference] LLM returned invalid JSON for incident detection (model: ${this.model}, preview: ${content.slice(0, 200)})`
-      )
+      log.error('LLM returned invalid JSON for incident detection', parseErr, {
+        model: this.model,
+        contentLength: content.length,
+      })
       return candidates
     }
 
     if (!parsed.clusters || !Array.isArray(parsed.clusters)) {
-      console.error(
-        `[firehose-inference] LLM response missing clusters array (model: ${this.model})`
-      )
+      log.error('LLM response missing clusters array', undefined, { model: this.model })
       return candidates
     }
 

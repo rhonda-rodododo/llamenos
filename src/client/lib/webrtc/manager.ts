@@ -13,7 +13,7 @@
 import { getWebRtcToken } from '../api'
 import { createDebugLog } from '../debug-log'
 
-const log = createDebugLog('WebRTCManager')
+const log = createDebugLog('llamenos:webrtc')
 import { PlivoWebRTCAdapter } from './adapters/plivo'
 import { SipWebRTCAdapter } from './adapters/sip'
 import { TwilioWebRTCAdapter } from './adapters/twilio'
@@ -95,7 +95,7 @@ function scheduleTokenRefresh(ttl: number, provider: string): void {
   refreshTimer = setTimeout(() => {
     refreshTimer = null
     handleTokenRefresh(provider).catch((err: unknown) => {
-      console.error('[WebRTCManager] Token refresh failed:', err)
+      log('Token refresh failed:', err instanceof Error ? err.message : 'unknown')
     })
   }, delayMs)
 }
@@ -116,7 +116,7 @@ async function handleTokenRefresh(provider: string): Promise<void> {
 
     scheduleTokenRefresh(ttl, provider)
   } catch (err) {
-    console.error('[WebRTCManager] Token refresh error:', err)
+    log('Token refresh error:', err instanceof Error ? err.message : 'unknown')
   }
 }
 
@@ -177,7 +177,7 @@ export async function initWebRtc(forceRefresh = false): Promise<void> {
     })
 
     newAdapter.on('error', (err) => {
-      console.error('[WebRTCManager] Adapter error:', err)
+      log('Adapter error:', err.message)
       setState('error', err.message)
     })
 
@@ -187,7 +187,7 @@ export async function initWebRtc(forceRefresh = false): Promise<void> {
 
     scheduleTokenRefresh(ttl, provider)
   } catch (err) {
-    console.error('[WebRTCManager] Init failed:', err)
+    log('Init failed:', err instanceof Error ? err.message : 'unknown')
     setState('error', err instanceof Error ? err.message : 'WebRTC initialization failed')
   }
 }
@@ -199,7 +199,7 @@ export function acceptCall(): void {
   if (!adapter || !incomingCallSid) return
   const sid = incomingCallSid
   adapter.accept(sid).catch((err: unknown) => {
-    console.error('[WebRTCManager] acceptCall error:', err)
+    log('acceptCall error:', err instanceof Error ? err.message : 'unknown')
   })
 }
 
@@ -211,7 +211,7 @@ export function rejectCall(): void {
   const sid = incomingCallSid
   incomingCallSid = null
   adapter.reject(sid).catch((err: unknown) => {
-    console.error('[WebRTCManager] rejectCall error:', err)
+    log('rejectCall error:', err instanceof Error ? err.message : 'unknown')
   })
   setState('ready')
 }

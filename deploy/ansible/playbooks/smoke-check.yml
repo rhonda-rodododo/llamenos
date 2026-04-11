@@ -1,0 +1,96 @@
+---
+# Smoke-check playbook for Tart matrix tests.
+#
+# Runs after playbooks/harden.yml against the same target. Validates that
+# every hardening assertion from Plan 1's merge gate holds on the remote
+# host. Exits non-zero on the first failure so CI/test scripts catch
+# regressions.
+#
+# Assumes the target has already been hardened, so it connects on the
+# hardened SSH port (default 2222) as the deploy user. The caller must
+# pass `-e ansible_port=2222 -e ansible_user=deploy` (or set them in
+# inventory) along with the standard vars file.
+#
+# Usage:
+#   ansible-playbook playbooks/smoke-check.yml \
+#       -i '<ip>,' -u deploy --private-key ~/.ssh/id_ed25519 \
+#       -e ansible_port=2222 -e '@vars-local-vm.yml'
+
+- name: Smoke-check hardening on target host
+  hosts: all
+  gather_facts: true
+  become: true
+  tasks:
+    - name: Assert ufw is active with deny-incoming default
+      ansible.builtin.shell: |
+        set -euo pipefail
+        ufw status verbose | grep -q "Status: active"
+        ufw status verbose | grep -q "Default: deny (incoming)"
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Assert fail2ban is active
+      ansible.builtin.command: systemctl is-active fail2ban
+      changed_when: false
+
+    - name: Assert docker is active
+      ansible.builtin.command: systemctl is-active docker
+      changed_when: false
+
+    # NOTE: docker userns-remap is asserted here because operators adding
+    # new cloud providers often trip on a subtle Ansible gotcha: with
+    # inline inventory (-i 'ip,') group_vars/all/ is NOT loaded, so
+    # docker_daemon_options (which contains userns-remap: default) never
+    # reaches the target and the daemon starts with defaults. If this
+    # assertion fails, the most likely cause is a broken test harness /
+    # invocation that doesn't load group_vars properly. Do not weaken
+    # this to an advisory.
+    - name: Assert docker userns-remap is enabled
+      ansible.builtin.shell: |
+        set -euo pipefail
+        docker info --format '{{ "{{" }}.SecurityOptions{{ "}}" }}' | grep -q userns
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    # NOTE: cirruslabs Ubuntu/Debian images (and many real cloud images:
+    # DigitalOcean, Hetzner, Linode, Vultr) ship cloud-init drop-ins at
+    # /etc/ssh/sshd_config.d/50-cloud-init.conf and/or
+    # 60-cloudimg-settings.conf that set `PasswordAuthentication yes`.
+    # sshd_config.d uses first-match-wins semantics, so any file earlier
+    # than ours silently overrides our hardening. The ssh-hardening role
+    # now (a) writes 00-llamenos-hardening.conf (wins first-match) and
+    # (b) deletes the cloud-init drop-ins. If this assertion fails on a
+    # new cloud image, the role likely needs to learn about that image's
+    # drop-in filename. Do not weaken this to an advisory.
+    - name: Assert sshd disables password + root login
+      ansible.builtin.shell: |
+        set -euo pipefail
+        count=$(sshd -T 2>/dev/null | grep -cE '^(passwordauthentication|permitrootlogin) no$')
+        test "$count" -eq 2
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Assert tcp_syncookies is enabled
+      ansible.builtin.command: sysctl -n net.ipv4.tcp_syncookies
+      register: syncookies
+      changed_when: false
+      failed_when: syncookies.stdout | trim != "1"
+
+    - name: Assert unattended-upgrades is installed
+      ansible.builtin.shell: |
+        set -euo pipefail
+        dpkg -l unattended-upgrades 2>/dev/null | grep -q '^ii'
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Report smoke-check success
+      ansible.builtin.debug:
+        msg: >
+          Smoke check PASSED on
+          {{ ansible_facts.distribution }}
+          {{ ansible_facts.distribution_version }}
+          ({{ ansible_facts.distribution_release | default('n/a') }}).

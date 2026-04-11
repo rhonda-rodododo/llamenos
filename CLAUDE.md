@@ -16,7 +16,7 @@ Llámenos is a secure crisis response hotline webapp. Callers dial a phone numbe
 - **Telephony**: Twilio via a `TelephonyAdapter` interface (designed for future provider swaps, e.g. SIP trunks)
 - **Auth**: JWT + Authentik IdP (OIDC) + multi-factor KEK (PIN + recovery key + WebAuthn) + WebAuthn passkeys
 - **i18n**: Built-in from day one — all user-facing strings must be translatable
-- **Deployment**: VPS (Ansible/Docker), EU/GDPR-compatible hosting
+- **Deployment**: VPS (Ansible/Docker), Debian 12+/Ubuntu 22.04+, EU/GDPR-compatible hosting
 - **Testing**: Three suites — unit (`bun:test`), API integration (Playwright, no browser), UI E2E (Playwright, Chromium)
 - **PWA**: Service worker via vite-plugin-pwa + Workbox; manifest uses generic name "Hotline" for security
 
@@ -48,7 +48,7 @@ src/
     lib/            # Client utilities (auth, crypto, ws, i18n, hooks)
                     #   key-store-v2.ts — multi-factor KEK key store (PIN + recovery + WebAuthn)
                     #   crypto-worker.ts / crypto-worker-client.ts — Web Worker crypto isolation
-    locales/        # 13 locale JSON files (en, es, zh, tl, vi, ar, fr, ht, ko, ru, hi, pt, de)
+                    #   i18n.ts — i18next loader; locales live at public/locales/ (NOT src/client/locales)
   server/           # Bun/Hono backend
     routes/         # REST API route handlers (includes auth-facade.ts for /api/auth/*)
     services/       # PostgreSQL-backed business logic services
@@ -66,6 +66,13 @@ src/
     types.ts        # Branded types (Ciphertext fields), constants, re-exports from schemas
     languages.ts    # Centralized language config (codes, labels, Twilio voice IDs)
     crypto-labels.ts # 25 domain separation constants for all cryptographic operations
+public/
+  locales/          # 22 locale JSON files served as static assets by Vite/Caddy.
+                    # Codes: am, ar, de, en, es, fa, fr, hi, ht, ko, ku, mix, my, pt, quc,
+                    #        ru, so, tl, tr, uk, vi, zh.
+                    # Every i18n key must have an entry in every locale or the CI
+                    # i18n check fails. New locales are added by copying en.json and
+                    # translating — do not introduce keys that only exist in English.
 ```
 
 **Path aliases** (tsconfig.json + vite.config.ts):
@@ -145,6 +152,9 @@ Every query key domain in `queryKeys` must be classified as either `ENCRYPTED_QU
 - Dev/test mode uses synthetic IdP values (no real Authentik needed) — controlled by `AUTH_MODE=synthetic` env var
 - Auth facade endpoints live at `/api/auth/*` — clients never call Authentik APIs directly
 - Authentik first-boot takes ~60s to initialize (database migrations + default flows) — `docker-setup.sh` waits automatically
+- Ansible roles use the dispatcher pattern (`tasks/install.yml` → `install_{family}.yml`) plus per-family vars files. When adding distro-specific behavior, never put `when: ansible_distribution == ...` in role bodies — use the dispatcher and a vars file. See `roles/common/` for the canonical example.
+- Ansible vars must be prefixed with the role name (e.g., `firewall_service`, `common_chrony_package`) to satisfy ansible-lint's `var-naming[no-role-prefix]` production rule. Bare names will fail lint.
+- After cloning, run `cd deploy/ansible && just bootstrap` once to vendor `geerlingguy.docker` and other galaxy dependencies into `roles/galaxy/` (gitignored).
 
 ## Development Commands
 
@@ -229,6 +239,18 @@ Use the `test-writer` skill for guidance on writing tests. Use the `test-runner`
 - **Selectors in E2E tests — stable testids, NOT text:** Use `getByTestId()` for every interactive or locatable element. **Do NOT use** `getByText()`, `getByRole('heading', { name: ... })`, `getByRole('link', { name: ... })`, `getByRole('button', { name: ... })` — these break whenever a label, heading, or copy string changes (including i18n renames and section renames). If the element you need to target doesn't have a testid, **add one to the component** in the same commit as the test. The only acceptable exceptions are: (a) Radix Select/Combobox options that don't expose per-option testids — use `getByRole('option', { name })`; (b) asserting that a decrypted value actually rendered — `getByTestId('row-x').getByText('DecryptedName')` is fine because the text assertion IS the test's purpose; (c) asserting a toast/error message content when the message itself is under test. When migrating a test that uses text selectors, the fix is to add a testid to the component and reference it — not to find a more-specific text pattern.
 - **Run tests iteratively**: Don't wait until the end. Run affected suites after each logical chunk of implementation.
 - **Hub-encrypted data in tests**: After creating hub-encrypted data (shifts, roles, report types, custom fields), remember that the React Query cache must be invalidated for other pages to see the new data.
+
+### PII pre-commit hook
+
+`scripts/pii-check.sh` (run by lefthook on every commit) blocks commits that introduce content matching any pattern in the `PII_CHECK_PATTERNS` environment variable. The script is checked in; the patterns are NOT — each developer sets their own in `~/.zshrc`/`~/.bashrc`:
+
+```bash
+export PII_CHECK_PATTERNS='your\.real\.name|your@email\.example|/home/yourusername|github\.com/your-private-handle|other\.regexes'
+```
+
+Pipe-separated, **case-insensitive** `grep -iE` syntax — write patterns in lowercase only; "Rikki", "RIKKI", "rikki" all match a lowercase `rikki` pattern. Full installation + behavior notes are in `scripts/pii-check.sh`. If you have not set `PII_CHECK_PATTERNS` the hook warns on every commit and passes; if set, any match in the staged diff blocks the commit (matched line redacted in the hook output so the failure itself does not re-leak).
+
+The hook is wired up automatically by the `prepare` npm lifecycle script (`"prepare": "lefthook install"` in `package.json`) which runs on every `bun install`. Every new clone and every new sibling worktree inherits the same hook after one `bun install`. The hook is shared across all git worktrees via `core.hooksPath`, so installing in any one worktree covers all of them. **If you see `Can't find lefthook in PATH` when committing**, run `bun install` in the main repo worktree to populate `node_modules/@evilmartians/lefthook/` — the dispatcher hook finds lefthook there via an absolute path.
 
 ## Claude Code Working Style
 

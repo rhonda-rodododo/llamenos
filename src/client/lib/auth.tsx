@@ -1,4 +1,5 @@
 import { ConsentGate } from '@/components/consent-gate'
+import { createDebugLog } from '@/lib/debug-log'
 import { decryptObjectFields, resetMismatchFired, setOnDecryptMismatch } from '@/lib/decrypt-fields'
 import { permissionGranted } from '@shared/permissions'
 import {
@@ -22,6 +23,8 @@ import { clearHubKeyCache, loadHubKeysForUser } from './hub-key-cache'
 import * as keyManager from './key-manager'
 import { invalidateEncryptedQueries } from './query-client'
 import { loginWithPasskey as webauthnLogin } from './webauthn'
+
+const log = createDebugLog('llamenos:auth')
 
 interface AuthState {
   isKeyUnlocked: boolean
@@ -223,36 +226,77 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false
     async function restoreSession() {
+      // Phase 1 — Authentication. Any failure here means the user has no
+      // valid session and must log in again.
+      let me: Awaited<ReturnType<typeof getMe>> | null = null
+      let restored = false
       try {
         // Attempt silent token refresh using the httpOnly refresh cookie
         await authFacadeClient.refreshToken()
         if (cancelled) return
 
-        const me = await getMe()
+        // Fast path: restore Worker from a session capsule if one is present.
+        // This skips PBKDF2 and keeps the user on their current page.
+        restored = await keyManager.trySessionRestore()
         if (cancelled) return
+        if (restored) {
+          resetMismatchFired()
+        }
 
-        lastApiActivity.current = Date.now()
-        const isUnlocked = await keyManager.isUnlocked()
-        const pubkey = isUnlocked ? await keyManager.getPublicKeyHex() : null
+        me = await getMe()
+        if (cancelled) return
+      } catch {
+        // No valid refresh cookie, network failure, or /auth/me rejection —
+        // the user needs to log in.
+        if (!cancelled) {
+          setState((s) => ({ ...s, isLoading: false }))
+        }
+        return
+      }
+
+      if (!me) return // cancelled mid-try
+
+      // Phase 2 — Post-auth enrichment (decrypt PII, load hub keys, warm
+      // the React Query cache). This is best-effort: if anything throws we
+      // still set auth state from `me` so the user lands authenticated-
+      // but-locked. Returning early here would silently redirect the user
+      // to /login despite a valid session.
+      lastApiActivity.current = Date.now()
+      let isUnlocked = false
+      let pubkey: string | null = null
+      try {
+        isUnlocked = restored || (await keyManager.isUnlocked())
+        pubkey = isUnlocked ? await keyManager.getPublicKeyHex() : null
         if (cancelled) return
 
         // Decrypt envelope-encrypted fields (e.g. name) via crypto worker
         if (pubkey) {
           await decryptObjectFields(me as unknown as Record<string, unknown>, pubkey)
+          // Load hub keys so hub-key-encrypted fields (Twilio SID, report type
+          // names, etc.) can decrypt. Normally unlockWithPin handles this after
+          // PIN entry; when the capsule auto-restores we must do it here too.
+          const hubIds = (me.hubRoles ?? []).map((hr) => hr.hubId)
+          await loadHubKeysForUser(hubIds)
+          if (cancelled) return
+          invalidateEncryptedQueries()
         }
-
-        setState(
-          stateFromMe(me, {
-            isKeyUnlocked: isUnlocked,
-            publicKey: pubkey ?? me.pubkey,
-          })
-        )
-      } catch {
-        // No valid refresh cookie — user needs to log in
-        if (!cancelled) {
-          setState((s) => ({ ...s, isLoading: false }))
-        }
+      } catch (err) {
+        // Enrichment failed — land the user on the locked-key screen via
+        // their authenticated session rather than kicking them to /login.
+        // The root-layout effect will then redirect to /login where they
+        // can re-enter their PIN, which retries the decrypt+hub-key path.
+        log('post-auth enrichment failed', { err })
+        isUnlocked = false
+        pubkey = null
       }
+
+      if (cancelled) return
+      setState(
+        stateFromMe(me, {
+          isKeyUnlocked: isUnlocked,
+          publicKey: pubkey ?? me.pubkey,
+        })
+      )
     }
     void restoreSession()
     return () => {
@@ -442,7 +486,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       )
       return true
     } catch (err) {
-      console.error('[auth] completePasskeyKeySetup failed:', err)
+      log('completePasskeyKeySetup failed:', err instanceof Error ? err.message : 'unknown')
       setState((s) => ({
         ...s,
         error: err instanceof Error ? err.message : 'Key setup failed',

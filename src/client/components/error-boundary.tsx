@@ -1,7 +1,10 @@
 import { Button } from '@/components/ui/button'
+import { createDebugLog } from '@/lib/debug-log'
 import { AlertTriangle, RotateCcw } from 'lucide-react'
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
+
+const log = createDebugLog('llamenos:error-boundary')
 
 interface ErrorBoundaryProps {
   children: ReactNode
@@ -26,9 +29,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     return { error }
   }
 
-  componentDidCatch(error: Error, info: ErrorInfo) {
+  componentDidCatch(error: Error, _info: ErrorInfo) {
     const scope = this.props.scope || 'unknown'
-    console.error(`[ErrorBoundary:${scope}]`, error, info.componentStack)
+    log('error boundary caught', { scope, errName: error.name, errMsg: error.message })
   }
 
   handleReset = () => {

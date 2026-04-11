@@ -1,5 +1,6 @@
 import { DEFAULT_LANGUAGE, IVR_LANGUAGES } from '../../shared/languages'
 import { IVR_PROMPTS, getPrompt, getVoicemailThanks } from '../../shared/voice-prompts'
+import { createLogger } from '../lib/logger'
 import type {
   AudioUrlMap,
   CallAnsweredParams,
@@ -18,6 +19,8 @@ import type {
   WebhookRecordingStatus,
   WebhookVerificationResult,
 } from './adapter'
+
+const log = createLogger('telephony.plivo')
 
 /**
  * Plivo voice language codes, keyed by ISO 639-1.
@@ -331,14 +334,14 @@ export class PlivoAdapter implements TelephonyAdapter {
       if (result.status === 'fulfilled') {
         callSids.push(result.value)
       } else {
-        console.error('[telephony:plivo] Failed to ring volunteer:', result.reason)
+        log.error('Failed to ring volunteer', result.reason)
       }
     }
 
     if (callSids.length === 0 && outboundTargets.length > 0) {
-      console.error(
-        `[telephony:plivo] CRITICAL: All ${outboundTargets.length} outbound calls failed — no volunteers are being rung`
-      )
+      log.error('CRITICAL: All outbound calls failed — no volunteers are being rung', undefined, {
+        targetCount: outboundTargets.length,
+      })
     }
 
     return callSids
@@ -352,7 +355,7 @@ export class PlivoAdapter implements TelephonyAdapter {
     )
     for (const result of results) {
       if (result.status === 'rejected') {
-        console.warn('[telephony:plivo] Failed to cancel ringing:', result.reason)
+        log.warn('Failed to cancel ringing', { reason: String(result.reason) })
       }
     }
   }
@@ -408,9 +411,11 @@ export class PlivoAdapter implements TelephonyAdapter {
     // Plivo recording lookup by call UUID
     const res = await this.plivoApi(`/Recording/?call_uuid=${callSid}`, { method: 'GET' })
     if (!res.ok) {
-      console.error(
-        `[telephony:plivo] Failed to get recordings for call ${callSid}: ${res.status} ${res.statusText}`
-      )
+      log.error('Failed to get recordings for call', undefined, {
+        callSid,
+        status: res.status,
+        statusText: res.statusText,
+      })
       return null
     }
 
@@ -424,9 +429,11 @@ export class PlivoAdapter implements TelephonyAdapter {
       },
     })
     if (!audioRes.ok) {
-      console.error(
-        `[telephony:plivo] Failed to get recording audio for call ${callSid}: ${audioRes.status} ${audioRes.statusText}`
-      )
+      log.error('Failed to get recording audio for call', undefined, {
+        callSid,
+        status: audioRes.status,
+        statusText: audioRes.statusText,
+      })
       return null
     }
     return audioRes.arrayBuffer()
@@ -440,9 +447,11 @@ export class PlivoAdapter implements TelephonyAdapter {
       },
     })
     if (!audioRes.ok) {
-      console.error(
-        `[telephony:plivo] Failed to get recording audio ${recordingSid}: ${audioRes.status} ${audioRes.statusText}`
-      )
+      log.error('Failed to get recording audio', undefined, {
+        recordingSid,
+        status: audioRes.status,
+        statusText: audioRes.statusText,
+      })
       return null
     }
     return audioRes.arrayBuffer()

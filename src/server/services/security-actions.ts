@@ -1,8 +1,11 @@
 import type { LockdownTier } from '../../shared/schemas/lockdown'
+import { createLogger } from '../lib/logger'
 import type { AuthEventsService } from './auth-events'
 import type { IdentityService } from './identity'
 import type { SessionService } from './sessions'
 import type { UserNotificationsService } from './user-notifications'
+
+const log = createLogger('services.security-actions')
 
 const BASE32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
 
@@ -99,7 +102,7 @@ export class SecurityActionsService {
       })
       notificationDelivered = delivered
     } catch (err) {
-      console.error('[security-actions] lockdown notification failed:', err)
+      log.error('lockdown notification failed', err instanceof Error ? err : new Error(String(err)))
     }
 
     return { tier, revokedSessions, deletedPasskeys, accountDeactivated, notificationDelivered }

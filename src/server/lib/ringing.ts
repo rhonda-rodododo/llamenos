@@ -3,7 +3,10 @@ import { KIND_CALL_RING } from '@shared/nostr-events'
 import type { Services } from '../services'
 import type { Env } from '../types'
 import { getTelephony } from './adapters'
+import { createLogger } from './logger'
 import { publishNostrEvent } from './nostr-events'
+
+const log = createLogger('lib.ringing')
 
 export async function startParallelRinging(
   callSid: string,
@@ -22,10 +25,10 @@ export async function startParallelRinging(
       onShiftPubkeys = await services.settings.getFallbackGroup(hubId)
     }
 
-    console.log(`[ringing] callSid=${callSid} onShift=${onShiftPubkeys.length}`)
+    log.info('Ringing users', { callSid, onShiftCount: onShiftPubkeys.length })
 
     if (onShiftPubkeys.length === 0) {
-      console.log('[ringing] no users on shift or in fallback — skipping')
+      log.info('No users on shift or in fallback — skipping')
       return
     }
 
@@ -62,13 +65,16 @@ export async function startParallelRinging(
     const browserCount = toRing.filter((v) => v.browserIdentity).length
 
     if (available.length === 0) {
-      console.log('[ringing] no available users — skipping')
+      log.info('No available users — skipping')
       return
     }
 
-    console.log(
-      `[ringing] callSid=${callSid} total=${available.length} phone=${phoneCount} browser=${browserCount}`
-    )
+    log.info('Ringing available users', {
+      callSid,
+      total: available.length,
+      phoneCount,
+      browserCount,
+    })
 
     // Record incoming call in the call service (includes all available users for WebSocket)
     await services.calls.createActiveCall({
@@ -89,7 +95,7 @@ export async function startParallelRinging(
         await services.contacts.linkCall(contact.id, callSid, hubId ?? 'global', 'auto')
       }
     } catch (err) {
-      console.error('[ringing] auto-link contact failed (non-fatal):', err)
+      log.error('Auto-link contact failed (non-fatal)', err)
     }
 
     // Publish call:ring event to Nostr relay for real-time client notification
@@ -114,7 +120,11 @@ export async function startParallelRinging(
         { type: 'call:ring', callSid, hubId: hubId ?? 'global' },
         env
       )
-      .catch((err) => console.warn('[ringing] push notification failed:', err))
+      .catch((err) =>
+        log.warn('Push notification failed', {
+          err: err instanceof Error ? err.message : String(err),
+        })
+      )
 
     // Create browser call legs for users with browser identity
     for (const usr of toRing.filter((v) => v.browserIdentity)) {
@@ -135,7 +145,7 @@ export async function startParallelRinging(
         TWILIO_PHONE_NUMBER: env.TWILIO_PHONE_NUMBER,
       })
       if (!adapter) {
-        console.warn('[ringing] no telephony adapter configured — phone users cannot be rung')
+        log.warn('No telephony adapter configured — phone users cannot be rung')
         // Don't return — browser-only users can still handle the call via WebSocket
       } else {
         await adapter.ringUsers({
@@ -148,6 +158,6 @@ export async function startParallelRinging(
       }
     }
   } catch (err) {
-    console.error('[ringing] startParallelRinging failed:', err)
+    log.error('startParallelRinging failed', err)
   }
 }

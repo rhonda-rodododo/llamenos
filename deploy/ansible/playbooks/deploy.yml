@@ -30,7 +30,7 @@
     # Override the connection user for deployment tasks.
     ansible_user: "{{ deploy_user | default('deploy') }}"
   roles:
-    - role: docker
+    - role: geerlingguy.docker
       tags: [docker, deploy]
     - role: llamenos
       tags: [llamenos, deploy]

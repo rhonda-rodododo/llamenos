@@ -4,6 +4,24 @@
 # All tasks are guarded by kamailio_enabled. When disabled (default),
 # this role is a no-op.
 
+- name: Assert kamailio role is running on Ubuntu (Debian support pending)
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.distribution == 'Ubuntu'
+    fail_msg: |
+      The kamailio role currently only supports Ubuntu. Debian support is
+      planned in a follow-up PR.
+
+      Detected: {{ ansible_facts.distribution }} {{ ansible_facts.distribution_version }}
+
+      To deploy Llamenos on Debian without Kamailio, omit the kamailio role
+      from your playbook by tagging it out:
+
+        ansible-playbook setup.yml --skip-tags kamailio
+
+      Track follow-up status in deploy/ansible/README.md.
+  when: kamailio_enabled | default(false) | bool
+
 - name: Create Kamailio config directory
   ansible.builtin.file:
     path: "{{ app_dir }}/kamailio"

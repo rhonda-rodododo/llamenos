@@ -1,0 +1,6 @@
+---
+# Cross-distro defaults for the llamenos role.
+# Per-family overrides live in vars/{OsFamily}.yml and are loaded via
+# first_found in tasks/main.yml.
+
+llamenos_cryptsetup_package: cryptsetup

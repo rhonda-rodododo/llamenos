@@ -11,21 +11,25 @@
 #   5. Enforces retention policy (7 daily, 4 weekly, 3 monthly)
 # - Configures a daily cron job
 
-- name: Install age encryption tool
-  ansible.builtin.apt:
-    name: age
-    state: present
+- name: Load OS-specific vars
+  ansible.builtin.include_vars: "{{ lookup('ansible.builtin.first_found', params) }}"
+  vars:
+    params:
+      files:
+        - "{{ ansible_facts.distribution }}.yml"
+        - "{{ ansible_facts.os_family }}.yml"
+        - main.yml
+      paths:
+        - "{{ role_path }}/vars"
 
-- name: Install rclone
-  ansible.builtin.shell: |
-    if command -v rclone &>/dev/null; then
-      echo "already installed"
-    else
-      curl -fsSL https://rclone.org/install.sh | bash
-      echo "installed"
-    fi
-  register: rclone_install
-  changed_when: "'installed' in rclone_install.stdout"
+- name: Install backup dependencies
+  ansible.builtin.include_tasks: install.yml
+
+- name: Install rclone from apt
+  ansible.builtin.apt:
+    name: rclone
+    state: present
+    update_cache: true
 
 - name: Create backup directories
   ansible.builtin.file:
@@ -244,12 +248,17 @@
 
       log "Backup complete: ${DB_FILENAME} (${DB_SIZE} bytes DB, ${TOTAL_BLOB_SIZE} bytes blobs)"
 
-- name: Run initial backup
+- name: Run initial backup (non-fatal)
   ansible.builtin.command: "{{ app_dir }}/scripts/backup.sh"
   become_user: "{{ deploy_user }}"
-  register: initial_backup
-  changed_when: "'Backup complete' in initial_backup.stdout"
-  ignore_errors: true
+  register: initial_backup_result
+  changed_when: "'Backup complete' in initial_backup_result.stdout"
+  failed_when: false
+
+- name: Warn if initial backup failed
+  ansible.builtin.debug:
+    msg: "WARNING: Initial backup returned rc={{ initial_backup_result.rc }}. Check next scheduled run at T+24h. stderr: {{ initial_backup_result.stderr | default('') }}"
+  when: initial_backup_result.rc != 0
 
 - name: Configure daily backup cron job
   ansible.builtin.cron:

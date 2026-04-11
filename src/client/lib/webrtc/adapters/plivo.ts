@@ -14,7 +14,7 @@
 import { createDebugLog } from '../../debug-log'
 import type { WebRTCAdapter, WebRtcEvent, WebRtcEventHandler } from '../types'
 
-const log = createDebugLog('PlivoWebRTCAdapter')
+const log = createDebugLog('llamenos:webrtc:plivo')
 
 // Minimal types from plivo-browser-sdk
 interface PlivoClient {
@@ -85,7 +85,7 @@ export class PlivoWebRTCAdapter implements WebRTCAdapter {
 
     client.on('onLoginFailed', (...args: unknown[]) => {
       const reason = args[0] as string | undefined
-      console.error('[PlivoWebRTCAdapter] Login failed', reason)
+      log('Login failed', reason)
       this.#emit('error', new Error(`Plivo login failed: ${reason ?? 'unknown'}`))
     })
 

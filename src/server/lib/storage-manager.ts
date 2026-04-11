@@ -28,6 +28,9 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3'
 import { bytesToHex } from '@noble/hashes/utils.js'
+import { createLogger } from './logger'
+
+const log = createLogger('lib.storage-manager')
 import {
   type BlobResult,
   type HubStorageCredentialResult,
@@ -99,10 +102,10 @@ export function resolveStorageCredentials(): {
   let accessKeyId = process.env.STORAGE_ACCESS_KEY
   if (!accessKeyId) {
     if (process.env.MINIO_APP_USER) {
-      console.warn('[storage] MINIO_APP_USER is deprecated, use STORAGE_ACCESS_KEY instead')
+      log.warn('MINIO_APP_USER is deprecated, use STORAGE_ACCESS_KEY instead')
       accessKeyId = process.env.MINIO_APP_USER
     } else if (process.env.MINIO_ACCESS_KEY) {
-      console.warn('[storage] MINIO_ACCESS_KEY is deprecated, use STORAGE_ACCESS_KEY instead')
+      log.warn('MINIO_ACCESS_KEY is deprecated, use STORAGE_ACCESS_KEY instead')
       accessKeyId = process.env.MINIO_ACCESS_KEY
     }
   }
@@ -111,10 +114,10 @@ export function resolveStorageCredentials(): {
   let secretAccessKey = process.env.STORAGE_SECRET_KEY
   if (!secretAccessKey) {
     if (process.env.MINIO_APP_PASSWORD) {
-      console.warn('[storage] MINIO_APP_PASSWORD is deprecated, use STORAGE_SECRET_KEY instead')
+      log.warn('MINIO_APP_PASSWORD is deprecated, use STORAGE_SECRET_KEY instead')
       secretAccessKey = process.env.MINIO_APP_PASSWORD
     } else if (process.env.MINIO_SECRET_KEY) {
-      console.warn('[storage] MINIO_SECRET_KEY is deprecated, use STORAGE_SECRET_KEY instead')
+      log.warn('MINIO_SECRET_KEY is deprecated, use STORAGE_SECRET_KEY instead')
       secretAccessKey = process.env.MINIO_SECRET_KEY
     }
   }
@@ -250,10 +253,10 @@ export function createStorageManager(opts?: StorageManagerOptions): StorageManag
                 })
               )
             } catch (err) {
-              console.warn(
-                `[storage] SSE-S3 failed for ${bucket} — KMS may not be configured:`,
-                (err as Error).message
-              )
+              log.warn('SSE-S3 failed — KMS may not be configured', {
+                bucket,
+                err: (err as Error).message,
+              })
             }
           }
 
@@ -293,7 +296,7 @@ export function createStorageManager(opts?: StorageManagerOptions): StorageManag
           await adminClient.createPolicy(policyName, policy)
           await adminClient.attachPolicy(policyName, userName)
 
-          console.log(`[storage] Created IAM user ${userName} for hub ${hubId}`)
+          log.info('Created IAM user for hub', { userName, hubId })
 
           return { accessKeyId, secretAccessKey, policyName, userName }
         }

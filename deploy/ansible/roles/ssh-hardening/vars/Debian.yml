@@ -1,0 +1,5 @@
+---
+# Debian-family overrides for the ssh-hardening role (Debian, Ubuntu).
+
+ssh_hardening_service: ssh
+ssh_hardening_config_d_path: /etc/ssh/sshd_config.d

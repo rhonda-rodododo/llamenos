@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth'
 import { authFacadeClient } from '@/lib/auth-facade-client'
 import { createBackup, downloadBackupFile, generateRecoveryKey } from '@/lib/backup'
 import { generateKeyPair } from '@/lib/crypto'
+import { createDebugLog } from '@/lib/debug-log'
 import { setLanguage } from '@/lib/i18n'
 import * as keyManager from '@/lib/key-manager'
 import { useToast } from '@/lib/toast'
@@ -29,6 +30,8 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+
+const log = createDebugLog('llamenos:setup')
 
 type BootstrapStep = 'welcome' | 'pin' | 'generating' | 'backup' | 'complete'
 
@@ -196,7 +199,7 @@ export function AdminBootstrap({ onComplete }: AdminBootstrapProps) {
       // Brief delay for the success message, then advance to wizard
       setTimeout(onComplete, 1000)
     } catch (err: unknown) {
-      console.error('[bootstrap] handleComplete failed:', (err as Error)?.message || err)
+      log('handleComplete failed:', (err as Error)?.message)
       toast(t('common.error'), 'error')
     }
   }

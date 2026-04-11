@@ -59,6 +59,12 @@ interface ProvisionNsecResult {
   sas: string
 }
 
+interface ExportSessionResult {
+  token: string
+  encryptedNsecHex: string
+  capsuleNonceHex: string
+}
+
 interface PendingRequest {
   resolve: (value: unknown) => void
   reject: (reason: Error) => void
@@ -234,6 +240,34 @@ export class CryptoWorkerClient {
       type: 'provisionNsec',
       recipientEphemeralPubkeyHex,
     })) as ProvisionNsecResult
+  }
+
+  /**
+   * Export the unlocked nsec as an opaque session capsule encrypted with a
+   * random token. Caller persists `{encryptedNsecHex, capsuleNonceHex}` in
+   * IDB and `token` in sessionStorage — on reload, feed both back to
+   * importSession() to restore the worker without a PBKDF2 round.
+   */
+  async exportSession(): Promise<ExportSessionResult> {
+    return (await this.call({ type: 'exportSession' })) as ExportSessionResult
+  }
+
+  /**
+   * Restore the worker state from a session capsule. Throws if the capsule
+   * is invalid, tampered, or the token does not match. On success the
+   * worker holds the nsec and returns the derived x-only public key hex.
+   */
+  async importSession(
+    tokenHex: string,
+    encryptedNsecHex: string,
+    capsuleNonceHex: string
+  ): Promise<string> {
+    return (await this.call({
+      type: 'importSession',
+      tokenHex,
+      encryptedNsecHex,
+      capsuleNonceHex,
+    })) as string
   }
 
   /**

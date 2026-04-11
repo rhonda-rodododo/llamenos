@@ -12,9 +12,12 @@
 import type { Ciphertext } from '@shared/crypto-types'
 import type { Event as NostrEvent } from 'nostr-tools/core'
 import { getEventHash, verifyEvent } from 'nostr-tools/pure'
+import { createDebugLog } from '../debug-log'
 import { decryptFromHub } from '../hub-key-manager'
 import { EventDeduplicator, parseLlamenosContent, validateLlamenosEvent } from './events'
 import type { LlamenosEvent, NostrEventHandler, RelayState } from './types'
+
+const log = createDebugLog('llamenos:nostr')
 
 export interface RelayManagerOptions {
   relayUrl: string
@@ -199,7 +202,7 @@ export class RelayManager {
           case 'OK':
             // Event accepted/rejected: [OK, eventId, success, message]
             if (!data[2]) {
-              console.warn(`[nostr] Event ${data[1]} rejected: ${data[3]}`)
+              log(`Event ${data[1]} rejected: ${data[3]}`)
             }
             break
           case 'EOSE':
@@ -214,7 +217,7 @@ export class RelayManager {
             }
             break
           case 'NOTICE':
-            console.warn(`[nostr] Relay notice: ${data[1]}`)
+            log(`Relay notice: ${data[1]}`)
             break
         }
       } catch {
@@ -249,7 +252,7 @@ export class RelayManager {
     this.setState('authenticating')
     const pubkey = await this.getPubkey()
     if (!pubkey) {
-      console.error('[nostr] Cannot authenticate: key worker locked')
+      log('Cannot authenticate: key worker locked')
       return
     }
 
@@ -270,7 +273,7 @@ export class RelayManager {
       const sig = await this.signEvent(id)
       authEvent = { ...template, id, sig }
     } catch (err) {
-      console.error('[nostr] Failed to sign auth event:', err)
+      log('Failed to sign auth event:', err instanceof Error ? err.message : 'unknown')
       return
     }
 
@@ -310,7 +313,7 @@ export class RelayManager {
         try {
           sub.handler(event, content)
         } catch (err) {
-          console.error('[nostr] Handler error:', err)
+          log('Handler error:', err instanceof Error ? err.message : 'unknown')
         }
       }
     }

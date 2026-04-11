@@ -1,0 +1,5 @@
+---
+# Debian-family overrides for the firewall role (Debian, Ubuntu).
+
+firewall_package: ufw
+firewall_service: ufw
