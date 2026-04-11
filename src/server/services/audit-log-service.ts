@@ -40,6 +40,7 @@ export type AuditChainErrorCode =
   | 'signature_invalid'
   | 'signer_unknown'
   | 'signer_not_authorized_for_payload'
+  | 'chain_conflict'
 
 export class AuditChainError extends Error {
   constructor(
@@ -86,6 +87,19 @@ function payloadIsAuthorizedFor(payload: AuditEntryPayload, role: string): boole
     default:
       return false
   }
+}
+
+// ---- db error translation ----
+
+/**
+ * Detect a postgres unique-violation error (SQLSTATE 23505) from either the
+ * bun:sql or postgres.js drivers. Both expose `.code` on the thrown error
+ * value. The unique constraints from migration 0052 surface here.
+ */
+function isUniqueViolation(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false
+  const code = (err as { code?: unknown }).code
+  return code === '23505'
 }
 
 // ---- service ----
@@ -147,7 +161,20 @@ export class AuditLogService {
       })
     }
 
-    await this.port.insert(entry)
+    try {
+      await this.port.insert(entry)
+    } catch (err) {
+      // Translate postgres unique-violations raised by migration 0052's
+      // UNIQUE(hub_id, prev_entry_hash), UNIQUE(entry_hash), and the partial
+      // unique index on genesis entries. A concurrent appender raced us to
+      // the head — surface this as a structured chain error instead of a 500.
+      if (isUniqueViolation(err)) {
+        throw new AuditChainError('chain_conflict', {
+          constraint: (err as { constraint_name?: string }).constraint_name,
+        })
+      }
+      throw err
+    }
   }
 }
 

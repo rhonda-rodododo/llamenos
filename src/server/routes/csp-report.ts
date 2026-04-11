@@ -6,12 +6,36 @@ const log = createLogger('csp-report')
 
 const WINDOW_MS = 60_000
 const MAX_PER_WINDOW = 60
+// Hard ceiling on the rate-limit table size. At 60 reports/min an attacker
+// spraying one new source IP per request across 10k distinct IPs would still
+// only occupy ~500KB of RSS. Beyond this we evict the least-recently-inserted
+// entries, which is sufficient because window entries are short-lived anyway.
+const MAX_IP_ENTRIES = 10_000
+// A Map preserves insertion order, so iterating keys gives us FIFO eviction.
 const ipCounts = new Map<string, { count: number; resetAt: number }>()
+
+function pruneExpired(now: number): void {
+  for (const [ip, entry] of ipCounts) {
+    if (now >= entry.resetAt) ipCounts.delete(ip)
+  }
+}
 
 function isRateLimited(ip: string): boolean {
   const now = Date.now()
   const entry = ipCounts.get(ip)
   if (!entry || now >= entry.resetAt) {
+    if (ipCounts.size >= MAX_IP_ENTRIES) {
+      // Expired entries are the cheapest to drop — prefer them over live ones.
+      pruneExpired(now)
+      // If the table is still at capacity, evict the oldest live entry
+      // (insertion order) to make room. This bounds memory at the cost of
+      // briefly forgetting that IP's window — acceptable since CSP reporting
+      // is best-effort diagnostic data, not an auth/audit path.
+      if (ipCounts.size >= MAX_IP_ENTRIES) {
+        const oldest = ipCounts.keys().next().value
+        if (oldest !== undefined) ipCounts.delete(oldest)
+      }
+    }
     ipCounts.set(ip, { count: 1, resetAt: now + WINDOW_MS })
     return false
   }

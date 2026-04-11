@@ -212,7 +212,7 @@ export interface RecipientKeyEnvelope extends KeyEnvelope {
 export function eciesUnwrapKeyWithSecret(
   envelope: KeyEnvelope,
   secretKey: Uint8Array,
-  label: string
+  label: CryptoLabel
 ): Uint8Array {
   const ephemeralPub = hexToBytes(envelope.ephemeralPubkey)
   const shared = secp256k1.getSharedSecret(secretKey, ephemeralPub)

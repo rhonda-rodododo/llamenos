@@ -1,4 +1,3 @@
-import { LABEL_HUB_FIELD } from '@shared/crypto-labels'
 import type { Ciphertext } from '@shared/crypto-types'
 import { eq, inArray, sql } from 'drizzle-orm'
 import { DEFAULT_ROLES } from '../../../shared/permissions'
@@ -56,12 +55,14 @@ export async function listRoles(
         DEFAULT_ROLES.map((r) => ({
           id: r.id,
           hubId: hId,
+          // AAD must match the client's `(row.id, fieldName)` formula so
+          // hub-field-crypto.ts can decrypt the seeded row.
           encryptedName: hubKey
-            ? cryptoService.hubEncrypt(r.name, hubKey, LABEL_HUB_FIELD)
+            ? cryptoService.hubEncryptField(r.name, hubKey, r.id, 'encrypted_name')
             : (r.name as Ciphertext), // Plaintext until hub key available (pre-production)
           encryptedDescription: r.description
             ? hubKey
-              ? cryptoService.hubEncrypt(r.description, hubKey, LABEL_HUB_FIELD)
+              ? cryptoService.hubEncryptField(r.description, hubKey, r.id, 'encrypted_description')
               : (r.description as Ciphertext)
             : null,
           permissions: r.permissions,

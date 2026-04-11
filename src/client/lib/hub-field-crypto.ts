@@ -11,9 +11,8 @@
  * ciphertexts from being transplanted between rows or columns.
  */
 
-import { utf8ToBytes } from '@noble/ciphers/utils.js'
-import { LABEL_HUB_FIELD } from '@shared/crypto-labels'
 import type { Ciphertext } from '@shared/crypto-types'
+import { hubFieldAad } from '@shared/lib/hub-field-aad'
 import { getHubKeyForId } from './hub-key-cache'
 import { decryptFromHub, encryptForHub } from './hub-key-manager'
 
@@ -25,14 +24,6 @@ import { decryptFromHub, encryptForHub } from './hub-key-manager'
  */
 function looksLikeCiphertext(s: string): boolean {
   return s.length >= 48 && s.length % 2 === 0 && /^[0-9a-f]+$/i.test(s)
-}
-
-/**
- * Build the AAD bytes that bind a ciphertext to a specific record field.
- * Format: `llamenos:hub-field:<recordId>:<fieldName>`
- */
-function hubFieldAad(recordId: string, fieldName: string): Uint8Array {
-  return utf8ToBytes(`${LABEL_HUB_FIELD}:${recordId}:${fieldName}`)
 }
 
 /**

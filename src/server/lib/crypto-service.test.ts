@@ -7,7 +7,6 @@ import {
   HMAC_PHONE_PREFIX,
   LABEL_AUDIT_EVENT,
   LABEL_CALL_META,
-  LABEL_HUB_FIELD,
   LABEL_HUB_KEY_WRAP,
   LABEL_MESSAGE,
   LABEL_SERVER_NOSTR_KEY,
@@ -255,16 +254,32 @@ describe('CryptoService', () => {
     })
   })
 
-  // ── hubEncrypt / hubDecrypt ──
+  // ── hubEncryptField / hubDecryptField ──
 
-  describe('hubEncrypt / hubDecrypt', () => {
-    test('round-trip', () => {
+  describe('hubEncryptField / hubDecryptField', () => {
+    test('round-trip with matching (recordId, fieldName)', () => {
       const hubKey = new Uint8Array(32)
       globalThis.crypto.getRandomValues(hubKey)
 
-      const ct = crypto.hubEncrypt('hub data', hubKey, LABEL_HUB_FIELD)
-      const pt = crypto.hubDecrypt(ct, hubKey, LABEL_HUB_FIELD)
+      const ct = crypto.hubEncryptField('hub data', hubKey, 'row-1', 'encrypted_name')
+      const pt = crypto.hubDecryptField(ct, hubKey, 'row-1', 'encrypted_name')
       expect(pt).toBe('hub data')
+    })
+
+    test('wrong recordId returns null (AAD mismatch)', () => {
+      const hubKey = new Uint8Array(32)
+      globalThis.crypto.getRandomValues(hubKey)
+
+      const ct = crypto.hubEncryptField('hub data', hubKey, 'row-1', 'encrypted_name')
+      expect(crypto.hubDecryptField(ct, hubKey, 'row-2', 'encrypted_name')).toBeNull()
+    })
+
+    test('wrong fieldName returns null (AAD mismatch)', () => {
+      const hubKey = new Uint8Array(32)
+      globalThis.crypto.getRandomValues(hubKey)
+
+      const ct = crypto.hubEncryptField('hub data', hubKey, 'row-1', 'encrypted_name')
+      expect(crypto.hubDecryptField(ct, hubKey, 'row-1', 'encrypted_description')).toBeNull()
     })
 
     test('wrong key returns null', () => {
@@ -273,45 +288,17 @@ describe('CryptoService', () => {
       const key2 = new Uint8Array(32)
       globalThis.crypto.getRandomValues(key2)
 
-      const ct = crypto.hubEncrypt('data', key1, LABEL_HUB_FIELD)
-      expect(crypto.hubDecrypt(ct, key2, LABEL_HUB_FIELD)).toBeNull()
+      const ct = crypto.hubEncryptField('data', key1, 'row-1', 'encrypted_name')
+      expect(crypto.hubDecryptField(ct, key2, 'row-1', 'encrypted_name')).toBeNull()
     })
 
     test('nonce uniqueness', () => {
       const hubKey = new Uint8Array(32)
       globalThis.crypto.getRandomValues(hubKey)
 
-      const a = crypto.hubEncrypt('same', hubKey, LABEL_HUB_FIELD)
-      const b = crypto.hubEncrypt('same', hubKey, LABEL_HUB_FIELD)
+      const a = crypto.hubEncryptField('same', hubKey, 'row-1', 'encrypted_name')
+      const b = crypto.hubEncryptField('same', hubKey, 'row-1', 'encrypted_name')
       expect(a).not.toBe(b)
-    })
-  })
-
-  // ── decryptField ──
-
-  describe('decryptField', () => {
-    test('prefers hub key when available', () => {
-      const hubKey = new Uint8Array(32)
-      globalThis.crypto.getRandomValues(hubKey)
-
-      const ct = crypto.hubEncrypt('hub-encrypted data', hubKey, LABEL_USER_PII)
-      const result = crypto.decryptField(ct, hubKey, LABEL_USER_PII)
-      expect(result).toBe('hub-encrypted data')
-    })
-
-    test('falls back to server key when hub key fails', () => {
-      const wrongHubKey = new Uint8Array(32)
-      globalThis.crypto.getRandomValues(wrongHubKey)
-
-      const ct = crypto.serverEncrypt('server-encrypted data', LABEL_USER_PII)
-      const result = crypto.decryptField(ct, wrongHubKey, LABEL_USER_PII)
-      expect(result).toBe('server-encrypted data')
-    })
-
-    test('falls back to server key when hub key is null', () => {
-      const ct = crypto.serverEncrypt('server-only data', LABEL_USER_PII)
-      const result = crypto.decryptField(ct, null, LABEL_USER_PII)
-      expect(result).toBe('server-only data')
     })
   })
 
@@ -396,17 +383,17 @@ describe('CryptoService AAD binding', () => {
     expect(() => svc.serverDecrypt(ct, LABEL_USER_PII)).toThrow()
   })
 
-  test('hubEncrypt/Decrypt round-trip with AAD', () => {
+  test('hubEncryptField/Decrypt round-trip with AAD', () => {
     const svc = new CryptoService(TEST_SERVER_SECRET, TEST_HMAC_SECRET)
     const hubKey = new Uint8Array(32).fill(3)
-    const ct = svc.hubEncrypt('hello', hubKey, LABEL_HUB_FIELD)
-    expect(svc.hubDecrypt(ct, hubKey, LABEL_HUB_FIELD)).toBe('hello')
+    const ct = svc.hubEncryptField('hello', hubKey, 'row-1', 'encrypted_name')
+    expect(svc.hubDecryptField(ct, hubKey, 'row-1', 'encrypted_name')).toBe('hello')
   })
 
-  test('hubDecrypt returns null on AAD mismatch', () => {
+  test('hubDecryptField returns null on AAD mismatch', () => {
     const svc = new CryptoService(TEST_SERVER_SECRET, TEST_HMAC_SECRET)
     const hubKey = new Uint8Array(32).fill(3)
-    const ct = svc.hubEncrypt('hello', hubKey, LABEL_HUB_FIELD)
-    expect(svc.hubDecrypt(ct, hubKey, LABEL_USER_PII)).toBeNull()
+    const ct = svc.hubEncryptField('hello', hubKey, 'row-1', 'encrypted_name')
+    expect(svc.hubDecryptField(ct, hubKey, 'row-1', 'encrypted_description')).toBeNull()
   })
 })

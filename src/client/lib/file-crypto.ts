@@ -52,8 +52,7 @@ export async function unwrapFileKey(
   const resultHex = await cryptoWorker.decrypt(
     ephemeralPubkeyHex,
     encryptedFileKeyHex,
-    LABEL_FILE_KEY,
-    new Uint8Array(0)
+    LABEL_FILE_KEY
   )
   return hexToBytes(resultHex)
 }
@@ -107,8 +106,7 @@ export async function decryptFileMetadata(
     const resultHex = await worker.decrypt(
       ephemeralPubkeyHex,
       encryptedContentHex,
-      LABEL_FILE_METADATA,
-      new Uint8Array(0)
+      LABEL_FILE_METADATA
     )
     const plaintext = hexToBytes(resultHex)
     return JSON.parse(new TextDecoder().decode(plaintext))
@@ -202,9 +200,7 @@ export async function decryptFile(
   const fileKey = await decryptEnvelopeV2(
     envelope,
     (ephemeralPubkey, wrappedKey, label) =>
-      cryptoWorker
-        .decrypt(ephemeralPubkey, wrappedKey, label as CryptoLabel, new Uint8Array(0))
-        .then(hexToBytes),
+      cryptoWorker.decrypt(ephemeralPubkey, wrappedKey, label as CryptoLabel).then(hexToBytes),
     LABEL_FILE_KEY
   )
 
@@ -234,9 +230,7 @@ export async function rewrapFileKey(
   const fileKey = await decryptEnvelopeV2(
     envelope,
     (ephemeralPubkey, wrappedKey, label) =>
-      cryptoWorker
-        .decrypt(ephemeralPubkey, wrappedKey, label as CryptoLabel, new Uint8Array(0))
-        .then(hexToBytes),
+      cryptoWorker.decrypt(ephemeralPubkey, wrappedKey, label as CryptoLabel).then(hexToBytes),
     LABEL_FILE_KEY
   )
 

@@ -162,21 +162,23 @@ export class CryptoWorkerClient {
   }
 
   /**
-   * ECIES decrypt (unwrap) using the worker's secret key.
-   * Returns decrypted plaintext as hex.
+   * ECIES key unwrap using the worker's secret key. Returns the unwrapped
+   * 32-byte key as hex. Domain separation is provided via the `label` used
+   * to derive the inner wrapping key — there is intentionally no AAD
+   * parameter because the inner AEAD is called with empty AAD today. Adding
+   * an AAD here would be a silent no-op; hardening that end-to-end is a
+   * Tier 1 item.
    */
   async decrypt(
     ephemeralPubkeyHex: string,
     wrappedKeyHex: string,
-    label: CryptoLabel,
-    aad: Uint8Array
+    label: CryptoLabel
   ): Promise<string> {
     return (await this.call({
       type: 'decrypt',
       ephemeralPubkeyHex,
       wrappedKeyHex,
       label,
-      aad: bytesToHex(aad),
     })) as string
   }
 
@@ -203,21 +205,19 @@ export class CryptoWorkerClient {
   }
 
   /**
-   * ECIES encrypt (wrap) for a recipient. Uses an ephemeral key inside the worker.
-   * Returns the envelope (ephemeralPubkeyHex + wrappedKeyHex).
+   * ECIES key wrap for a recipient. Uses an ephemeral key inside the worker.
+   * See {@link decrypt} for why there is no `aad` parameter today.
    */
   async encrypt(
     plaintextHex: string,
     recipientPubkeyHex: string,
-    label: CryptoLabel,
-    aad: Uint8Array
+    label: CryptoLabel
   ): Promise<EncryptResult> {
     return (await this.call({
       type: 'encrypt',
       plaintextHex,
       recipientPubkeyHex,
       label,
-      aad: bytesToHex(aad),
     })) as EncryptResult
   }
 

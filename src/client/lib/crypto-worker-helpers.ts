@@ -33,13 +33,10 @@ export async function eciesUnwrapKey(
   envelope: KeyEnvelope,
   label: CryptoLabel
 ): Promise<Uint8Array> {
-  // AAD is derived from the label for domain separation (no record-specific binding needed for ECIES key unwrap)
-  const resultHex = await cryptoWorker.decrypt(
-    envelope.ephemeralPubkey,
-    envelope.wrappedKey,
-    label,
-    utf8ToBytes(label)
-  )
+  // Domain separation is provided via `label` (symmetric wrapping key is
+  // derived from `label || sharedX`). The inner AEAD is called with empty
+  // AAD today; see note on `cryptoWorker.decrypt`.
+  const resultHex = await cryptoWorker.decrypt(envelope.ephemeralPubkey, envelope.wrappedKey, label)
   return hexToBytes(resultHex)
 }
 
@@ -165,12 +162,7 @@ export async function decryptTranscription(
   ephemeralPubkeyHex: string
 ): Promise<string | null> {
   try {
-    const resultHex = await cryptoWorker.decrypt(
-      ephemeralPubkeyHex,
-      packed,
-      LABEL_TRANSCRIPTION,
-      utf8ToBytes(LABEL_TRANSCRIPTION)
-    )
+    const resultHex = await cryptoWorker.decrypt(ephemeralPubkeyHex, packed, LABEL_TRANSCRIPTION)
     return new TextDecoder().decode(hexToBytes(resultHex))
   } catch {
     return null

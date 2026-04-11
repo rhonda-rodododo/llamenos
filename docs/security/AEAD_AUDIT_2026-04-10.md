@@ -402,3 +402,39 @@ Source files audited:
 - **`LABEL_BACKUP` has zero callers.** It is defined at `src/shared/crypto-labels.ts` line 121 and registered in `LABEL_REGISTRY` at index 10, but no source file uses it. When the GDPR export or admin settings export is wired up in a future workstream, that future work should either call `LABEL_BACKUP` directly (and confirm via grep that nothing else claims it) or introduce per-export-type labels (`LABEL_GDPR_EXPORT`, `LABEL_SETTINGS_EXPORT`) for finer-grained domain separation.
 - **`LABEL_VOICEMAIL_TRANSCRIPT` has zero active encrypt callers.** Defined at line 155, registered at index 13, but no call site in `src/server/lib/voicemail-storage.ts` or elsewhere encrypts a transcript today. Client-side WASM Whisper transcription (see the project overview) may write transcripts in the future; when it does, the same Tier 1 HPKE primitive must be used with `${LABEL_VOICEMAIL_TRANSCRIPT}:${fileId}` as the AAD.
 - **Attachments are the only export path that currently binds AAD to the record id.** Workstream 0.1 Task 8 threaded `fileId` through `buildFileAad` end-to-end, making the attachment encrypt + decrypt path the reference implementation for every other envelope path. Tier 1 should mirror this exact pattern (per-record-id AAD, stable `labelId` byte in the AAD header, envelope version bump on any AAD format change) for voicemail, GDPR export, intakes, and every schema-level FIX row elsewhere in this document.
+
+## 2026-04-11 post-impl deep review findings
+
+Post-implementation review of PR #68 (Tier 0 impl) surfaced additional AEAD-adjacent findings that were resolved on the branch. Documented here so future audits have a continuous record.
+
+### Worker-boundary AAD propagation (Tier 1 must-fix)
+
+**Where:** `src/client/lib/crypto-worker-client.ts`, `src/client/lib/crypto-worker.ts`.
+
+The crypto worker RPC (`cryptoWorker.decrypt` / `cryptoWorker.encrypt`) does not forward a caller-supplied AAD into the inner XChaCha20-Poly1305. ECIES unwrapping uses label-based domain separation (brand + HKDF + wire-format label), but the inner AEAD is called with empty AAD. Any caller that tries to "bind" an AAD by passing one to the RPC today is silently ignored.
+
+In Tier 0, the `file-crypto.ts` call sites were updated to **not pass** a zero-length `Uint8Array` (which was misleading about the binding), with inline comments explaining the temporary gap. The RPC signature intentionally omits the AAD parameter to keep the gap visible rather than to simulate binding.
+
+**Tier 1 fix:** Add `aad: Uint8Array` to the worker RPC, marshal as hex, thread into the inner AEAD. Add a worker-level AAD-mismatch test that builds a ciphertext with AAD A inside the worker and asserts decrypt fails under AAD B. Update every call site in `file-crypto.ts`, `hub-field-crypto.ts`, and `decrypt-fields.ts`.
+
+### `decryptEnvelopeField` AAD coverage audit (Tier 1 must-fix)
+
+**Where:** `src/client/lib/decrypt-fields.ts`, `src/client/lib/crypto-worker.ts`.
+
+The worker-side `decryptEnvelopeField` helper already takes an `aad` parameter (it was added in the envelope-v2 work). Audit every call site to confirm the AAD passed at decrypt actually matches the AAD used at encrypt. Known incomplete areas:
+
+- `decryptObjectFields` / `decryptArrayFields` currently use label-only AAD, not record-id-bound AAD. Envelope-per-recipient provides some indirect binding (the wrapped key is bound to the recipient's pubkey) but a ciphertext can still be transplanted between records at the same label. Tier 1 should bind AAD to the record id at the source call sites.
+- `file-crypto.ts decryptFileMetadata` — verify `encryptMetadataForPubkey` constructs the identical AAD byte-for-byte.
+
+### Hub-field AEAD binding — Tier 0 complete
+
+Workstream 0.1 Task 7 landed `src/shared/lib/hub-field-aad.ts` and wired `hubFieldAad(recordId, fieldName)` through `encryptHubField` / `decryptHubField` on the client. The server continues to store the ciphertext opaquely. Transplantation resistance is now locked in by a real cryptographic test in `tests/api/aead-binding.spec.ts` (added by post-impl review), which proves a ciphertext bound to `(recordA, fieldX)` fails to decrypt under `(recordB, fieldX)`, `(recordA, fieldY)`, and `(recordB, fieldY)`. If the `hubFieldAad` formula ever drifts, the test will flip.
+
+### Signed audit chain fork prevention — Tier 0 complete
+
+Migration `0052_signed_audit_unique_constraints.sql` added `UNIQUE (hub_id, prev_entry_hash)`, `UNIQUE (entry_hash)`, and a partial unique index `(hub_id) WHERE prev_entry_hash IS NULL`. `AuditLogService.appendSigned` translates SQLSTATE 23505 into `AuditChainError('chain_conflict', { constraint })`. This is not an AEAD finding per se but is adjacent to the audit-log integrity story, so it is recorded here for completeness.
+
+### Trusted Types `createHTML` — Tier 0 complete
+
+The llamenos policy's `createHTML` now throws unconditionally instead of passing through. Not an AEAD finding but it shares the "silent conduit" risk profile — a passthrough would have turned any future XSS sink routed through the policy into a silent data leak. Recorded here so the change is findable from the same audit trail.
+

@@ -61,6 +61,32 @@ auditRoutes.post('/', async (c) => {
       400
     )
   }
+
+  // Authz: the authenticated caller must be the signer. Prevents replaying a
+  // captured signed entry under another user's session and prevents a member
+  // from appending entries attributed to someone else. The underlying role/
+  // payload authorization is re-checked inside appendSigned().
+  const callerPubkey = c.get('pubkey')
+  if (!callerPubkey || parsed.data.signerPubkey !== callerPubkey) {
+    return c.json(
+      { error: 'signerPubkey does not match authenticated user', code: 'signer_mismatch' as const },
+      403
+    )
+  }
+
+  // Authz: when invoked on the hub-scoped path, the body hubId MUST match the
+  // path hubId. Without this gate a hub member could append entries into a
+  // different hub. On the non-hub-scoped path (super-admin only, gated by
+  // requireHubOrSuperAdmin upstream) this check is skipped and the body hubId
+  // is trusted — super-admins have cross-hub write authority by design.
+  const pathHubId = c.get('hubId')
+  if (pathHubId && parsed.data.hubId !== pathHubId) {
+    return c.json(
+      { error: 'hubId in body does not match path', code: 'hub_mismatch' as const },
+      403
+    )
+  }
+
   try {
     await services.auditLog.appendSigned(parsed.data)
     return c.body(null, 204)

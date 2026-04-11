@@ -25,7 +25,6 @@ export function FilePreview({ fileId }: FilePreviewProps) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
   const [metadata, setMetadata] = useState<EncryptedFileMetadata | null>(null)
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: hasNsec triggers re-run when key lock state changes
   useEffect(() => {
     let mounted = true
     let objectUrl: string | null = null

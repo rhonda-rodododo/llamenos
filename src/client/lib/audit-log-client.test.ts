@@ -2,6 +2,12 @@ import { describe, expect, mock, test } from 'bun:test'
 import { schnorr } from '@noble/curves/secp256k1.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { computeEntryHash } from '@shared/lib/audit-entry-hash'
+// Import the real module eagerly so the mock below can preserve every real
+// export (isWorkerLockedError, CryptoWorkerLockedError, CryptoWorkerClient)
+// and only override `cryptoWorker`. Without this, bun's process-wide
+// mock.module would strip the named exports and break sibling test files
+// (crypto-worker-client.test.ts, decrypt-fields.test.ts) that import them.
+import * as realCryptoWorkerClient from './crypto-worker-client'
 
 const TEST_PRIVKEY = 'ab'.repeat(32)
 const TEST_PUBKEY = bytesToHex(schnorr.getPublicKey(hexToBytes(TEST_PRIVKEY)))
@@ -13,6 +19,7 @@ const mockSignAuditEntry = mock(async (entryHashHex: string) => {
 })
 
 mock.module('./crypto-worker-client', () => ({
+  ...realCryptoWorkerClient,
   cryptoWorker: {
     getPublicKey: mockGetPublicKey,
     signAuditEntry: mockSignAuditEntry,

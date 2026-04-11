@@ -17,6 +17,7 @@ import {
   symmetricEncrypt,
 } from '@shared/crypto-primitives'
 import type { Ciphertext, HmacHash } from '@shared/crypto-types'
+import { hubFieldAad } from '@shared/lib/hub-field-aad'
 import type { RecipientEnvelope } from '@shared/types'
 
 /**
@@ -100,38 +101,60 @@ export class CryptoService {
   }
 
   /**
-   * Encrypt a plaintext string with the hub key.
-   * AAD is derived from the label, binding the ciphertext to this hub-key domain.
+   * Encrypt a hub-scoped record field.
+   *
+   * AAD binds the ciphertext to `(recordId, fieldName)` via the shared
+   * {@link hubFieldAad} formula so the resulting ciphertext is decryptable
+   * by clients that use `hub-field-crypto.ts`. Any server-side path that
+   * seeds or produces hub-field ciphertext for a row with a known id MUST
+   * use this method so the formula matches the client's.
+   *
+   * The lower-level `hubEncryptPrimitive` exists only as a test hook for
+   * the AEAD primitive itself — production code must not call it directly.
    */
-  hubEncrypt(plaintext: string, hubKey: Uint8Array, label: CryptoLabel): Ciphertext {
-    return symmetricEncrypt(utf8ToBytes(plaintext), hubKey, utf8ToBytes(label))
+  hubEncryptField(
+    plaintext: string,
+    hubKey: Uint8Array,
+    recordId: string,
+    fieldName: string
+  ): Ciphertext {
+    return symmetricEncrypt(utf8ToBytes(plaintext), hubKey, hubFieldAad(recordId, fieldName))
   }
 
   /**
-   * Decrypt a hub-encrypted ciphertext. Returns null on decryption failure.
-   * AAD must match what was used during encryption.
+   * Decrypt a hub-scoped record field. Returns null on auth failure.
+   * Must be called with the same `(recordId, fieldName)` tuple used at encrypt.
    */
-  hubDecrypt(ct: Ciphertext, hubKey: Uint8Array, label: CryptoLabel): string | null {
+  hubDecryptField(
+    ct: Ciphertext,
+    hubKey: Uint8Array,
+    recordId: string,
+    fieldName: string
+  ): string | null {
     try {
-      return new TextDecoder().decode(symmetricDecrypt(ct, hubKey, utf8ToBytes(label)))
+      return new TextDecoder().decode(
+        symmetricDecrypt(ct, hubKey, hubFieldAad(recordId, fieldName))
+      )
     } catch {
       return null
     }
   }
 
   /**
-   * Decrypt a field: try hub key first, then server key fallback.
-   * This handles the transition where data may be encrypted with either key.
+   * Raw hub-key AEAD primitive. Test-only entry point — production hub-field
+   * ciphertext MUST go through {@link hubEncryptField} / {@link hubDecryptField}
+   * so the AAD formula is consistent with the client.
    */
-  decryptField(ct: Ciphertext, hubKey: Uint8Array | null, serverLabel: CryptoLabel): string {
-    if (hubKey) {
-      const result = this.hubDecrypt(ct, hubKey, serverLabel)
-      if (result) return result
-    }
+  hubEncryptPrimitive(plaintext: string, hubKey: Uint8Array, label: CryptoLabel): Ciphertext {
+    return symmetricEncrypt(utf8ToBytes(plaintext), hubKey, utf8ToBytes(label))
+  }
+
+  /** Raw hub-key AEAD primitive (decrypt). See {@link hubEncryptPrimitive}. */
+  hubDecryptPrimitive(ct: Ciphertext, hubKey: Uint8Array, label: CryptoLabel): string | null {
     try {
-      return this.serverDecrypt(ct, serverLabel)
+      return new TextDecoder().decode(symmetricDecrypt(ct, hubKey, utf8ToBytes(label)))
     } catch {
-      return ''
+      return null
     }
   }
 

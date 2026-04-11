@@ -1,4 +1,14 @@
-import { boolean, index, integer, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
+import {
+  boolean,
+  index,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core'
 import type { AuditEntryPayload } from '../../../shared/schemas/audit-entries'
 import type { RecipientEnvelope } from '../../../shared/types'
 import { jsonb } from '../bun-jsonb'
@@ -63,6 +73,17 @@ export const signedAuditEntries = pgTable(
   (table) => [
     index('signed_audit_entries_hub_type_created_idx').on(table.hubId, table.type, table.createdAt),
     index('signed_audit_entries_hub_signer_idx').on(table.hubId, table.signerPubkey),
+    // Prevents two appenders racing on the same head (lost update on fork).
+    unique('signed_audit_entries_hub_prev_hash_unique').on(table.hubId, table.prevEntryHash),
+    // Global uniqueness turns accidental/adversarial hash collisions into
+    // clean insert failures that the route layer translates to AuditChainError.
+    unique('signed_audit_entries_entry_hash_unique').on(table.entryHash),
+    // At most one genesis entry per hub. Postgres treats NULLs as distinct
+    // in plain UNIQUE, so the hub uniqueness of the null-prev row needs a
+    // partial unique index instead.
+    uniqueIndex('signed_audit_entries_hub_genesis_unique')
+      .on(table.hubId)
+      .where(sql`${table.prevEntryHash} IS NULL`),
   ]
 )
 

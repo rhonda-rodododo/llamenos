@@ -38,18 +38,6 @@ export class ClientCryptoService {
     return new TextDecoder().decode(symmetricDecrypt(ct, messageKey, utf8ToBytes(label)))
   }
 
-  hubEncrypt(plaintext: string, hubKey: Uint8Array, label: CryptoLabel): Ciphertext {
-    return symmetricEncrypt(utf8ToBytes(plaintext), hubKey, utf8ToBytes(label))
-  }
-
-  hubDecrypt(ct: Ciphertext, hubKey: Uint8Array, label: CryptoLabel): string | null {
-    try {
-      return new TextDecoder().decode(symmetricDecrypt(ct, hubKey, utf8ToBytes(label)))
-    } catch {
-      return null
-    }
-  }
-
   envelopeEncryptBinary(
     data: Uint8Array,
     recipientPubkeys: string[],

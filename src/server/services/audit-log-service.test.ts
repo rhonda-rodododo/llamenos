@@ -203,6 +203,34 @@ describe('AuditLogService.appendSigned', () => {
     })
   })
 
+  test('translates postgres unique-violation from insert into chain_conflict', async () => {
+    // Simulates migration 0052's UNIQUE(hub_id, prev_entry_hash) firing when
+    // two appenders race on the same head. The error-code surface matches what
+    // bun:sql / postgres.js raise for SQLSTATE 23505.
+    const conflictingStore = {
+      getHead: (_hubId: string) => Promise.resolve(null),
+      insert: (_entry: SignedAuditEntry) => {
+        const err = new Error('duplicate key value violates unique constraint') as Error & {
+          code: string
+          constraint_name: string
+        }
+        err.code = '23505'
+        err.constraint_name = 'signed_audit_entries_hub_prev_hash_unique'
+        throw err
+      },
+    }
+    const service = new AuditLogService({
+      getHead: conflictingStore.getHead,
+      insert: conflictingStore.insert,
+      findSignerByPubkey: signerLookup,
+    })
+    const entry = membershipAddEntry(ADMIN_PRIVKEY, ADMIN_PUBKEY, null)
+    await expect(service.appendSigned(entry)).rejects.toMatchObject({
+      name: 'AuditChainError',
+      code: 'chain_conflict',
+    })
+  })
+
   test('rejects malformed entry (zod validation failure)', async () => {
     const service = makeService(store, signerLookup)
     const malformed = {

@@ -26,20 +26,23 @@ type WorkerRequest =
   | { type: 'lock'; id: string }
   | { type: 'sign'; id: string; messageHex: string }
   | {
+      // ECIES key unwrap. Domain separation comes from `label` (used to derive
+      // the symmetric wrapping key). Inner AEAD uses empty AAD — do NOT add an
+      // `aad` field here until eciesWrap/eciesUnwrap actually plumb it through,
+      // otherwise callers will think they have binding they don't.
       type: 'decrypt'
       id: string
       ephemeralPubkeyHex: string
       wrappedKeyHex: string
       label: CryptoLabel
-      aad: string
     }
   | {
+      // ECIES key wrap. See note on `decrypt` re: AAD.
       type: 'encrypt'
       id: string
       plaintextHex: string
       recipientPubkeyHex: string
       label: CryptoLabel
-      aad: string
     }
   | { type: 'getPublicKey'; id: string }
   | { type: 'isUnlocked'; id: string }
@@ -258,8 +261,7 @@ function handleSign(messageHex: string): string {
 function handleDecrypt(
   ephemeralPubkeyHex: string,
   wrappedKeyHex: string,
-  label: CryptoLabel,
-  _aad: string
+  label: CryptoLabel
 ): string {
   if (!secretKey) throw new Error('Worker is locked')
 
@@ -275,8 +277,7 @@ function handleDecrypt(
 function handleEncrypt(
   plaintextHex: string,
   recipientPubkeyHex: string,
-  label: CryptoLabel,
-  _aad: string
+  label: CryptoLabel
 ): { ephemeralPubkeyHex: string; wrappedKeyHex: string } {
   // Encrypt doesn't need our nsec (uses ephemeral key), but we keep it
   // in the worker for API consistency and to enforce the worker-is-unlocked
@@ -452,10 +453,10 @@ self.onmessage = (event: MessageEvent<WorkerRequest>) => {
         result = handleSign(req.messageHex)
         break
       case 'decrypt':
-        result = handleDecrypt(req.ephemeralPubkeyHex, req.wrappedKeyHex, req.label, req.aad)
+        result = handleDecrypt(req.ephemeralPubkeyHex, req.wrappedKeyHex, req.label)
         break
       case 'encrypt':
-        result = handleEncrypt(req.plaintextHex, req.recipientPubkeyHex, req.label, req.aad)
+        result = handleEncrypt(req.plaintextHex, req.recipientPubkeyHex, req.label)
         break
       case 'getPublicKey':
         result = handleGetPublicKey()

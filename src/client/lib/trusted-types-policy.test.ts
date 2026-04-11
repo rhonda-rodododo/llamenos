@@ -86,7 +86,7 @@ describe('installTrustedTypesPolicy', () => {
     expect(() => capturedRules.createScript('console.log(1)')).toThrow(/blocked/i)
   })
 
-  test('createHTML passes through input', () => {
+  test('createHTML throws unconditionally (strict default)', () => {
     let capturedRules: Record<string, (input: string) => string> = {}
     globalThis.window = {
       trustedTypes: {
@@ -98,6 +98,7 @@ describe('installTrustedTypesPolicy', () => {
     } as unknown as Window & typeof globalThis
 
     installTrustedTypesPolicy()
-    expect(capturedRules.createHTML('<div>safe</div>')).toBe('<div>safe</div>')
+    expect(() => capturedRules.createHTML('<div>safe</div>')).toThrow(/blocked/i)
+    expect(() => capturedRules.createHTML('')).toThrow(/blocked/i)
   })
 })
