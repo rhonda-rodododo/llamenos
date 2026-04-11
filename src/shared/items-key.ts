@@ -50,21 +50,18 @@ export async function generateItemsKey(
   }
   const macKey = await crypto.subtle.importKey(
     'raw',
-    userMasterSecret,
+    userMasterSecret.buffer as ArrayBuffer,
     { name: 'HMAC', hash: 'SHA-256' },
     /* extractable */ false,
     ['sign']
   )
+  const info = utf8ToBytes(`llamenos:items-key:gen-${generation}`)
   const raw = new Uint8Array(
-    await crypto.subtle.sign(
-      { name: 'HMAC', hash: 'SHA-256' },
-      macKey,
-      utf8ToBytes(`llamenos:items-key:gen-${generation}`)
-    )
+    await crypto.subtle.sign({ name: 'HMAC', hash: 'SHA-256' }, macKey, info.buffer as ArrayBuffer)
   )
   return crypto.subtle.importKey(
     'raw',
-    raw,
+    raw.buffer as ArrayBuffer,
     { name: 'AES-KW', length: 256 },
     /* extractable */ false,
     ['wrapKey', 'unwrapKey']
@@ -93,7 +90,7 @@ export async function wrapPerArtifactKey(
   }
   const inner = await crypto.subtle.importKey(
     'raw',
-    perArtifactKey,
+    perArtifactKey.buffer as ArrayBuffer,
     { name: 'AES-GCM', length: 256 },
     /* extractable */ true,
     ['encrypt', 'decrypt']
@@ -117,7 +114,7 @@ export async function unwrapPerArtifactKey(
 ): Promise<Uint8Array> {
   const inner = await crypto.subtle.unwrapKey(
     'raw',
-    wrapped,
+    wrapped.buffer as ArrayBuffer,
     itemsKey,
     'AES-KW',
     { name: 'AES-GCM', length: 256 },
@@ -143,7 +140,7 @@ export async function rewrapItemsKey(
 ): Promise<Uint8Array> {
   const inner = await crypto.subtle.unwrapKey(
     'raw',
-    oldWrapped,
+    oldWrapped.buffer as ArrayBuffer,
     oldItemsKey,
     'AES-KW',
     { name: 'AES-GCM', length: 256 },

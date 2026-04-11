@@ -31,16 +31,21 @@ async function encryptNote(
   const aad = utf8ToBytes(`${LABEL_NOTE_KEY}:${noteId}`)
   const ck = await crypto.subtle.importKey(
     'raw',
-    perNoteKey,
+    perNoteKey.buffer as ArrayBuffer,
     { name: 'AES-GCM', length: 256 },
     /* extractable */ false,
     ['encrypt']
   )
+  const pt = utf8ToBytes(plaintext)
   const ct = new Uint8Array(
     await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv, additionalData: aad },
+      {
+        name: 'AES-GCM',
+        iv: iv.buffer as ArrayBuffer,
+        additionalData: aad.buffer as ArrayBuffer,
+      },
       ck,
-      utf8ToBytes(plaintext)
+      pt.buffer as ArrayBuffer
     )
   )
   return { iv, ct }
@@ -55,13 +60,21 @@ async function decryptNote(
   const aad = utf8ToBytes(`${LABEL_NOTE_KEY}:${noteId}`)
   const ck = await crypto.subtle.importKey(
     'raw',
-    perNoteKey,
+    perNoteKey.buffer as ArrayBuffer,
     { name: 'AES-GCM', length: 256 },
     /* extractable */ false,
     ['decrypt']
   )
   const pt = new Uint8Array(
-    await crypto.subtle.decrypt({ name: 'AES-GCM', iv, additionalData: aad }, ck, ct)
+    await crypto.subtle.decrypt(
+      {
+        name: 'AES-GCM',
+        iv: iv.buffer as ArrayBuffer,
+        additionalData: aad.buffer as ArrayBuffer,
+      },
+      ck,
+      ct.buffer as ArrayBuffer
+    )
   )
   return new TextDecoder().decode(pt)
 }
@@ -150,7 +163,7 @@ describe('items_key indirection', () => {
 
     const pt = await decryptNote(unwrapped, noteId, iv, ctBefore)
     expect(pt).toBe('hello world')
-    expect(ctBefore).toEqual(ct)
+    expect(Array.from(ctBefore)).toEqual(Array.from(ct))
   })
 
   test('rewrap fails under the wrong old items_key (AES-KW integrity check)', async () => {

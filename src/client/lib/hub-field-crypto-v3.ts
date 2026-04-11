@@ -111,3 +111,26 @@ export async function decryptHubFieldV3(
 export async function generateHubKeyV3(): Promise<CryptoKey> {
   return crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt'])
 }
+
+/**
+ * Import a 32-byte raw hub key as a non-extractable AES-256-GCM CryptoKey
+ * handle. Used by `hub-key-cache.ts` when a hub key envelope is unwrapped
+ * and we want a CryptoKey to hand to `encryptHubFieldV3` / `decryptHubFieldV3`
+ * without exposing raw bytes again.
+ *
+ * The returned handle is non-extractable: once `loadHubKeysForUser` resolves,
+ * the only way to get raw bytes back out of the cache is via the legacy
+ * `getHubKeyForId()` path (which will be removed once every caller is on v3).
+ */
+export async function importHubKeyCryptoKey(raw: Uint8Array): Promise<CryptoKey> {
+  if (raw.length !== 32) {
+    throw new Error(`hub key must be 32 bytes, got ${raw.length}`)
+  }
+  return crypto.subtle.importKey(
+    'raw',
+    raw.buffer as ArrayBuffer,
+    { name: 'AES-GCM', length: 256 },
+    /* extractable */ false,
+    ['encrypt', 'decrypt']
+  )
+}

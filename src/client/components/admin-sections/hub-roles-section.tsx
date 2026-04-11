@@ -290,22 +290,24 @@ export function HubRolesSection() {
     setTimeout(() => setShowSaved(false), 2000)
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!form.name.trim()) return
     if (editingId === 'new') {
       const trimmedName = form.name.trim()
       const trimmedDesc = form.description.trim()
       // Pre-generate a client UUID for the new role so the AAD can be bound to a stable ID.
       const newId = crypto.randomUUID()
+      const encryptedName = await encryptHubField(trimmedName, hubId, newId, 'encrypted_name')
+      const encryptedDescription = trimmedDesc
+        ? await encryptHubField(trimmedDesc, hubId, newId, 'encrypted_description')
+        : undefined
       createRole.mutate(
         {
           name: trimmedName,
           description: trimmedDesc,
           permissions: form.permissions,
-          encryptedName: encryptHubField(trimmedName, hubId, newId, 'encrypted_name'),
-          encryptedDescription: trimmedDesc
-            ? encryptHubField(trimmedDesc, hubId, newId, 'encrypted_description')
-            : undefined,
+          encryptedName,
+          encryptedDescription,
         },
         {
           onSuccess: () => {
@@ -319,6 +321,10 @@ export function HubRolesSection() {
     } else if (editingId) {
       const trimmedName = form.name.trim()
       const trimmedDesc = form.description.trim()
+      const encryptedName = await encryptHubField(trimmedName, hubId, editingId, 'encrypted_name')
+      const encryptedDescription = trimmedDesc
+        ? await encryptHubField(trimmedDesc, hubId, editingId, 'encrypted_description')
+        : undefined
       updateRole.mutate(
         {
           id: editingId,
@@ -326,10 +332,8 @@ export function HubRolesSection() {
             name: trimmedName,
             description: trimmedDesc,
             permissions: form.permissions,
-            encryptedName: encryptHubField(trimmedName, hubId, editingId, 'encrypted_name'),
-            encryptedDescription: trimmedDesc
-              ? encryptHubField(trimmedDesc, hubId, editingId, 'encrypted_description')
-              : undefined,
+            encryptedName,
+            encryptedDescription,
           },
         },
         {

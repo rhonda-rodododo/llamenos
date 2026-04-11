@@ -211,41 +211,43 @@ export const customFieldsOptions = (hubId = 'global') =>
     queryKey: queryKeys.settings.customFields(),
     queryFn: async (): Promise<CustomFieldDefinition[]> => {
       const res = await getCustomFields()
-      return res.fields.map((field) => {
-        const decryptedOptions = decryptHubField(
-          field.encryptedOptions,
-          hubId,
-          field.id,
-          'encrypted_options',
-          ''
-        )
-        return {
-          ...field,
-          name: decryptHubField(
-            field.encryptedFieldName,
+      return Promise.all(
+        res.fields.map(async (field) => {
+          const decryptedOptions = await decryptHubField(
+            field.encryptedOptions,
             hubId,
             field.id,
-            'encrypted_field_name',
-            field.name
-          ),
-          label: decryptHubField(
-            field.encryptedLabel,
-            hubId,
-            field.id,
-            'encrypted_label',
-            field.label
-          ),
-          options: decryptedOptions
-            ? (() => {
-                try {
-                  return JSON.parse(decryptedOptions) as string[]
-                } catch {
-                  return field.options
-                }
-              })()
-            : field.options,
-        }
-      })
+            'encrypted_options',
+            ''
+          )
+          return {
+            ...field,
+            name: await decryptHubField(
+              field.encryptedFieldName,
+              hubId,
+              field.id,
+              'encrypted_field_name',
+              field.name
+            ),
+            label: await decryptHubField(
+              field.encryptedLabel,
+              hubId,
+              field.id,
+              'encrypted_label',
+              field.label
+            ),
+            options: decryptedOptions
+              ? (() => {
+                  try {
+                    return JSON.parse(decryptedOptions) as string[]
+                  } catch {
+                    return field.options
+                  }
+                })()
+              : field.options,
+          }
+        })
+      )
     },
     staleTime: STALE_10_MIN,
   })
