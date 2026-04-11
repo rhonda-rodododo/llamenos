@@ -13,14 +13,14 @@
  *   6. On rotation, admin generates new key + re-wraps for all members
  */
 
-import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
 import { utf8ToBytes } from '@noble/ciphers/utils.js'
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { LABEL_HUB_KEY_WRAP } from '@shared/crypto-labels'
 import {
   type KeyEnvelope,
   type RecipientKeyEnvelope,
   eciesWrapKey,
+  symmetricDecrypt,
+  symmetricEncrypt,
 } from '@shared/crypto-primitives'
 import type { Ciphertext } from '@shared/crypto-types'
 import { eciesUnwrapKey } from './crypto-worker-helpers'
@@ -75,30 +75,23 @@ export async function unwrapHubKey(envelope: KeyEnvelope): Promise<Uint8Array> {
 /**
  * Encrypt arbitrary data with the hub key using XChaCha20-Poly1305.
  * Returns hex: nonce(24) + ciphertext.
+ * The AAD cryptographically binds the ciphertext to a context (e.g. record id + field name).
  */
-export function encryptForHub(plaintext: string, hubKey: Uint8Array): Ciphertext {
-  const nonce = randomBytes(24)
-  const cipher = xchacha20poly1305(hubKey, nonce)
-  const ciphertext = cipher.encrypt(utf8ToBytes(plaintext))
-
-  const packed = new Uint8Array(nonce.length + ciphertext.length)
-  packed.set(nonce)
-  packed.set(ciphertext, nonce.length)
-  return bytesToHex(packed) as Ciphertext
+export function encryptForHub(plaintext: string, hubKey: Uint8Array, aad: Uint8Array): Ciphertext {
+  return symmetricEncrypt(utf8ToBytes(plaintext), hubKey, aad)
 }
 
 /**
  * Decrypt hub-encrypted data using the hub key.
- * Returns null on decryption failure (wrong key, corrupted data, etc.).
+ * Returns null on decryption failure (wrong key, corrupted data, AAD mismatch, etc.).
  */
-export function decryptFromHub(packed: Ciphertext, hubKey: Uint8Array): string | null {
+export function decryptFromHub(
+  packed: Ciphertext,
+  hubKey: Uint8Array,
+  aad: Uint8Array
+): string | null {
   try {
-    const data = hexToBytes(packed)
-    const nonce = data.slice(0, 24)
-    const ciphertext = data.slice(24)
-    const cipher = xchacha20poly1305(hubKey, nonce)
-    const plaintext = cipher.decrypt(ciphertext)
-    return new TextDecoder().decode(plaintext)
+    return new TextDecoder().decode(symmetricDecrypt(packed, hubKey, aad))
   } catch {
     return null
   }

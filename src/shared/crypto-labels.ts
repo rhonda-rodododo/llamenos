@@ -175,6 +175,11 @@ export const LABEL_CONTACT_RELATIONSHIP = 'llamenos:contact-relationship' as Cry
 /** Hub storage credential (IAM secret key) wrapping with hub key */
 export const LABEL_STORAGE_CREDENTIAL_WRAP = 'llamenos:storage-credential' as CryptoLabel
 
+// --- Hub Field Encryption ---
+
+/** Hub-key encryption of stored field values (used by hub-field-crypto AAD) */
+export const LABEL_HUB_FIELD = 'llamenos:hub-field' as CryptoLabel
+
 // --- IdP Auth Hardening (Epic 99) ---
 
 /** WebAuthn PRF evaluation salt for KEK derivation */
@@ -263,6 +268,7 @@ export const LABEL_REGISTRY = [
   LABEL_CONTACT_PII,
   LABEL_CONTACT_RELATIONSHIP,
   LABEL_STORAGE_CREDENTIAL_WRAP,
+  LABEL_HUB_FIELD,
 ] as const satisfies readonly CryptoLabel[]
 
 export function labelToId(label: CryptoLabel): number {
