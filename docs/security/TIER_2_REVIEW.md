@@ -5,6 +5,12 @@
 **Spec:** `docs/superpowers/specs/2026-04-10-security-tier-2-unlock-recovery-design.md` (1018 lines)
 **Plan:** `docs/superpowers/plans/2026-04-10-security-tier-2-unlock-recovery.md` (35 TDD tasks, 6087 lines)
 
+## Rhonda decisions received (2026-04-10)
+
+1. **I-1 Multi-hub recovery → per-hub.** Confirmed. Spec §2.4.2 "Multi-hub recovery semantics" subsection added: each ceremony runs against exactly one hub; the same root KEK wrapped under multiple hubs means one successful recovery restores cross-hub access; cascading design explicitly rejected.
+2. **I-2 Argon2id bump → OWASP standard floor.** Confirmed ("fine b/c a rare occurrence"). Spec updated: `m=47 MiB, t=1, p=1` across every unlock derivation path. Wall-clock: ~600–900 ms phone, ~200–300 ms desktop.
+3. **I-3 OPAQUE library → deferred with fallback algorithm.** Confirmed "no easy answer". Spec §2.2.1 updated with an implementation-time decision algorithm: (a) `@serenity-kit/opaque` maturity check; (b) fallback to a thin Rust→WASM wrapper over `facebook/opaque-ke` directly; (c) second fallback drops OPAQUE entirely. The spec commits to the DECISION ALGORITHM, not the library.
+
 ## Summary
 
 Tier 2 is the most ambitious non-architectural tier and the spec handles the threat surface well — dropping PIN as a KEK factor, making PRF primary, and ordering the recovery paths (PRF → OPAQUE → Diceware → 1Password Recovery Group) in descending strength is the right call. The spec's exploration of the current codebase is unusually accurate (line counts for `key-store-v2.ts`, `key-manager.ts`, `webauthn.ts`, `auth-facade.ts` all verified). Three important findings: **(1) the 1Password Recovery Group is scoped per-hub but the key material per-user — the spec should explain this discrepancy**; **(2) Argon2id parameter choice (m=19 MiB) is at the low end of 2026 OWASP recommendations**; **(3) OPAQUE library maturity in April 2026 is not independently verified and the spec commits to `@serenity-kit/opaque` without a fallback**.

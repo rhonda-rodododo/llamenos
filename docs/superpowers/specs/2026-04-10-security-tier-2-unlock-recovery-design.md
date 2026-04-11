@@ -24,7 +24,7 @@ The current Llamenos KEK derivation, implemented in `src/client/lib/key-store-v2
 
 1. **WebAuthn PRF (RFC / WebAuthn L3 §10.1.4 `prf` extension)** becomes the *primary* KEK source. The PIN stops being a KEK factor. The authenticator holds a per-credential 32-byte seed (CTAP2 `hmac-secret`), returns `HMAC(seed, LABEL_PRF_KEK_SALT_V1)` on assertion, and we HKDF that into a non-extractable AES-KW key (Tier 1 prerequisite) that unwraps the at-rest root KEK envelope.
 2. **OPAQUE (RFC 9807)**, via the `@serenity-kit/opaque` WASM build of `facebook/opaque-ke`, provides the password-login path for devices that cannot use PRF. The server never sees password material; the client gets a stable `export_key` that becomes a second KEK-unwrapping route.
-3. **Diceware recovery phrase** replaces the one-shot 128-bit recovery Base32 and the 6-digit PIN in their KEK roles. At enrollment the client generates a 15-word phrase from the EFF large wordlist (≈194 bits of entropy), runs Argon2id(m=19 MiB, t=2, p=1) over it, and HKDFs into a second unwrapping key. This is the "type it on a new device" fallback.
+3. **Diceware recovery phrase** replaces the one-shot 128-bit recovery Base32 and the 6-digit PIN in their KEK roles. At enrollment the client generates a 15-word phrase from the EFF large wordlist (≈194 bits of entropy), runs Argon2id(m=47 MiB, t=1, p=1) over it, and HKDFs into a second unwrapping key. This is the "type it on a new device" fallback.
 4. **1Password-style Recovery Group** with 2-of-3 Shamir-shared private key provides the admin-assisted recovery pathway. The server orchestrates but never sees plaintext key material, and every recovery operation is signed into the Tier 0 audit sigchain with audit entries the volunteer can see after the fact.
 5. **PIN is either retired or demoted** to a convenience re-lock factor that re-prompts after auto-lock within the same unlocked session. It is no longer part of the KEK chain. A compromised PIN cannot decrypt the at-rest blob because the KEK is no longer derived from it.
 6. **Session capsule (PR #50) and the lock/unlock state machine** continue to own "fast-path restore within a session" — the capsule stores a worker-encrypted nsec blob keyed by a sessionStorage token, decrypted on reload without re-running any of the unlock factors. This is an orthogonal cache layer and does not change in Tier 2 except for the added restriction that capsules are wiped on a credential-set change (adding or removing a passkey, rotating OPAQUE password, rotating the recovery phrase).
@@ -311,6 +311,16 @@ This is the multi-credential PRF pattern 1Password uses and it maps cleanly onto
 
 **`@serenity-kit/opaque`** (latest stable at time of spec authoring, WASM build of `facebook/opaque-ke`). Ciphersuite: ristretto255 + SHA-512 + Argon2id (OPRF). Independently reviewed by OTF Red Team Lab. (Verified via npm package readme, GitHub `serenity-kit/opaque` 2026.)
 
+**Library choice is deferred to implementation time** (no easy answer as of the 2026-04-10 spec review). Before writing any OPAQUE code, the implementing engineer runs this check:
+
+1. `npm view @serenity-kit/opaque` to verify maintenance status (≤6 months since last commit, still on a supported WASM runtime).
+2. Check Cure53 / OTF / NCC public audit indices for any published review of `@serenity-kit/opaque` or `facebook/opaque-ke` more recent than the 2022 Cure53 report.
+3. Smoke-test the WASM build in Chrome, Firefox, and Safari to confirm it loads and the `ristretto255-sha512` ciphersuite is exposed.
+
+**Fallback if the maturity check fails:** commission a thin Rust→WASM wrapper over `facebook/opaque-ke` directly. The `opaque-ke` Rust crate itself is the audited core; the JS binding is the thin layer. Llamenos already ships vendored Rust→WASM in other paths (Tier 5 sim bridge, Tier 6 `ts-mls` vendoring — see those tiers), so the pattern is familiar. This fallback adds ~1 engineer-week to Tier 2 implementation and is the acceptable cost of avoiding an abandoned upstream.
+
+**Second fallback** if maintaining any OPAQUE library is untenable: drop OPAQUE from Tier 2 entirely. PRF + Diceware phrase + Recovery Group is still a strictly stronger unlock matrix than the current key-store-v2 PIN-based design. The password-login convenience is lost (users must always have either a PRF-capable credential or the recovery phrase typed in), which is a UX regression for the "typing a password is familiar" cohort but not a security regression. This fallback is documented in `docs/security/RISKS.md` if it ever happens.
+
 The P-256 variant `@serenity-kit/opaque-p256` exists for environments where ristretto255 is unavailable — we do not use it because WebCrypto-native AES-GCM is on P-256 territory already and we prefer ristretto255 for its simpler modular structure.
 
 Known constraint: **Argon2id memory is capped at 2^21 - 1 KiB** (~2 MiB) in the browser WASM build because larger values crashed browsers in testing. This is documented in the serenity-kit README. We accept this cap and compensate via iterations: `t=3, p=1, m=2^21-1`. On a 2024-era phone this produces ~400ms of hash time, which is acceptable for a login operation.
@@ -356,7 +366,7 @@ async function opaqueLogin(password: string): Promise<{ sessionKey: Uint8Array; 
 }
 ```
 
-Argon2id parameters are fed through `keyStretching`. Per OWASP Password Storage Cheat Sheet (verified April 2026): `m=19456 (19 MiB), t=2, p=1` is the low-resource floor; `m=47104 (46 MiB), t=1, p=1` is the standard floor. Both are above the 2 MiB cap the browser WASM enforces, so we compensate with `t=3` as documented above. The real-world delay is ~300–500ms on desktop, ~500–800ms on phone.
+Argon2id parameters are fed through `keyStretching`. Per OWASP Password Storage Cheat Sheet (verified April 2026): `m=19456 (19 MiB), t=2, p=1` is the low-resource floor; `m=47104 (46 MiB), t=1, p=1` is the standard floor. **Decision 2026-04-10 — bump to the standard floor `m=47104, t=1, p=1`** across every unlock derivation path (Diceware phrase, OPAQUE `keyStretching`, any future password-derived factor). Rationale: unlock is a rare event (at most a few times per session per user, typically once per device), so the extra memory cost is a rare occurrence and the stronger-derivation floor is worth it. Wall-clock on a 2026 mid-range phone: ~600–900 ms (measured reference devices listed in `docs/security/UNLOCK_BENCHMARKS.md`); on desktop: ~200–300 ms. Both remain under the 2 s "noticeable but not frustrating" UX threshold.
 
 #### 2.2.3. Server integration
 
@@ -551,7 +561,7 @@ export async function deriveRecoveryPhraseKek(
 }
 ```
 
-Argon2id parameters `t=2, m=19456 KiB (19 MiB), p=1`: OWASP-recommended "low-resource" baseline verified via OWASP Password Storage Cheat Sheet (April 2026). `@noble/hashes/argon2.js` is already in our dependency set (we use it elsewhere), so no new dependency is required for the phrase path.
+Argon2id parameters `t=1, m=47104 KiB (46 MiB), p=1`: OWASP-recommended standard baseline verified via OWASP Password Storage Cheat Sheet (April 2026). The stronger-cost choice is documented in §2.2.3 rationale — unlock is rare, the 46 MiB memory cost is acceptable. `@noble/hashes/argon2.js` is already in our dependency set (we use it elsewhere), so no new dependency is required for the phrase path.
 
 #### 2.3.4. Storage and UX
 
@@ -608,6 +618,15 @@ We verify the hash of the published package at dependency-install time via `pack
 3. The volunteer is shown a confirmation UX: "This hub has a Recovery Group. You can use it to recover your account if you lose all your credentials. [Enable] [Skip]". Skipping is allowed but strongly discouraged; if skipped, the `user_recovery_envelopes` row is not written and the volunteer has no Recovery Group recourse.
 
 **Multi-hub** (the existing hub model supports multi-hub membership): the volunteer has one `user_recovery_envelopes` row per hub they are enrolled in. Each row wraps the *same* root KEK under a *different* Recovery Group public key. Removing the volunteer from a hub deletes that row. Adding them to a new hub, *after* they are already enrolled, requires a Recovery Group enrollment step on that new hub.
+
+**Multi-hub recovery semantics — resolved 2026-04-10: per-hub, not cascading.** Each recovery ceremony runs against exactly one hub's Recovery Group. Carol initiates recovery via hub A → hub A's admins approve → Carol's client reconstructs `RG_priv_A` → HPKE-decrypts `user_recovery_envelopes[Carol, hub-A]` → gets her root KEK back. Because the *same* root KEK is wrapped under every hub's Recovery Group (by construction), one successful recovery ceremony is sufficient to restore Carol's access across every hub where she has data — the subsequent hubs' envelopes are redundant safety nets, not separate unlock gates. The per-hub ceremony model is the right choice because:
+
+- **Audit clarity.** Every recovery operation is signed into *that* hub's sigchain. An admin audit log shows exactly which admins approved which recovery, under which hub's authority. A cascading design would smear one recovery across N sigchains and make accountability harder.
+- **Partial recovery is allowed.** If Carol only wants to recover hub A access for a specific incident review but does not need hubs B and C right now, she runs exactly one ceremony and gets exactly one set of audit entries. The alternative — a global "unlock everything" ceremony — would be overkill for routine recovery.
+- **No cross-hub authority needed.** A cascading design would require some "coordinator" role that has authority across multiple hubs, which Llamenos explicitly does NOT have. Hub admins are scoped to their hub. The per-hub ceremony respects that boundary.
+- **Hubs without a Recovery Group remain reachable.** If Carol skipped Recovery Group enrollment in hub B (the UX allows opting out), she can still recover her root KEK through hub A's ceremony. Once she has her root KEK back, her identity is re-bootstrapped and she can re-enroll a Recovery Group in hub B later if she chooses.
+
+The cascading design is explicitly rejected. Every `POST /api/auth/recovery-group/initiate` request carries exactly one `hubId`.
 
 #### 2.4.3. Recovery flow
 
