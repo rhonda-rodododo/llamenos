@@ -5,6 +5,12 @@
 **Spec:** `docs/superpowers/specs/2026-04-10-security-tier-6-mls-pq-design.md` (749 lines)
 **Plan:** `docs/superpowers/plans/2026-04-10-security-tier-6-mls-pq.md` (44 TDD tasks, 6546 lines, organized as PR #1 + PR #2)
 
+## Rhonda decisions received (2026-04-10)
+
+1. **I-1 MLS library → Wire `@wireapp/core-crypto` (not ts-mls).** Rhonda 2026-04-10: "6.B - adding wasm is no problem with vite. bundle size is not a problem." Spec §6.1 rewritten from ground up: production pedigree, academic formal analysis coverage, Cure53/Kudelski/X41/Cryspen audit history, battle-tested PQ pipeline (Wire driving ML-KEM/XWing integration since early 2025), multi-language bindings (web/Kotlin/Swift sibling packages), encrypted IDB keystore included (re-keyed under our Tier 1 non-extractable root KEK via HKDF through the crypto worker). All downstream method-name references swapped (createGroup → createConversation, createCommit → addClientsToConversation + commitPendingProposals, processMessage → decryptMessage, joinFromWelcome → processWelcomeMessage). Vendored into `vendor/core-crypto/`. The plan + plan tech-stack line + vendor scripts all updated to match. License moved from MIT (ts-mls) to GPL-3.0 (core-crypto) — documented in PROVENANCE.md. The `MlsGroupState.opaqueState` field renamed to `serializedMlsState` to avoid collision with the Tier 2 OPAQUE protocol term.
+2. **I-2 XWing fallback → P-384 if IANA codepoint unresolved at implementation time.** Already applied in earlier commit.
+3. **I-3 strfry extension strategy** remains open for implementation-time resolution.
+
 ## Summary
 
 Tier 6 is the "months, optional" tier in the master doc and the spec handles its optionality honestly — PR #1 ships fingerprint verification UX + vendored `ts-mls` with NO live MLS code, PR #2 is the actual MLS pivot behind a feature flag. The design picks **XWing** as the default ciphersuite (X25519 + ML-KEM-768 classical+PQ hybrid), which is the 2026 best-of-breed choice and avoids the Mega-class "raw concat" pitfall that master §3.11 warns against. Two important findings: **(1) `ts-mls` library maturity in April 2026 is not independently verified — the spec plans to vendor it, which is defensive, but vendoring a young library shifts maintenance burden onto Llamenos**; **(2) XWing IETF draft status and its presence in the RFC 9420 MLS ciphersuite registry is not verified — if XWing is not an IANA-registered MLS ciphersuite at implementation time, Tier 6 must fall back to a registered suite**.

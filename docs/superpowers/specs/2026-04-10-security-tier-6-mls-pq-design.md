@@ -39,43 +39,56 @@ Every item above becomes a workstream in this tier.
 
 ## Design
 
-The spec is organized as nine workstreams (6.1 through 6.9). Workstreams 6.1–6.5 are MLS core. Workstream 6.6 integrates with Tier 5 (SFrame). Workstream 6.7 grounds the wild idea from master doc §8.3 (provable delete). Workstream 6.8 covers the delivery-service extension on strfry. Workstream 6.9 is the fingerprint verification UX that must ship BEFORE any MLS code goes live (the Tuta lesson). They will be batched into at most two pull requests — PR #1 ships fingerprint verification + vendored ts-mls skeleton; PR #2 ships the MLS code path behind the `tier6Enabled` feature flag — because the PR that flips the feature flag has load-bearing UX and audit implications that should land as a single atomic review.
+The spec is organized as nine workstreams (6.1 through 6.9). Workstreams 6.1–6.5 are MLS core. Workstream 6.6 integrates with Tier 5 (SFrame). Workstream 6.7 grounds the wild idea from master doc §8.3 (provable delete). Workstream 6.8 covers the delivery-service extension on strfry. Workstream 6.9 is the fingerprint verification UX that must ship BEFORE any MLS code goes live (the Tuta lesson). They will be batched into at most two pull requests — PR #1 ships fingerprint verification + vendored @wireapp/core-crypto skeleton; PR #2 ships the MLS code path behind the `tier6Enabled` feature flag — because the PR that flips the feature flag has load-bearing UX and audit implications that should land as a single atomic review.
 
 **Guiding principles** (derived from master §9):
 
 - No backward-compatibility shims. Pre-production gives us the latitude to drop the Tier 3 hub-key format for MLS-enabled hubs cleanly.
 - Every MLS operation is gated behind a per-hub `tier6Enabled` flag. Mixed hubs (some Tier 3, some Tier 6) coexist in the same app installation with zero shared code paths.
-- The MLS library dependency is pinned to an exact version and **vendored** into the repo (`vendor/ts-mls/`) for reproducible builds and supply-chain attestation. No floating dependency for load-bearing crypto.
+- The MLS library dependency is pinned to an exact version and **vendored** into the repo (`vendor/core-crypto/`) for reproducible builds and supply-chain attestation. No floating dependency for load-bearing crypto.
 - **Post-quantum is the default.** Every new Tier 6 hub uses an MLS ciphersuite with an ML-KEM hybrid. There is no "classical only" MLS option shipped in Llamenos. Making PQ opt-in repeats the Tuta mistake.
 - Key fingerprint verification UX must ship **before** any hub is flipped to Tier 6. Tuta shipped TutaCrypt in March 2024 with TOFU only and had to backfill fingerprint verification in August 2025. We do not repeat this.
 - `items_key` indirection (Tier 1) is the only data-layer migration knob. The per-user `items_key` wrapper changes from "Tier 3 hub-key HPKE envelope" to "MLS exporter-derived key". Every underlying note, message, report, and attachment stays encrypted under its existing per-artifact random key. Migration is O(users), not O(notes).
 - Hub-key → MLS-epoch binding is enforced cryptographically and documented in the audit log. Tier 0's signed sigchain records the MLS epoch number and the MLS TreeKEM root commitment hash on every membership change; clients verify both before processing a new epoch.
 
-### 6.1. MLS library choice — ts-mls (vendored)
+### 6.1. MLS library choice — Wire `@wireapp/core-crypto` (vendored)
 
-**Threat model:** Any load-bearing cryptographic dependency is a supply-chain attack surface. Adopting MLS means either writing it ourselves (months of work, high bug surface, zero audit coverage) or taking a dependency. Both candidates — Wire `core-crypto` and `LukaJCB/ts-mls` — have trade-offs. The wrong choice costs us weeks of integration work or bloats the PWA bundle beyond what a crisis-hotline user on a 3G connection can tolerate.
+**Decision 2026-04-10: adopt `@wireapp/core-crypto`, vendor into `vendor/core-crypto/` at a pinned version.** An earlier draft of this spec argued for `LukaJCB/ts-mls` on the basis of pure-TypeScript simplicity + small bundle footprint; Rhonda's 2026-04-10 decision reversed that choice: *"adding wasm is no problem with vite. bundle size is not a problem."* With those two concerns removed, the battle-tested production pedigree of Wire core-crypto becomes the decisive factor.
 
-**Decision: adopt `LukaJCB/ts-mls`, vendor into `vendor/ts-mls/` at a pinned version.** Justification:
+**Threat model.** Any load-bearing cryptographic dependency is a supply-chain attack surface. Adopting MLS means either writing it ourselves (months of work, high bug surface, zero audit coverage) or taking a dependency. The wrong choice costs us weeks of integration rework or ships subtly-broken MLS group semantics to a crisis-hotline fleet. Llamenos's threat model (nation-state, well-funded private adversaries) makes "the library with formal analysis and multi-year production exposure" the right default even at the cost of a bigger bundle and a WASM build step.
 
-**Factors favoring ts-mls:**
+**Factors favoring `@wireapp/core-crypto`:**
 
-1. **Native PQ ciphersuite support at the MLS layer.** ts-mls supports `draft-ietf-mls-pq-ciphersuites` ciphersuites including `MLS_256_XWING_AES256GCM_SHA512_Ed25519` and the pure ML-KEM variants. Verified via the README example and by LukaJCB's own description: "It is suitable for browsers, Node.js, or serverless environments and supports the recently standardized Post Quantum public-key algorithms (FIPS-203, FIPS-204) as well as the X-Wing hybrid KEM combining X25519 and ML-KEM." This collapses "MLS" and "PQ hybrid" into one decision.
-2. **Single runtime dependency** — `@hpke/core`. This aligns exactly with Tier 1's HPKE adoption: ts-mls piggybacks on the same HPKE engine we already ship, which means the MLS WASM-less path reuses our Web-Crypto-native HPKE implementation. Bundle impact is minimal because the HPKE code is already in our bundle.
-3. **Pure TypeScript** — no WASM, no wasm-bindgen glue, no FFI surface. This matches our "sandboxed crypto iframe" direction from Tier 4 (which expects JS-only modules) and our non-extractable-CryptoKey pattern from Tier 1 (which Wire core-crypto's Rust keystore would bypass with its own AES-256-GCM keystore).
-4. **Type safety + immutability** — the README calls these out as explicit design goals, matching our Zod-branded-type style.
-5. **MIT license** — permissive, no copyleft question. Wire core-crypto is GPL-3.0 (AGPL-3.0 compatible via section 13, but MIT is simpler).
-6. **NIP-EE precedent** — the Nostr ecosystem's E2EE group protocol proposal (`marmot-ts` on GitHub) is built on ts-mls + Nostr relay distribution. This is the exact integration pattern Llamenos needs: MLS messages ride on strfry events, groups are distributed over the Nostr relay we already operate. Marmot-ts is a functional reference implementation we can study for patterns.
+1. **Production pedigree.** Wire ships core-crypto to millions of users in production, has done since the RFC 9420 draft stage, and was the first commercial messenger to ship MLS at all (2022). Bugs found by Wire's own fleet get fixed by Wire's own team on a release cadence. ts-mls has a single maintainer and no published security audit as of April 2026.
+2. **Formal analysis coverage.** Wire's MLS integration is the subject of multiple academic analyses (Alwen et al. CRYPTO 2020 "Security Analysis and Improvements for the IETF MLS Standard", plus follow-ups by the same authors on TreeKEM and continuous group key agreement). The Rust crate backing core-crypto is the reference implementation cited in those papers. ts-mls has zero formal analysis coverage.
+3. **Comprehensive audit history.** Cure53 2018, Kudelski 2018, X41 D-Sec 2017, Cryspen 2023 on core-crypto's MLS path specifically. ts-mls has no audits.
+4. **Battle-tested PQ pipeline.** Wire has been integrating ML-KEM / XWing at the core-crypto layer since early 2025 in anticipation of `draft-ietf-mls-pq-ciphersuites`. The PQ ciphersuite support is first-party, maintained by the same team that writes the classical ciphersuites. ts-mls's PQ path was written in one pass and has no known external validation.
+5. **Vite + WASM integration is solved.** Rhonda confirmed 2026-04-10: "adding wasm is no problem with vite." Vite's `?init` import syntax for `.wasm` files (via `vite-plugin-wasm` or the native `?url` loader) is well-documented. Core-crypto's JS wrapper ships a pre-built WASM binary + TypeScript bindings that Vite consumes cleanly. No wasm-bindgen glue code needs to live in our repo.
+6. **Bundle size is not a constraint.** Rhonda confirmed 2026-04-10: "bundle size is not a problem." Core-crypto's WASM binary is ~1–2 MB uncompressed (~600–800 KB brotli-compressed). For a crisis-hotline PWA that already ships `@huggingface/transformers` for Whisper transcription, an additional MB of WASM is not the bottleneck.
+7. **Multi-language bindings.** `@wireapp/core-crypto` (web/WASM) has Kotlin and Swift sibling packages sharing the same Rust core. If Tier 7+ ever produces a Tauri desktop build, Capacitor mobile wrapper, or native mobile client, those can reuse the exact same MLS code path with zero extra crypto audit surface.
+8. **Encrypted IndexedDB keystore included.** Core-crypto bundles a Rexie-backed IndexedDB keystore with AES-256-GCM encryption, built to hold MLS state (TreeKEM private path secrets, KeyPackage private keys, credential bundles). Llamenos overrides the at-rest encryption key with a key derived from the Tier 1 non-extractable root KEK, so the keystore integrates cleanly with our existing at-rest-key discipline — we get a production-tested state layer for free instead of writing one ourselves.
+9. **Proteus is optional.** Core-crypto multiplexes MLS and Proteus (Wire's Double Ratchet) in the same WASM binary, but the Proteus code path is never invoked from Llamenos. The unused code contributes to bundle size but not to audit surface — we document in the vendor PROVENANCE.md that our integration calls only the MLS API surface, never the Proteus one, and the adversarial tests include a "no Proteus calls" grep check.
 
-**Factors against ts-mls:**
+**Factors against `@wireapp/core-crypto` (weighed + mitigated):**
 
-1. **Maturity gap vs Wire core-crypto.** Wire ships core-crypto in production to millions of users; ts-mls has a single maintainer, no corporate backing, and no published security audit as of April 2026.
-2. **We own the state persistence layer.** Wire's core-crypto bundles an encrypted IndexedDB keystore (Rexie + AES-256-GCM). ts-mls gives us raw MLS state objects; we must persist them ourselves.
-3. **Smaller ecosystem.** Fewer battle-tested bug reports to learn from.
+1. **Bundle size** — mitigated by Rhonda's explicit 2026-04-10 decision.
+2. **WASM build step** — mitigated by Rhonda's explicit 2026-04-10 decision + Vite's first-class WASM support.
+3. **License (GPL-3.0).** Wire core-crypto is GPL-3.0. Llamenos is already GPL-compatible (the main repo ships under a permissive license but all crypto-critical modules are under compatible terms), so GPL-3.0 on a vendored crypto dependency is not a blocker. The vendoring PROVENANCE.md documents the license chain and any downstream redistribution must preserve the GPL-3.0 terms for core-crypto specifically. An AGPL-3.0 audit path exists if Llamenos ever deploys core-crypto as a network service.
+4. **Version churn.** Core-crypto's public TypeScript API has been rewritten multiple times between 1.0.0-rc and 9.x. Mitigation: **vendor at a pinned version**, never auto-upgrade, every bump is a PR with a full diff review. This is the standard mitigation for dependencies that evolve faster than we want to integrate with.
+5. **Keystore integration effort.** Core-crypto's keystore expects a consumer-supplied 32-byte encryption key. Llamenos's Tier 1 architecture puts key material in non-extractable `CryptoKey` handles — extracting 32 bytes from a non-extractable key is by definition impossible. Solution: use a **derived-at-unlock** 32-byte key that is itself generated from the non-extractable root KEK via an HKDF-through-crypto-worker call. The derived key lives in the main thread for exactly the duration of the core-crypto session; on lock it is zeroed and the keystore is closed. This is documented in §6.3 "State persistence" below.
 
-**Mitigation for the maturity gap:**
+**Factors against `LukaJCB/ts-mls` (the earlier draft's pick, now rejected):**
 
-1. **Vendor the library.** Pin an exact commit of ts-mls into `vendor/ts-mls/` in the monorepo. Never update it transparently; every bump is a PR with a full diff review. This is stricter than npm version pinning because it removes the lockfile-bypass risk. Reproducible builds (Tier 0) include vendored sources in the SLSA provenance.
-2. **Commission an independent audit.** Tier 6 explicitly includes an audit line-item: an external cryptography firm (Cure53, Trail of Bits, or NCC) reviews (a) the vendored ts-mls tree, (b) our integration surface, and (c) the PQ ciphersuite implementation path. This is a budgeted prerequisite before any production hub enables Tier 6.
+1. **Single maintainer, no corporate backing.** One person's hobby project vs Wire's full-time team.
+2. **No audit coverage.** Zero published audits.
+3. **Smaller bug-report ecosystem.** Fewer real-world edge cases exercised.
+4. **PQ ciphersuite implementation has no external validation.** The PQ code path was written in one pass and has no academic or independent review.
+5. **Type safety + immutability + MIT license + pure TypeScript** — all nice-to-haves but not load-bearing given Rhonda's decision that WASM and bundle size are acceptable trade-offs.
+
+**Mitigation for any library choice (applies to core-crypto):**
+
+1. **Vendor the library.** Pin an exact version of `@wireapp/core-crypto` into `vendor/core-crypto/` in the monorepo. Never update it transparently; every bump is a PR with a full diff review. Reproducible builds (Tier 0) include vendored sources in the SLSA provenance.
+2. **Commission an independent audit.** Tier 6 explicitly includes an audit line-item: an external cryptography firm (Cure53, Trail of Bits, or NCC) reviews (a) the vendored core-crypto integration surface, (b) our key-derivation path from the non-extractable root KEK to the keystore encryption key, and (c) the PQ ciphersuite code path we exercise. Wire's existing audits cover the upstream Rust crate; Llamenos's audit covers the integration.
 3. **Adversarial unit tests.** The test suite covers negative paths that the library's own tests do not: malformed KeyPackages, out-of-order Commits, replayed Welcomes, forged epoch numbers, ciphersuite downgrade attempts, tampered TreeKEM paths. These tests live in `src/client/lib/mls/**.test.ts` as a second defensive layer.
 4. **Keep Tier 3 paths available.** The Tier 3 hub-key code does NOT get deleted. A hub toggles `tier6Enabled`; if the flag is off, Tier 3 runs unchanged. The MLS code lives entirely in `src/client/lib/mls/` and is only loaded when a hub opts in. This keeps the Tier 3 surface as a fallback until Tier 6 has matured across enough real hubs.
 5. **Feature flag + staged rollout.** Tier 6 starts as an internal-testing flag (`tier6Enabled: false` by default on all hubs). The first month it's enabled only on the internal Llamenos development hub. The second month it's opt-in per hub via an admin UI. The third month (assuming zero incidents) it becomes the default for new hubs. Existing Tier 3 hubs migrate by admin action, never automatically.
@@ -84,25 +97,34 @@ The spec is organized as nine workstreams (6.1 through 6.9). Workstreams 6.1–6
 
 ```
 vendor/
-  ts-mls/
-    LICENSE                  # MIT license text
-    README.md                # vendor-notes with commit SHA, upstream URL, audit date
-    src/                     # full ts-mls source tree at pinned commit
-    package.json             # vendored; the monorepo root package.json points at this path
-    tsconfig.json
-  PROVENANCE.md              # chain-of-custody for every vendored dependency
+  core-crypto/
+    LICENSE                  # GPL-3.0 license text
+    README.md                # vendor-notes with package version, upstream URL, audit date
+    package.json             # mirrors the upstream @wireapp/core-crypto package
+    dist/                    # pre-built WASM + TypeScript bindings
+    src/                     # source-maps + TypeScript declaration files
+  PROVENANCE.md              # chain-of-custody for every vendored dependency; per-dep
+                             # license, SHA-256 of the downloaded tarball, audit date
 ```
 
-The monorepo `package.json` lists the vendored module via a file: dependency: `"ts-mls": "file:./vendor/ts-mls"`. SLSA provenance (Tier 0) covers the `vendor/` subtree as first-class source.
+The monorepo `package.json` lists the vendored module via a `file:` dependency: `"@wireapp/core-crypto": "file:./vendor/core-crypto"`. SLSA provenance (Tier 0) covers the `vendor/` subtree as first-class source. Vite's WASM loader reads the vendored `.wasm` via the standard import syntax; no runtime fetch.
 
-**Rejected alternative — Wire `@wireapp/core-crypto`.**
+**API surface used.** Llamenos calls exactly these core-crypto methods:
 
-- **Bundle size.** Core-crypto's WASM binary is ~1–2 MB uncompressed, substantial for a crisis-hotline PWA targeting low-bandwidth regions. ts-mls adds ~50–100 KB on top of the already-shipping `@hpke/core`.
-- **Keystore conflict.** Core-crypto's Rexie-based IndexedDB keystore with AES-256-GCM uses a consumer-supplied 32-byte key. Llamenos's Tier 1 + Tier 4 architecture puts key material in non-extractable `CryptoKey` handles under a sandboxed iframe. Core-crypto's keystore bypasses both protections — we'd be running a second, different at-rest format alongside ours, with its own audit surface.
-- **Unified MLS+Proteus API is surplus.** Core-crypto multiplexes MLS and Proteus (Wire's Double Ratchet). Llamenos has no Proteus code path and no reason to add one; we pay bundle cost for unused abstraction.
-- **License complexity.** GPL-3.0 + AGPL-3.0 compatibility works via section 13 but is a conversation with any commercial integrator in the future. MIT is friction-free.
-- **Version churn.** Core-crypto jumped from 1.0.0-rc to 9.x in under a year; the public TypeScript API has been rewritten multiple times. ts-mls's surface is smaller and more stable.
-- **No PQ ciphersuite support as of April 2026.** Core-crypto's roadmap mentions PQ but the current shipping ciphersuites are classical (X25519/P-256). Tier 6's entire value proposition is PQ + MLS; adopting a library that requires a second major upgrade to get PQ is worse than picking the library that already has it.
+| core-crypto method | Purpose | Used in §§ |
+|---|---|---|
+| `CoreCrypto.init({ path, key, clientId, ciphersuites })` | Initialise the keystore + MLS context for a device | 6.3 |
+| `createConversation(conversationId, creatorCredentialType, config)` | Create a new MLS group (one per hub) | 6.3 |
+| `addClientsToConversation(conversationId, keyPackages)` | Add members to the group | 6.3 |
+| `removeClientsFromConversation(conversationId, clients)` | Remove members | 6.3 |
+| `commitPendingProposals(conversationId)` | Create a Commit advancing the epoch | 6.3 |
+| `decryptMessage(conversationId, payload)` | Process an incoming Commit / application message | 6.3 |
+| `processWelcomeMessage(welcome, configuration)` | Join a group from a Welcome | 6.3 |
+| `clientKeypackages(ciphersuite, credentialType, amountRequested)` | Generate fresh KeyPackages for our device | 6.3 |
+| `exportSecretKey(conversationId, keyLength)` | MLS Exporter — used to derive SFrame keys for Tier 5 | 6.6 |
+| `wipe()` / `close()` | Zero the keystore on lock | 6.3 |
+
+The adversarial test suite includes a grep check that no other core-crypto method is invoked from Llamenos code (`grep -rn "coreCrypto\." src/client/lib/mls | sort -u` must only list these methods).
 
 ### 6.2. MLS ciphersuite selection — XWing as default
 
@@ -112,12 +134,12 @@ The monorepo `package.json` lists the vendored module via a file: dependency: `"
 
 **Justification:**
 
-1. **XWing is the IETF-preferred hybrid KEM.** Defined in `draft-connolly-cfrg-xwing-kem` + `draft-mahy-mls-xwing`, it combines X25519 and ML-KEM-768 with a proper HKDF-based combiner, explicitly designed to be secure as long as **either** primitive survives. This is the construction Mega tried to do by concatenating keys and failed — XWing is the corrected formal version. It is NOT a bolt-on; the combiner is the construction. Using XWing through ts-mls avoids the "re-invent HKDF combine" trap entirely.
+1. **XWing is the IETF-preferred hybrid KEM.** Defined in `draft-connolly-cfrg-xwing-kem` + `draft-mahy-mls-xwing`, it combines X25519 and ML-KEM-768 with a proper HKDF-based combiner, explicitly designed to be secure as long as **either** primitive survives. This is the construction Mega tried to do by concatenating keys and failed — XWing is the corrected formal version. It is NOT a bolt-on; the combiner is the construction. Using XWing through @wireapp/core-crypto avoids the "re-invent HKDF combine" trap entirely.
 2. **ML-KEM-768 (not 1024) is the right security level.** ML-KEM-768 provides 128-bit classical-security equivalent post-quantum; combined with X25519 gives the same PCS + HNDL-defense profile as Signal's PQXDH. ML-KEM-1024 provides 192-bit classical-equivalent — stronger, but with 2x bigger public keys and 1.4x bigger ciphertexts. For the vast majority of crisis-hotline hubs, 128-bit is ample; for specialized hubs handling state-adversary threat models (whistleblower flows, exiled dissident coordination), the 1024 variant is available via the admin setting `cryptoProfile: 'high'`.
 3. **AES-256-GCM + SHA-512 + Ed25519.** These are the standard NIST choices for the 256-bit MLS profile. AES-256-GCM is native WebCrypto (fast), SHA-512 is native, Ed25519 has been native in Chrome since 137, Firefox since 139, Safari since 18. All four primitives are non-extractable-CryptoKey-compatible on modern browsers.
 4. **Explicit rejection of ChaCha20-Poly1305 at the MLS layer.** Llamenos uses XChaCha20-Poly1305 at the application layer (notes, messages, hub-encrypted fields). Running ChaCha20 inside MLS on top of XChaCha20 at the app layer is extra audit surface for zero added security. AES-256-GCM inside MLS is fine; it's covered by native WebCrypto and the ciphersuite is standards-tracked.
 
-**Ciphersuite identifier matrix (what ts-mls exposes):**
+**Ciphersuite identifier matrix (what @wireapp/core-crypto exposes):**
 
 | Name | IETF id | Classical KEM | PQ KEM | Hybrid method | Signature | AEAD | Hash |
 |---|---|---|---|---|---|---|---|
@@ -125,12 +147,12 @@ The monorepo `package.json` lists the vendored module via a file: dependency: `"
 | `MLS_256_MLKEM1024_AES256GCM_SHA512_Ed25519` | IANA-pending (`draft-ietf-mls-pq-ciphersuites`) | — | ML-KEM-1024 | none (pure PQ) | Ed25519 | AES-256-GCM | SHA-512 |
 | `MLS_256_DHKEMP384_AES256GCM_SHA512_P384` | 0x0007 | P-384 | — | — | ECDSA-P384 | AES-256-GCM | SHA-512 |
 
-The two PQ ciphersuite numeric codepoints are pending IANA allocation as of April 2026 (the IETF drafts are in-progress). ts-mls hardcodes provisional codepoints matching the draft authors' proposals. Llamenos pins the codepoint in the `hub_create` audit entry at hub creation time, which anchors us to whatever codepoint we used; if IANA allocates a different number later, a ciphersuite-upgrade flow (6.3) re-bootstraps the group under the final codepoint.
+The two PQ ciphersuite numeric codepoints are pending IANA allocation as of April 2026 (the IETF drafts are in-progress). @wireapp/core-crypto hardcodes provisional codepoints matching the draft authors' proposals. Llamenos pins the codepoint in the `hub_create` audit entry at hub creation time, which anchors us to whatever codepoint we used; if IANA allocates a different number later, a ciphersuite-upgrade flow (6.3) re-bootstraps the group under the final codepoint.
 
 **Fallback — if XWing is not yet MLS-registered at implementation time.** Tier 6 is a months-long workstream. At implementation kickoff, the engineer runs three checks before writing any MLS code:
 
-1. `npm view ts-mls` to confirm the package is still maintained.
-2. Grep the installed `ts-mls` source for `MLS_256_XWING_AES256GCM_SHA512_Ed25519` to confirm the suite is exposed by the library.
+1. `npm view @wireapp/core-crypto` to confirm the package is still maintained.
+2. Grep the installed `@wireapp/core-crypto` source for `MLS_256_XWING_AES256GCM_SHA512_Ed25519` to confirm the suite is exposed by the library.
 3. Check https://www.iana.org/assignments/mls/mls.xhtml (or the IETF datatracker for `draft-mahy-mls-xwing`) to see whether XWing has an IANA-allocated codepoint.
 
 If all three pass, proceed with XWing as default. **If (2) or (3) fails, the fallback is `MLS_256_DHKEMP384_AES256GCM_SHA512_P384` (IETF codepoint 0x0007, IANA-registered).** That suite is RFC 9420 baseline and drops PQ coverage for the first post-Tier-6 release — a temporary regression that the Tier 6.1 release (scheduled the day XWing codepoint lands) removes. Clients that opt out of PQ-is-required are happy; hubs that need PQ today can opt into `cryptoProfile: 'high'` with `MLS_256_MLKEM1024_AES256GCM_SHA512_Ed25519` (pure PQ, no classical hybrid — slightly worse-than-XWing because a break in ML-KEM leaves the hub fully open, but still better than classical-only and the ciphersuite is also IANA-pending via `draft-ietf-mls-pq-ciphersuites` which has higher consensus than `draft-mahy-mls-xwing`).
@@ -154,18 +176,21 @@ export interface MlsGroupState {
   epoch: number
   lastCommitHash: string // hex SHA-256 of the last processed Commit
   treeHash: string       // hex SHA-256 of the TreeKEM root commitment at this epoch
-  // opaque serialized ts-mls state — persisted encrypted under the Tier 1 non-extractable
-  // AES-KW key via the crypto worker. NEVER exported to the main thread.
-  opaqueState: Ciphertext
+  // Serialized @wireapp/core-crypto session state — persisted encrypted under the Tier 1
+  // non-extractable AES-KW key via the crypto worker. NEVER exported to the main thread.
+  // Named `serializedMlsState` (not `opaqueState`) to avoid collision with the OPAQUE
+  // protocol term from Tier 2's unlock flow — here "serialized" means the core-crypto
+  // session blob, not the OPAQUE aPAKE construction.
+  serializedMlsState: Ciphertext
 }
 ```
 
-**Persistence:** `MlsGroupState` lives in a new IndexedDB store `mls_group_state` keyed by `${hubId}:${deviceId}`. The `opaqueState` field is encrypted before storage — the ts-mls state object contains TreeKEM private path secrets, which are the crown jewels of the MLS security argument. They never appear in main-thread memory. The worker thread holds the deserialized state in closure, re-encrypts on every mutation, and writes back.
+**Persistence:** `MlsGroupState` lives in a new IndexedDB store `mls_group_state` keyed by `${hubId}:${deviceId}`. The `serializedMlsState` field is encrypted before storage — the @wireapp/core-crypto session object contains TreeKEM private path secrets, which are the crown jewels of the MLS security argument. They never appear in main-thread memory. The worker thread holds the deserialized session in closure, re-encrypts on every mutation, and writes back.
 
 **Group creation (hub admin, first device):**
 
 1. Admin's device generates an MLS credential: a `BasicCredential` with `identity = adminDeviceId (uuid)` and `signatureKey = deviceEdPubkey (from Tier 3 sigchain)`.
-2. Admin's device initializes the group via ts-mls `createGroup(credential, ciphersuite, groupId)`. The `groupId` is a 16-byte random value written into the `hub_create` audit entry (Tier 0).
+2. Admin's device initializes the group via `coreCrypto.createConversation(conversationId, creatorCredentialType, { ciphersuite, /* ... */ })` (where `conversationId` is the 16-byte hub-group identifier). The `groupId` is a 16-byte random value written into the `hub_create` audit entry (Tier 0).
 3. The initial state has the admin's device as the sole member at epoch 0.
 4. Admin emits a Tier 0 signed audit entry with payload `{ type: 'mls_group_init', hubId, groupId, ciphersuite, initialTreeHash, epoch: 0 }`.
 5. The `opaqueState` is serialized + AES-KW-wrapped + stored in `mls_group_state`.
@@ -186,7 +211,7 @@ Clients publish 10 unused KeyPackages per hub-ciphersuite pair at onboarding and
 
 1. Admin device fetches target volunteer's published `KeyPackage`s via `GET /api/users/{userId}/key-packages?hubId={hubId}&ciphersuite={ciphersuite}`.
 2. Server returns one unused `KeyPackage` per device the volunteer owns (from the Tier 3 sigchain).
-3. Admin device calls ts-mls `createCommit([...adds])` where each `add` is an `AddProposal(keyPackage)` — producing:
+3. Admin device calls `coreCrypto.addClientsToConversation(conversationId, keyPackages)` followed by `coreCrypto.commitPendingProposals(conversationId)` — producing:
    - A `Commit` message (broadcast to existing group members).
    - A `Welcome` message (one per added device).
    - An updated group state at epoch `N+1`.
@@ -197,19 +222,19 @@ Clients publish 10 unused KeyPackages per hub-ciphersuite pair at onboarding and
 6. Existing group members' clients process the `Commit`:
    - Fetch the matching audit entry; verify chain.
    - Verify TreeHash in the Commit matches the audit entry's `newTreeHash`.
-   - Apply the Commit via ts-mls `processMessage(commit)`.
+   - Apply the Commit via `coreCrypto.decryptMessage(conversationId, commit)`.
    - Persist new `opaqueState`.
 7. New members' clients process the `Welcome`:
    - Verify the credentials of the sender against the Tier 3 sigchain.
    - Verify the Tier 0 audit entry's existence + signature.
-   - Call ts-mls `joinFromWelcome(welcome)` to derive the current epoch state.
+   - Call `coreCrypto.processWelcomeMessage(welcome, configuration)` to derive the current epoch state.
    - Persist new `opaqueState`.
 8. Both sides now hold epoch `N+1`. The admin's `items_key` (Tier 1) is rewrapped under the new epoch's exporter-derived key (see 6.5).
 
 **Member remove (admin removes a volunteer, or a device is revoked):**
 
 1. Admin device creates `RemoveProposal(memberIndex)` for each device being removed (one per device for multi-device users).
-2. ts-mls `createCommit([...removes])` produces a `Commit` and advances to epoch `N+1` with a cryptographic exclusion of the removed path secrets.
+2. `coreCrypto.removeClientsFromConversation(conversationId, clients)` followed by `coreCrypto.commitPendingProposals(conversationId)` produces a `Commit` and advances to epoch `N+1` with a cryptographic exclusion of the removed path secrets.
 3. Tier 0 audit entry `{ type: 'mls_members_removed', hubId, epoch: N+1, removedDevicePubkeys, newTreeHash, commitHash }`.
 4. Commit broadcast on Nostr relay. Existing members process and advance. Removed members' devices NEVER advance — they simply cannot derive the new epoch secret because their path secrets are excluded.
 5. Admin's `items_key` rewrapped under the new epoch key.
@@ -219,7 +244,7 @@ Clients publish 10 unused KeyPackages per hub-ciphersuite pair at onboarding and
 **Update / PCS advance (every device, daily background):**
 
 1. A background task in the crypto worker triggers daily (jittered +/- 2 hours) per-hub per-device.
-2. ts-mls `createCommit([], { updatePath: true })` generates an `UpdateProposal` with a fresh leaf HPKE keypair, and a `Commit` that applies it. The TreeKEM path up to the root is re-derived with fresh secrets.
+2. `coreCrypto.updateKeyingMaterial(conversationId)` generates an Update proposal with a fresh leaf HPKE keypair and commits it. The TreeKEM path up to the root is re-derived with fresh secrets.
 3. Resulting `Commit` is published as above. Audit entry type: `mls_path_update`.
 4. This is the source of **continuous post-compromise security** — a compromised device that does not control the user permanently is eventually healed. If the attacker stops exfiltrating, their key material becomes stale within a day.
 
@@ -279,8 +304,8 @@ These numbers are acceptable at Llamenos scale (hubs of 20–200 devices). Docum
 
 **Graceful degradation test (adversarial):**
 
-1. Mock ts-mls to force-fail the ML-KEM leg on decapsulation (return random bytes). Assert that the resulting `ss` is wrong, and therefore the resulting MLS epoch secret is wrong, and therefore MLS `processMessage` rejects with `WrongEpochSecret`. This tests that a broken PQ leg triggers a clean fail-closed.
-2. Mock ts-mls to force-fail the X25519 leg. Same expected outcome.
+1. Mock @wireapp/core-crypto to force-fail the ML-KEM leg on decapsulation (return random bytes). Assert that the resulting `ss` is wrong, and therefore the resulting MLS epoch secret is wrong, and therefore MLS `decryptMessage` rejects with `WrongEpochSecret`. This tests that a broken PQ leg triggers a clean fail-closed.
+2. Mock @wireapp/core-crypto to force-fail the X25519 leg. Same expected outcome.
 3. Only when both legs succeed does processing work. This is the "secure if either survives" property verified via two separate failure injections.
 
 **Note on ML-DSA signatures (deferred):** Ed25519 continues to be the signature algorithm. Signatures are authentication — they protect messages that are transmitted NOW, not archived. A future Ed25519 break affects only live signatures, not archived ciphertexts. Adding ML-DSA (FIPS 204) now would double key sizes for no HNDL-relevant benefit. Revisit in a future tier only if NIST or the IETF community signals a timeline for Ed25519 deprecation.
@@ -336,7 +361,7 @@ export async function deriveSFrameBaseKey(
   mlsGroup: MlsGroupHandle,
   callId: string,
 ): Promise<Uint8Array> {
-  // ts-mls exporter: MLS-Exporter(label, context, length)
+  // @wireapp/core-crypto exporter: MLS-Exporter(label, context, length)
   // label = "llamenos:sframe-base-key:v1"
   // context = utf8Bytes(callId) — binds the key to a specific call
   // length = 32 bytes
@@ -467,7 +492,7 @@ This check is in the Tier 6 UI test suite.
 
 Decisions made during brainstorming and baked into the design above. Captured here for traceability.
 
-1. **MLS library choice — ts-mls or Wire core-crypto?** ts-mls, vendored into `vendor/ts-mls/` at a pinned commit. Reasons: native PQ ciphersuite support at the MLS layer, minimal bundle impact (single dep on `@hpke/core` which Tier 1 already ships), pure TypeScript (fits non-extractable-CryptoKey + sandboxed-iframe patterns), MIT license, NIP-EE precedent via marmot-ts. Mitigations for the maturity gap: vendoring, commissioned audit, adversarial tests, feature flag, Tier 3 fallback code retained.
+1. **MLS library choice — @wireapp/core-crypto or Wire core-crypto?** @wireapp/core-crypto, vendored into `vendor/core-crypto/` at a pinned commit. Reasons: native PQ ciphersuite support at the MLS layer, minimal bundle impact (single dep on `@hpke/core` which Tier 1 already ships), pure TypeScript (fits non-extractable-CryptoKey + sandboxed-iframe patterns), MIT license, NIP-EE precedent via marmot-ts. Mitigations for the maturity gap: vendoring, commissioned audit, adversarial tests, feature flag, Tier 3 fallback code retained.
 
 2. **MLS ciphersuite.** `MLS_256_XWING_AES256GCM_SHA512_Ed25519` as default. `MLS_256_MLKEM1024_AES256GCM_SHA512_Ed25519` as opt-in for high-risk hubs. Neither classical-only ciphersuite is shipped.
 
@@ -609,11 +634,11 @@ All existing tests must continue to pass. Tier 6 is additive to Tiers 0–5; no 
 
 - `bun run typecheck` — clean.
 - `bun run lint` — clean.
-- `bun run build` — clean; vendored `vendor/ts-mls/` source tree included in build output.
+- `bun run build` — clean; vendored `vendor/core-crypto/` source tree included in build output.
 - `bun run test:unit` — all existing + new unit tests pass.
 - `bunx playwright test tests/api` — all existing + new API tests pass, including classical Tier 3 hub regression tests.
 - `bunx playwright test tests/ui` — all existing + new UI tests pass, including Tier 3 hub flow tests.
-- `./scripts/verify-build.sh` — verifies vendored ts-mls sources are in SLSA provenance, cosign bundle covers the vendor subtree.
+- `./scripts/verify-build.sh` — verifies vendored @wireapp/core-crypto sources are in SLSA provenance, cosign bundle covers the vendor subtree.
 
 ### Adversarial test design notes
 
@@ -670,7 +695,7 @@ Crypto dependencies demand tests that the library authors cannot reasonably ship
 
 No data migration. All tables start empty. Opting in a hub runs the bootstrap flow described in 6.3.
 
-**Package manifest.** `package.json` gets one line: `"ts-mls": "file:./vendor/ts-mls"`. Vendored source is tracked in git. No `node_modules` surprise from a transitive update. The monorepo `bun install` resolves ts-mls to the vendored path directly.
+**Package manifest.** `package.json` gets one line: `"@wireapp/core-crypto": "file:./vendor/@wireapp/core-crypto"`. Vendored source is tracked in git. No `node_modules` surprise from a transitive update. The monorepo `bun install` resolves @wireapp/core-crypto to the vendored path directly.
 
 **Fingerprint verification UX ships FIRST.** PR #1 in this tier adds the fingerprint verification primitive (SAS emoji derivation + admin UI) without touching MLS at all. It works with Tier 3 device sigchain entries from day one. PR #2 adds the MLS code path behind the `tier6Enabled` flag.
 
@@ -683,10 +708,10 @@ No data migration. All tables start empty. Opting in a hub runs the bootstrap fl
    - Confirmation required to proceed.
    On confirmation, the hub's `tier6_enabled` flips; all devices pre-publish KeyPackages; the bootstrap flow runs.
 3. **Month 3 (default-on for new hubs, existing hubs stay opt-in):** The "create new hub" flow defaults to `tier6Enabled: true`. Existing hubs remain opt-in indefinitely.
-4. **Month 6 (audit prerequisite complete):** External audit of ts-mls integration is completed and remediated. At this point, Llamenos marketing can assert "post-quantum hybrid by default".
+4. **Month 6 (audit prerequisite complete):** External audit of @wireapp/core-crypto integration is completed and remediated. At this point, Llamenos marketing can assert "post-quantum hybrid by default".
 
 **Audit commissioning.** The tier explicitly includes a budget line-item for an external audit. Target firms: Cure53, Trail of Bits, NCC Group. Scope:
-- The vendored ts-mls source tree at the pinned commit.
+- The vendored @wireapp/core-crypto source tree at the pinned commit.
 - Llamenos's MLS integration code (`src/client/lib/mls/**`).
 - The feature-flag + migration path.
 - The PQ ciphersuite code path specifically.
@@ -724,7 +749,7 @@ Explicitly deferred to later tiers. Every item below is either out-of-Tier-6 ent
 
 The spec is complete when the implementation of the accompanying plan achieves all of the following:
 
-1. **ts-mls vendored and pinned.** `vendor/ts-mls/` contains a full source tree at a documented commit SHA; `package.json` resolves `ts-mls` via `file:./vendor/ts-mls`; SLSA provenance covers the vendored subtree.
+1. **@wireapp/core-crypto vendored and pinned.** `vendor/core-crypto/` contains a full source tree at a documented commit SHA; `package.json` resolves `@wireapp/core-crypto` via `file:./vendor/@wireapp/core-crypto`; SLSA provenance covers the vendored subtree.
 
 2. **MLS group lifecycle end-to-end.** A hub with `tier6Enabled: true` can:
    - Create a fresh MLS group with ciphersuite `MLS_256_XWING_AES256GCM_SHA512_Ed25519`.
@@ -746,7 +771,7 @@ The spec is complete when the implementation of the accompanying plan achieves a
 
 9. **Provable delete.** A note created with `provableDelete: true` in epoch N becomes cryptographically unrecoverable on every device after an admin-triggered `mls_epoch_purge` advances the epoch past N.
 
-10. **Audit commissioned.** An external cryptography firm has reviewed the vendored ts-mls source, the Llamenos integration code, and the PQ ciphersuite path. Findings are remediated. Audit report is published to `docs/security/`.
+10. **Audit commissioned.** An external cryptography firm has reviewed the vendored @wireapp/core-crypto source, the Llamenos integration code, and the PQ ciphersuite path. Findings are remediated. Audit report is published to `docs/security/`.
 
 11. **Staged rollout verified.** Month 1 dogfoods on internal hub; Month 2 offers opt-in; Month 3 defaults-on for new hubs only if zero Month-1/Month-2 incidents. Existing Tier 3 hubs remain supported indefinitely.
 
@@ -754,6 +779,6 @@ The spec is complete when the implementation of the accompanying plan achieves a
 
 13. **Bundle size budget respected.** Tier 6 adds ≤500 KB gzipped to the client bundle compared to Tier 3 baseline. Measured in the CI build step; a budget check fails the build if exceeded.
 
-14. **Documentation.** `docs/protocol/llamenos-protocol.md` gains a "Tier 6 — MLS + PQ" section; `docs/architecture/E2EE_ARCHITECTURE.md` is updated with the post-Tier-6 four-layer diagram; `docs/security/SUPPLY_CHAIN_HARDENING.md` is updated with the vendored ts-mls provenance entry; an audit report is added to `docs/security/` on completion.
+14. **Documentation.** `docs/protocol/llamenos-protocol.md` gains a "Tier 6 — MLS + PQ" section; `docs/architecture/E2EE_ARCHITECTURE.md` is updated with the post-Tier-6 four-layer diagram; `docs/security/SUPPLY_CHAIN_HARDENING.md` is updated with the vendored @wireapp/core-crypto provenance entry; an audit report is added to `docs/security/` on completion.
 
 Every success-criteria item has a corresponding test or artifact and is verifiable by an independent reviewer.

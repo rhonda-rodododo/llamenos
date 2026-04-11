@@ -4,9 +4,9 @@
 
 **Goal:** Migrate the hub-key lifecycle from per-device HPKE rewrap to an MLS (RFC 9420) group with a post-quantum hybrid ciphersuite (XWing: X25519 + ML-KEM-768), providing continuous post-compromise security and HNDL defense, while preserving per-note forward secrecy via the existing `items_key` indirection from Tier 1.
 
-**Architecture:** Two PRs. PR #1 ships the 7-emoji SAS fingerprint verification UX on top of Tier 3's device sigchain (no MLS code yet) plus the vendored `ts-mls` skeleton. PR #2 adds the MLS code path behind a per-hub `tier6Enabled` feature flag: MLS group lifecycle in the crypto worker, KeyPackage publication + fetch endpoints, MLS message delivery over strfry as Nostr event kinds 20001–20003, `items_key` derivation from MLS exporter secret, SFrame base-key integration with Tier 5, and opt-in provable-delete via admin-triggered epoch purges. Staged rollout: internal hub month 1, volunteer opt-in month 2, default-on for new hubs month 3. Audit commissioned before any production hub enables the flag.
+**Architecture:** Two PRs. PR #1 ships the 7-emoji SAS fingerprint verification UX on top of Tier 3's device sigchain (no MLS code yet) plus the vendored `@wireapp/core-crypto` skeleton. PR #2 adds the MLS code path behind a per-hub `tier6Enabled` feature flag: MLS group lifecycle in the crypto worker, KeyPackage publication + fetch endpoints, MLS message delivery over strfry as Nostr event kinds 20001–20003, `items_key` derivation from MLS exporter secret, SFrame base-key integration with Tier 5, and opt-in provable-delete via admin-triggered epoch purges. Staged rollout: internal hub month 1, volunteer opt-in month 2, default-on for new hubs month 3. Audit commissioned before any production hub enables the flag.
 
-**Tech Stack:** TypeScript, Bun, Hono + `@hono/zod-openapi`, React + TanStack Router, Drizzle ORM + PostgreSQL, `@noble/hashes` HKDF/SHA-256/SHA-512, `@noble/ciphers` XChaCha20-Poly1305, `@noble/post-quantum` ML-KEM-768/1024, `@hpke/core` HPKE (already shipped in Tier 1), `ts-mls` (vendored), strfry Nostr relay, Vite + vite-plugin-pwa, Playwright.
+**Tech Stack:** TypeScript, Bun, Hono + `@hono/zod-openapi`, React + TanStack Router, Drizzle ORM + PostgreSQL, `@noble/hashes` HKDF/SHA-256/SHA-512, `@noble/ciphers` XChaCha20-Poly1305, `@noble/post-quantum` ML-KEM-768/1024, `@hpke/core` HPKE (already shipped in Tier 1), `@wireapp/core-crypto` (vendored), strfry Nostr relay, Vite + vite-plugin-pwa, Playwright.
 
 **Spec:** `docs/superpowers/specs/2026-04-10-security-tier-6-mls-pq-design.md`
 
@@ -16,11 +16,11 @@
 
 ## File Map
 
-### Created — PR #1 (fingerprint UX + ts-mls skeleton)
+### Created — PR #1 (fingerprint UX + @wireapp/core-crypto skeleton)
 
 | File | Responsibility |
 |---|---|
-| `vendor/ts-mls/` (tree) | Vendored ts-mls source at pinned commit SHA |
+| `vendor/core-crypto/` (tree) | Vendored @wireapp/core-crypto source at pinned commit SHA |
 | `vendor/PROVENANCE.md` | Chain-of-custody document for every vendored dependency |
 | `src/shared/crypto-labels.ts` (modify) | Add `LABEL_SAS_V2`, `LABEL_SFRAME_BASE_KEY`, `LABEL_ITEMS_KEY_EXPORT`, `LABEL_NOTE_EPOCH_KEY`, `LABEL_MLS_PROVISION` |
 | `src/client/lib/mls/sas.ts` | 7-emoji SAS derivation from Ed25519 pubkey |
@@ -46,7 +46,7 @@
 | `src/client/lib/mls/mls-types.ts` | Shared type definitions (`MlsGroupState`, ciphersuite union, envelope tags) |
 | `src/client/lib/mls/mls-ciphersuite.ts` | Ciphersuite enum + validation helpers |
 | `src/client/lib/mls/mls-ciphersuite.test.ts` | Ciphersuite validation tests |
-| `src/client/lib/mls/mls-group.ts` | Core MLS group-lifecycle wrapper over ts-mls |
+| `src/client/lib/mls/mls-group.ts` | Core MLS group-lifecycle wrapper over @wireapp/core-crypto |
 | `src/client/lib/mls/mls-group.test.ts` | Happy-path group lifecycle tests |
 | `src/client/lib/mls/mls-group.adversarial.test.ts` | Adversarial tests (forged KeyPackage, replay, ciphersuite downgrade, broken PQ leg) |
 | `src/client/lib/mls/mls-exporter.ts` | Deterministic exporter-secret derivation for `items_key` + SFrame key |
@@ -100,11 +100,11 @@
 | `tests/ui/mls-background-update.spec.ts` | Daily update with mocked clock |
 | `tests/ui/mls-sas-emoji-render.spec.ts` | Cross-locale SAS rendering |
 | `tests/ui/mls-fingerprint-mismatch.spec.ts` | Wrong-emoji click handling |
-| `scripts/vendor-ts-mls.sh` | Reproducible vendor-update helper |
+| `scripts/vendor-core-crypto.sh` | Reproducible vendor-update helper |
 | `scripts/bundle-size-check.ts` | CI bundle size budget enforcement |
 | `docs/protocol/llamenos-protocol.md` (modify) | Append Tier 6 section |
 | `docs/architecture/E2EE_ARCHITECTURE.md` (modify) | Post-Tier-6 four-layer diagram |
-| `docs/security/SUPPLY_CHAIN_HARDENING.md` (modify) | Vendored ts-mls provenance row |
+| `docs/security/SUPPLY_CHAIN_HARDENING.md` (modify) | Vendored @wireapp/core-crypto provenance row |
 | `CLAUDE.md` (modify) | Tier 6 migration notes (removed in next tier) |
 
 ---
@@ -126,22 +126,22 @@ If any of those are missing, fail-fast: announce the missing prerequisite and ab
 
 ---
 
-## PR #1 — Fingerprint verification UX + vendored ts-mls skeleton
+## PR #1 — Fingerprint verification UX + vendored @wireapp/core-crypto skeleton
 
 This PR is MLS-free. Every task here operates on the Tier 3 device sigchain. The payoff is that device-fingerprint verification is live for classical hubs before any MLS code exists.
 
-### Task 1: Vendor ts-mls at a pinned commit
+### Task 1: Vendor @wireapp/core-crypto at a pinned commit
 
 **Files:**
-- Create: `vendor/ts-mls/` (full source tree)
+- Create: `vendor/core-crypto/` (full source tree)
 - Create: `vendor/PROVENANCE.md`
-- Create: `scripts/vendor-ts-mls.sh`
+- Create: `scripts/vendor-core-crypto.sh`
 - Modify: `package.json`
 - Modify: `biome.json` (add `vendor/**` to ignore list)
 
 - [ ] **Step 1: Choose the pinned commit**
 
-Open `https://github.com/LukaJCB/ts-mls/commits/main` and select the latest commit that has:
+Open `https://github.com/wireapp/core-crypto/commits/main` and select the latest commit that has:
 - Green CI on the listed suite.
 - A tag or release name (e.g. `v0.x.y`).
 - PQ ciphersuite support merged (look for `MLS_256_XWING` in the src).
@@ -150,18 +150,18 @@ Record the SHA and tag. Example: commit `abc123def456`, tag `v0.4.2`.
 
 - [ ] **Step 2: Write the vendor helper script**
 
-Create `scripts/vendor-ts-mls.sh`:
+Create `scripts/vendor-core-crypto.sh`:
 
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
 
-UPSTREAM_URL="https://github.com/LukaJCB/ts-mls.git"
+UPSTREAM_URL="https://github.com/wireapp/core-crypto.git"
 PINNED_SHA="${1:?usage: $0 <commit-sha>}"
-VENDOR_DIR="vendor/ts-mls"
+VENDOR_DIR="vendor/@wireapp/core-crypto"
 TMP_DIR="$(mktemp -d)"
 
-echo "Cloning ts-mls at $PINNED_SHA into $TMP_DIR..."
+echo "Cloning @wireapp/core-crypto at $PINNED_SHA into $TMP_DIR..."
 git clone --quiet "$UPSTREAM_URL" "$TMP_DIR"
 git -C "$TMP_DIR" checkout --quiet "$PINNED_SHA"
 
@@ -178,7 +178,7 @@ cp "$TMP_DIR/README.md" "$VENDOR_DIR/README.md"
 
 echo "Writing vendor pin marker..."
 cat > "$VENDOR_DIR/VENDOR.md" <<MARKER
-# ts-mls (vendored)
+# @wireapp/core-crypto (vendored)
 
 - Upstream: $UPSTREAM_URL
 - Commit:   $PINNED_SHA
@@ -186,16 +186,16 @@ cat > "$VENDOR_DIR/VENDOR.md" <<MARKER
 MARKER
 
 rm -rf "$TMP_DIR"
-echo "Vendored ts-mls at $PINNED_SHA into $VENDOR_DIR"
+echo "Vendored @wireapp/core-crypto at $PINNED_SHA into $VENDOR_DIR"
 ```
 
-Make it executable: `chmod +x scripts/vendor-ts-mls.sh`.
+Make it executable: `chmod +x scripts/vendor-core-crypto.sh`.
 
 - [ ] **Step 3: Run the helper to populate the vendor tree**
 
-Run: `./scripts/vendor-ts-mls.sh <SHA-from-step-1>`
+Run: `./scripts/vendor-core-crypto.sh <SHA-from-step-1>`
 
-Verify: `ls vendor/ts-mls/` shows `LICENSE`, `README.md`, `VENDOR.md`, `package.json`, `tsconfig.json`, `src/`.
+Verify: `ls vendor/core-crypto/` shows `LICENSE`, `README.md`, `VENDOR.md`, `package.json`, `tsconfig.json`, `src/`.
 
 - [ ] **Step 4: Write `vendor/PROVENANCE.md`**
 
@@ -205,28 +205,28 @@ Verify: `ls vendor/ts-mls/` shows `LICENSE`, `README.md`, `VENDOR.md`, `package.
 This file records the chain-of-custody for every third-party module in `vendor/`.
 Updates are made via PR, never directly to `main`.
 
-## ts-mls
+## @wireapp/core-crypto
 
 - **Purpose:** Messaging Layer Security (RFC 9420) implementation in TypeScript.
   Supports PQ ciphersuites via `draft-ietf-mls-pq-ciphersuites` (XWing,
   ML-KEM-1024). Vendored to pin our MLS dependency against untracked upstream
   changes and to include the source tree in reproducible builds.
-- **Upstream:** https://github.com/LukaJCB/ts-mls
-- **License:** MIT (see `vendor/ts-mls/LICENSE`)
+- **Upstream:** https://github.com/wireapp/core-crypto
+- **License:** GPL-3.0 (see `vendor/core-crypto/LICENSE`). GPL-3.0 obligations apply to distribution of the vendored source; Llamenos' overall license posture is GPL-compatible and the PROVENANCE.md documents the license chain. Core-crypto's JS bindings (`@wireapp/core-crypto`) are the same license as the upstream Rust crate.
 - **Current commit:** `<SHA-from-step-1>` (tag `<tag-from-step-1>`)
 - **Vendored on:** 2026-04-10
 - **Audit status:** PENDING — commissioned audit scheduled; see
   `docs/security/VENDOR_AUDIT.md`.
-- **Update procedure:** Run `./scripts/vendor-ts-mls.sh <new-sha>`, commit the
+- **Update procedure:** Run `./scripts/vendor-core-crypto.sh <new-sha>`, commit the
   diff to a PR, run the full test suite, and update this file with the new SHA.
 ```
 
-- [ ] **Step 5: Make the monorepo resolve ts-mls from the vendored path**
+- [ ] **Step 5: Make the monorepo resolve @wireapp/core-crypto from the vendored path**
 
 Edit `package.json` — add to the `dependencies` object:
 
 ```json
-"ts-mls": "file:./vendor/ts-mls"
+"@wireapp/core-crypto": "file:./vendor/@wireapp/core-crypto"
 ```
 
 (Alphabetical order.)
@@ -248,7 +248,7 @@ Edit `tsconfig.json` — ensure `"exclude"` includes `"vendor/**/*.test.ts"` but
 - [ ] **Step 7: Install and verify import**
 
 Run: `bun install`
-Expected: resolves `ts-mls` to `vendor/ts-mls`.
+Expected: resolves `@wireapp/core-crypto` to `vendor/core-crypto`.
 
 Run: `bunx tsc --noEmit -p tsconfig.json`
 Expected: 0 errors.
@@ -260,14 +260,14 @@ Expected: 0 errors.
 
 | Module | Vendor commit | Audit firm | Audit date | Status | Report |
 |---|---|---|---|---|---|
-| ts-mls | `<SHA>` | TBD (pending commission) | — | PENDING | — |
+| @wireapp/core-crypto | `<SHA>` | TBD (pending commission) | — | PENDING | — |
 ```
 
 - [ ] **Step 9: Commit**
 
 ```bash
-git add vendor/ts-mls vendor/PROVENANCE.md scripts/vendor-ts-mls.sh package.json biome.json tsconfig.json docs/security/VENDOR_AUDIT.md
-git commit -m "chore(vendor): add ts-mls at pinned commit for Tier 6 MLS integration"
+git add vendor/@wireapp/core-crypto vendor/PROVENANCE.md scripts/vendor-core-crypto.sh package.json biome.json tsconfig.json docs/security/VENDOR_AUDIT.md
+git commit -m "chore(vendor): add @wireapp/core-crypto at pinned commit for Tier 6 MLS integration"
 ```
 
 ### Task 2: Add new crypto labels for Tier 6
@@ -1612,7 +1612,7 @@ Expected: PASS.
 
 - [ ] **Step 7: Open PR #1**
 
-Title: `feat(security): Tier 6 PR #1 — fingerprint verification + ts-mls vendoring`
+Title: `feat(security): Tier 6 PR #1 — fingerprint verification + @wireapp/core-crypto vendoring`
 
 Include in description: the spec path, the list of tasks completed (checkbox-style), and an explicit statement that no MLS code is live yet.
 
@@ -2787,7 +2787,7 @@ export interface MlsGroupState {
   epoch: number
   lastCommitHash: string
   treeHash: string
-  /** Encrypted opaque ts-mls state — AES-KW-wrapped via crypto worker. */
+  /** Encrypted opaque @wireapp/core-crypto state — AES-KW-wrapped via crypto worker. */
   opaqueState: Ciphertext
 }
 
@@ -2864,7 +2864,7 @@ git add src/client/lib/mls/mls-types.ts src/client/lib/mls/mls-ciphersuite.ts sr
 git commit -m "feat(mls): shared types + ciphersuite registry"
 ```
 
-### Task 23: Client — MLS group wrapper over ts-mls
+### Task 23: Client — MLS group wrapper over @wireapp/core-crypto
 
 **Files:**
 - Create: `src/client/lib/mls/mls-group.ts`
@@ -2982,8 +2982,8 @@ import {
   exportSecret as tsMlsExportSecret,
   serializeGroup,
   deserializeGroup,
-} from 'ts-mls'
-import type { GroupState } from 'ts-mls/types'
+} from '@wireapp/core-crypto'
+import type { GroupState } from '@wireapp/core-crypto/types'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex } from '@noble/hashes/utils.js'
 import type { MlsCiphersuite, MlsCommitResult, MlsProcessResult } from './mls-types'
@@ -3043,7 +3043,7 @@ export class MlsGroupHandle {
     const result = await createCommit(this.state, {
       proposals: [{ type: 'add', keyPackage: keyPackageBytes }],
     })
-    // ts-mls mutates returned state — replace internal ref
+    // @wireapp/core-crypto mutates returned state — replace internal ref
     Object.assign(this.state, result.newState)
     return {
       commit: result.commit,
@@ -3160,7 +3160,7 @@ Expected: all PASS.
 
 ```bash
 git add src/client/lib/mls/mls-group.ts src/client/lib/mls/mls-group.test.ts
-git commit -m "feat(mls): MlsGroupHandle wrapper over ts-mls — create/add/remove/update/process"
+git commit -m "feat(mls): MlsGroupHandle wrapper over @wireapp/core-crypto — create/add/remove/update/process"
 ```
 
 ### Task 24: Client — MLS exporter helper
@@ -4135,7 +4135,7 @@ import {
   deserializeGroupHandle,
 } from './mls/mls-group'
 import type { MlsCiphersuite } from './mls/mls-types'
-import { createKeyPackage } from 'ts-mls'
+import { createKeyPackage } from '@wireapp/core-crypto'
 import { hexToBytes, bytesToHex, randomBytes } from '@noble/hashes/utils.js'
 
 // In-worker registry of live MLS group handles.
@@ -4774,14 +4774,14 @@ describe('MLS adversarial — ciphersuite downgrade', () => {
 
 describe('MLS adversarial — broken PQ leg', () => {
   test('mocked ML-KEM decapsulation returning wrong bytes fails the whole derivation', async () => {
-    // Use ts-mls's module-level injection point for the KEM primitive.
+    // Use @wireapp/core-crypto's module-level injection point for the KEM primitive.
     const mockEncaps = mock(() => ({
       sharedSecret: new Uint8Array(32).fill(0xde),
       ciphertext: new Uint8Array(1184).fill(0xad),
     }))
     const mockDecaps = mock(() => new Uint8Array(32).fill(0xbe)) // wrong
-    // Pseudocode — ts-mls exposes a testing hook; if not, patch via module
-    const { __setMlKemImpl, __restoreMlKemImpl } = await import('ts-mls/test-hooks')
+    // Pseudocode — @wireapp/core-crypto exposes a testing hook; if not, patch via module
+    const { __setMlKemImpl, __restoreMlKemImpl } = await import('@wireapp/core-crypto/test-hooks')
     __setMlKemImpl({ encaps: mockEncaps, decaps: mockDecaps })
     try {
       const group = await makeGroup()
@@ -4798,7 +4798,7 @@ describe('MLS adversarial — broken PQ leg', () => {
   })
 
   test('mocked X25519 failure also fails', async () => {
-    const { __setX25519Impl, __restoreX25519Impl } = await import('ts-mls/test-hooks')
+    const { __setX25519Impl, __restoreX25519Impl } = await import('@wireapp/core-crypto/test-hooks')
     __setX25519Impl({
       scalarMult: () => new Uint8Array(32).fill(0xca),
     })
@@ -4842,7 +4842,7 @@ describe('MLS adversarial — concurrent commits', () => {
 
 describe('MLS adversarial — tampered tree hash', () => {
   test('audit-layer tree hash mismatch is caught by the verification gate', async () => {
-    // This test verifies the application-layer gate, NOT ts-mls internals.
+    // This test verifies the application-layer gate, NOT @wireapp/core-crypto internals.
     // A commit with an otherwise-valid MLS payload is rejected because the
     // expected tree hash (from the signed audit entry) does not match the
     // recomputed tree hash after processing.
@@ -4866,11 +4866,11 @@ describe('MLS adversarial — tampered tree hash', () => {
 - [ ] **Step 2: Run the test**
 
 Run: `bun test src/client/lib/mls/mls-group.adversarial.test.ts`
-Expected: all PASS (some tests use `ts-mls/test-hooks`; if that submodule is not present in the vendored tree, the vendor PR in Task 1 must expose equivalent hooks — add a thin patch file in `vendor/ts-mls/src/test-hooks.ts` as part of the vendoring task).
+Expected: all PASS (some tests use `@wireapp/core-crypto/test-hooks`; if that submodule is not present in the vendored tree, the vendor PR in Task 1 must expose equivalent hooks — add a thin patch file in `vendor/core-crypto/src/test-hooks.ts` as part of the vendoring task).
 
-- [ ] **Step 3: If test-hooks are missing from ts-mls, add a patch**
+- [ ] **Step 3: If test-hooks are missing from @wireapp/core-crypto, add a patch**
 
-Add `vendor/ts-mls/src/test-hooks.ts`:
+Add `vendor/core-crypto/src/test-hooks.ts`:
 
 ```typescript
 // Test-only primitive injection hooks. Not exported in production builds;
@@ -4895,7 +4895,7 @@ export function __restoreX25519Impl() {
 }
 ```
 
-Re-export from `vendor/ts-mls/src/index.ts`: `export * as testHooks from './test-hooks'`.
+Re-export from `vendor/core-crypto/src/index.ts`: `export * as testHooks from './test-hooks'`.
 
 - [ ] **Step 4: Re-run tests**
 
@@ -4905,7 +4905,7 @@ Expected: all PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/client/lib/mls/mls-group.adversarial.test.ts vendor/ts-mls/src/test-hooks.ts vendor/ts-mls/src/index.ts
+git add src/client/lib/mls/mls-group.adversarial.test.ts vendor/core-crypto/src/test-hooks.ts vendor/core-crypto/src/index.ts
 git commit -m "test(mls): adversarial — forged KP, replay, downgrade, broken PQ leg, concurrent commits"
 ```
 
@@ -6279,7 +6279,7 @@ git commit -m "test(ui): MLS — member removal, background update, fingerprint 
 
 Add a new top-level section `## Tier 6 — MLS + Post-Quantum Hybrid`. Contents:
 
-- Overview: MLS via vendored ts-mls, XWing ciphersuite default, ML-KEM-1024 high-profile.
+- Overview: MLS via vendored @wireapp/core-crypto, XWing ciphersuite default, ML-KEM-1024 high-profile.
 - Per-hub group model; members = devices.
 - Audit entry types: `mls_group_init`, `mls_members_added`, `mls_members_removed`, `mls_path_update`, `mls_epoch_purge`, `mls_ciphersuite_upgrade_planned`, `mls_ciphersuite_upgrade_completed`, `device_fingerprint_verified`.
 - Nostr event kinds 20001 (Commit/Application), 20002 (Welcome), 20003 (KeyPackage).
@@ -6322,24 +6322,24 @@ Add a row to the vendored dependencies table:
 
 | Module | Upstream | Commit | License | Vendored | Audit status |
 |---|---|---|---|---|---|
-| ts-mls | github.com/LukaJCB/ts-mls | `<pinned-sha>` | MIT | 2026-04-10 | PENDING (commissioned) |
+| @wireapp/core-crypto | github.com/wireapp/core-crypto | `<pinned-sha>` | MIT | 2026-04-10 | PENDING (commissioned) |
 
-Add a paragraph under "Vendored dependencies" explaining why ts-mls is vendored (pinning, reproducible builds, SLSA coverage, audit scope).
+Add a paragraph under "Vendored dependencies" explaining why @wireapp/core-crypto is vendored (pinning, reproducible builds, SLSA coverage, audit scope).
 
 - [ ] **Step 4: Update `CLAUDE.md` — Tier 6 migration notes**
 
 Add under "Key Technical Patterns":
 
 ```markdown
-- **Tier 6 MLS (opt-in per hub):** Hubs with `tier6_enabled = true` replace the Tier 3 hub-key with an MLS (RFC 9420) group via vendored `ts-mls`. Default ciphersuite `MLS_256_XWING_AES256GCM_SHA512_Ed25519`; high-profile hubs use `MLS_256_MLKEM1024_AES256GCM_SHA512_Ed25519`. `items_key` is derived from `MLS-Exporter(LABEL_ITEMS_KEY_EXPORT, hubId)`; SFrame base keys from `MLS-Exporter(LABEL_SFRAME_BASE_KEY, callId)`. Daily background Update commits provide continuous PCS. Per-hub MLS state lives in `src/client/lib/mls/`. Server KeyPackage endpoints at `/api/mls/key-packages`. MLS messages ride Nostr event kinds 20001 (Commit), 20002 (Welcome), 20003 (KeyPackage). Fingerprint verification UX (7-emoji SAS) ships BEFORE any Tier 6 code is enabled.
+- **Tier 6 MLS (opt-in per hub):** Hubs with `tier6_enabled = true` replace the Tier 3 hub-key with an MLS (RFC 9420) group via vendored `@wireapp/core-crypto`. Default ciphersuite `MLS_256_XWING_AES256GCM_SHA512_Ed25519`; high-profile hubs use `MLS_256_MLKEM1024_AES256GCM_SHA512_Ed25519`. `items_key` is derived from `MLS-Exporter(LABEL_ITEMS_KEY_EXPORT, hubId)`; SFrame base keys from `MLS-Exporter(LABEL_SFRAME_BASE_KEY, callId)`. Daily background Update commits provide continuous PCS. Per-hub MLS state lives in `src/client/lib/mls/`. Server KeyPackage endpoints at `/api/mls/key-packages`. MLS messages ride Nostr event kinds 20001 (Commit), 20002 (Welcome), 20003 (KeyPackage). Fingerprint verification UX (7-emoji SAS) ships BEFORE any Tier 6 code is enabled.
 ```
 
 Add under "Gotchas":
 
 ```markdown
-- ts-mls is vendored at `vendor/ts-mls/`. Never upgrade via transitive npm resolution — always via `scripts/vendor-ts-mls.sh <new-sha>` + PR diff review.
+- @wireapp/core-crypto is vendored at `vendor/core-crypto/`. Never upgrade via transitive npm resolution — always via `scripts/vendor-core-crypto.sh <new-sha>` + PR diff review.
 - MLS group state in IDB is AES-KW-wrapped. A corrupted `opaqueState` field manifests as an AEAD tag failure on load; the client must re-bootstrap from the server's latest Welcome.
-- MLS ciphersuite is pinned in the `hub_create` audit entry and re-asserted by every Commit. A mismatch MUST reject the commit at the application layer — do NOT rely on ts-mls alone for this check.
+- MLS ciphersuite is pinned in the `hub_create` audit entry and re-asserted by every Commit. A mismatch MUST reject the commit at the application layer — do NOT rely on @wireapp/core-crypto alone for this check.
 - Removed devices still hold cached `items_key` values for epochs ≤ removal; they CANNOT derive new epochs. Revoking access means the server stops sending them MLS events but does NOT require re-encryption of existing data.
 - Tier 6 has no rollback. Once a hub flips `tier6_enabled = true`, the only recovery is to recreate the hub.
 ```
@@ -6368,7 +6368,7 @@ Expected: 0 errors.
 - [ ] **Step 3: Build**
 
 Run: `bun run build`
-Expected: success; `dist/client/` populated; vendored `ts-mls` source tree included as first-class source in the SLSA provenance.
+Expected: success; `dist/client/` populated; vendored `@wireapp/core-crypto` source tree included as first-class source in the SLSA provenance.
 
 - [ ] **Step 4: Bundle size budget**
 
@@ -6437,10 +6437,10 @@ bunx playwright test tests/ui --grep-invert "mls-"
 
 Expected: PASS.
 
-- [ ] **Step 10: Grep check — no ts-mls imports outside `src/client/lib/mls/` and `crypto-worker.ts`**
+- [ ] **Step 10: Grep check — no @wireapp/core-crypto imports outside `src/client/lib/mls/` and `crypto-worker.ts`**
 
 ```bash
-! grep -rn "from 'ts-mls'" src --include="*.ts" --exclude-dir="src/client/lib/mls" | grep -v "crypto-worker.ts"
+! grep -rn "from '@wireapp/core-crypto'" src --include="*.ts" --exclude-dir="src/client/lib/mls" | grep -v "crypto-worker.ts"
 ```
 
 Expected: no matches. MLS integration is properly modularized.
@@ -6504,7 +6504,7 @@ PR #2 landing does NOT flip any production hub. Rollout happens via operator act
 ### Month 2 — Volunteer opt-in (pending audit)
 
 **Prerequisite:** external cryptography firm (Cure53 / Trail of Bits / NCC) completes audit of:
-- Vendored ts-mls source at pinned commit.
+- Vendored @wireapp/core-crypto source at pinned commit.
 - Llamenos MLS integration code (`src/client/lib/mls/**`).
 - PQ ciphersuite code path.
 - Nostr delivery + KeyPackage endpoints.
