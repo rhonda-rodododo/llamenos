@@ -9,7 +9,9 @@
 
 1. **C-1 Opaque-origin iframe CORS → iframe `connect-src 'none'`.** Confirmed. Spec §4.2.6 added — the crypto iframe has ZERO network access at the CSP layer. All ciphertext flows in via postMessage; all plaintext flows out via postMessage. This eliminates the opaque-origin CORS trap (`Origin: null` would have been rejected by the API CORS pin) by making network access structurally impossible from inside the sandbox. New UI E2E test `tests/ui/crypto-iframe-no-network.spec.ts` asserts zero runtime network requests from the iframe.
 2. **Compile-time origin config for self-hosters.** Confirmed: "the CORS origin should be configurable at UI compile time, because our main deployment vehicle is self hosted installs." Spec §4.2.7 added — all three origins (`VITE_APP_ORIGIN`, `VITE_API_ORIGIN`, `VITE_CRYPTO_ORIGIN`) plus `VITE_CSP_REPORT_URI` are Vite build-time env vars. Matching server-side `APP_ORIGIN` / `API_ORIGIN` / `CRYPTO_ORIGIN` vars are read by Hono + Caddy at runtime. Reproducible-build implication is acknowledged: bundle SHAs differ per self-hoster, so each deployment needs its own scoped third-party verifier.
-3. **I-1 Partitioned cookie fallback, I-2 minimum 2 verifiers, I-3 client-side hash is a participation signal** — all remain as implementation-time guidance (non-blocking for landing the spec).
+3. **I-1 Partitioned cookie fallback → transparent (Rhonda confirmed 2026-04-10).** Spec §4.1.2 paragraph added explaining the redirect-flow is silent: ~200–400 ms page transition, auto-exchanged grant, URL cleaned via `history.replaceState`. No explicit affordance. Friction rejected.
+4. **I-2 Verifier minimum → ≥2 at launch (Rhonda confirmed 2026-04-10).** Spec §4.3.1 updated: Tier 4 success gate requires two distinct allied-org verifiers with distinct Nostr signing keys, both in `src/shared/config/verifiers.ts`, gate verified by `tests/api/releases-manifest.spec.ts` asserting `verifiers.length >= 2`. Rotation runbook added.
+5. **I-3 Client-side bundle hash is a participation signal** — remains as implementation-time guidance (non-blocking for landing the spec).
 
 ## Summary
 
