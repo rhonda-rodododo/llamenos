@@ -15,6 +15,7 @@ import {
   encryptNoteV2,
 } from '@shared/crypto-envelopes'
 import {
+  type CryptoLabel,
   HKDF_CONTEXT_EXPORT,
   HKDF_CONTEXT_NOTES,
   HKDF_SALT,
@@ -105,8 +106,8 @@ describe('keyPairFromNsec / isValidNsec', () => {
 })
 
 describe('eciesWrapKey / eciesUnwrapKeyWithSecret', () => {
-  const TEST_LABEL = 'test:ecies-wrap'
-  const OTHER_LABEL = 'test:ecies-other'
+  const TEST_LABEL = 'test:ecies-wrap' as CryptoLabel
+  const OTHER_LABEL = 'test:ecies-other' as CryptoLabel
 
   function randomKey(): Uint8Array {
     const key = new Uint8Array(32)

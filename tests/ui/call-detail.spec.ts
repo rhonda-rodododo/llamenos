@@ -5,7 +5,7 @@
  * Note permalink navigation requires parameterized route support.
  */
 
-import { encryptNoteV2 } from '../../src/client/lib/crypto'
+import { encryptNoteV2 } from '@shared/crypto-envelopes'
 import { expect, test } from '../fixtures/auth'
 import { navigateAfterLogin } from '../helpers'
 import {

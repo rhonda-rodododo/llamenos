@@ -13,8 +13,8 @@
  */
 
 import { expect, test } from '@playwright/test'
+import { decryptNoteV2WithKey, encryptNoteV2 } from '@shared/crypto-envelopes'
 import { generateSecretKey, getPublicKey, nip19 } from 'nostr-tools'
-import { decryptNoteV2WithKey, encryptNoteV2 } from '../../src/client/lib/crypto'
 import { ADMIN_NSEC } from '../helpers'
 import { createAuthedRequestFromNsec } from '../helpers/authed-request'
 
