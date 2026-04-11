@@ -32,7 +32,12 @@ export interface ChannelAnswerEvent {
 export interface ChannelHangupEvent {
   type: 'channel_hangup'
   channelId: string
-  /** SIP cause code (16 = normal, 17 = busy, 19 = no answer, 21 = rejected) */
+  /**
+   * Q.850 / ISDN cause code as reported by Asterisk (16 = NORMAL_CLEARING,
+   * 17 = USER_BUSY, 19 = NO_ANSWER, 21 = CALL_REJECTED). Asterisk maps
+   * these to SIP status codes via its hangup-cause table; the raw SIP
+   * status (e.g. 486 for busy) is NOT what this field carries.
+   */
   cause: number
   causeText: string
   timestamp: string

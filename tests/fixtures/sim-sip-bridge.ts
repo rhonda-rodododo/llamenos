@@ -46,14 +46,29 @@ export type {
   PlaybackFinishedEvent,
 }
 
+export type CallMode = 'sframe' | 'pstn'
+
+/**
+ * Stasis dialplan arguments as SimSipBridge emits them. Production's
+ * `ChannelCreateEvent.args` is a plain `string[]`; locally we narrow to
+ * `[CallMode, ...string[]]` so readers of simulated events can rely on
+ * `args[0]` being typed as `CallMode` without runtime casts. The
+ * intersection preserves any future widening of `ChannelCreateEvent`
+ * fields from production — only `args` is locally narrowed.
+ */
+export type StasisArgs = readonly [CallMode, ...string[]]
+
+/** Sim-local narrowing of the production channel_create event. */
+export type SimChannelCreateEvent = Omit<ChannelCreateEvent, 'args'> & {
+  args: StasisArgs
+}
+
 export type SimBridgeEvent =
-  | ChannelCreateEvent
+  | SimChannelCreateEvent
   | ChannelAnswerEvent
   | ChannelHangupEvent
   | DtmfReceivedEvent
   | PlaybackFinishedEvent
-
-export type CallMode = 'sframe' | 'pstn'
 
 export interface InjectParams {
   callId: string
@@ -78,7 +93,15 @@ export interface SimChannelState {
   callerNumber: string
   calledNumber: string
   mode: CallMode
-  state: 'ringing' | 'up' | 'down'
+  /**
+   * Simulated channel state. The fixture jumps straight to `'up'` on
+   * `inject` and deletes the channel on `hangup`, so `'up'` is the only
+   * value callers ever observe in the current behavior. Narrowing the
+   * literal here means any future transition (e.g. `'ringing'` → `'up'`
+   * gap for cancellation tests) has to be a deliberate widening rather
+   * than a silent assignment.
+   */
+  state: 'up'
 }
 
 type EventHandler = (event: SimBridgeEvent) => void

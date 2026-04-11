@@ -1028,10 +1028,22 @@ first.
   - **Task 19b** — extend `SimCaller` with `bindCall` / `loadKey` /
     `produceFrame` / `consumeFrame` methods that use
     `@shared/sframe/cipher-suite` + `@shared/sframe/frame-codec`.
-    This unblocks Task 20.
+    This unblocks Tasks 19d + 20.
+  - **Task 19c** — export `CiphertextBytes` + `PlaintextBytes`
+    branded `Uint8Array` types from `src/shared/sframe/sframe-types.ts`
+    (or extend `cipher-suite.ts`). Retype `sealFrame` / `openFrame`
+    returns and inputs. Enables the compile-time "bridge never saw
+    plaintext" assertion.
+  - **Task 19d** — retype `SimSipBridge.bridgePacket` and
+    `CapturedPacket.bytes` to use the new brands. Pure type change;
+    no runtime diff. **Do not skip this** — it is the load-bearing
+    hook for every Tier 5 adversarial test that asserts SFrame
+    sealing actually ran.
   - **Task 20** — `SimCompromisedBridge` adversarial subclass +
     tests (old plan Task 20 listing, now deferred here because
-    the tests call `SimCaller.produceFrame`).
+    the tests call `SimCaller.produceFrame`). Adversarial tests
+    should use the brand check from Task 19d rather than
+    byte-pattern sniffing.
   - **Task 32** (plan Workstream 5.11) — `tests/api/sim-sip-bridge.spec.ts`
     Playwright API E2E adversarial suite. Uses the extended
     `SimCaller` from Task 19b + `SimCompromisedBridge` from Task 20.

@@ -124,6 +124,7 @@ describe('SimSipBridge — inject() dialplan simulation', () => {
     if (hangup.type !== 'channel_hangup') throw new Error('unreachable')
     expect(hangup.channelId).toBe('call-1')
     expect(hangup.cause).toBe(16)
+    expect(hangup.causeText).toBe('NORMAL_CLEARING')
   })
 })
 

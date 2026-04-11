@@ -91,6 +91,19 @@ export function buildMockRtpPacket(header: MockRtpHeaderFields, payload: Uint8Ar
 // ---- Mock SFrame key material ----
 
 /**
+ * Branded hex string for mock cryptographic envelopes. Real HPKE output
+ * is a plain `string` in production schemas; this brand makes it a
+ * compile-time error to pass a real HPKE envelope where a mock is
+ * expected (and vice-versa), so Tier 5 tests that mix mock fixtures
+ * with real SFrame round-trips can't accidentally cross the streams.
+ */
+declare const __MockHexBrand: unique symbol
+export type MockHex = string & { readonly [__MockHexBrand]: never }
+
+/** Narrowing helper — runtime identity, compile-time cast to `MockHex`. */
+export const asMockHex = (value: string): MockHex => value as MockHex
+
+/**
  * Deterministic 32-byte "call secret" for tests that need to reference a
  * callSecret value by seed but do NOT need to derive real SFrame keys
  * from it. Used by fixture plumbing tests that assert "this event
@@ -108,13 +121,13 @@ export interface MockSFrameKeyEventPayload {
   callId: string
   keyId: number
   senderDeviceId: string
-  recipients: Array<{ deviceId: string; hpkeEnc: string; hpkeCiphertext: string }>
+  recipients: Array<{ deviceId: string; hpkeEnc: MockHex; hpkeCiphertext: MockHex }>
 }
 
 /**
- * Build a mock kind-20002 event payload body. All HPKE fields are stub
- * hex strings — tests that assert over actual HPKE sealing use the real
- * helpers in Tier 5 main, not this mock.
+ * Build a mock kind-20002 event payload body. All HPKE fields are
+ * `MockHex`-branded stub strings — tests that assert over real HPKE
+ * sealing use the production helpers in Tier 5 main, not this mock.
  */
 export function makeMockSFrameKeyEventPayload(
   callId: string,
@@ -128,8 +141,8 @@ export function makeMockSFrameKeyEventPayload(
     senderDeviceId,
     recipients: recipientDeviceIds.map((deviceId) => ({
       deviceId,
-      hpkeEnc: `mock-hpke-enc-${deviceId}`,
-      hpkeCiphertext: `mock-hpke-ct-${deviceId}`,
+      hpkeEnc: asMockHex(`mock-hpke-enc-${deviceId}`),
+      hpkeCiphertext: asMockHex(`mock-hpke-ct-${deviceId}`),
     })),
   }
 }

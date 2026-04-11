@@ -97,15 +97,18 @@ describe('SimCaller — jitter buffer', () => {
   test('setJitter adds bounded randomness inside the interval', () => {
     const caller = new SimCaller('device-a', { frameIntervalMs: 20 })
     caller.setJitter(5)
-    // Deterministic random for the test — override the RNG.
-    let i = 0
-    const rng = () => (i++ % 2 === 0 ? 0.0 : 0.999)
-    caller.useRng(rng)
-    // First delay: 0.0 → 20 - 5 = 15ms minimum
+    // Explicit sample array — easier to reason about than a closure
+    // that counts calls by parity. Samples chosen to hit: (a) the lower
+    // bound, (b) the upper bound, (c) the midpoint.
+    const samples = [0.0, 0.999, 0.5]
+    let idx = 0
+    caller.useRng(() => samples[idx++] as number)
+    // 0.0 → 20 + (0*2 - 1)*5 = 15ms (exact lower bound)
     expect(caller.nextFrameDelayMs()).toBe(15)
-    // Second delay: ~0.999 → 20 + ~5 = ~25ms
-    expect(caller.nextFrameDelayMs()).toBeGreaterThanOrEqual(24)
-    expect(caller.nextFrameDelayMs()).toBeLessThanOrEqual(25)
+    // 0.999 → 20 + (0.998)*5 ≈ 24.99ms, Math.round → 25
+    expect(caller.nextFrameDelayMs()).toBe(25)
+    // 0.5 → 20 + 0*5 = 20ms (midpoint)
+    expect(caller.nextFrameDelayMs()).toBe(20)
   })
 
   test('zero jitter returns the exact interval every time', () => {
@@ -190,6 +193,37 @@ describe('SimCaller — DTMF', () => {
     expect(caller.drainDigits()).toEqual(['1', '2', '3'])
   })
 
+  test('pressSequence handles 10+ digit PIN-entry-style input', () => {
+    caller.pressSequence('0123456789*#')
+    expect(caller.drainDigits()).toEqual([
+      '0',
+      '1',
+      '2',
+      '3',
+      '4',
+      '5',
+      '6',
+      '7',
+      '8',
+      '9',
+      '*',
+      '#',
+    ])
+    expect(caller.getDigitsEmitted()).toBe(12)
+  })
+
+  test('pressSequence with an empty string is a no-op', () => {
+    caller.pressSequence('')
+    expect(caller.drainDigits()).toEqual([])
+    expect(caller.getDigitsEmitted()).toBe(0)
+  })
+
+  test('pressSequence with whitespace-only input is a no-op', () => {
+    caller.pressSequence('   \t\n')
+    expect(caller.drainDigits()).toEqual([])
+    expect(caller.getDigitsEmitted()).toBe(0)
+  })
+
   test('pressDigit rejects invalid digits at the type layer', () => {
     // @ts-expect-error — DtmfDigit type should narrow valid inputs
     expect(() => caller.pressDigit('x')).toThrow()
@@ -228,6 +262,17 @@ describe('SimCaller — DTMF', () => {
     caller.drainDigits()
     caller.pressDigit('4')
     expect(caller.getDigitsEmitted()).toBe(4)
+  })
+
+  test('reset() mid-sequence clears queue AND lifetime counter even if more digits arrive after', () => {
+    caller.pressDigit('1')
+    caller.pressDigit('2')
+    caller.reset()
+    expect(caller.drainDigits()).toEqual([])
+    expect(caller.getDigitsEmitted()).toBe(0)
+    caller.pressDigit('3')
+    expect(caller.getDigitsEmitted()).toBe(1)
+    expect(caller.drainDigits()).toEqual(['3'])
   })
 
   test('reset() clears the DTMF queue AND the lifetime counter', () => {
