@@ -1,8 +1,8 @@
 import { useAuth } from '@/lib/auth'
 import { useConfig } from '@/lib/config'
-import { encryptNoteV2 } from '@/lib/crypto'
 import { useNoteSheet } from '@/lib/note-sheet-context'
 import { useDraft } from '@/lib/use-draft'
+import { encryptNoteV2 } from '@shared/crypto-envelopes'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 

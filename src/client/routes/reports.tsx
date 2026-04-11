@@ -13,7 +13,6 @@ import {
 } from '@/components/ui/select'
 import type { Report } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
-import { encryptMessage } from '@/lib/crypto'
 import {
   useAssignReport,
   useReportMessages,
@@ -22,6 +21,7 @@ import {
   useUpdateReport,
 } from '@/lib/queries/reports'
 import { useToast } from '@/lib/toast'
+import { encryptMessage } from '@shared/crypto-envelopes'
 import { createFileRoute } from '@tanstack/react-router'
 import {
   AlertCircle,

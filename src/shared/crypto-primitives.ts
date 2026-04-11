@@ -5,6 +5,7 @@ import { hkdf } from '@noble/hashes/hkdf.js'
 import { hmac } from '@noble/hashes/hmac.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
+import { generateSecretKey, getPublicKey, nip19 } from 'nostr-tools'
 import type { CryptoLabel } from './crypto-labels'
 import type { Ciphertext } from './crypto-types'
 
@@ -140,4 +141,90 @@ export function hkdfDerive(
   length: number
 ): Uint8Array {
   return hkdf(sha256, secret, salt, info, length)
+}
+
+// --- Key Management ---
+
+/** A secp256k1 keypair for Nostr-style identity. */
+export interface KeyPair {
+  secretKey: Uint8Array // 32-byte private key
+  publicKey: string // hex-encoded x-only public key (64 chars)
+  nsec: string // bech32-encoded private key (for user display)
+  npub: string // bech32-encoded public key (for user display)
+}
+
+export function generateKeyPair(): KeyPair {
+  const secretKey = generateSecretKey()
+  const publicKey = getPublicKey(secretKey)
+  return {
+    secretKey,
+    publicKey,
+    nsec: nip19.nsecEncode(secretKey),
+    npub: nip19.npubEncode(publicKey),
+  }
+}
+
+export function keyPairFromNsec(nsec: string): KeyPair | null {
+  try {
+    const decoded = nip19.decode(nsec)
+    if (decoded.type !== 'nsec') return null
+    const secretKey = decoded.data
+    const publicKey = getPublicKey(secretKey)
+    return {
+      secretKey,
+      publicKey,
+      nsec,
+      npub: nip19.npubEncode(publicKey),
+    }
+  } catch {
+    return null
+  }
+}
+
+export function isValidNsec(nsec: string): boolean {
+  try {
+    const decoded = nip19.decode(nsec)
+    return decoded.type === 'nsec'
+  } catch {
+    return false
+  }
+}
+
+// --- Envelope types ---
+
+/** A symmetric key wrapped via ECIES for a single recipient (no pubkey tag). */
+export interface KeyEnvelope {
+  wrappedKey: Ciphertext // hex: nonce(24) + ciphertext(32 key + 16 tag)
+  ephemeralPubkey: string // hex: compressed 33-byte pubkey (66 chars)
+}
+
+/** A KeyEnvelope tagged with the recipient's x-only pubkey (for multi-recipient scenarios). */
+export interface RecipientKeyEnvelope extends KeyEnvelope {
+  pubkey: string // recipient's x-only pubkey (hex, 64 chars)
+}
+
+/**
+ * ECIES key unwrap with explicit secret key — for server-side and test usage
+ * where no crypto worker is available. Mirror of eciesUnwrapKey but takes secretKey directly.
+ */
+export function eciesUnwrapKeyWithSecret(
+  envelope: KeyEnvelope,
+  secretKey: Uint8Array,
+  label: string
+): Uint8Array {
+  const ephemeralPub = hexToBytes(envelope.ephemeralPubkey)
+  const shared = secp256k1.getSharedSecret(secretKey, ephemeralPub)
+  const sharedX = shared.slice(1, 33)
+
+  const labelBytes = utf8ToBytes(label)
+  const keyInput = new Uint8Array(labelBytes.length + sharedX.length)
+  keyInput.set(labelBytes)
+  keyInput.set(sharedX, labelBytes.length)
+  const symmetricKey = sha256(keyInput)
+
+  const data = hexToBytes(envelope.wrappedKey)
+  const nonce = data.slice(0, 24)
+  const ciphertext = data.slice(24)
+  const cipher = xchacha20poly1305(symmetricKey, nonce)
+  return cipher.decrypt(ciphertext)
 }

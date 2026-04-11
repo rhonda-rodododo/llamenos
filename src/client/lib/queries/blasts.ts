@@ -15,7 +15,7 @@ import {
   sendBlast,
   updateBlastSettings,
 } from '@/lib/api'
-import { decryptBlastContent } from '@/lib/crypto'
+import { decryptBlastContent } from '@/lib/crypto-worker-helpers'
 import { decryptHubField } from '@/lib/hub-field-crypto'
 import * as keyManager from '@/lib/key-manager'
 import type { Blast, BlastContent, BlastSettings, Subscriber } from '@shared/types'

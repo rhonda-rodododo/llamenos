@@ -1,7 +1,7 @@
 import { useAuth } from '@/lib/auth'
 import { authFacadeClient } from '@/lib/auth-facade-client'
-import { keyPairFromNsec } from '@/lib/crypto'
 import * as keyManager from '@/lib/key-manager'
+import { keyPairFromNsec } from '@shared/crypto-primitives'
 import { useNavigate } from '@tanstack/react-router'
 import { FileText, Info, LogIn, Shield, UserCog, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'

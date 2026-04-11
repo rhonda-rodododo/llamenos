@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, test } from 'bun:test'
+import { generateKeyPair } from '@shared/crypto-primitives'
 import type { BackupFile } from './backup'
 import {
   createBackup,
@@ -7,7 +8,6 @@ import {
   restoreFromBackupWithPin,
   restoreFromBackupWithRecoveryKey,
 } from './backup'
-import { generateKeyPair } from './crypto'
 
 // PBKDF2 at 600k iterations is slow — create ONE backup and reuse across all tests
 const TEST_PIN = '123456'

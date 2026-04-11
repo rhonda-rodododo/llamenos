@@ -4,10 +4,11 @@ import { secp256k1 } from '@noble/curves/secp256k1.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { LABEL_FILE_KEY, LABEL_FILE_METADATA } from '@shared/crypto-labels'
+import { eciesWrapKey } from '@shared/crypto-primitives'
 import type { Ciphertext } from '@shared/crypto-types'
 import type { EncryptedFileMetadata, EncryptedMetaItem, FileKeyEnvelope } from '@shared/types'
-import { eciesUnwrapKey, eciesWrapKey } from './crypto'
 import { cryptoWorker } from './crypto-worker-client'
+import { eciesUnwrapKey } from './crypto-worker-helpers'
 
 function randomBytes(n: number): Uint8Array {
   const buf = new Uint8Array(n)

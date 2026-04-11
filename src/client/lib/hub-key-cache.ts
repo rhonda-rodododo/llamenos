@@ -9,8 +9,8 @@
  * re-renders and can be accessed from the RelayManager callback.
  */
 
+import type { KeyEnvelope } from '@shared/crypto-primitives'
 import { getMyHubKeyEnvelope } from './api'
-import type { KeyEnvelope } from './crypto'
 import { unwrapHubKey } from './hub-key-manager'
 
 const hubKeyCache = new Map<string, Uint8Array>()

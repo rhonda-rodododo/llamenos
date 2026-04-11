@@ -5,9 +5,8 @@ import { secp256k1 } from '@noble/curves/secp256k1.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { LABEL_FILE_KEY, LABEL_FILE_METADATA } from '@shared/crypto-labels'
+import { type KeyEnvelope, eciesUnwrapKeyWithSecret } from '@shared/crypto-primitives'
 import type { Ciphertext } from '@shared/crypto-types'
-import { eciesUnwrapKeyWithSecret } from './crypto'
-import type { KeyEnvelope } from './crypto'
 import { encryptFile } from './file-crypto'
 
 // Test keypairs

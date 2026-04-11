@@ -18,7 +18,7 @@ import {
   updateReport,
 } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
-import { decryptMessage } from '@/lib/crypto'
+import { decryptMessage } from '@/lib/crypto-worker-helpers'
 import { decryptHubField } from '@/lib/hub-field-crypto'
 import * as keyManager from '@/lib/key-manager'
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'

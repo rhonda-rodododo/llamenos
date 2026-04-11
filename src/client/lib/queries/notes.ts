@@ -21,7 +21,7 @@ import {
   updateNote,
 } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
-import { decryptNoteV2, decryptTranscription } from '@/lib/crypto'
+import { decryptNoteV2, decryptTranscription } from '@/lib/crypto-worker-helpers'
 import { decryptHubField } from '@/lib/hub-field-crypto'
 import * as keyManager from '@/lib/key-manager'
 import type { NotePayload } from '@shared/types'

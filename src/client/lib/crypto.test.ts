@@ -6,6 +6,15 @@ import { hkdf } from '@noble/hashes/hkdf.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import {
+  decryptDraft,
+  decryptNote,
+  decryptNoteV2WithKey,
+  encryptDraft,
+  encryptExport,
+  encryptMessage,
+  encryptNoteV2,
+} from '@shared/crypto-envelopes'
+import {
   HKDF_CONTEXT_EXPORT,
   HKDF_CONTEXT_NOTES,
   HKDF_SALT,
@@ -14,22 +23,15 @@ import {
   LABEL_NOTE_KEY,
   LABEL_TRANSCRIPTION,
 } from '@shared/crypto-labels'
-import type { NotePayload } from '@shared/types'
-import type { KeyEnvelope } from './crypto'
 import {
-  decryptDraft,
-  decryptNote,
-  decryptNoteV2WithKey,
+  type KeyEnvelope,
   eciesUnwrapKeyWithSecret,
   eciesWrapKey,
-  encryptDraft,
-  encryptExport,
-  encryptMessage,
-  encryptNoteV2,
   generateKeyPair,
   isValidNsec,
   keyPairFromNsec,
-} from './crypto'
+} from '@shared/crypto-primitives'
+import type { NotePayload } from '@shared/types'
 
 describe('generateKeyPair', () => {
   test('secretKey is 32 bytes (Uint8Array)', () => {

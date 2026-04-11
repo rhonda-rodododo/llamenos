@@ -17,8 +17,13 @@ import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
 import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { LABEL_HUB_KEY_WRAP } from '@shared/crypto-labels'
+import {
+  type KeyEnvelope,
+  type RecipientKeyEnvelope,
+  eciesWrapKey,
+} from '@shared/crypto-primitives'
 import type { Ciphertext } from '@shared/crypto-types'
-import { type KeyEnvelope, type RecipientKeyEnvelope, eciesUnwrapKey, eciesWrapKey } from './crypto'
+import { eciesUnwrapKey } from './crypto-worker-helpers'
 
 function randomBytes(n: number): Uint8Array {
   const buf = new Uint8Array(n)

@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'bun:test'
-import type { BlastContent } from '@shared/types'
 import {
   decryptBlastContentWithKey,
   encryptBlastContent,
   encryptMessage,
-  generateKeyPair,
-} from './crypto'
+} from '@shared/crypto-envelopes'
+import { generateKeyPair } from '@shared/crypto-primitives'
+import type { BlastContent } from '@shared/types'
 
 describe('blast content encryption', () => {
   const admin1 = generateKeyPair()

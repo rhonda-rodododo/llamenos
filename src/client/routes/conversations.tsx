@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth'
 import { useConfig } from '@/lib/config'
-import { encryptMessage } from '@/lib/crypto'
 import { useConversations } from '@/lib/hooks'
 import {
   useClaimConversation,
@@ -17,6 +16,7 @@ import {
 } from '@/lib/queries/conversations'
 import { useToast } from '@/lib/toast'
 import { useDecryptedArray } from '@/lib/use-decrypted'
+import { encryptMessage } from '@shared/crypto-envelopes'
 import { createFileRoute } from '@tanstack/react-router'
 import { Lock, MessageSquare, UserCheck, UserCog, X } from 'lucide-react'
 import { useCallback, useState } from 'react'
