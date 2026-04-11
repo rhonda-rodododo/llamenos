@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.42.0] - 2026-04-11
+
+### CI/CD
+
+- fix GHCR docker publish (reusable workflow + supply-chain hardening) (#67)
+
+### Documentation
+
+- fix locale path + count drift — public/locales/, 22 locales (#61)
+- add implementation queue + session kickoff template (#62)
+- tier-by-tier session prompts (#63)
+- all prep PRs merged; Tier 0 ready for implementation (#65)
+- tier 0 impl in progress, PR #68 draft
+- correct Tier 0 next-task workstream reference
+- tier 0 WS 0.1+0.3+0.4 landed; resume at task 17
+
+### Features
+
+- sec tier 0 albrecht hardening (#52)
+- tier 1 hpke primitives (#53)
+- tier 2 unlock recovery (#54)
+- tier 3 per device keys (#55)
+- tier 4 delivery hardening (#56)
+- tier 5 voice e2ee (#57)
+- tier 6 mls pq (#58)
+
+### Miscellaneous
+
+- v0.42.0 [skip ci]
+
 ## [0.41.1] - 2026-04-11
 
 ### Bug Fixes
