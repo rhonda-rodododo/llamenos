@@ -5,16 +5,23 @@ import { hkdf } from '@noble/hashes/hkdf.js'
 import { hmac } from '@noble/hashes/hmac.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
+import type { CryptoLabel } from './crypto-labels'
 import type { Ciphertext } from './crypto-types'
 
 /**
- * Symmetric encryption using XChaCha20-Poly1305.
+ * Symmetric encryption using XChaCha20-Poly1305 with mandatory AAD binding.
  * Returns hex-encoded: nonce(24 bytes) || ciphertext.
+ * The AAD cryptographically binds the ciphertext to a context — use a domain label
+ * (e.g. utf8ToBytes(LABEL_*)) or record identifier to prevent cross-context reuse.
  */
-export function symmetricEncrypt(plaintext: Uint8Array, key: Uint8Array): Ciphertext {
+export function symmetricEncrypt(
+  plaintext: Uint8Array,
+  key: Uint8Array,
+  aad: Uint8Array
+): Ciphertext {
   const nonce = new Uint8Array(24)
   crypto.getRandomValues(nonce)
-  const cipher = xchacha20poly1305(key, nonce)
+  const cipher = xchacha20poly1305(key, nonce, aad)
   const ciphertext = cipher.encrypt(plaintext)
   const packed = new Uint8Array(nonce.length + ciphertext.length)
   packed.set(nonce)
@@ -23,14 +30,19 @@ export function symmetricEncrypt(plaintext: Uint8Array, key: Uint8Array): Cipher
 }
 
 /**
- * Symmetric decryption using XChaCha20-Poly1305.
+ * Symmetric decryption using XChaCha20-Poly1305 with mandatory AAD binding.
  * Input: hex-encoded nonce(24) || ciphertext.
+ * AAD must match what was passed to symmetricEncrypt — mismatch throws (authentication failure).
  */
-export function symmetricDecrypt(packed: string | Ciphertext, key: Uint8Array): Uint8Array {
+export function symmetricDecrypt(
+  packed: string | Ciphertext,
+  key: Uint8Array,
+  aad: Uint8Array
+): Uint8Array {
   const data = hexToBytes(packed)
   const nonce = data.slice(0, 24)
   const ciphertext = data.slice(24)
-  const cipher = xchacha20poly1305(key, nonce)
+  const cipher = xchacha20poly1305(key, nonce, aad)
   return cipher.decrypt(ciphertext)
 }
 
@@ -42,7 +54,7 @@ export function symmetricDecrypt(packed: string | Ciphertext, key: Uint8Array): 
 export function eciesWrapKey(
   key: Uint8Array,
   recipientPubkeyHex: string,
-  label: string
+  label: CryptoLabel
 ): { wrappedKey: Ciphertext; ephemeralPubkey: string } {
   const ephemeralSecret = new Uint8Array(32)
   crypto.getRandomValues(ephemeralSecret)
@@ -79,7 +91,7 @@ export function eciesWrapKey(
 export function eciesUnwrapKey(
   envelope: { wrappedKey: string | Ciphertext; ephemeralPubkey: string },
   privateKey: Uint8Array,
-  label: string
+  label: CryptoLabel
 ): Uint8Array {
   const ephemeralPub = hexToBytes(envelope.ephemeralPubkey)
   const shared = secp256k1.getSharedSecret(privateKey, ephemeralPub)

@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import { secp256k1 } from '@noble/curves/secp256k1.js'
 import { bytesToHex } from '@noble/hashes/utils.js'
 import {
@@ -19,12 +20,14 @@ import {
 } from './crypto-primitives'
 
 describe('symmetricEncrypt / symmetricDecrypt', () => {
+  const emptyAad = new Uint8Array(0)
+
   test('round-trip with random key', () => {
     const key = new Uint8Array(32)
     crypto.getRandomValues(key)
     const plaintext = new TextEncoder().encode('hello world')
-    const packed = symmetricEncrypt(plaintext, key)
-    const recovered = symmetricDecrypt(packed, key)
+    const packed = symmetricEncrypt(plaintext, key, emptyAad)
+    const recovered = symmetricDecrypt(packed, key, emptyAad)
     expect(new TextDecoder().decode(recovered)).toBe('hello world')
   })
 
@@ -32,8 +35,8 @@ describe('symmetricEncrypt / symmetricDecrypt', () => {
     const key = new Uint8Array(32)
     crypto.getRandomValues(key)
     const plaintext = new TextEncoder().encode('same input')
-    const a = symmetricEncrypt(plaintext, key)
-    const b = symmetricEncrypt(plaintext, key)
+    const a = symmetricEncrypt(plaintext, key, emptyAad)
+    const b = symmetricEncrypt(plaintext, key, emptyAad)
     expect(a).not.toBe(b)
   })
 
@@ -43,8 +46,8 @@ describe('symmetricEncrypt / symmetricDecrypt', () => {
     const key2 = new Uint8Array(32)
     crypto.getRandomValues(key2)
     const plaintext = new TextEncoder().encode('secret')
-    const packed = symmetricEncrypt(plaintext, key1)
-    expect(() => symmetricDecrypt(packed, key2)).toThrow()
+    const packed = symmetricEncrypt(plaintext, key1, emptyAad)
+    expect(() => symmetricDecrypt(packed, key2, emptyAad)).toThrow()
   })
 })
 
@@ -55,8 +58,8 @@ describe('eciesWrapKey / eciesUnwrapKey', () => {
     const recipientPubkey = bytesToHex(secp256k1.getPublicKey(recipientSecret, true).slice(1))
     const messageKey = new Uint8Array(32)
     crypto.getRandomValues(messageKey)
-    const envelope = eciesWrapKey(messageKey, recipientPubkey, 'test:label')
-    const recovered = eciesUnwrapKey(envelope, recipientSecret, 'test:label')
+    const envelope = eciesWrapKey(messageKey, recipientPubkey, LABEL_NOTE_KEY)
+    const recovered = eciesUnwrapKey(envelope, recipientSecret, LABEL_NOTE_KEY)
     expect(bytesToHex(recovered)).toBe(bytesToHex(messageKey))
   })
 
@@ -66,8 +69,8 @@ describe('eciesWrapKey / eciesUnwrapKey', () => {
     const recipientPubkey = bytesToHex(secp256k1.getPublicKey(recipientSecret, true).slice(1))
     const messageKey = new Uint8Array(32)
     crypto.getRandomValues(messageKey)
-    const envelope = eciesWrapKey(messageKey, recipientPubkey, 'label:a')
-    expect(() => eciesUnwrapKey(envelope, recipientSecret, 'label:b')).toThrow()
+    const envelope = eciesWrapKey(messageKey, recipientPubkey, LABEL_NOTE_KEY)
+    expect(() => eciesUnwrapKey(envelope, recipientSecret, LABEL_HUB_KEY_WRAP)).toThrow()
   })
 })
 
@@ -137,5 +140,29 @@ describe('CryptoLabel brand + registry', () => {
 
   test('idToLabel throws on unknown id', () => {
     expect(() => idToLabel(999)).toThrow(/Unknown crypto label id: 999/)
+  })
+})
+
+describe('AAD binding', () => {
+  const key = new Uint8Array(32).fill(7)
+  const plaintext = utf8ToBytes('secret message')
+
+  test('matching AAD round-trips', () => {
+    const aad = utf8ToBytes('ctx:record-42')
+    const ct = symmetricEncrypt(plaintext, key, aad)
+    const pt = symmetricDecrypt(ct, key, aad)
+    expect(new TextDecoder().decode(pt)).toBe('secret message')
+  })
+
+  test('mismatched AAD throws', () => {
+    const ct = symmetricEncrypt(plaintext, key, utf8ToBytes('ctx:record-42'))
+    expect(() => symmetricDecrypt(ct, key, utf8ToBytes('ctx:record-43'))).toThrow()
+  })
+
+  test('empty AAD is allowed and round-trips', () => {
+    const aad = new Uint8Array(0)
+    const ct = symmetricEncrypt(plaintext, key, aad)
+    const pt = symmetricDecrypt(ct, key, aad)
+    expect(new TextDecoder().decode(pt)).toBe('secret message')
   })
 })
