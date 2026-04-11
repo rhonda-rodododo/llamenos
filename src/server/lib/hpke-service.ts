@@ -17,15 +17,22 @@ import { buildAad, hpkeOpen, hpkeSeal } from '@shared/hpke-primitives'
  * `SERVER_SECRET` via HKDF-SHA256 + RFC 9180 §7.1.3 `deriveKeyPair`. Rotation
  * is performed by bumping `LABEL_SERVER_HPKE_KEY_INFO` (append `:v2`, etc.).
  *
- * Responsibilities:
- *   - Hold the server HPKE keypair (CryptoKey handles, lazily derived)
- *   - Act as a recipient in hub-key-wrap envelopes (every hub includes the
- *     server as a member so it can re-wrap when members join/leave)
+ * Responsibilities in Tier 1:
+ *   - Hold the server HPKE keypair (lazily derived CryptoKey handles + the
+ *     32-byte raw public key for distribution to clients)
  *   - Produce HPKE-sealed envelopes addressed to arbitrary recipient pubkeys
  *   - Open HPKE-sealed envelopes addressed to the server
  *
+ * It is NOT yet wired into the hub-key-wrap flow — that integration is
+ * deferred to the `hub-key-manager.ts` HPKE rewrite (tracked in the Tier 1
+ * deferred list in `HPKE_MIGRATION_NOTES.md`). The design intent is that
+ * every hub will include the server's HPKE public key as a recipient so the
+ * server can re-wrap the hub key when members join/leave, but until the
+ * hub-key-manager rewrite lands this class is only exercised by its own
+ * tests.
+ *
  * It does NOT:
- *   - Know any user PII or notes in plaintext (those are addressed to
+ *   - Know any user PII or notes in plaintext (those will be addressed to
  *     user pubkeys, not the server pubkey)
  *   - Hold a symmetric server key (that responsibility remains on the
  *     existing CryptoService for runtime server-only fields)

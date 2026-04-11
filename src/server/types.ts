@@ -571,6 +571,11 @@ export interface IvrAudioMeta {
 }
 
 export interface CreateRoleData {
+  /**
+   * Client-generated id. Required when `encryptedName` is provided so the
+   * server stores the same id the client bound into AAD via buildAad().
+   */
+  id?: string
   name: string
   permissions: string[]
   description: string
@@ -730,6 +735,11 @@ export interface ShiftSchedule {
 }
 
 export interface CreateScheduleData {
+  /**
+   * Client-generated id. Required when `encryptedName` is provided so the
+   * server stores the same id the client bound into AAD via buildAad().
+   */
+  id?: string
   hubId?: string
   /** Plaintext name (legacy / server-side fallback). Prefer encryptedName for new clients. */
   name?: string
@@ -770,6 +780,11 @@ export interface RingGroup {
 }
 
 export interface CreateRingGroupData {
+  /**
+   * Client-generated id. Required when `encryptedName` is provided so the
+   * server stores the same id the client bound into AAD via buildAad().
+   */
+  id?: string
   hubId?: string
   name: string
   userPubkeys: string[]

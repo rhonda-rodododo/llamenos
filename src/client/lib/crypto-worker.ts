@@ -7,23 +7,27 @@
  * Communication: structured postMessage with request/response IDs.
  * Rate limiting: auto-locks if operations exceed safe thresholds.
  *
- * Tier 1 transition state (PR-A):
+ * Tier 1 transition state:
  *   This worker is in a dual-era state. The legacy ECIES/XChaCha20 surface
- *   is still here because the 20+ call sites that depend on it
+ *   is still here because the remaining call sites that depend on it
  *   (file-crypto, hub-key-manager, signal-contact, device provisioning,
- *   key-store-v2 KEK rotation) are being migrated in PR-B.
+ *   key-store-v2 KEK rotation, notes/files envelope paths) have not yet been
+ *   migrated — they carry over to Tier 2+.
  *
- *   Tier 1 PR-A adds an HPKE sidecar:
+ *   Tier 1 added an HPKE sidecar for:
  *     - `hpkeSeal` / `hpkeOpen` — RFC 9180 seal/open against EnvelopeV3.
- *     - `hubFieldEncryptV3` / `hubFieldDecryptV3` — AES-GCM hub-key field crypto.
+ *     - `hubFieldEncryptV3` / `hubFieldDecryptV3` — AES-GCM hub-key field crypto
+ *       (wired to all hub-field call sites in PR-B).
  *     - `unlockFromKeyStoreV3` — accept non-extractable CryptoKey handles from
  *       key-store-v3 in addition to the legacy raw-nsec unlock path.
  *
- *   Rules until PR-B lands:
+ *   Rules while the sidecar coexists:
  *     - Never add a NEW caller that uses the ECIES surface; use HPKE.
  *     - Never silently fall back from HPKE to ECIES on open failure.
- *     - The nsec still backs `sign` + `signAuditEntry` (schnorr) because
- *       Tier 0's audit chain depends on it — HPKE does not replace signing.
+ *     - The `schnorr`/`secp256k1` identity nsec still backs `sign` +
+ *       `signAuditEntry` because Tier 0's hash-chained audit log depends on
+ *       it. That is a signing keypair and is independent of the X25519
+ *       HPKE KEM — HPKE does not replace signing.
  */
 
 import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
@@ -47,10 +51,12 @@ type WorkerRequest =
   | { type: 'lock'; id: string }
   | { type: 'sign'; id: string; messageHex: string }
   | {
-      // ECIES key unwrap. Domain separation comes from `label` (used to derive
-      // the symmetric wrapping key). Inner AEAD uses empty AAD — do NOT add an
-      // `aad` field here until eciesWrap/eciesUnwrap actually plumb it through,
-      // otherwise callers will think they have binding they don't.
+      // Legacy ECIES key unwrap (envelope v2 path). Domain separation comes
+      // from `label` (used to derive the symmetric wrapping key). The inner
+      // AEAD uses empty AAD — do NOT add an `aad` field here unless
+      // `eciesWrap`/`eciesUnwrap` actually plumb it through, otherwise
+      // callers will think they have binding they don't. New code should use
+      // the HPKE `hpkeSeal`/`hpkeOpen` sidecar below instead.
       type: 'decrypt'
       id: string
       ephemeralPubkeyHex: string

@@ -42,6 +42,7 @@ export async function listTeams() {
 }
 
 export async function createTeam(data: {
+  id?: string
   encryptedName: Ciphertext
   encryptedDescription?: Ciphertext
 }) {

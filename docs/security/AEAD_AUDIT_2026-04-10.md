@@ -464,8 +464,8 @@ Tier 1 PR-B migrates the *hub-field* call sites to the envelope v3 path, resolve
 **Schema surface reserved (no migration, no re-encryption):**
 
 - **`drizzle/migrations/0054_tier1_items_key_indirection.sql`** adds `users.items_key_version INTEGER` and `users.items_key_wrapped TEXT` (both NULL until a client materialises its `items_key` via `generateItemsKey(master, 1)`). The contract is documented in the migration header: monotonic integer starting at 1, base64 of the 40-byte AES-KW ciphertext, server treats both columns as opaque. PR-B does **not** migrate any existing ciphertext to use `items_key` indirection — that is Tier 6's job. PR-B only reserves the schema so the later work can write without another migration.
-- **`src/client/lib/items-key.ts`** (new) provides `generateItemsKey`, `unwrapItemsKey`, and a byte-equivalent rewrap path (`rewrapItemsKeyForNewMaster`) that Tier 6 will call during primitive rotation. The 40-byte AES-KW wrap is byte-equivalent across classical and PQ master KEKs, so rotating primitives costs O(users) rewraps of a 40-byte blob rather than O(artifacts) re-encryption.
-- **`tests/unit/items-key.test.ts`** (new) covers the wrap/unwrap round-trip, version bump, and rewrap-under-new-master byte-equivalence invariants.
+- **`src/shared/items-key.ts`** (new) provides `generateItemsKey`, `wrapPerArtifactKey`, `unwrapPerArtifactKey`, and a byte-equivalent `rewrapItemsKey` path that Tier 6 will call during primitive rotation. The 40-byte AES-KW wrap is byte-equivalent across classical and PQ master KEKs, so rotating primitives costs O(users) rewraps of a 40-byte blob rather than O(artifacts) re-encryption.
+- **`src/shared/items-key.test.ts`** (new, colocated `bun:test`) covers the wrap/unwrap round-trip, version bump, and rewrap-under-new-master byte-equivalence invariants.
 
 **FIX rows explicitly deferred (require coordinated encrypt+decrypt migration across many columns):**
 
@@ -489,4 +489,26 @@ Tier 1 PR-B migrates the *hub-field* call sites to the envelope v3 path, resolve
 - `bun run build` — clean; `verify-no-console` guard passes.
 
 Cross-reference: `docs/security/HPKE_MIGRATION_NOTES.md` § "PR-B scope" tracks the deferred envelope-field migration as the immediate next slice after PR-B merges.
+
+### Tier 1 post-implementation review (2026-04-11)
+
+Six review agents were dispatched in parallel across the full Tier 1 diff (PR #72). Full writeup lives at `docs/security/TIER_1_POST_REVIEW.md`.
+
+**CRITICAL fixed in this review pass:**
+
+- **Client/server id mismatch for hub-field encrypted records.** Six services — `tags`, `roles`, `teams`, `report-types`, `shifts` (+ ring groups), and `firehose` — were generating their own UUIDs server-side, discarding the id the client had already bound into `hubFieldAad(recordId, fieldName)` via `encryptHubField(value, hubId, newId, 'encrypted_<col>')`. On refetch the AAD no longer matched and the decrypt path silently rendered placeholders. Fix pattern applied uniformly: service layer accepts optional `id?: string` with a `data.id ?? crypto.randomUUID()` fallback, route schema adds `id: z.string().uuid().optional()`, handler threads `body.id` through, client API signature accepts the optional id, and the component pre-generates `newId` before sealing so the mutation carries it. The firehose gap was found by grepping `crypto.randomUUID()` across the client — it was not in the reviewer's original list. `custom_field_definitions` was verified safe because the client sends the full array with its own ids.
+- **HPKE `info` parameter not threaded through seal/open.** `src/shared/hpke-primitives.ts` now passes `info: new TextEncoder().encode(label)` on both seal and open (lines 73, 120). Combined with the `labelId` wire check, the expected-label check, `buildAad` record binding, and the AEAD tag, the envelope has five independent defense layers.
+
+**IMPORTANT fixed in this review pass (documentation / comment accuracy):**
+
+- `HPKE_MIGRATION_NOTES.md` rewritten: retitled from "Tier 1 PR-A" to "Tier 1", split into PR-A / PR-B sections, corrected the false claim that `LABEL_SERVER_HPKE_KEY` was added to `LABEL_REGISTRY` (the wire index intentionally excludes server-only labels), clarified that `key-store-v3` is PIN-only KEK with multi-factor deferred (not "multi-factor" as originally written), reframed `native-curves-check` as telemetry/diagnostic (not a runtime gate), removed `items-key` from the deferred list (PR-B shipped it), reframed remaining deferrals as Tier 2+ carry-forward.
+- `src/shared/envelope-v3.ts` — corrected doc-ref pointing at non-existent `crypto-primitives.ts` → `hpke-primitives.ts`.
+- `CLAUDE.md` — removed "PR-A, in progress" tag, documented the client-pre-generated-id requirement for hub-field creates as a first-class rule, listed the remaining carry-forward call sites explicitly.
+- `src/client/lib/hub-field-crypto-v3.ts` — removed stale NOTE claiming the module is not wired to call sites; replaced with the concrete list of wired callers.
+- `src/client/lib/crypto-worker.ts` — retitled "transition state (PR-A)" → "transition state", split `schnorr`/`secp256k1` signing from the X25519 HPKE KEM (they are independent — HPKE does not replace the signing key used by `signAuditEntry` + the Tier 0 audit chain), scoped the AAD warning on the legacy `decrypt` RPC explicitly to the envelope v2 path.
+- `src/shared/crypto-suite.ts` — corrected comment claiming `HPKE_SUITE_ID` is "persisted alongside envelopes"; it is a code-level constant. `EnvelopeV3` carries `v: 3` + `labelId`, not a suite id. Future suite migrations will rev `v`.
+- `src/server/lib/hpke-service.ts` — reframed responsibilities block as "Responsibilities in Tier 1" with an explicit note that hub-key-manager integration is deferred; removed the aspirational claim that the class "acts as a recipient in hub-key-wrap envelopes" (it is only exercised by its own tests in Tier 1).
+- `AEAD_AUDIT_2026-04-10.md` PR-B section — corrected wrong paths: `src/client/lib/items-key.ts` → `src/shared/items-key.ts`, `unwrapItemsKey` / `rewrapItemsKeyForNewMaster` → `unwrapPerArtifactKey` / `rewrapItemsKey`, `tests/unit/items-key.test.ts` → `src/shared/items-key.test.ts`.
+
+**Deferred to Tier 2+:** tracked in `~/tier-carry-forward/tier-2-notes.md`. Headlines: full ECIES sidecar removal from `crypto-worker.ts`, `hub-key-manager.ts` HPKE rewrite (wiring `HpkeService` as the first non-test consumer), `file-crypto.ts` migration, `provisioning.ts` migration, `key-store-v2.ts` deletion, multi-factor KEK on `key-store-v3`, per-record AAD for envelope-encrypted PII columns, server note/file envelope migration.
 

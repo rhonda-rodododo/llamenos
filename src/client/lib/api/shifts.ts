@@ -33,7 +33,7 @@ export async function listShifts() {
   return request<{ shifts: Shift[] }>(hp('/shifts'))
 }
 
-export async function createShift(data: Omit<Shift, 'id'>) {
+export async function createShift(data: Omit<Shift, 'id'> & { id?: string }) {
   return request<{ shift: Shift }>(hp('/shifts'), {
     method: 'POST',
     body: JSON.stringify(data),

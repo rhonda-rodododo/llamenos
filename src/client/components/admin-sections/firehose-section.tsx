@@ -134,6 +134,9 @@ export function FirehoseSection() {
         'encrypted_display_name'
       )) ?? undefined
     const input: CreateFirehoseConnectionInput = {
+      // Pass the pre-generated id through so the server stores the same id
+      // the client used as AAD `recordId` when sealing `encryptedDisplayName`.
+      id: newId,
       displayName: createForm.displayName.trim(),
       encryptedDisplayName,
       reportTypeId: createForm.reportTypeId,

@@ -327,6 +327,7 @@ export async function listRoles() {
 }
 
 export async function createRole(data: {
+  id?: string
   name: string
   permissions: string[]
   description: string

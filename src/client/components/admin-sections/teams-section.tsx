@@ -88,6 +88,7 @@ export function TeamsSection() {
         : undefined
       createTeam.mutate(
         {
+          id: newId,
           encryptedName,
           encryptedDescription,
         },

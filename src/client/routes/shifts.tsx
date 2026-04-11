@@ -104,7 +104,7 @@ function ShiftsPage() {
                 }
               )
             } else {
-              createShift.mutate(data as Omit<Shift, 'id'>, {
+              createShift.mutate(data as Omit<Shift, 'id'> & { id?: string }, {
                 onSuccess: () => {
                   setShowForm(false)
                   setEditingShift(null)
@@ -254,6 +254,10 @@ function ShiftForm({
     const recordId = shift?.id ?? crypto.randomUUID()
     const encryptedName = await encryptHubField(name, hubId, recordId, 'encrypted_name')
     onSave({
+      // For creates, pass the pre-generated id through so the server stores
+      // the same id the client used as AAD `recordId`. For updates this is
+      // a no-op (the server ignores body.id on PATCH).
+      ...(shift ? {} : { id: recordId }),
       name,
       encryptedName,
       startTime,

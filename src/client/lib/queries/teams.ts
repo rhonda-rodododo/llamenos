@@ -114,6 +114,7 @@ export function useCreateTeam() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (data: {
+      id?: string
       encryptedName: Ciphertext
       encryptedDescription?: Ciphertext
     }) => createTeam(data),

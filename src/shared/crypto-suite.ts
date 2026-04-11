@@ -3,8 +3,10 @@ import { DhkemX25519HkdfSha256 } from '@hpke/dhkem-x25519'
 
 /**
  * Stable identifier for the Llámenos HPKE cipher suite.
- * Bumped when any of KEM / KDF / AEAD change. Persisted alongside envelopes
- * so future versions can reject or migrate legacy blobs.
+ * Bumped when any of KEM / KDF / AEAD change. This identifier is a code-level
+ * constant only — it is NOT written into `EnvelopeV3` (which carries `v: 3`
+ * and a `labelId` wire field, not a suite id). Future suite migrations will
+ * rev the envelope `v` number or introduce a sibling wire format.
  *
  * RFC 9180 IDs for this suite:
  *   KEM:  0x0020 (DHKEM(X25519, HKDF-SHA256))

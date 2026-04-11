@@ -101,6 +101,7 @@ export function ReportTypesSection() {
           ? await encryptHubField(trimmedDesc, hubId, newId, 'encrypted_description')
           : undefined
         await createReportType({
+          id: newId,
           name: trimmedName,
           description: trimmedDesc || undefined,
           isDefault: editing.isDefault,

@@ -68,7 +68,10 @@ export async function hpkeSeal(
   aad: Uint8Array
 ): Promise<EnvelopeV3> {
   const suite = createHpkeSuite()
-  const sender = await suite.createSenderContext({ recipientPublicKey })
+  const sender = await suite.createSenderContext({
+    recipientPublicKey,
+    info: new TextEncoder().encode(label),
+  })
   const ct = new Uint8Array(await sender.seal(plaintext, aad))
   return {
     v: 3,
@@ -85,7 +88,9 @@ export async function hpkeSeal(
  *   1. Envelope shape (schema parse)      — rejects malformed JSON/bytes
  *   2. Version check (v === 3)            — rejects stale V2 blobs
  *   3. Label ID cross-check                — rejects swapped-domain blobs
- *   4. HPKE open with AAD binding          — rejects swapped-row/column blobs
+ *   4. HPKE `info` = label                 — binds the key schedule to the
+ *      label so any mismatch fails decap before AEAD
+ *   5. HPKE open with AAD binding          — rejects swapped-row/column blobs
  *
  * Any failure throws; callers must not fall through to legacy paths.
  *
@@ -112,6 +117,7 @@ export async function hpkeOpen(
   const recipient = await suite.createRecipientContext({
     recipientKey: recipientPrivateKey,
     enc: b64decode(envelope.enc),
+    info: new TextEncoder().encode(expectedLabel),
   })
   const pt = await recipient.open(b64decode(envelope.ct), aad)
   return new Uint8Array(pt)

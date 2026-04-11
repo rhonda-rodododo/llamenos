@@ -14,6 +14,11 @@ type FirehoseMessageBuffer = typeof firehoseMessageBuffer.$inferSelect
 type FirehoseNotificationOptout = typeof firehoseNotificationOptouts.$inferSelect
 
 export type CreateConnectionData = {
+  /**
+   * Client-generated id. Required when `encryptedDisplayName` is provided so
+   * the server stores the same id the client bound into AAD via buildAad().
+   */
+  id?: string
   signalGroupId?: string | null
   displayName?: string
   encryptedDisplayName?: Ciphertext | null
@@ -59,7 +64,11 @@ export class FirehoseService {
   // ---------------------------------------------------------------------------
 
   async createConnection(hubId: string, data: CreateConnectionData): Promise<FirehoseConnection> {
-    const id = crypto.randomUUID()
+    // Client-provided id is required for AAD binding: the client seals the
+    // ciphertext with buildAad(label, id, fieldName) before POST. Accept it
+    // verbatim so decrypt on refetch matches. Legacy callers that omit id
+    // fall back to a server-generated UUID.
+    const id = data.id ?? crypto.randomUUID()
     const now = new Date()
     const [row] = await this.db
       .insert(firehoseConnections)

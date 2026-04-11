@@ -92,6 +92,7 @@ export function useCreateRole() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (data: {
+      id?: string
       name: string
       permissions: string[]
       description: string

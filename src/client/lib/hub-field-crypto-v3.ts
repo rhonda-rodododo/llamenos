@@ -14,9 +14,11 @@
  * envelope is different, so v1 and v3 ciphertexts are not interchangeable;
  * migration 0053 wipes all v1 rows pre-prod.
  *
- * NOTE: This module is NOT wired to call sites in PR-A. Migration of
- * hub-field-crypto.ts call sites (routes, services, query selectors) is
- * deferred to PR-B along with items_key indirection.
+ * Wired call sites (PR-B): all hub-field consumers in `src/client/lib/queries/*.ts`
+ * (notes, blasts, firehose, hubs, reports, roles, settings, shifts, tags, teams)
+ * and `src/client/routes/shifts.tsx` go through `hubFieldEncryptV3` /
+ * `hubFieldDecryptV3` via the crypto-worker RPC. Items_key indirection lives in
+ * `src/shared/items-key.ts`.
  */
 
 import { hubFieldAad } from '@shared/lib/hub-field-aad'
