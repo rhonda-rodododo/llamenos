@@ -386,6 +386,13 @@
       "when": 1775692800000,
       "tag": "0053_tier1_hpke_envelope_v3",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1775779200000,
+      "tag": "0054_tier1_items_key_indirection",
+      "breakpoints": true
     }
   ]
 }
