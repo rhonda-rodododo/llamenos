@@ -4,7 +4,9 @@
 **Master doc:** [`../SECURITY_IMPROVEMENTS_MASTER.md`](../SECURITY_IMPROVEMENTS_MASTER.md) §3.8 (Keybase), §5.3, §6.1, §7 Tier 3
 **Effort:** ~1 month of real work — this is the load-bearing architectural change
 **Depends on:** Tier 0 (signed sigchain entries), Tier 1 (non-extractable CryptoKey + HPKE), Tier 2 (WebAuthn PRF unlock)
-**Status:** Ready for spec authoring
+**Status:** Absorbed into spec — 2026-04-10
+**Spec:** [`../../superpowers/specs/2026-04-10-security-tier-3-per-device-keys-design.md`](../../superpowers/specs/2026-04-10-security-tier-3-per-device-keys-design.md)
+**Plan:** [`../../superpowers/plans/2026-04-10-security-tier-3-per-device-keys.md`](../../superpowers/plans/2026-04-10-security-tier-3-per-device-keys.md)
 
 ## Goal
 
