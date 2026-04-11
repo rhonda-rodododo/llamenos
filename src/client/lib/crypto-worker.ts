@@ -16,6 +16,7 @@ import { hmac } from '@noble/hashes/hmac.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { LABEL_DEVICE_PROVISION, SAS_INFO, SAS_SALT } from '@shared/crypto-labels'
+import type { CryptoLabel } from '@shared/crypto-labels'
 import { unbiasedSixDigitCode } from '@shared/crypto-primitives'
 
 // ---- Message protocol types ----
@@ -29,9 +30,17 @@ type WorkerRequest =
       id: string
       ephemeralPubkeyHex: string
       wrappedKeyHex: string
-      label: string
+      label: CryptoLabel
+      aad: string
     }
-  | { type: 'encrypt'; id: string; plaintextHex: string; recipientPubkeyHex: string; label: string }
+  | {
+      type: 'encrypt'
+      id: string
+      plaintextHex: string
+      recipientPubkeyHex: string
+      label: CryptoLabel
+      aad: string
+    }
   | { type: 'getPublicKey'; id: string }
   | { type: 'isUnlocked'; id: string }
   | { type: 'reEncrypt'; id: string; newKekHex: string }
@@ -42,15 +51,18 @@ type WorkerRequest =
       encryptedHex: string
       ephemeralPubkeyHex: string
       wrappedKeyHex: string
-      label: string
+      label: CryptoLabel
+      aad: string
     }
   | {
       type: 'envelopeEncryptField'
       id: string
       plaintext: string
       recipientPubkeysHex: string[]
-      label: string
+      label: CryptoLabel
+      aad: string
     }
+  | { type: 'signAuditEntry'; id: string; entryHashHex: string }
   | { type: 'computeHmac'; id: string; input: string; secretHex: string }
   | { type: 'exportSession'; id: string }
   | {
@@ -243,7 +255,12 @@ function handleSign(messageHex: string): string {
   return bytesToHex(signature)
 }
 
-function handleDecrypt(ephemeralPubkeyHex: string, wrappedKeyHex: string, label: string): string {
+function handleDecrypt(
+  ephemeralPubkeyHex: string,
+  wrappedKeyHex: string,
+  label: CryptoLabel,
+  _aad: string
+): string {
   if (!secretKey) throw new Error('Worker is locked')
 
   if (!checkRateLimit('decrypt')) {
@@ -258,7 +275,8 @@ function handleDecrypt(ephemeralPubkeyHex: string, wrappedKeyHex: string, label:
 function handleEncrypt(
   plaintextHex: string,
   recipientPubkeyHex: string,
-  label: string
+  label: CryptoLabel,
+  _aad: string
 ): { ephemeralPubkeyHex: string; wrappedKeyHex: string } {
   // Encrypt doesn't need our nsec (uses ephemeral key), but we keep it
   // in the worker for API consistency and to enforce the worker-is-unlocked
@@ -272,6 +290,16 @@ function handleEncrypt(
 
   const plaintext = hexToBytes(plaintextHex)
   return eciesWrap(plaintext, recipientPubkeyHex, label)
+}
+
+function handleSignAuditEntry(entryHashHex: string): string {
+  if (!secretKey) throw new Error('Worker is locked')
+  if (!checkRateLimit('sign')) {
+    autoLock()
+    throw new Error('Rate limit exceeded — worker auto-locked')
+  }
+  const signature = schnorr.sign(hexToBytes(entryHashHex), secretKey)
+  return bytesToHex(signature)
 }
 
 function handleGetPublicKey(): string | null {
@@ -424,10 +452,10 @@ self.onmessage = (event: MessageEvent<WorkerRequest>) => {
         result = handleSign(req.messageHex)
         break
       case 'decrypt':
-        result = handleDecrypt(req.ephemeralPubkeyHex, req.wrappedKeyHex, req.label)
+        result = handleDecrypt(req.ephemeralPubkeyHex, req.wrappedKeyHex, req.label, req.aad)
         break
       case 'encrypt':
-        result = handleEncrypt(req.plaintextHex, req.recipientPubkeyHex, req.label)
+        result = handleEncrypt(req.plaintextHex, req.recipientPubkeyHex, req.label, req.aad)
         break
       case 'getPublicKey':
         result = handleGetPublicKey()
@@ -496,6 +524,9 @@ self.onmessage = (event: MessageEvent<WorkerRequest>) => {
         result = new TextDecoder().decode(plaintext)
         break
       }
+      case 'signAuditEntry':
+        result = handleSignAuditEntry(req.entryHashHex)
+        break
       default: {
         // Exhaustive check — if we get here, the type is never
         const _exhaustive: never = req
