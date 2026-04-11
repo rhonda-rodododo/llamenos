@@ -438,3 +438,16 @@ Migration `0052_signed_audit_unique_constraints.sql` added `UNIQUE (hub_id, prev
 
 The llamenos policy's `createHTML` now throws unconditionally instead of passing through. Not an AEAD finding but it shares the "silent conduit" risk profile — a passthrough would have turned any future XSS sink routed through the policy into a silent data leak. Recorded here so the change is findable from the same audit trail.
 
+### Tier 1 PR-A — HPKE primitives + envelope v3 (2026-04-11)
+
+Tier 1 PR-A introduced an HPKE/AES-GCM wire format alongside the Tier 0 ECIES/XChaCha20 surface. It does **not** migrate any of the ciphertext columns in this audit yet — that is deferred to PR-B, where each FIX row above will be reworked to use `hpkeSeal` / `hpkeOpen` with record-id-bound AAD via `buildAad(label, recordId, fieldName)`.
+
+What PR-A does put in place for the later column-by-column migration:
+
+- **Envelope v3 is the only forward target.** `src/shared/envelope-v3.ts` is the canonical wire format; `src/shared/hpke-primitives.ts#hpkeOpen` refuses envelopes whose embedded `labelId` does not match the caller's asserted label, before handing bytes to AEAD open.
+- **`buildAad(label, recordId, fieldName)`** is the canonical AAD helper; hub-field AES-GCM uses the existing `hubFieldAad` for parity. Column AAD will consistently be `${label}:${recordId}:${fieldName}` at PR-B migration time.
+- **Grep guardrails block regressions.** `Tier 1 — no NEW callers of legacy ECIES/XChaCha20 primitives` and `Tier 1 — HPKE opener never falls back to ECIES` in `.github/workflows/ci.yml` pin the allowlist and block silent downgrade primitives.
+- **Wire-format break is handled by a pre-prod wipe.** `drizzle/migrations/0053_tier1_hpke_envelope_v3.sql` `TRUNCATE hubs, users CASCADE` with a 1000-row safety rail. Acceptable because we ship HPKE *before* any production data exists; after Tier 1 PR-B lands we will not have this escape hatch.
+
+Cross-reference: `docs/security/HPKE_MIGRATION_NOTES.md` is the authoritative PR-A changelog and rules-until-PR-B list.
+
