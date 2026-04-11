@@ -1,3 +1,7 @@
+import { installTrustedTypesPolicy } from '@/lib/trusted-types-policy'
+
+installTrustedTypesPolicy()
+
 import { AuthProvider } from '@/lib/auth'
 import { ConfigProvider } from '@/lib/config'
 import { NoteSheetProvider } from '@/lib/note-sheet-context'
