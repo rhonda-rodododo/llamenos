@@ -79,7 +79,7 @@ Every session prompt below references this block. Do not skip:
 Every prompt references this block:
 
 ```bash
-cd /media/rikki/recover2/projects/llamenos-hotline
+cd ~/recover2/projects/llamenos-hotline
 git fetch origin main
 git worktree add ../llamenos-hotline-impl-tier-<N>-<slug> \
   feat/sec-tier-<N>-impl-<slug> origin/main
@@ -120,7 +120,7 @@ this landing first.
 
 ## Worktree setup
 
-cd /media/rikki/recover2/projects/llamenos-hotline
+cd ~/recover2/projects/llamenos-hotline
 git fetch origin main
 git worktree add ../llamenos-hotline-impl-tier-0-albrecht \
   feat/sec-tier-0-impl-albrecht origin/main
@@ -235,7 +235,7 @@ Tier 5's main implementation PR blocks on this landing first.
 
 ## Worktree setup
 
-cd /media/rikki/recover2/projects/llamenos-hotline
+cd ~/recover2/projects/llamenos-hotline
 git fetch origin main
 git worktree add ../llamenos-hotline-impl-tier-5-prereq \
   feat/sec-tier-5-prereq-sim-sip-bridge origin/main
@@ -338,7 +338,7 @@ separate PR for reviewability.
 
 ## Worktree setup
 
-cd /media/rikki/recover2/projects/llamenos-hotline
+cd ~/recover2/projects/llamenos-hotline
 git fetch origin main
 git worktree add ../llamenos-hotline-impl-tier-1a-hpke \
   feat/sec-tier-1a-impl-hpke origin/main
@@ -431,7 +431,7 @@ Ansible, and cookie config, not crypto code.
 
 ## Worktree setup
 
-cd /media/rikki/recover2/projects/llamenos-hotline
+cd ~/recover2/projects/llamenos-hotline
 git fetch origin main
 git worktree add ../llamenos-hotline-impl-tier-4a-origin-split \
   feat/sec-tier-4a-impl-origin-split origin/main
@@ -581,7 +581,7 @@ primary**.
 
 ## Worktree setup
 
-cd /media/rikki/recover2/projects/llamenos-hotline
+cd ~/recover2/projects/llamenos-hotline
 git fetch origin main
 git worktree add ../llamenos-hotline-impl-tier-2a-opaque \
   feat/sec-tier-2a-impl-opaque origin/main
