@@ -15,7 +15,7 @@ The "pick up where we left off" breadcrumb for the seven-tier security overhaul 
 | **docs** | #61 CLAUDE.md drift | **Merged** | — | — |
 | **docs** | #62 implementation queue + kickoff template | **Merged** | — | — |
 | **docs** | #63 tier session prompts | **Merged** | — | — |
-| **0 Albrecht** | #52 | **Merged** | #68 (draft, WS 0.1 — 9/36 tasks) | **In progress** — worktree at `~/projects/llamenos-hotline-impl-tier-0-albrecht`; 27 tasks remain across WS 0.2–0.6 |
+| **0 Albrecht** | #52 | **Merged** | #68 (draft, WS 0.1 — 9/36 tasks) | **In progress** — worktree at `~/projects/llamenos-hotline-impl-tier-0-albrecht`; 27 tasks remain across WS 0.3, 0.4, 0.2, 0.5, 0.6 + CI/tests |
 | **1 HPKE** | #53 | **Merged** | — | Waits on Tier 0 implementation |
 | **2 Unlock+Recovery** | #54 | **Merged** | — | Waits on Tier 1 implementation |
 | **3 Per-device keys** | #55 | **Merged** | — | Waits on Tier 2 Diceware (2.B) |
@@ -120,7 +120,7 @@ Every session MUST:
 
 ## Current queue head: **Tier 0 implementation** (in progress)
 
-**Active PR:** #68 (draft) — `feat/sec-tier-0-impl-albrecht`, worktree at `~/projects/llamenos-hotline-impl-tier-0-albrecht`. Workstream 0.1 complete (9/36 tasks, 13 commits). Next session resumes at **Task 10** (start of Workstream 0.2) per `docs/superpowers/TIER_SESSION_PROMPTS.md`. Five design compromises documented in the PR body for Tier 1 follow-up.
+**Active PR:** #68 (draft) — `feat/sec-tier-0-impl-albrecht`, worktree at `~/projects/llamenos-hotline-impl-tier-0-albrecht`. Workstream 0.1 complete (9/36 tasks, 13 commits). Next session resumes at **Task 10** (start of Workstream 0.3 — AEAD audit). Plan task order: WS 0.3 (10–15) → 0.4 (16) → 0.2 (17–22) → 0.5 (23–28) → 0.6 (29–32) → CI/tests/verify (33–36). Five design compromises documented in the PR body for Tier 1 follow-up.
 
 All prep merged to main as of 2026-04-11:
 
