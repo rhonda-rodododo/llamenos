@@ -790,14 +790,34 @@ Cross-signing operations import the derived seeds as `CryptoKey` (non-extractabl
 
 **Why not hold self-signing / user-signing as persistent non-extractable `CryptoKey`s.** They *could* be — imported once at account creation from the derived seeds and kept in IDB alongside the device keys. The reason we don't is that a recovery scenario needs them to be regeneratable from the master seed, and persistent non-extractable keys are not regeneratable (a fresh import yields a new `CryptoKey`, which is fine functionally but breaks any invariant that ties the device-side key handle to "the same" key). Transient derivation on every use is O(HMAC + importKey) per operation — fast enough for the low-frequency cross-signing path.
 
-#### 3.6.3. Recovery Group integration
+#### 3.6.3. Recovery Group integration + Diceware interim path
+
+**Decision 2026-04-10: master seed wrapped under the Diceware recovery phrase as the primary recovery path, Recovery Group as an optional secondary.** The original design had Recovery Group as the sole recovery path for the master seed, which couples Tier 3's merge-readiness to Tier 2 landing the Recovery Group ceremony in full. That coupling is removed by wrapping the master seed under Tier 2's Diceware recovery phrase (which is simpler and likely to land first in the Tier 2 rollout), and adding the Recovery Group wrapping as a second envelope that lands when Tier 2 Recovery Group lands.
+
+**Primary recovery path (ships with Tier 3 as soon as Tier 2 Diceware is merged):**
+
+- At user creation, the master seed is encrypted under a key derived from the Diceware recovery phrase: `masterRecoveryKey = HKDF(Argon2id(diceware_phrase, m=47MiB, t=1, p=1), salt, utf8(LABEL_MASTER_DICEWARE_WRAP))`.
+- The wrapped master seed is stored server-side in `user_master_wraps.diceware_wrap` (bytea).
+- A user who loses all devices but retains their printed recovery phrase can re-bootstrap the master seed from the phrase alone. This is the same authority model Tier 2 uses for the root KEK: possession of the phrase = ability to re-enter the identity.
+
+**Secondary recovery path (ships when Tier 2 Recovery Group lands):**
+
+- The master seed is ALSO encrypted to each enrolled hub's Recovery Group public key.
+- Wrappings live in `user_master_wraps.recovery_group_wraps` as a JSONB mapping `hubId → envelope`.
+- An admin-assisted recovery ceremony (Tier 2 §2.4) reconstructs the master seed in addition to the root KEK.
+
+**Why both.** The Diceware phrase is the "I have the paper, restore me" path and does not require any admin cooperation. The Recovery Group is the "I lost everything including the paper, help me" path. A user who has set up both has two independent recovery mechanisms; a user who opts out of Recovery Group enrollment still has the Diceware fallback. The two paths are NOT redundant — they defend against different loss modes (phrase lost vs all-devices-and-phrase lost).
+
+**Tier ordering.** Tier 3 can merge as soon as Tier 2's Diceware phrase lands. The Recovery Group envelope is added incrementally when Tier 2 Recovery Group lands; no Tier 3 rework required.
+
+**Original design (unchanged except that Recovery Group becomes the secondary path):**
 
 Tier 2 ships the Recovery Group: a set of admins whose Shamir shares can reconstruct a group private key that was used to wrap the user's vault-unlock secret. Tier 3 extends the Recovery Group to wrap *two* secrets:
 
 - The PUK seed (so a fully-lost user can be re-provisioned into their account).
 - The master signing seed (so cross-signing can be reconstructed on the new device).
 
-The wrapping labels are distinct: `LABEL_PUK_RECOVERY_GROUP_WRAP` and `LABEL_MASTER_RECOVERY_GROUP_WRAP`. Both wrappings live in the same `user_master_wraps` row as separate fields.
+The wrapping labels are distinct: `LABEL_PUK_RECOVERY_GROUP_WRAP`, `LABEL_MASTER_RECOVERY_GROUP_WRAP`, and `LABEL_MASTER_DICEWARE_WRAP`. All three wrappings live in the same `user_master_wraps` row as separate fields.
 
 Recovery flow:
 
@@ -883,11 +903,54 @@ async function planRotationCascade(triggerHub: string, reason: string): Promise<
 
 Every rotation call goes through `planRotationCascade()`. Today it is a no-op identity function. The future introduction of nested hubs adds hierarchy-walking without touching any caller site.
 
-#### 3.7.3. Atomic rotation across multiple hubs for a device-remove
+#### 3.7.3. Bounded-time inconsistency on multi-hub device revoke
 
-When a single device is revoked and the user is a member of, say, 4 hubs, the rotation touches 4 hubs. All 4 must rotate atomically from the client's perspective — a partial rotation would leave the revoked device with continued access to some hubs while being excluded from others, which is a security failure mode.
+**Decision 2026-04-10: bounded-time eventual consistency, not distributed-transactional atomicity.** When a single device is revoked and the user is a member of N hubs, the rotation touches N hubs. A naive "all-or-nothing distributed transaction across N hub chains" design would require a global lock and bounded wait on every rotation, scaling poorly for users in many hubs and introducing a cross-hub authority that Llamenos does not otherwise have.
 
-The client executes the 4 rotations in parallel, but the server-side POST is *one* transaction with all 4 `hub_ptk_rotate` entries plus the `device_remove` entry plus the new envelopes. The server's `audit-log-service.ts` from Tier 0 already supports multi-entry appends; Tier 3 extends it with an explicit `appendBatch(entries[])` API that wraps the inserts in a PostgreSQL `BEGIN`/`COMMIT`.
+The pragmatic design: accept a **bounded window of inconsistency** (documented as "up to 30 seconds between the user's `device_revoke` entry landing and every affected hub's `hub_ptk_rotate` landing"), surface the in-flight rotation state in the admin UI, and retry any hub that stalls.
+
+**Ordering invariant (still load-bearing).** The *user sigchain* `device_revoke` entry lands FIRST, before any hub rotation. Once `device_revoke` is on the user sigchain:
+
+1. Every client that reads the chain sees the device as revoked and stops accepting any signed message from it.
+2. The server refuses to issue new hub-key envelopes to the revoked device's pubkey on ANY hub going forward.
+3. Each hub's rotation runs as a separate operation; rotations are processed in parallel by the server-side rotation worker.
+
+The revoked device CAN still decrypt previously-cached hub data (because it already has those keys locally), but:
+
+- It cannot obtain new hub data after the rotation lands for a given hub.
+- It cannot post new signed entries to any sigchain (user or hub) because the user sigchain's `device_revoke` entry is visible to the server-side chain verifier and every subsequent entry from that device pubkey is rejected.
+
+**The residual window is per-hub cached data access, NOT server authority.** A revoked device has at most 30 seconds of "can still read its own local cache" for a hub whose rotation is still pending. The threat model accepts this because (a) the server-side chain verifier immediately stops trusting the device after `device_revoke`, closing the server-coercion and new-entry surfaces; (b) cached local data was already available to the device before revocation, so the 30 s window adds no material exfiltration capability beyond what the device already had; (c) every affected hub lands the rotation independently and each rotation becomes visible to all other devices in that hub as soon as it's committed.
+
+**Rotation progress UI.** Admins removing a device see a per-hub progress indicator ("3 of 4 hubs rotated — hub-prevention-phonebank pending, retrying…"). If any hub fails to rotate within 30 seconds, the admin gets a warning with a manual retry button. The server-side rotation worker logs stall events for ops monitoring.
+
+**Server-side implementation.** The rotation worker is a new background job in `src/server/jobs/device-revoke-worker.ts`:
+
+```typescript
+// Pseudocode — see plan tasks for the full implementation
+async function processDeviceRevoke(revokeEntry: SignedAuditEntry) {
+  // 1. User sigchain already has device_revoke (this worker is triggered by its landing)
+  // 2. Fetch all hubs the user is a member of
+  const hubs = await db.select()
+    .from(hubMemberships)
+    .where(eq(hubMemberships.userId, revokeEntry.payload.userId))
+  // 3. For each hub, enqueue a hub_ptk_rotate job
+  for (const hub of hubs) {
+    await rotationQueue.enqueue({ hubId: hub.id, triggerEntryHash: revokeEntry.entryHash, triggerType: 'device_revoke' })
+  }
+  // 4. Each rotation job is idempotent (checks whether the rotation has already happened) and
+  //    can be retried indefinitely. Failed jobs surface to ops via the existing log path.
+}
+```
+
+**No distributed transaction.** The server does NOT wrap multi-hub rotations in a single PostgreSQL transaction. Each hub rotation is its own `BEGIN`/`COMMIT`. A crash mid-rotation leaves some hubs rotated and others not — the worker restart picks up the pending hubs via the rotation queue and finishes them.
+
+**Test coverage.** Adversarial tests in `tests/api/device-revoke-rotation.spec.ts`:
+
+- Happy path: revoke a device in 4 hubs → assert all 4 rotations complete within 30 seconds.
+- Slow hub: inject a 5-second delay into one hub's rotation → assert the other 3 complete immediately and the slow one completes in ≤30 seconds with the progress UI reflecting the delay.
+- Server crash: crash the rotation worker mid-rotation → restart → assert pending rotations resume.
+- Revoked-device-cannot-write: after `device_revoke` lands, any subsequent signed entry from that device pubkey is rejected by the server's chain verifier, regardless of which hub it targets. This closes the "server coerced into accepting a post-revocation entry" surface.
 
 ### 3.8. Paper key = device
 

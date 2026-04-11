@@ -5,6 +5,12 @@
 **Spec:** `docs/superpowers/specs/2026-04-10-security-tier-3-per-device-keys-design.md` (1432 lines)
 **Plan:** `docs/superpowers/plans/2026-04-10-security-tier-3-per-device-keys.md` (48 TDD tasks)
 
+## Rhonda decisions received (2026-04-10)
+
+1. **I-1 Linear chain vs DAG → linear storage, forward-only cross-references.** Spec §3.3.3 rewritten: storage is strictly linear with one `prev_entry_hash` predecessor; DAG framing is read-time verifier reasoning over payload forward references; explicit implementer warning against extending to `prevEntryHashes[]`.
+2. **I-2 CLKR atomicity → bounded-time eventual consistency.** Spec §3.7.3 rewritten: 30-second bounded window per multi-hub rotation, ordering invariant preserved (user sigchain `device_revoke` lands first, closing server authority surfaces immediately), each hub rotation is a separate DB transaction, rotation worker retries on stall, admin UI surfaces per-hub progress, adversarial tests cover slow-hub + crash-mid-rotation + post-revoke-write-rejection.
+3. **I-3 Tier 2↔3 Recovery Group coupling → Diceware interim.** Spec §3.6.3 rewritten: master seed primary recovery path is Diceware-phrase-wrapped, Recovery Group is secondary. Tier 3 can merge as soon as Tier 2 Diceware ships; Recovery Group envelope is added incrementally when Tier 2 Recovery Group lands; no Tier 3 rework required at that point. Two independent recovery paths (phrase-alone vs admin-assisted) defend against different loss modes.
+
 ## Summary
 
 Tier 3 is the biggest architectural pivot in the roadmap and the spec handles it with the most detail of any tier — 11 design subsections covering device identity, PUK, sigchain, enrollment, hub-key-per-device, cross-signing, CLKR, paper keys, client state, server notes, and worker changes. The successful subagent that authored this tier did genuinely read the existing codebase (confirmed by the accurate `provisioning.ts` reference and the Tier 0 sigchain integration). Two important findings: **(1) the DAG claim in §3.3.3 "the chain is a DAG, conceptually" is not fully reconciled with Tier 0's linear-chain `prevEntryHash` design**, and **(2) CLKR is described at the right level but the "atomic rotation across multiple hubs" case for multi-hub volunteers leaves room for interpretation**.
