@@ -4,7 +4,9 @@
 **Master doc:** [`../SECURITY_IMPROVEMENTS_MASTER.md`](../SECURITY_IMPROVEMENTS_MASTER.md) §3.9.2 (PRF), §3.9.4 (OPAQUE), §3.4.2 (1Password Recovery Group), §7 Tier 2
 **Effort:** Weeks
 **Depends on:** Tier 1 (non-extractable CryptoKey + HPKE are the foundation the new factors wrap)
-**Status:** Ready for spec authoring
+**Status:** Absorbed into spec
+**Spec:** [`../../superpowers/specs/2026-04-10-security-tier-2-unlock-recovery-design.md`](../../superpowers/specs/2026-04-10-security-tier-2-unlock-recovery-design.md)
+**Plan:** [`../../superpowers/plans/2026-04-10-security-tier-2-unlock-recovery.md`](../../superpowers/plans/2026-04-10-security-tier-2-unlock-recovery.md)
 
 ## Goal
 
