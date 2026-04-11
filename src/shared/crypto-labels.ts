@@ -128,6 +128,14 @@ export const LABEL_SERVER_NOSTR_KEY = 'llamenos:server-nostr-key'
 /** HKDF info parameter for server Nostr key (versioned for rotation) */
 export const LABEL_SERVER_NOSTR_KEY_INFO = 'llamenos:server-nostr-key:v1'
 
+// --- Server HPKE Identity (Tier 1) ---
+
+/** HKDF derivation for server HPKE X25519 keypair from SERVER_SECRET */
+export const LABEL_SERVER_HPKE_KEY = 'llamenos:server-hpke-key'
+
+/** HKDF info parameter for server HPKE key (versioned for rotation) */
+export const LABEL_SERVER_HPKE_KEY_INFO = 'llamenos:server-hpke-key:v1'
+
 // --- Push Notification Encryption (Epic 86) ---
 
 /** Wake-tier ECIES push payload — decryptable without PIN (minimal metadata only) */
