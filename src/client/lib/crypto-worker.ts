@@ -783,3 +783,24 @@ export function _test_clearSecretKey(): void {
 
 /** @internal Test only — direct access to handleSignAuditEntry for unit testing. */
 export { handleSignAuditEntry as _test_handleSignAuditEntry }
+
+/** @internal Test only — direct access to the unlockFromKeyStoreV3 handler. */
+export { handleUnlockFromKeyStoreV3 as _test_handleUnlockFromKeyStoreV3 }
+
+/** @internal Test only — direct access to HPKE sidecar handlers. */
+export {
+  handleHpkeSeal as _test_handleHpkeSeal,
+  handleHpkeOpen as _test_handleHpkeOpen,
+  handleHubFieldEncryptV3 as _test_handleHubFieldEncryptV3,
+  handleHubFieldDecryptV3 as _test_handleHubFieldDecryptV3,
+}
+
+/** @internal Test only — clear Tier 1 HPKE state between tests. */
+export function _test_clearHpkeState(): void {
+  hpkePrivateKey = null
+  hubKey = null
+  if (hpkePublicKeyRawCache) {
+    hpkePublicKeyRawCache.fill(0)
+    hpkePublicKeyRawCache = null
+  }
+}

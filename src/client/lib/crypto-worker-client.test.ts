@@ -1,9 +1,17 @@
-import { afterEach, describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { schnorr } from '@noble/curves/secp256k1.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
+import { LABEL_NOTE_KEY, labelToId } from '@shared/crypto-labels'
+import { createHpkeSuite } from '@shared/crypto-suite'
 import {
+  _test_clearHpkeState,
   _test_clearSecretKey,
+  _test_handleHpkeOpen,
+  _test_handleHpkeSeal,
+  _test_handleHubFieldDecryptV3,
+  _test_handleHubFieldEncryptV3,
   _test_handleSignAuditEntry,
+  _test_handleUnlockFromKeyStoreV3,
   _test_setSecretKey,
 } from './crypto-worker'
 import { CryptoWorkerLockedError, isWorkerLockedError } from './crypto-worker-client'
@@ -74,5 +82,156 @@ describe('handleSignAuditEntry', () => {
     }
     expect(caught).toBeDefined()
     expect(isWorkerLockedError(caught as Error)).toBe(true)
+  })
+})
+
+// ---- Tier 1 HPKE sidecar handler tests ----
+
+async function seedWorkerWithHpkeKeys(): Promise<{
+  recipientPub: Uint8Array
+  pubkeyHex: string
+}> {
+  // 1. Generate an HPKE identity keypair and import the private key so the
+  //    worker holds a real CryptoKey for opening envelopes.
+  const suite = createHpkeSuite()
+  const kp = (await suite.kem.generateKeyPair()) as CryptoKeyPair
+  const priv = kp.privateKey
+  const recipientPub = new Uint8Array(await suite.kem.serializePublicKey(kp.publicKey))
+
+  // 2. Generate a fresh hub AES-GCM CryptoKey.
+  const hub = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, [
+    'encrypt',
+    'decrypt',
+  ])
+
+  // 3. Hand an nsec into the worker alongside the HPKE + hub handles.
+  const nsec = new Uint8Array(32).fill(9)
+  const pubkeyHex = _test_handleUnlockFromKeyStoreV3(new Uint8Array(nsec), priv, hub)
+  return { recipientPub, pubkeyHex }
+}
+
+describe('Tier 1 HPKE sidecar — unlockFromKeyStoreV3', () => {
+  afterEach(() => {
+    _test_clearSecretKey()
+    _test_clearHpkeState()
+  })
+
+  test('populates secretKey + HPKE handles + returns schnorr pubkey hex', async () => {
+    const { pubkeyHex } = await seedWorkerWithHpkeKeys()
+    expect(pubkeyHex).toMatch(/^[0-9a-f]{64}$/)
+    // Proves the signAuditEntry path still works after v3 unlock.
+    const entryHash = bytesToHex(new Uint8Array(32).fill(0x11))
+    const sig = _test_handleSignAuditEntry(entryHash)
+    expect(sig).toMatch(/^[0-9a-f]{128}$/)
+    const sigBytes = hexToBytes(sig)
+    expect(schnorr.verify(sigBytes, hexToBytes(entryHash), hexToBytes(pubkeyHex))).toBe(true)
+  })
+
+  test('rejects nsec that is not 32 bytes', () => {
+    const wrongLen = new Uint8Array(16)
+    // Intentionally pass unknown-typed CryptoKey stubs — the length check
+    // runs first so we never touch the HPKE/hub handles.
+    expect(() =>
+      _test_handleUnlockFromKeyStoreV3(
+        wrongLen,
+        {} as unknown as CryptoKey,
+        {} as unknown as CryptoKey
+      )
+    ).toThrow(/32 bytes/)
+  })
+})
+
+describe('Tier 1 HPKE sidecar — hpkeSeal / hpkeOpen round-trip', () => {
+  beforeEach(async () => {
+    await seedWorkerWithHpkeKeys()
+  })
+
+  afterEach(() => {
+    _test_clearSecretKey()
+    _test_clearHpkeState()
+  })
+
+  test('seal then open returns the original plaintext', async () => {
+    const { recipientPub } = await seedWorkerWithHpkeKeys()
+    const envelope = await _test_handleHpkeSeal(
+      'secret-message',
+      recipientPub,
+      LABEL_NOTE_KEY,
+      'note-123',
+      'content'
+    )
+    expect(envelope.v).toBe(3)
+    expect(typeof envelope.enc).toBe('string')
+    expect(typeof envelope.ct).toBe('string')
+    expect(envelope.labelId).toBe(labelToId(LABEL_NOTE_KEY))
+
+    const pt = await _test_handleHpkeOpen(envelope, LABEL_NOTE_KEY, 'note-123', 'content')
+    expect(pt).toBe('secret-message')
+  })
+
+  test('open with wrong recordId fails AAD binding', async () => {
+    const { recipientPub } = await seedWorkerWithHpkeKeys()
+    const envelope = await _test_handleHpkeSeal(
+      'bound',
+      recipientPub,
+      LABEL_NOTE_KEY,
+      'record-A',
+      'field-1'
+    )
+    await expect(
+      _test_handleHpkeOpen(envelope, LABEL_NOTE_KEY, 'record-B', 'field-1')
+    ).rejects.toThrow()
+  })
+
+  test('hpkeSeal refuses when worker is locked', async () => {
+    _test_clearSecretKey()
+    _test_clearHpkeState()
+    await expect(
+      _test_handleHpkeSeal('x', new Uint8Array(32), LABEL_NOTE_KEY, 'r', 'f')
+    ).rejects.toThrow('Worker is locked')
+  })
+
+  test('hpkeOpen refuses when worker is locked', async () => {
+    _test_clearSecretKey()
+    _test_clearHpkeState()
+    const fakeEnv = { v: 3 as const, labelId: labelToId(LABEL_NOTE_KEY), enc: '', ct: '' }
+    await expect(_test_handleHpkeOpen(fakeEnv, LABEL_NOTE_KEY, 'r', 'f')).rejects.toThrow(
+      'Worker is locked'
+    )
+  })
+})
+
+describe('Tier 1 HPKE sidecar — hub field AES-GCM round-trip', () => {
+  afterEach(() => {
+    _test_clearSecretKey()
+    _test_clearHpkeState()
+  })
+
+  test('encrypt then decrypt returns the original plaintext', async () => {
+    await seedWorkerWithHpkeKeys()
+    const ct = await _test_handleHubFieldEncryptV3('role-admin', 'role-1', 'name')
+    expect(typeof ct).toBe('string')
+    expect(ct.length).toBeGreaterThan(0)
+    const pt = await _test_handleHubFieldDecryptV3(ct, 'role-1', 'name')
+    expect(pt).toBe('role-admin')
+  })
+
+  test('decrypt returns null for wrong recordId (AAD mismatch)', async () => {
+    await seedWorkerWithHpkeKeys()
+    const ct = await _test_handleHubFieldEncryptV3('role-admin', 'role-1', 'name')
+    const pt = await _test_handleHubFieldDecryptV3(ct, 'role-2', 'name')
+    expect(pt).toBeNull()
+  })
+
+  test('decrypt returns null for wrong fieldName (AAD mismatch)', async () => {
+    await seedWorkerWithHpkeKeys()
+    const ct = await _test_handleHubFieldEncryptV3('shift-night', 'shift-1', 'name')
+    const pt = await _test_handleHubFieldDecryptV3(ct, 'shift-1', 'other')
+    expect(pt).toBeNull()
+  })
+
+  test('encrypt refuses when hub key is not loaded', async () => {
+    _test_clearHpkeState()
+    await expect(_test_handleHubFieldEncryptV3('x', 'r', 'f')).rejects.toThrow('hub key not loaded')
   })
 })
