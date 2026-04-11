@@ -20,7 +20,7 @@ The "pick up where we left off" breadcrumb for the seven-tier security overhaul 
 | **2 Unlock+Recovery** | #54 | **Merged** | — | Waits on Tier 1 implementation |
 | **3 Per-device keys** | #55 | **Merged** | — | Waits on Tier 2 Diceware (2.B) |
 | **4 Delivery hardening** | #56 | **Merged** | — | Waits on Tier 0 only; parallel with Tier 1/2/3 |
-| **5 Voice E2EE** | #57 | **Merged** | prereq PR in flight on `feat/sec-tier-5-prereq-sim-sip-bridge` (Session B, 2026-04-11) | Main waits on Tier 1; prereq sim-SIP-bridge PR has **no tier dependency** |
+| **5 Voice E2EE** | #57 | **Merged** | **prereq PR #66 open** (`feat/sec-tier-5-prereq-sim-sip-bridge`, Session B, 2026-04-11) | Main waits on Tier 1; prereq sim-SIP-bridge PR has **no tier dependency** |
 | **6 MLS + PQ** | #58 | **Merged** | — | PR #1 waits on Tier 3.A; PR #2 waits on Tier 3.C |
 
 ## Dependency graph
