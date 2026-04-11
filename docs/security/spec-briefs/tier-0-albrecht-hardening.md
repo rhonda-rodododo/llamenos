@@ -4,7 +4,9 @@
 **Master doc:** [`../SECURITY_IMPROVEMENTS_MASTER.md`](../SECURITY_IMPROVEMENTS_MASTER.md) §3.3, §3.11, §5.2, §7 Tier 0
 **Effort:** Days
 **Depends on:** nothing
-**Status:** Ready for spec authoring
+**Status:** Absorbed into spec
+**Spec:** [`../../superpowers/specs/2026-04-10-security-tier-0-albrecht-hardening-design.md`](../../superpowers/specs/2026-04-10-security-tier-0-albrecht-hardening-design.md)
+**Plan:** [`../../superpowers/plans/2026-04-10-security-tier-0-albrecht-hardening.md`](../../superpowers/plans/2026-04-10-security-tier-0-albrecht-hardening.md)
 
 ## Goal
 
