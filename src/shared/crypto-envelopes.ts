@@ -10,8 +10,6 @@
 
 import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
 import { utf8ToBytes } from '@noble/ciphers/utils.js'
-import { hkdf } from '@noble/hashes/hkdf.js'
-import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import {
   HKDF_CONTEXT_DRAFTS,
@@ -27,6 +25,7 @@ import {
   type RecipientKeyEnvelope,
   eciesUnwrapKeyWithSecret,
   eciesWrapKey,
+  hkdfDerive,
 } from './crypto-primitives'
 import type { Ciphertext } from './crypto-types'
 import type { BlastContent, NotePayload } from './types'
@@ -37,11 +36,6 @@ function randomBytes(n: number): Uint8Array {
   const buf = new Uint8Array(n)
   crypto.getRandomValues(buf)
   return buf
-}
-
-function deriveEncryptionKey(secretKey: Uint8Array, label: string): Uint8Array {
-  const salt = utf8ToBytes(HKDF_SALT)
-  return hkdf(sha256, secretKey, salt, utf8ToBytes(label), 32)
 }
 
 // --- Per-Note Ephemeral Key Encryption (V2 — forward secrecy) ---
@@ -214,7 +208,7 @@ export function decryptBlastContentWithKey(
 /** Decrypt a legacy V1 note — kept for backward compatibility only. */
 export function decryptNote(packed: string, secretKey: Uint8Array): NotePayload | null {
   try {
-    const key = deriveEncryptionKey(secretKey, HKDF_CONTEXT_NOTES)
+    const key = hkdfDerive(secretKey, utf8ToBytes(HKDF_SALT), utf8ToBytes(HKDF_CONTEXT_NOTES), 32)
     const data = hexToBytes(packed)
     const nonce = data.slice(0, 24)
     const ciphertext = data.slice(24)
@@ -239,7 +233,7 @@ export function decryptNote(packed: string, secretKey: Uint8Array): NotePayload 
 // Same as notes but with "drafts" domain separation for local draft auto-save
 
 export function encryptDraft(plaintext: string, secretKey: Uint8Array): string {
-  const key = deriveEncryptionKey(secretKey, HKDF_CONTEXT_DRAFTS)
+  const key = hkdfDerive(secretKey, utf8ToBytes(HKDF_SALT), utf8ToBytes(HKDF_CONTEXT_DRAFTS), 32)
   const nonce = randomBytes(24)
   const data = utf8ToBytes(plaintext)
   const cipher = xchacha20poly1305(key, nonce)
@@ -253,7 +247,7 @@ export function encryptDraft(plaintext: string, secretKey: Uint8Array): string {
 
 export function decryptDraft(packed: string, secretKey: Uint8Array): string | null {
   try {
-    const key = deriveEncryptionKey(secretKey, HKDF_CONTEXT_DRAFTS)
+    const key = hkdfDerive(secretKey, utf8ToBytes(HKDF_SALT), utf8ToBytes(HKDF_CONTEXT_DRAFTS), 32)
     const data = hexToBytes(packed)
     const nonce = data.slice(0, 24)
     const ciphertext = data.slice(24)
@@ -269,7 +263,7 @@ export function decryptDraft(packed: string, secretKey: Uint8Array): string | nu
 // Encrypts a JSON export blob so it can only be read with the user's key
 
 export function encryptExport(jsonString: string, secretKey: Uint8Array): Uint8Array {
-  const key = deriveEncryptionKey(secretKey, HKDF_CONTEXT_EXPORT)
+  const key = hkdfDerive(secretKey, utf8ToBytes(HKDF_SALT), utf8ToBytes(HKDF_CONTEXT_EXPORT), 32)
   const nonce = randomBytes(24)
   const data = utf8ToBytes(jsonString)
   const cipher = xchacha20poly1305(key, nonce)

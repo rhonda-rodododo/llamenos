@@ -257,7 +257,7 @@ function LoginPage() {
       }
       // Import the recovered key with the new PIN
       try {
-        const kpModule = await import('@/lib/crypto')
+        const kpModule = await import('@shared/crypto-primitives')
         const kp = kpModule.keyPairFromNsec(recoveredNsec)
         const recoveredPubkey = kp?.publicKey ?? ''
         // Recovery flow: user already exists in IdP, but we don't have a JWT yet.

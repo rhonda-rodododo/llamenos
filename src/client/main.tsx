@@ -24,9 +24,9 @@ declare global {
       size: () => number
     }
     __llamenos_test_crypto: {
-      encryptNoteV2: typeof import('./lib/crypto').encryptNoteV2
-      decryptNoteV2: typeof import('./lib/crypto').decryptNoteV2
-      decryptMessage: typeof import('./lib/crypto').decryptMessage
+      encryptNoteV2: typeof import('@shared/crypto-envelopes').encryptNoteV2
+      decryptNoteV2: typeof import('./lib/crypto-worker-helpers').decryptNoteV2
+      decryptMessage: typeof import('./lib/crypto-worker-helpers').decryptMessage
     }
   }
 }
@@ -49,9 +49,15 @@ if (typeof window !== 'undefined') {
       }
     }
   )
-  import('./lib/crypto').then(({ encryptNoteV2, decryptNoteV2, decryptMessage }) => {
-    window.__llamenos_test_crypto = { encryptNoteV2, decryptNoteV2, decryptMessage }
-  })
+  Promise.all([import('@shared/crypto-envelopes'), import('./lib/crypto-worker-helpers')]).then(
+    ([envelopes, helpers]) => {
+      window.__llamenos_test_crypto = {
+        encryptNoteV2: envelopes.encryptNoteV2,
+        decryptNoteV2: helpers.decryptNoteV2,
+        decryptMessage: helpers.decryptMessage,
+      }
+    }
+  )
 }
 
 declare module '@tanstack/react-router' {
