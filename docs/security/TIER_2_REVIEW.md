@@ -9,7 +9,7 @@
 
 1. **I-1 Multi-hub recovery → per-hub.** Confirmed. Spec §2.4.2 "Multi-hub recovery semantics" subsection added: each ceremony runs against exactly one hub; the same root KEK wrapped under multiple hubs means one successful recovery restores cross-hub access; cascading design explicitly rejected.
 2. **I-2 Argon2id bump → OWASP standard floor.** Confirmed ("fine b/c a rare occurrence"). Spec updated: `m=47 MiB, t=1, p=1` across every unlock derivation path. Wall-clock: ~600–900 ms phone, ~200–300 ms desktop.
-3. **I-3 OPAQUE library → deferred with fallback algorithm.** Confirmed "no easy answer". Spec §2.2.1 updated with an implementation-time decision algorithm: (a) `@serenity-kit/opaque` maturity check; (b) fallback to a thin Rust→WASM wrapper over `facebook/opaque-ke` directly; (c) second fallback drops OPAQUE entirely. The spec commits to the DECISION ALGORITHM, not the library.
+3. **I-3 OPAQUE library → ship a first-party Rust→WASM wrapper over `facebook/opaque-ke` (Rhonda confirmed 2026-04-10).** Spec §2.2.1 rewritten: `vendor/opaque-wrapper/` holds a ~300-line Rust crate that exposes a minimal wasm-bindgen API over the Cure53-audited `opaque-ke` core. Pinned ciphersuite (Ristretto255 + TripleDH + Argon2id with Tier 2 parameters compiled in). Vite WASM loader + Bun WebAssembly.instantiate for server-side. No third-party JS library, no runtime negotiation. Committed `pkg/` output ensures contributors don't need a Rust toolchain. Reuses the same WASM infrastructure Tier 6 introduces for `@wireapp/core-crypto`.
 
 ## Summary
 

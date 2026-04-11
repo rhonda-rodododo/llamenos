@@ -311,15 +311,114 @@ This is the multi-credential PRF pattern 1Password uses and it maps cleanly onto
 
 **`@serenity-kit/opaque`** (latest stable at time of spec authoring, WASM build of `facebook/opaque-ke`). Ciphersuite: ristretto255 + SHA-512 + Argon2id (OPRF). Independently reviewed by OTF Red Team Lab. (Verified via npm package readme, GitHub `serenity-kit/opaque` 2026.)
 
-**Library choice is deferred to implementation time** (no easy answer as of the 2026-04-10 spec review). Before writing any OPAQUE code, the implementing engineer runs this check:
+**Decision 2026-04-10: ship a thin Llamenos-owned Rust→WASM wrapper over `facebook/opaque-ke` directly, loaded into the client bundle via Vite's WASM loader.** Rhonda's call: *"lets go with option B for OPAQUE, make our own thin wrapper for OPAQUE-ke and load it with vite wasm"*. The earlier draft deferred the library choice; this is now a concrete commitment.
 
-1. `npm view @serenity-kit/opaque` to verify maintenance status (≤6 months since last commit, still on a supported WASM runtime).
-2. Check Cure53 / OTF / NCC public audit indices for any published review of `@serenity-kit/opaque` or `facebook/opaque-ke` more recent than the 2022 Cure53 report.
-3. Smoke-test the WASM build in Chrome, Firefox, and Safari to confirm it loads and the `ristretto255-sha512` ciphersuite is exposed.
+**Wrapper scope.** The wrapper is a ~300-line Rust crate that re-exports the `opaque-ke` client + server types over a minimal TypeScript-facing API:
 
-**Fallback if the maturity check fails:** commission a thin Rust→WASM wrapper over `facebook/opaque-ke` directly. The `opaque-ke` Rust crate itself is the audited core; the JS binding is the thin layer. Llamenos already ships vendored Rust→WASM in other paths (Tier 5 sim bridge, Tier 6 `ts-mls` vendoring — see those tiers), so the pattern is familiar. This fallback adds ~1 engineer-week to Tier 2 implementation and is the acceptable cost of avoiding an abandoned upstream.
+```rust
+// vendor/opaque-wrapper/src/lib.rs — sketch
+use wasm_bindgen::prelude::*;
+use opaque_ke::{
+  ClientLogin, ClientLoginFinishParameters, ClientLoginStartParameters,
+  ClientRegistration, ClientRegistrationFinishParameters,
+  CredentialFinalization, CredentialRequest, CredentialResponse,
+  RegistrationRequest, RegistrationResponse, RegistrationUpload,
+  ciphersuite::CipherSuite,
+  errors::ProtocolError,
+};
 
-**Second fallback** if maintaining any OPAQUE library is untenable: drop OPAQUE from Tier 2 entirely. PRF + Diceware phrase + Recovery Group is still a strictly stronger unlock matrix than the current key-store-v2 PIN-based design. The password-login convenience is lost (users must always have either a PRF-capable credential or the recovery phrase typed in), which is a UX regression for the "typing a password is familiar" cohort but not a security regression. This fallback is documented in `docs/security/RISKS.md` if it ever happens.
+// Pin exactly one ciphersuite. No runtime switching, no negotiation.
+#[derive(Default)]
+pub struct LlamenosOpaqueCipher;
+impl CipherSuite for LlamenosOpaqueCipher {
+    type OprfCs = voprf::Ristretto255;
+    type KeGroup = opaque_ke::Ristretto255;
+    type KeyExchange = opaque_ke::key_exchange::tripledh::TripleDh;
+    type Ksf = argon2::Argon2<'static>;  // Argon2id with m=47 MiB, t=1, p=1
+}
+
+#[wasm_bindgen]
+pub fn client_registration_start(password: &[u8]) -> Result<Vec<u8>, JsError> { /* ... */ }
+
+#[wasm_bindgen]
+pub fn client_registration_finish(
+    state: &[u8],
+    registration_response: &[u8],
+    password: &[u8],
+) -> Result<Vec<u8>, JsError> { /* ... */ }
+
+#[wasm_bindgen]
+pub fn client_login_start(password: &[u8]) -> Result<Vec<u8>, JsError> { /* ... */ }
+
+#[wasm_bindgen]
+pub fn client_login_finish(
+    state: &[u8],
+    credential_response: &[u8],
+    password: &[u8],
+) -> Result<ClientLoginFinishOutput, JsError> { /* ... */ }
+
+// Server-side: same small set of exports for the Hono route handlers.
+```
+
+The wrapper is **not** an `npm` package. It is a first-party Rust crate living in `vendor/opaque-wrapper/` in the monorepo. The build pipeline runs `wasm-pack build --target web --out-dir pkg` as a Tier 2 plan task, and Vite's native `?url` / `?init` imports load the resulting `.wasm` into both the client (unlock flow) and the server (OPAQUE handler routes; Bun handles WASM the same way Vite does on the browser side).
+
+**Why write our own wrapper.**
+
+1. **Owned ciphersuite choice.** The wrapper pins exactly one ciphersuite (Ristretto255 + TripleDH + Argon2id with our chosen parameters from §2.3.3). Runtime negotiation is impossible by construction — the binary only knows one suite. This closes the entire class of OPAQUE downgrade attacks.
+2. **Audited Rust core, thin binding.** The `facebook/opaque-ke` Rust crate is Cure53-audited (2022) and actively maintained by Meta's crypto team. Our wrapper is ~300 lines of boilerplate around the audited core; the auditable surface is tiny compared to a full JS implementation.
+3. **No floating upstream.** `@serenity-kit/opaque` (the rejected alternative) is a third-party JS package whose maintenance posture we do not control. Owning the wrapper means we pin the `opaque-ke` crate version ourselves and every bump is a PR with a diff review.
+4. **Vite WASM loading is solved.** Tier 6's `@wireapp/core-crypto` adoption already commits Llamenos to Vite's WASM pipeline. Loading a second WASM module (the OPAQUE wrapper) reuses the exact same toolchain — no new infrastructure. Bundle size is acceptable per Rhonda's 2026-04-10 directive ("bundle size is not a problem").
+5. **Argon2id parameter control.** The wrapper's `Ksf` type is our own Argon2id configuration. Llamenos's Tier 2 parameter choice (`m=47 MiB, t=1, p=1`) is compiled into the WASM at build time. No runtime configuration, no risk of a misconfigured `@serenity-kit/opaque` deployment running with weaker defaults.
+6. **Integration with the crypto iframe / worker.** The WASM module is loaded inside the same crypto worker (Tier 0) or crypto sandbox iframe (Tier 4) where the non-extractable KEK lives. The OPAQUE `export_key` never leaves the isolation boundary — the wrapper returns it directly to the KEK-derivation path without main-thread exposure.
+
+**Vendoring layout:**
+
+```
+vendor/
+  opaque-wrapper/
+    Cargo.toml               # pins opaque-ke + voprf + argon2 at exact versions
+    Cargo.lock               # committed
+    src/
+      lib.rs                 # the ~300 lines of wasm-bindgen exports
+    pkg/                     # wasm-pack build output (generated, committed for reproducibility)
+      opaque_wrapper_bg.wasm
+      opaque_wrapper.js
+      opaque_wrapper.d.ts
+    README.md                # vendor notes + build instructions
+  PROVENANCE.md              # per-dep license chain (opaque-ke: MIT, voprf: MIT, argon2: MIT)
+```
+
+The vendored `pkg/` output is checked into git so `bun install` does not require a Rust toolchain on contributor machines. Contributors who want to modify the wrapper install `rustup` + `wasm-pack` and rebuild. CI verifies the committed `pkg/` matches a fresh `wasm-pack build` output (reproducible-build guarantee).
+
+**Build-time dependencies (developer machines only):** `rustup` (stable toolchain), `wasm-pack`. Not required on contributor machines unless they are editing the wrapper.
+
+**API consumption from TypeScript:**
+
+```typescript
+// src/client/lib/opaque-client.ts (after Tier 2 Task X lands)
+import init, * as opaque from '@llamenos/opaque-wrapper'
+import wasmUrl from '@llamenos/opaque-wrapper/pkg/opaque_wrapper_bg.wasm?url'
+
+let ready: Promise<void> | null = null
+async function ensureReady() {
+  if (!ready) ready = init({ module_or_path: wasmUrl }).then(() => undefined)
+  return ready
+}
+
+export async function startClientRegistration(password: string): Promise<{ state: Uint8Array; request: Uint8Array }> {
+  await ensureReady()
+  const combined = opaque.client_registration_start(new TextEncoder().encode(password))
+  // ...parse state + request from the combined bytes returned by the wrapper
+}
+```
+
+The wrapper is imported like any other npm package via a `file:` dependency (`"@llamenos/opaque-wrapper": "file:./vendor/opaque-wrapper/pkg"`) pointing at the `pkg/` directory. SLSA provenance (Tier 0) covers the entire `vendor/` subtree.
+
+**Server-side.** The Hono `/api/auth/opaque/*` routes load the same WASM via Bun's `WebAssembly.instantiate()` + the wrapper's Node target. Bun handles the same wasm-bindgen output as the browser target with a different entry point; the wrapper's `Cargo.toml` lists both `wasm32-unknown-unknown` (browser) and a Node-compatible feature in the `[features]` section. Build produces two `pkg/` directories: `pkg-web/` (browser) and `pkg-node/` (Bun server). Both live under `vendor/opaque-wrapper/` and are loaded from the appropriate path.
+
+**Rejected alternative — `@serenity-kit/opaque`.** Third-party maintenance posture, uncontrolled ciphersuite + parameters, no direct audit trail, upstream can change JS API between versions without our knowledge. We pay a ~1 engineer-week cost for the wrapper in exchange for control.
+
+**Rejected alternative — drop OPAQUE entirely.** PRF + Diceware phrase + Recovery Group would still be a stronger unlock matrix than the current key-store-v2 PIN-based design, but we lose the password-login convenience for the "typing a password is familiar" cohort. Rhonda's Tier 2 design ordering (PRF primary → OPAQUE fallback → Diceware → Recovery Group) depends on OPAQUE being present; dropping it would change the UX contract.
 
 The P-256 variant `@serenity-kit/opaque-p256` exists for environments where ristretto255 is unavailable — we do not use it because WebCrypto-native AES-GCM is on P-256 territory already and we prefer ristretto255 for its simpler modular structure.
 
