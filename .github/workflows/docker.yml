@@ -237,8 +237,12 @@ jobs:
         id: build_scan
         uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
         with:
-          context: .
-          file: sip-bridge/Dockerfile
+          # sip-bridge is a self-contained subproject with its own package.json,
+          # bun.lock, and src/. Build context must be the subproject directory,
+          # NOT the repo root — otherwise the root package.json's prepare script
+          # (lefthook install) runs inside the image and fails on missing git.
+          context: ./sip-bridge
+          file: ./sip-bridge/Dockerfile
           load: true
           push: false
           tags: local-scan-bridge:${{ github.sha }}
@@ -266,8 +270,8 @@ jobs:
         id: build_push
         uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
         with:
-          context: .
-          file: sip-bridge/Dockerfile
+          context: ./sip-bridge
+          file: ./sip-bridge/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
