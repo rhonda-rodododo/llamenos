@@ -323,3 +323,82 @@ Source files audited:
 - **`contact_intakes.encrypted_payload` is the fifth orphan column discovered in this audit** (alongside `blast_settings.*`, `report_categories.encrypted_categories`, `ring_groups.encrypted_name`). The pattern of "schema + server service + route + client query hook — but no UI caller" is consistent across these orphans. Tier 1 cleanup should either wire each one through or remove it.
 - **Server-key fallback is the dominant encrypt pattern for PII.** `users.encrypted_name`/`users.encrypted_phone` and `invite_codes.encrypted_name`/`encrypted_phone` all have a server-key fallback path for cases where envelope encryption isn't possible (e.g. no admin pubkeys configured). These fallback ciphertexts share the same `LABEL_USER_PII` with the envelope ciphertexts, so cross-row swaps are possible between a fallback-encrypted row and an envelope-encrypted row. Tier 1 should consider whether the fallback needs its own label or whether the fallback path should be removed entirely (envelope-or-nothing).
 - **Client-side decrypt for envelope-encrypted PII still hard-codes `aad = utf8ToBytes(label)`** at `src/client/lib/decrypt-fields.ts` line 153 (`decryptFieldWithRecovery`). This is the single line on the client that needs to change when Tier 1 introduces per-record AAD for envelope columns. Every FIX row in this section and every envelope-style FIX in earlier sections (bans, contacts, conversations, signal_contacts, sessions, users, invites, webauthn, push device label) flows through this function.
+
+## Export paths
+
+This section audits every server-side code path that produces a ciphertext destined to leave the server-managed storage boundary (object store, downloadable archive, emailed bundle, or otherwise). Unlike the schema-by-schema audit above, "export paths" may not always terminate in a `ciphertext()` column — some write to blob storage, some return a JSON bundle, and some pass through client-supplied envelopes without the server performing any AEAD operation.
+
+Source files audited:
+
+- `src/server/lib/voicemail-storage.ts` (voicemail recording encrypt path)
+- `src/server/services/files.ts` + `src/client/lib/file-crypto.ts` (attachments — covered by Task 8)
+- `src/server/services/gdpr.ts#exportForUser` (GDPR user export bundle)
+- `src/server/services/intakes.ts#submitIntake` (contact intake storage)
+- `src/server/routes/settings.ts` and the rest of `src/server/routes/` (admin settings export — searched)
+
+### Voicemail (RustFS via StorageManager)
+
+- **Encrypt call site:** `src/server/lib/voicemail-storage.ts#storeVoicemailAudio` line 60 → `crypto.envelopeEncryptBinary(audioBytes, adminPubkeys, LABEL_VOICEMAIL_WRAP)`. The resulting ciphertext is hex-decoded and written to object storage via `FilesService#putAssembled` under a generated `fileId`; the per-recipient ECIES envelopes are persisted as `FileKeyEnvelope[]` on the `files` record.
+- **Decrypt call site:** client-side attachment flow via `FilesService` + `src/client/lib/file-crypto.ts#decryptFileForRecipient`. The voicemail is surfaced through the standard encrypted-file read path — the voicemail row in `call_records.voicemailFileId` points at a `files` record, which the client fetches, decrypts with their ECIES envelope, and plays back.
+- **Label:** `LABEL_VOICEMAIL_WRAP` (`llamenos:voicemail-audio`, index 12 in `LABEL_REGISTRY`). Transcript path `LABEL_VOICEMAIL_TRANSCRIPT` is defined but has **no active encrypt site** in the current branch — voicemail transcripts are dormant/unwired.
+- **AAD (actual):** `utf8ToBytes(LABEL_VOICEMAIL_WRAP)` — label only, **not** bound to the `voicemailFileId`, the `callSid`, or the `hubId`. The AAD is synthesized inside `CryptoService#envelopeEncryptBinary` at `src/server/lib/crypto-service.ts` line 175 and is not parameterizable at the call site.
+- **Framing metadata covered:** none of `fileId`, `contextId` (= `callSid`), `hubId`, or the content-type/MIME are part of the AEAD AAD. They are recorded in plaintext on the `files` DB row (`context_type`, `context_id`, `hub_id`), which means: (a) an attacker with DB write access can repoint a `call_records.voicemail_file_id` at a different `files` row of the same reader set (another voicemail for the same admins), and the AEAD layer will not reject the swap; (b) a `files` row's `context_type`/`context_id` can be rewritten to associate an unrelated encrypted blob with a different call.
+- **Status:** **FIX — Deferred to Tier 1 — primitive rewrite.** The voicemail encrypt path flows through `CryptoService#envelopeEncryptBinary`, which hard-codes `aad = utf8ToBytes(label)` at line 175 and does not accept an AAD parameter. The matching decrypt path on the client (`file-crypto.ts#decryptFileForRecipient`) already takes a per-file AAD because it was rewritten in Workstream 0.1 Task 8, but the server-side binary envelope wrapper has NOT been rewritten yet. Fixing this in Tier 0 would require either (1) plumbing an AAD argument through `envelopeEncryptBinary` (touches the crypto service interface; parallel work with Tier 1's HPKE rewrite that replaces the whole primitive) or (2) dropping the wrapper and inlining a direct `symmetricEncrypt` + `eciesWrapKey` call in `storeVoicemailAudio`, which would duplicate the wrapper's logic and diverge from the rest of the envelope call sites. Neither is in scope for Tier 0; Tier 1 replaces `envelopeEncryptBinary` wholesale with an HPKE-based seal that takes AAD on every call (see `docs/superpowers/plans/2026-04-10-security-tier-1-hpke-primitives.md`). Target AAD post-Tier 1: `${LABEL_VOICEMAIL_WRAP}:${fileId}:${hubId}` (and for the dormant transcript path: `${LABEL_VOICEMAIL_TRANSCRIPT}:${fileId}`).
+
+### Attachments
+
+- **Encrypt call site:** client-side `src/client/lib/file-crypto.ts#encryptFileForRecipients` line 140 → `symmetricEncrypt(plaintextBytes, fileKey, buildFileAad(fileId))` where `buildFileAad` at line 34 constructs AAD = `labelBytes || labelId (1 byte) || fileIdBytes`.
+- **Decrypt call site:** `src/client/lib/file-crypto.ts#decryptFileForRecipient` line 196 → rebuilds the same AAD and passes it to `symmetricDecrypt` at line 213. Wrong `fileId` ⇒ AEAD authentication failure throws.
+- **Label:** `LABEL_FILE_KEY`.
+- **AAD (actual):** `LABEL_FILE_KEY || labelId(LABEL_FILE_KEY) || fileId` — **per-file, binds the label name, the stable label id byte, AND the file UUID**. Encrypts a v2 file envelope (`EnvelopeV2`) stored alongside the ciphertext.
+- **Framing metadata covered:** `fileId` is in the AAD; `labelId` prevents cross-label substitution. Filename, content-type, and total size are stored in a separate `encrypted_metadata` envelope array (also v2) that is keyed per recipient.
+- **Status:** **PASS.** Already fixed in Workstream 0.1 Task 8 (file-crypto v2 + fileId AAD). This is the architectural template Tier 1 will generalize to every other envelope path.
+
+### GDPR user export
+
+- **Encrypt call site:** **none.** `src/server/services/gdpr.ts#exportForUser` (lines 94–223) returns a `GdprExport` object that contains **plaintext metadata** (pubkey, roles, language prefs, timestamps, ids, booleans) and **already-encrypted envelope blobs** from `note_envelopes.encryptedContent` / `message_envelopes.encryptedContent`. The method does **not** encrypt the bundle at all — it is serialized as JSON in `src/server/routes/gdpr.ts` and returned in the HTTP response. The client is expected to decrypt the inner note/message envelopes with its own key.
+- **One server-side AEAD operation does exist in this path:** `exportForUser` calls `this.crypto.serverDecrypt(r.encryptedEvent as Ciphertext, LABEL_AUDIT_EVENT)` on each audit log row (line 200) in order to surface human-readable audit events in the export. This operates on the audit log's server-key encrypted data, which is itself slated for replacement by the hash-chained signed audit log in Workstream 0.2 Tasks 17–22; the audit-log AEAD AAD handling is already tracked in the `records/bans` section above as INFO.
+- **Decrypt call site:** client decrypts the inner envelopes it already knows how to decrypt (notes, messages) using the standard read-path helpers. The GDPR export does not introduce a new decrypt path — it forwards pre-existing ciphertexts as-is.
+- **Label:** N/A at the export layer (no export-level envelope); `LABEL_AUDIT_EVENT` for the audit log decrypt call mentioned above.
+- **AAD (actual):** N/A for the bundle. For the audit decrypt call, `utf8ToBytes(LABEL_AUDIT_EVENT)` — label only (tracked as INFO in the records/bans section, replaced in Workstream 0.2).
+- **Framing metadata covered:** N/A — the bundle is plaintext JSON over HTTPS.
+- **Status:** **INFO — no export-level encryption currently exists.** The plan's proposed AAD of `${LABEL_BACKUP}:${exportId}:${userId}` was predicated on the assumption that `exportForUser` already performs a per-export symmetric seal wrapped via ECIES to the user's pubkey. It does not. Adding such a seal would be **new functionality** (a per-export random `exportKey`, a ciphertext blob, and an ECIES key envelope to the requesting user's pubkey), not an AAD-binding fix to an existing call site. This is out of scope for Tier 0's "bind AAD at existing call sites" mandate and is deferred to a later workstream that can spec and test the new envelope format end-to-end. `LABEL_BACKUP` exists in `crypto-labels.ts` but currently has **zero callers**, confirming that backup / export encryption is not wired up anywhere in the current branch.
+- **Tier 1/future target:** when an export-level encryption envelope is added, use `symmetricEncrypt(canonicalBundleBytes, exportKey, utf8ToBytes(`${LABEL_BACKUP}:${exportId}:${userId}`))` + `eciesWrapKey(exportKey, userPubkey, LABEL_BACKUP)`. Both primitives already take AAD / label parameters, so the fix is straightforward once the feature itself is greenlit. Until then, the GDPR export relies on HTTPS transport security and the pre-existing E2EE envelopes embedded in the bundle.
+
+### Contact intake submissions
+
+- **Encrypt call site:** **none on the server.** `src/server/services/intakes.ts#submitIntake` (lines 16–40) is a pure passthrough: it inserts the caller-supplied `encryptedPayload: Ciphertext` and `payloadEnvelopes: RecipientEnvelope[]` verbatim into `contact_intakes`. No AEAD operation is performed by the service.
+- **Client encrypt site:** the `useSubmitIntake` mutation exists in `src/client/lib/queries/intakes.ts` and would go through the same client-side `envelopeEncryptField` helper as contacts, but **no UI component in the current branch calls `useSubmitIntake`** — confirmed in the Task 15 audit section (`contact_intakes.encrypted_payload`, flagged as INFO/orphan).
+- **Decrypt call site:** **none.** `IntakesService#listIntakes` and `#getIntake` return the ciphertext blob as-is; no client query hook decrypts it in the current branch.
+- **Label:** would be `LABEL_CONTACT_INTAKE` (defined at `src/shared/crypto-labels.ts` line 160, index 14 in `LABEL_REGISTRY`) once the path is wired.
+- **AAD (actual):** N/A — no encrypt/decrypt operation exists. Any future encrypt site inherits whatever Tier 1's HPKE primitive takes as its AAD parameter.
+- **Framing metadata covered:** N/A.
+- **Status:** **INFO — orphan column, no actionable FIX.** This row is a duplicate of the Task 15 audit finding on `contact_intakes.encrypted_payload`. The column is plumbed end-to-end on the server + route + client API + query hook, but no UI component actually produces or consumes intake ciphertexts. When the intake triage UI lands, it will ride on the same Tier 1 HPKE primitive that every other envelope column migrates to, and the AAD binding (`${LABEL_CONTACT_INTAKE}:${intakeId}`) drops in at that point with zero Tier 0 debt. There is no live ciphertext in the database to migrate. Tier 0 has no work to do here.
+- **Why not a one-line hygiene fix now:** even though the plan suggested a "hygiene fix" for this orphan, the fix would have to happen at a call site that does not exist (no encrypt site, no decrypt site). The only place to add AAD binding is inside `envelopeEncryptField` / `envelopeDecryptField` themselves, which is the exact primitive Tier 1 rewrites. Adding a bespoke AAD argument at the `submitIntake` layer would be dead code until a UI appears — it would not bind anything, because the server is still a passthrough.
+
+### Admin settings export
+
+- **Search:** `grep -rn "settings.*export\|export.*settings" src/server` returns only unrelated matches (e.g. `export const settings = ...` barrels and `export default settings` in route files). No endpoint returns a settings bundle or dumps the `settings_*` tables to a downloadable artifact.
+- **Status:** **N/A — no endpoint exists.** When a future admin settings export is added, it should use the same AAD-bound per-export random key + ECIES envelope pattern discussed in the GDPR export section above, with a new `LABEL_SETTINGS_EXPORT` in `LABEL_REGISTRY`.
+
+#### Notes on findings — export paths
+
+- **1 PASS, 1 FIX (deferred), 2 INFO, 1 N/A.**
+  - PASS: attachments (file-crypto v2 + fileId AAD, Task 8).
+  - FIX (deferred to Tier 1): voicemail recording (flows through `envelopeEncryptBinary` wrapper; cannot be fixed without touching the primitive).
+  - INFO: GDPR export (no export-level encryption exists; adding one is new functionality, out of scope); contact intake (orphan column, no active call site).
+  - N/A: admin settings export (no endpoint).
+- **Drift from plan:** the plan assumed all three FIX rows (voicemail, GDPR, intakes) called `symmetricEncrypt` directly and could be bound at the call site. Reality:
+  1. Voicemail calls the `envelopeEncryptBinary` wrapper, which hard-codes label-only AAD and is rewritten wholesale in Tier 1.
+  2. GDPR `exportForUser` does not encrypt the bundle at all; it returns plaintext JSON with pre-existing inner envelopes. Adding an export-level seal is new functionality, not an AAD fix.
+  3. Intakes `submitIntake` is a pure passthrough with zero active client callers; there is no encrypt site on either side to bind AAD to.
+  Therefore Task 16 behaves like Tasks 11–15: audit-only, with FIX rows deferred to Tier 1's primitive rewrite and INFO/N/A rows documented for completeness. The plan's Step 2 ("apply FIXes") is not actionable in Tier 0 given the current code shape; the per-file source edits listed in the plan are preserved here as the post-Tier-1 target AAD expressions but are not applied in this commit.
+- **Post-Tier-1 target AAD expressions (for when the primitive rewrite lands):**
+  - Voicemail recording: `${LABEL_VOICEMAIL_WRAP}:${fileId}:${hubId}`
+  - Voicemail transcript (when wired): `${LABEL_VOICEMAIL_TRANSCRIPT}:${fileId}`
+  - GDPR export bundle (when added): `${LABEL_BACKUP}:${exportId}:${userId}`
+  - Contact intake payload (when UI lands): `${LABEL_CONTACT_INTAKE}:${intakeId}`
+  - Settings export bundle (when added): `${LABEL_SETTINGS_EXPORT}:${exportId}:${hubId}` (new label required)
+- **`LABEL_BACKUP` has zero callers.** It is defined at `src/shared/crypto-labels.ts` line 121 and registered in `LABEL_REGISTRY` at index 10, but no source file uses it. When the GDPR export or admin settings export is wired up in a future workstream, that future work should either call `LABEL_BACKUP` directly (and confirm via grep that nothing else claims it) or introduce per-export-type labels (`LABEL_GDPR_EXPORT`, `LABEL_SETTINGS_EXPORT`) for finer-grained domain separation.
+- **`LABEL_VOICEMAIL_TRANSCRIPT` has zero active encrypt callers.** Defined at line 155, registered at index 13, but no call site in `src/server/lib/voicemail-storage.ts` or elsewhere encrypts a transcript today. Client-side WASM Whisper transcription (see the project overview) may write transcripts in the future; when it does, the same Tier 1 HPKE primitive must be used with `${LABEL_VOICEMAIL_TRANSCRIPT}:${fileId}` as the AAD.
+- **Attachments are the only export path that currently binds AAD to the record id.** Workstream 0.1 Task 8 threaded `fileId` through `buildFileAad` end-to-end, making the attachment encrypt + decrypt path the reference implementation for every other envelope path. Tier 1 should mirror this exact pattern (per-record-id AAD, stable `labelId` byte in the AAD header, envelope version bump on any AAD format change) for voicemail, GDPR export, intakes, and every schema-level FIX row elsewhere in this document.
