@@ -4,7 +4,9 @@
 **Master doc:** [`../SECURITY_IMPROVEMENTS_MASTER.md`](../SECURITY_IMPROVEMENTS_MASTER.md) §3.9, §3.6 (items_key), §7 Tier 1
 **Effort:** Weeks
 **Depends on:** Tier 0 (label enforcement makes the migration safer)
-**Status:** Ready for spec authoring
+**Status:** Absorbed into spec
+**Spec:** [`../../superpowers/specs/2026-04-10-security-tier-1-hpke-primitives-design.md`](../../superpowers/specs/2026-04-10-security-tier-1-hpke-primitives-design.md)
+**Plan:** [`../../superpowers/plans/2026-04-10-security-tier-1-hpke-primitives.md`](../../superpowers/plans/2026-04-10-security-tier-1-hpke-primitives.md)
 
 ## Goal
 
