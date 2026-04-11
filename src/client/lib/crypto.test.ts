@@ -383,7 +383,7 @@ describe('decryptCallRecord — cross-boundary interop', () => {
       const data = hexToBytes(encryptedContent)
       const nonce = data.slice(0, 24)
       const ciphertext = data.slice(24)
-      const cipher = xchacha20poly1305(recordKey, nonce)
+      const cipher = xchacha20poly1305(recordKey, nonce, utf8ToBytes(LABEL_CALL_META))
       const plaintext = cipher.decrypt(ciphertext)
       return JSON.parse(new TextDecoder().decode(plaintext))
     } catch {

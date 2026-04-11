@@ -1,3 +1,4 @@
+import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import { LABEL_SIGNAL_CONTACT } from '@shared/crypto-labels'
 import { normalizeSignalIdentifier } from '@shared/signal-identifier-normalize'
 import { cryptoWorker } from './crypto-worker-client'
@@ -35,7 +36,8 @@ export async function registerSignalContact(opts: RegisterSignalContactOpts): Pr
   const { encryptedHex, envelopes } = await cryptoWorker.envelopeEncryptField(
     JSON.stringify({ identifier: normalized, type: opts.identifierType }),
     [opts.userPubkey],
-    LABEL_SIGNAL_CONTACT
+    LABEL_SIGNAL_CONTACT,
+    utf8ToBytes(LABEL_SIGNAL_CONTACT)
   )
 
   // Single server call — the app server proxies registration to the notifier

@@ -3,8 +3,11 @@ import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import { secp256k1 } from '@noble/curves/secp256k1.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import {
+  type CryptoLabel,
   HMAC_PHONE_PREFIX,
+  LABEL_AUDIT_EVENT,
   LABEL_CALL_META,
+  LABEL_HUB_FIELD,
   LABEL_HUB_KEY_WRAP,
   LABEL_MESSAGE,
   LABEL_SERVER_NOSTR_KEY,
@@ -45,7 +48,7 @@ describe('CryptoService', () => {
 
     test('wrong label fails', () => {
       const ct = crypto.serverEncrypt('secret', LABEL_USER_PII)
-      expect(() => crypto.serverDecrypt(ct, 'wrong:label')).toThrow()
+      expect(() => crypto.serverDecrypt(ct, 'wrong:label' as CryptoLabel)).toThrow()
     })
 
     test('empty string round-trip', () => {
@@ -259,8 +262,8 @@ describe('CryptoService', () => {
       const hubKey = new Uint8Array(32)
       globalThis.crypto.getRandomValues(hubKey)
 
-      const ct = crypto.hubEncrypt('hub data', hubKey)
-      const pt = crypto.hubDecrypt(ct, hubKey)
+      const ct = crypto.hubEncrypt('hub data', hubKey, LABEL_HUB_FIELD)
+      const pt = crypto.hubDecrypt(ct, hubKey, LABEL_HUB_FIELD)
       expect(pt).toBe('hub data')
     })
 
@@ -270,16 +273,16 @@ describe('CryptoService', () => {
       const key2 = new Uint8Array(32)
       globalThis.crypto.getRandomValues(key2)
 
-      const ct = crypto.hubEncrypt('data', key1)
-      expect(crypto.hubDecrypt(ct, key2)).toBeNull()
+      const ct = crypto.hubEncrypt('data', key1, LABEL_HUB_FIELD)
+      expect(crypto.hubDecrypt(ct, key2, LABEL_HUB_FIELD)).toBeNull()
     })
 
     test('nonce uniqueness', () => {
       const hubKey = new Uint8Array(32)
       globalThis.crypto.getRandomValues(hubKey)
 
-      const a = crypto.hubEncrypt('same', hubKey)
-      const b = crypto.hubEncrypt('same', hubKey)
+      const a = crypto.hubEncrypt('same', hubKey, LABEL_HUB_FIELD)
+      const b = crypto.hubEncrypt('same', hubKey, LABEL_HUB_FIELD)
       expect(a).not.toBe(b)
     })
   })
@@ -291,7 +294,7 @@ describe('CryptoService', () => {
       const hubKey = new Uint8Array(32)
       globalThis.crypto.getRandomValues(hubKey)
 
-      const ct = crypto.hubEncrypt('hub-encrypted data', hubKey)
+      const ct = crypto.hubEncrypt('hub-encrypted data', hubKey, LABEL_USER_PII)
       const result = crypto.decryptField(ct, hubKey, LABEL_USER_PII)
       expect(result).toBe('hub-encrypted data')
     })
@@ -377,5 +380,33 @@ describe('CryptoService', () => {
         /No hub key envelope for server pubkey/
       )
     })
+  })
+})
+
+describe('CryptoService AAD binding', () => {
+  test('serverEncrypt/Decrypt round-trip with AAD', () => {
+    const svc = new CryptoService(TEST_SERVER_SECRET, TEST_HMAC_SECRET)
+    const ct = svc.serverEncrypt('hello', LABEL_AUDIT_EVENT)
+    expect(svc.serverDecrypt(ct, LABEL_AUDIT_EVENT)).toBe('hello')
+  })
+
+  test('serverDecrypt rejects wrong label (AAD mismatch)', () => {
+    const svc = new CryptoService(TEST_SERVER_SECRET, TEST_HMAC_SECRET)
+    const ct = svc.serverEncrypt('hello', LABEL_AUDIT_EVENT)
+    expect(() => svc.serverDecrypt(ct, LABEL_USER_PII)).toThrow()
+  })
+
+  test('hubEncrypt/Decrypt round-trip with AAD', () => {
+    const svc = new CryptoService(TEST_SERVER_SECRET, TEST_HMAC_SECRET)
+    const hubKey = new Uint8Array(32).fill(3)
+    const ct = svc.hubEncrypt('hello', hubKey, LABEL_HUB_FIELD)
+    expect(svc.hubDecrypt(ct, hubKey, LABEL_HUB_FIELD)).toBe('hello')
+  })
+
+  test('hubDecrypt returns null on AAD mismatch', () => {
+    const svc = new CryptoService(TEST_SERVER_SECRET, TEST_HMAC_SECRET)
+    const hubKey = new Uint8Array(32).fill(3)
+    const ct = svc.hubEncrypt('hello', hubKey, LABEL_HUB_FIELD)
+    expect(svc.hubDecrypt(ct, hubKey, LABEL_USER_PII)).toBeNull()
   })
 })

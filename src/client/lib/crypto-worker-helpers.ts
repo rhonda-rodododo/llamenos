@@ -10,8 +10,10 @@
  */
 
 import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
+import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import { hexToBytes } from '@noble/hashes/utils.js'
 import {
+  type CryptoLabel,
   LABEL_BLAST_CONTENT,
   LABEL_CALL_META,
   LABEL_MESSAGE,
@@ -27,8 +29,17 @@ import { cryptoWorker } from './crypto-worker-client'
  * The secret key never touches the main thread.
  * Must use the same `label` that was used during wrapping.
  */
-export async function eciesUnwrapKey(envelope: KeyEnvelope, label: string): Promise<Uint8Array> {
-  const resultHex = await cryptoWorker.decrypt(envelope.ephemeralPubkey, envelope.wrappedKey, label)
+export async function eciesUnwrapKey(
+  envelope: KeyEnvelope,
+  label: CryptoLabel
+): Promise<Uint8Array> {
+  // AAD is derived from the label for domain separation (no record-specific binding needed for ECIES key unwrap)
+  const resultHex = await cryptoWorker.decrypt(
+    envelope.ephemeralPubkey,
+    envelope.wrappedKey,
+    label,
+    utf8ToBytes(label)
+  )
   return hexToBytes(resultHex)
 }
 
@@ -137,7 +148,7 @@ export async function decryptCallRecord(
     const data = hexToBytes(encryptedContent)
     const nonce = data.slice(0, 24)
     const ciphertext = data.slice(24)
-    const cipher = xchacha20poly1305(recordKey, nonce)
+    const cipher = xchacha20poly1305(recordKey, nonce, utf8ToBytes(LABEL_CALL_META))
     const plaintext = cipher.decrypt(ciphertext)
     return JSON.parse(new TextDecoder().decode(plaintext))
   } catch {
@@ -154,7 +165,12 @@ export async function decryptTranscription(
   ephemeralPubkeyHex: string
 ): Promise<string | null> {
   try {
-    const resultHex = await cryptoWorker.decrypt(ephemeralPubkeyHex, packed, LABEL_TRANSCRIPTION)
+    const resultHex = await cryptoWorker.decrypt(
+      ephemeralPubkeyHex,
+      packed,
+      LABEL_TRANSCRIPTION,
+      utf8ToBytes(LABEL_TRANSCRIPTION)
+    )
     return new TextDecoder().decode(hexToBytes(resultHex))
   } catch {
     return null

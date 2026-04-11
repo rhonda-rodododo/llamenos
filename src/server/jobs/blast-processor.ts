@@ -8,7 +8,7 @@
  * checks at batch boundaries, per-channel rate limiting, opt-out footers.
  */
 
-import { LABEL_BLAST_CONTENT } from '@shared/crypto-labels'
+import { LABEL_BLAST_CONTENT, LABEL_HUB_FIELD } from '@shared/crypto-labels'
 import { eciesUnwrapKey } from '@shared/crypto-primitives'
 import type { Ciphertext } from '@shared/crypto-types'
 import type { MessagingChannelType } from '@shared/types'
@@ -313,7 +313,7 @@ export class BlastProcessor {
 
   /** Decrypt an encrypted subscriber identifier. Override in tests. */
   async _decryptIdentifier(encrypted: string, hubKey: Uint8Array): Promise<string | null> {
-    return this.crypto.hubDecrypt(encrypted as Ciphertext, hubKey)
+    return this.crypto.hubDecrypt(encrypted as Ciphertext, hubKey, LABEL_HUB_FIELD)
   }
 
   /**

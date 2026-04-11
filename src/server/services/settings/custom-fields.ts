@@ -1,3 +1,4 @@
+import { LABEL_HUB_FIELD } from '@shared/crypto-labels'
 import type { Ciphertext } from '@shared/crypto-types'
 import { eq, sql } from 'drizzle-orm'
 import type { CustomFieldDefinition } from '../../../shared/types'
@@ -67,7 +68,10 @@ export async function updateCustomFields(
   const hubKey = hId ? await getHubKey(hId) : null
 
   const encryptOrPassthrough = (encrypted: Ciphertext | undefined, plaintext: string): Ciphertext =>
-    encrypted ?? (hubKey ? cryptoService.hubEncrypt(plaintext, hubKey) : (plaintext as Ciphertext))
+    encrypted ??
+    (hubKey
+      ? cryptoService.hubEncrypt(plaintext, hubKey, LABEL_HUB_FIELD)
+      : (plaintext as Ciphertext))
 
   const rows = await db
     .insert(customFieldDefinitions)
@@ -85,7 +89,7 @@ export async function updateCustomFields(
           f.encryptedOptions ??
           (f.options && f.options.length > 0
             ? hubKey
-              ? cryptoService.hubEncrypt(JSON.stringify(f.options), hubKey)
+              ? cryptoService.hubEncrypt(JSON.stringify(f.options), hubKey, LABEL_HUB_FIELD)
               : (JSON.stringify(f.options) as Ciphertext)
             : null),
       }))

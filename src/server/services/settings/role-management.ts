@@ -1,3 +1,4 @@
+import { LABEL_HUB_FIELD } from '@shared/crypto-labels'
 import type { Ciphertext } from '@shared/crypto-types'
 import { eq, inArray, sql } from 'drizzle-orm'
 import { DEFAULT_ROLES } from '../../../shared/permissions'
@@ -55,10 +56,12 @@ export async function listRoles(
         DEFAULT_ROLES.map((r) => ({
           id: r.id,
           hubId: hId,
-          encryptedName: hubKey ? cryptoService.hubEncrypt(r.name, hubKey) : (r.name as Ciphertext), // Plaintext until hub key available (pre-production)
+          encryptedName: hubKey
+            ? cryptoService.hubEncrypt(r.name, hubKey, LABEL_HUB_FIELD)
+            : (r.name as Ciphertext), // Plaintext until hub key available (pre-production)
           encryptedDescription: r.description
             ? hubKey
-              ? cryptoService.hubEncrypt(r.description, hubKey)
+              ? cryptoService.hubEncrypt(r.description, hubKey, LABEL_HUB_FIELD)
               : (r.description as Ciphertext)
             : null,
           permissions: r.permissions,

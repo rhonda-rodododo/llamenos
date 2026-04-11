@@ -2,6 +2,7 @@ import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import { secp256k1 } from '@noble/curves/secp256k1.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import {
+  type CryptoLabel,
   HMAC_IP_PREFIX,
   LABEL_HUB_KEY_WRAP,
   LABEL_SERVER_NOSTR_KEY,
@@ -51,7 +52,7 @@ export class CryptoService {
     private readonly hmacSecret: string
   ) {}
 
-  private deriveKey(label: string): Uint8Array {
+  private deriveKey(label: CryptoLabel): Uint8Array {
     let key = this.derivedKeys.get(label)
     if (!key) {
       key = hkdfDerive(hexToBytes(this.serverSecret), new Uint8Array(0), utf8ToBytes(label), 32)
@@ -82,21 +83,37 @@ export class CryptoService {
     return { privateKey: this.cachedServerPrivateKey, pubkey: this.cachedServerPubkey! }
   }
 
-  serverEncrypt(plaintext: string, label: string): Ciphertext {
-    return symmetricEncrypt(utf8ToBytes(plaintext), this.deriveKey(label))
+  /**
+   * Encrypt a plaintext string with a server-derived key.
+   * AAD is derived from the label, binding the ciphertext to this domain.
+   */
+  serverEncrypt(plaintext: string, label: CryptoLabel): Ciphertext {
+    return symmetricEncrypt(utf8ToBytes(plaintext), this.deriveKey(label), utf8ToBytes(label))
   }
 
-  serverDecrypt(ct: Ciphertext, label: string): string {
-    return new TextDecoder().decode(symmetricDecrypt(ct, this.deriveKey(label)))
+  /**
+   * Decrypt a server-encrypted ciphertext.
+   * AAD is derived from the label — must match what was used during encryption.
+   */
+  serverDecrypt(ct: Ciphertext, label: CryptoLabel): string {
+    return new TextDecoder().decode(symmetricDecrypt(ct, this.deriveKey(label), utf8ToBytes(label)))
   }
 
-  hubEncrypt(plaintext: string, hubKey: Uint8Array): Ciphertext {
-    return symmetricEncrypt(utf8ToBytes(plaintext), hubKey)
+  /**
+   * Encrypt a plaintext string with the hub key.
+   * AAD is derived from the label, binding the ciphertext to this hub-key domain.
+   */
+  hubEncrypt(plaintext: string, hubKey: Uint8Array, label: CryptoLabel): Ciphertext {
+    return symmetricEncrypt(utf8ToBytes(plaintext), hubKey, utf8ToBytes(label))
   }
 
-  hubDecrypt(ct: Ciphertext, hubKey: Uint8Array): string | null {
+  /**
+   * Decrypt a hub-encrypted ciphertext. Returns null on decryption failure.
+   * AAD must match what was used during encryption.
+   */
+  hubDecrypt(ct: Ciphertext, hubKey: Uint8Array, label: CryptoLabel): string | null {
     try {
-      return new TextDecoder().decode(symmetricDecrypt(ct, hubKey))
+      return new TextDecoder().decode(symmetricDecrypt(ct, hubKey, utf8ToBytes(label)))
     } catch {
       return null
     }
@@ -106,9 +123,9 @@ export class CryptoService {
    * Decrypt a field: try hub key first, then server key fallback.
    * This handles the transition where data may be encrypted with either key.
    */
-  decryptField(ct: Ciphertext, hubKey: Uint8Array | null, serverLabel: string): string {
+  decryptField(ct: Ciphertext, hubKey: Uint8Array | null, serverLabel: CryptoLabel): string {
     if (hubKey) {
-      const result = this.hubDecrypt(ct, hubKey)
+      const result = this.hubDecrypt(ct, hubKey, serverLabel)
       if (result) return result
     }
     try {
@@ -126,11 +143,11 @@ export class CryptoService {
   envelopeEncrypt(
     plaintext: string,
     recipientPubkeys: string[],
-    label: string
+    label: CryptoLabel
   ): { encrypted: Ciphertext; envelopes: RecipientEnvelope[] } {
     const messageKey = new Uint8Array(32)
     crypto.getRandomValues(messageKey)
-    const encrypted = symmetricEncrypt(utf8ToBytes(plaintext), messageKey)
+    const encrypted = symmetricEncrypt(utf8ToBytes(plaintext), messageKey, utf8ToBytes(label))
     const envelopes: RecipientEnvelope[] = recipientPubkeys.map((pk) => ({
       pubkey: pk,
       ...eciesWrapKey(messageKey, pk, label),
@@ -142,20 +159,20 @@ export class CryptoService {
     ct: Ciphertext,
     envelope: RecipientEnvelope,
     secretKey: Uint8Array,
-    label: string
+    label: CryptoLabel
   ): string {
     const messageKey = eciesUnwrapKey(envelope, secretKey, label)
-    return new TextDecoder().decode(symmetricDecrypt(ct, messageKey))
+    return new TextDecoder().decode(symmetricDecrypt(ct, messageKey, utf8ToBytes(label)))
   }
 
   envelopeEncryptBinary(
     data: Uint8Array,
     recipientPubkeys: string[],
-    label: string
+    label: CryptoLabel
   ): { encrypted: Ciphertext; envelopes: RecipientEnvelope[] } {
     const dataKey = new Uint8Array(32)
     crypto.getRandomValues(dataKey)
-    const encrypted = symmetricEncrypt(data, dataKey)
+    const encrypted = symmetricEncrypt(data, dataKey, utf8ToBytes(label))
     const envelopes: RecipientEnvelope[] = recipientPubkeys.map((pk) => ({
       pubkey: pk,
       ...eciesWrapKey(dataKey, pk, label),
@@ -167,10 +184,10 @@ export class CryptoService {
     ct: Ciphertext,
     envelope: RecipientEnvelope,
     secretKey: Uint8Array,
-    label: string
+    label: CryptoLabel
   ): Uint8Array {
     const dataKey = eciesUnwrapKey(envelope, secretKey, label)
-    return symmetricDecrypt(ct, dataKey)
+    return symmetricDecrypt(ct, dataKey, utf8ToBytes(label))
   }
 
   unwrapHubKey(

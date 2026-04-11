@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { secp256k1 } from '@noble/curves/secp256k1.js'
 import { bytesToHex } from '@noble/hashes/utils.js'
-import { LABEL_USER_PII } from '@shared/crypto-labels'
+import { LABEL_HUB_FIELD, LABEL_USER_PII } from '@shared/crypto-labels'
 import { ClientCryptoService } from './crypto-service'
 
 describe('ClientCryptoService', () => {
@@ -38,8 +38,8 @@ describe('ClientCryptoService', () => {
     test('round-trip', () => {
       const hubKey = new Uint8Array(32)
       globalThis.crypto.getRandomValues(hubKey)
-      const ct = client.hubEncrypt('hub data', hubKey)
-      expect(client.hubDecrypt(ct, hubKey)).toBe('hub data')
+      const ct = client.hubEncrypt('hub data', hubKey, LABEL_HUB_FIELD)
+      expect(client.hubDecrypt(ct, hubKey, LABEL_HUB_FIELD)).toBe('hub data')
     })
   })
 
