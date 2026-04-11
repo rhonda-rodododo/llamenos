@@ -65,13 +65,14 @@ tags: |
 
 Resulting tags:
 
-| Event                  | Tags produced                                                  |
-|------------------------|----------------------------------------------------------------|
-| `push` → main          | `latest`, `main`, `sha-abc1234`                                |
-| `push` → `v1.2.3` tag  | `1.2.3`, `1.2`, `sha-abc1234`                                  |
-| `workflow_dispatch`    | `sha-abc1234` (no branch/tag context → only sha)               |
+| Event                          | Tags produced                     |
+|--------------------------------|-----------------------------------|
+| `push` → main                  | `latest`, `main`, `sha-abc1234`   |
+| `push` → `v1.2.3` tag          | `1.2.3`, `1.2`, `sha-abc1234`     |
+| `workflow_dispatch` from main  | `latest`, `sha-abc1234`           |
+| `workflow_dispatch` from other | `sha-abc1234`                     |
 
-`latest` only applies on the default branch, matching convention.
+`latest` is gated on `{{is_default_branch}}`, which evaluates to true whenever the dispatched ref is the default branch regardless of `event_name`. `type=ref,event=branch` only fires on `push`, which is why `main` (the literal branch-name tag) doesn't appear on workflow_dispatch runs.
 
 ### 3. Trivy reference fix
 
@@ -88,9 +89,9 @@ Using the build step's `digest` output is exact: it scans the precise manifest t
 
 ### 5. One-time manual: public package visibility
 
-GHCR packages default to private on first publish. After the first successful run of the new workflow, the user must:
+GHCR packages default to private on first publish. The repo owner is `rhonda-rodododo` (user-owned, not org-owned), so the package settings path uses `/users/`. After the first successful run of the new workflow:
 
-1. Go to https://github.com/users/{owner}/packages/container/llamenos-hotline/settings
+1. Go to https://github.com/users/rhonda-rodododo/packages/container/llamenos-hotline/settings
 2. Scroll to "Danger Zone" → "Change package visibility" → set to Public.
 3. Repeat for `llamenos-hotline-sip-bridge`.
 4. (Optional but recommended) Under "Manage Actions access", confirm the repository is linked so future pushes from the same repo are allowed without per-run auth tweaks.
@@ -119,8 +120,8 @@ CI workflow changes cannot be unit tested. Verification path:
 
 1. **Local YAML lint**: `actionlint .github/workflows/docker.yml` (if installed) or `gh workflow view docker.yml` post-merge.
 2. **Pre-merge dry-run**: open the PR; the workflow runs on the PR branch via `workflow_dispatch` manual trigger from the Actions UI to confirm the build-push-scan pipeline works end-to-end against a throwaway tag before merging.
-3. **Post-merge confirmation**: after merge, confirm `gh run list --workflow docker.yml` shows a new run, the run succeeds, and `gh api /users/{owner}/packages/container/llamenos-hotline/versions` lists the new version.
-4. **Pull test**: `docker pull ghcr.io/{owner}/llamenos-hotline:latest` from a clean environment (after the package is flipped to public).
+3. **Post-merge confirmation**: after merge, confirm `gh run list --workflow docker.yml` shows a new run, the run succeeds, and `gh api /users/rhonda-rodododo/packages/container/llamenos-hotline/versions` lists the new version.
+4. **Pull test**: `docker pull ghcr.io/rhonda-rodododo/llamenos-hotline:latest` from a clean environment (after the package is flipped to public).
 
 ## Rollout
 
