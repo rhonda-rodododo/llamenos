@@ -112,8 +112,11 @@ describe('hkdfDerive', () => {
 })
 
 describe('CryptoLabel brand + registry', () => {
-  test('LABEL_REGISTRY is non-empty', () => {
-    expect(LABEL_REGISTRY.length).toBeGreaterThan(0)
+  test('LABEL_REGISTRY entries are unique and prefixed with "llamenos:"', () => {
+    expect(new Set(LABEL_REGISTRY).size).toBe(LABEL_REGISTRY.length)
+    for (const label of LABEL_REGISTRY) {
+      expect(label).toMatch(/^llamenos:/)
+    }
   })
 
   test('labelToId returns a stable id per label', () => {
@@ -128,11 +131,11 @@ describe('CryptoLabel brand + registry', () => {
 
   test('labelToId throws on unregistered label', () => {
     expect(() => labelToId('llamenos:nonexistent' as CryptoLabel)).toThrow(
-      'Unregistered crypto label'
+      /Unregistered crypto label: llamenos:nonexistent/
     )
   })
 
   test('idToLabel throws on unknown id', () => {
-    expect(() => idToLabel(999)).toThrow('Unknown crypto label id')
+    expect(() => idToLabel(999)).toThrow(/Unknown crypto label id: 999/)
   })
 })

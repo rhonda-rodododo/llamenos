@@ -7,15 +7,22 @@
  *
  * RULES:
  * 1. NEVER use raw string literals for crypto contexts — import from here
- * 2. New crypto operations MUST add a new constant before implementation
- * 3. All constants are prefixed with 'llamenos:' for collision avoidance
+ * 2. Constants passed as the `label` argument of ECIES/AEAD calls, OR enrolled
+ *    in LABEL_REGISTRY (wire-format index), MUST carry the `CryptoLabel` brand
+ * 3. HKDF salts/info fragments, HMAC key/prefix bytes, SAS salts, auth message
+ *    prefixes, and recovery-key salts are NOT crypto-operation labels in the
+ *    Tier 0 sense — leave them as plain strings
+ * 4. New crypto operations MUST add a new constant before implementation
+ * 5. All constants are prefixed with 'llamenos:' for collision avoidance
  */
 
 // --- Branded type for crypto-operation labels ---
-// Only constants that are passed as the `label` argument of ECIES/AEAD functions
-// (eciesWrapKey, eciesUnwrapKey, symmetricEncrypt, symmetricDecrypt, etc.) carry
-// this brand. HKDF salts/info fragments, HMAC prefixes, and auth prefixes are
-// plain strings — they are NOT passed as the label argument.
+// Constants carry the CryptoLabel brand if they are passed as the `label`
+// argument of ECIES/AEAD functions (eciesWrapKey, eciesUnwrapKey,
+// symmetricEncrypt, symmetricDecrypt, etc.) OR if they are enrolled in
+// LABEL_REGISTRY for the stable wire-format index. HKDF salts/info fragments,
+// HMAC prefixes, SAS salts, auth prefixes, and recovery-key salts are plain
+// strings — they are NOT crypto-operation labels in the Tier 0 sense.
 
 declare const __CryptoLabelBrand: unique symbol
 export type CryptoLabel = string & { readonly [__CryptoLabelBrand]: never }
@@ -65,7 +72,7 @@ export const HKDF_CONTEXT_DRAFTS = 'llamenos:drafts'
 /** HKDF context: export encryption */
 export const HKDF_CONTEXT_EXPORT = 'llamenos:export'
 
-/** Hub event AEAD domain separation from hub key (Epic 76.2) */
+/** Hub event HKDF derivation from hub key (Epic 76.2) */
 export const LABEL_HUB_EVENT = 'llamenos:hub-event' as CryptoLabel
 
 // --- ECDH Key Agreement ---
