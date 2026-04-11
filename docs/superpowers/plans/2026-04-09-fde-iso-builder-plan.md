@@ -2251,3 +2251,136 @@ EOF
 - **Reproducibility traps:** `gzip -n`, `cpio --reproducible`, deterministic sort order in `find` (use `find ... | LC_ALL=C sort` if you ever add a `sort` step), and `SOURCE_DATE_EPOCH` set in the Dockerfile. If the verifier fails, the most likely culprit is a non-deterministic step in `build-inside.sh`.
 - **Don't bake llamenos into the ISO:** the ISO is a substrate. No Llamenos source, no env vars, no secrets. Everything Llamenos-specific comes from the Ansible playbook running against the new host.
 - **Don't preseed the LUKS passphrase, ever.** The 30-second console interaction is the security feature, not a missing automation.
+
+---
+
+## Appendix — headless qemu reproduction (learned 2026-04-11)
+
+T11 as written assumes a VGA console with a human at the keyboard. You can also run the whole install headlessly to validate everything except the actual passphrase-typing step. This is valuable for CI-adjacent local validation and surfaced a real bug during first rollout (see `f0995751`).
+
+### Prereqs
+
+```bash
+sudo apt-get install -y qemu-system-x86 qemu-utils ovmf
+```
+
+The builder image already has `xorriso`, so helper file extraction can run via `docker run --rm --entrypoint xorriso -v ... llamenos-iso-builder:latest ...`.
+
+### 1. Extract kernel + initrd from the ISO
+
+```bash
+mkdir -p /tmp/iso-test/vm/iso-boot
+docker run --rm --entrypoint xorriso -v /tmp/iso-test:/work llamenos-iso-builder:latest \
+  -osirrox on -indev /work/out/llamenos-debian13-dropbear.iso \
+  -extract /install.amd /work/vm/iso-boot
+```
+
+### 2. Patch the initrd to preseed a test passphrase (TEST ONLY)
+
+The production preseed deliberately does NOT preseed `partman-crypto/passphrase`. For headless testing, you need to. Extract the initrd, edit `preseed.cfg`, repack.
+
+```bash
+mkdir -p /tmp/iso-test/vm/initrd-mod
+cd /tmp/iso-test/vm/initrd-mod
+gunzip -c ../iso-boot/initrd.gz | cpio -id --quiet
+# The mknod errors on dev/console and dev/null are harmless (no root).
+```
+
+Edit `preseed.cfg` and insert two lines before `d-i partman-auto/method string crypto`:
+
+```
+d-i partman-crypto/passphrase password testpass123456
+d-i partman-crypto/passphrase-again password testpass123456
+```
+
+If you built the ISO with `--disk /dev/sda` but qemu uses virtio, also change `partman-auto/disk string /dev/sda` → `/dev/vda`. (Or pass `--disk /dev/vda` to `build-iso.sh` at build time.)
+
+Repack the initrd deterministically:
+
+```bash
+find . -print0 | LC_ALL=C sort -z | cpio -H newc -o --quiet --null \
+  | gzip -9 -n > /tmp/iso-test/vm/iso-boot/initrd-patched.gz
+```
+
+### 3. Boot the installer headlessly
+
+```bash
+qemu-img create -f qcow2 /tmp/iso-test/vm/disk.qcow2 10G
+
+cd /tmp/iso-test/vm && qemu-system-x86_64 \
+  -m 2048 -smp 2 \
+  -vga none -display none \
+  -drive file=disk.qcow2,format=qcow2,if=virtio \
+  -cdrom /tmp/iso-test/out/llamenos-debian13-dropbear.iso \
+  -kernel iso-boot/vmlinuz \
+  -initrd iso-boot/initrd-patched.gz \
+  -append "DEBIAN_FRONTEND=text auto=true priority=critical console=ttyS0,115200n8" \
+  -netdev user,id=n0,hostfwd=tcp::3322-:2222,hostfwd=tcp::3022-:22 \
+  -device virtio-net-pci,netdev=n0 \
+  -serial file:/tmp/iso-test/vm/serial.log \
+  -monitor unix:/tmp/iso-test/vm/qemu-mon.sock,server,nowait \
+  -pidfile /tmp/iso-test/vm/qemu.pid \
+  -daemonize
+```
+
+Key flags:
+- `-vga none -display none` — no graphical output, forces d-i onto the serial console
+- `-kernel`/`-initrd`/`-cdrom` — direct kernel+initrd boot from the host filesystem; the `-cdrom` is still needed so d-i can mount `/cdrom` for the late_command helpers
+- `console=ttyS0,115200n8` — routes kernel console to serial
+- `DEBIAN_FRONTEND=text` — forces debconf into text frontend (supports dumb serial)
+- The forwarded ports 3322/3022 map to dropbear (2222) and sshd (22) on the guest
+
+Watch the install via `tail -f /tmp/iso-test/vm/serial.log`. The `screen(1)` status bar fills most lines; filter with `sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g; s/\r/\n/g' | grep -v '^\['`.
+
+### 4. Watch for the installer reboot request
+
+When you see `Requesting system reboot` in the log, the install is done. **Do NOT let qemu reboot with `-kernel` pinned** — qemu will re-run the installer kernel from the host FS instead of booting GRUB from the installed disk. Kill qemu at this point:
+
+```bash
+kill -9 $(cat /tmp/iso-test/vm/qemu.pid)
+```
+
+### 5. Boot the installed system from disk (no installer)
+
+```bash
+cd /tmp/iso-test/vm && qemu-system-x86_64 \
+  -m 2048 -smp 2 \
+  -vga none -display none \
+  -drive file=disk.qcow2,format=qcow2,if=virtio \
+  -boot c \
+  -netdev user,id=n0,hostfwd=tcp::3322-:2222,hostfwd=tcp::3022-:22 \
+  -device virtio-net-pci,netdev=n0 \
+  -serial file:/tmp/iso-test/vm/serial-boot.log \
+  -pidfile /tmp/iso-test/vm/qemu.pid \
+  -daemonize
+```
+
+Within ~5 seconds, dropbear should be listening on `localhost:3322`:
+
+```bash
+nc -w 2 localhost 3322 < /dev/null
+# → SSH-2.0-dropbear_2025.89
+```
+
+### 6. Validate the dropbear stack
+
+```bash
+ssh -v -o StrictHostKeyChecking=no -p 3322 -i /tmp/iso-test/test_key root@localhost
+```
+
+Expected: public-key auth succeeds, dropbear runs the forced command `cryptroot-unlock` and prompts `Please unlock disk vda5_crypt`. This confirms:
+- `apt-get install dropbear-initramfs` succeeded in the late_command chroot (which was the bug catch — see below)
+- `update-initramfs -u -k all` baked dropbear into the initrd
+- `/etc/dropbear/initramfs/authorized_keys` has the right key
+- `DROPBEAR_OPTIONS="-I 300 -j -k -p 2222 -s -c cryptroot-unlock"` is active
+- klibc `IP=dhcp` brought up networking in initramfs
+
+### 7. Interactive passphrase unlock (NOT scriptable)
+
+Typing the passphrase over SSH and having it actually unlock the volume is interactive-TTY-sensitive: cryptroot-unlock uses `stty -echo` + `read`, which interacts poorly with `echo 'pass' | ssh -tt`. Real humans at real terminals have no trouble; T14 (real VPS install) covers this path for free.
+
+### The late_command apt-get hang (f0995751)
+
+First headless run of this procedure hung at "Finishing the installation 10%" for 5+ minutes at 130% CPU with no serial progress. Root cause: `scripts/iso-builder/dropbear-setup.sh` ran `apt-get install -y --no-install-recommends dropbear-initramfs` WITHOUT `DEBIAN_FRONTEND=noninteractive`. Inside the d-i `in-target` chroot, the dropbear-initramfs postinst triggers debconf prompts that have no tty to answer on. The fix adds `export DEBIAN_FRONTEND=noninteractive` and `--force-confdef --force-confold` before the apt-get call. See the design spec §7 for the current form.
+
+This is an integration-only bug: shellcheck, bats, CI, and four code-review passes all missed it. Only a real d-i chroot run surfaces it. The headless qemu test procedure in this appendix is the cheapest way to catch similar late_command regressions in the future.

@@ -467,10 +467,21 @@ cidr_to_netmask() {
 SSH_PUBKEY="$1"
 STATIC_IP="$2"
 GATEWAY="$3"
-DNS="$4"
+# (DNS is intentionally NOT threaded through — initramfs does no name
+#  resolution, and the DROPBEAR_OPTIONS forced command is cryptroot-unlock
+#  which never opens an outbound connection.)
 
-# Install dropbear-initramfs
-apt-get install -y --no-install-recommends dropbear-initramfs
+# Install dropbear-initramfs.
+# DEBIAN_FRONTEND=noninteractive is REQUIRED: the dropbear-initramfs
+# postinst triggers debconf prompts that would otherwise block on a tty
+# that doesn't exist inside the d-i late_command chroot, hanging the
+# installer indefinitely at "Finishing the installation". Discovered
+# during headless qemu T11 testing on 2026-04-11.
+export DEBIAN_FRONTEND=noninteractive
+apt-get install -y --no-install-recommends \
+  -o Dpkg::Options::="--force-confdef" \
+  -o Dpkg::Options::="--force-confold" \
+  dropbear-initramfs
 
 # Trixie path (NOT the bookworm /etc/dropbear-initramfs/ path)
 mkdir -p /etc/dropbear/initramfs
