@@ -4,7 +4,9 @@
 **Master doc:** [`../SECURITY_IMPROVEMENTS_MASTER.md`](../SECURITY_IMPROVEMENTS_MASTER.md) §5.6, §6.5, §7 Tier 4
 **Effort:** Weeks (parallel to Tier 3)
 **Depends on:** Tier 0 (CSP/cosign already in Tier 0; Tier 4 builds further structural isolation)
-**Status:** Ready for spec authoring
+**Status:** Absorbed into spec
+**Spec:** [`../../superpowers/specs/2026-04-10-security-tier-4-delivery-hardening-design.md`](../../superpowers/specs/2026-04-10-security-tier-4-delivery-hardening-design.md)
+**Plan:** [`../../superpowers/plans/2026-04-10-security-tier-4-delivery-hardening.md`](../../superpowers/plans/2026-04-10-security-tier-4-delivery-hardening.md)
 
 ## Goal
 
