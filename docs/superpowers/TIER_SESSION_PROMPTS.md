@@ -245,35 +245,45 @@ echo "$PII_CHECK_PATTERNS"
 
 ## Scope
 
-Two test fixtures, both new:
+Four new files, all pure test infrastructure:
 
 1. `tests/fixtures/sim-sip-bridge.ts` — fakes Asterisk ARI WebSocket
    + media-plane RTP. Accepts dialplan events, generates RTP packets,
    exposes state for assertions.
-2. `tests/fixtures/sim-caller.ts` — simulated inbound caller. Encodes
-   a known Opus-encoded audio clip, drives it through a jitter buffer,
-   emits DTMF digits on demand for IVR tests.
+2. `tests/fixtures/sim-caller.ts` — simulated inbound caller. Holds
+   a canned Opus-encoded audio clip (stub: 440 Hz tone, 2 s), drives
+   it through a jitter buffer, emits DTMF digits on demand for IVR
+   tests. **No SFrame methods** (those land in Tier 5 main as
+   Task 19b per the plan's Workstream 5.8 header note).
+3. `tests/helpers/sframe-test-utils.ts` — mock RTP packet layout +
+   mock SFrame key-material helpers. **No `@shared/sframe/`
+   imports** — those modules do not exist on main yet.
+4. `docs/testing/TEST_FIXTURES_SFRAME.md` — reference for how to use
+   the fixtures in call tests.
 
 **Deliberately NOT in scope:** SFrame production code (that's Tier 5
 main). No `RTCRtpScriptTransform`, no encryption, no crypto worker
-changes. Pure test harness that can be reused by Tier 3 and Tier 4
+changes, no imports from `src/shared/sframe/` (which does not exist
+on main). Pure test harness that can be reused by Tier 3 and Tier 4
 call-path tests.
 
 ## First task
 
-Read Tier 5 plan's prerequisite task block for the full subtask
-breakdown (WebSocket mock, RTP packet generator, Opus encoder, jitter
-buffer). Start with the WebSocket mock — it is the smallest testable
-unit and the rest build on it.
+Read Workstream 5.8 of the Tier 5 plan — its header note (added in
+this PR) explains the scope split between prereq and Tier 5 main.
+The prereq-scope tasks are 18 and 19. Start with `sim-sip-bridge`
+(Task 18): the ARI WebSocket mock is the smallest testable unit,
+and `sim-caller` plus `sframe-test-utils` build on its RTP helpers.
 
 ## Verification gate
 
 bun run typecheck
 bun run lint
 bun run build
-bun run test:unit tests/fixtures/sim-sip-bridge.test.ts
-bun run test:unit tests/fixtures/sim-caller.test.ts
-bunx playwright test tests/api/sim-fixtures.spec.ts
+bun test tests/fixtures/sim-sip-bridge.test.ts
+bun test tests/fixtures/sim-caller.test.ts
+
+(No Playwright API spec lands in the prereq PR — `tests/api/sim-sip-bridge.spec.ts` in Tier 5 plan §5.11 Task 28 lands alongside the Tier 5 main PR because it exercises SFrame pipeline end-to-end.)
 
 ## Session end
 
@@ -1013,6 +1023,18 @@ first.
   Silent fallback is banned.
 - 22-locale translation: English + placeholder fallbacks land in THIS
   PR; the full translation sweep is a separate session per §5.11.1.
+- **Pick up Tier 5 prereq follow-ups** (Workstream 5.8 header note in
+  the plan, added by the prereq PR):
+  - **Task 19b** — extend `SimCaller` with `bindCall` / `loadKey` /
+    `produceFrame` / `consumeFrame` methods that use
+    `@shared/sframe/cipher-suite` + `@shared/sframe/frame-codec`.
+    This unblocks Task 20.
+  - **Task 20** — `SimCompromisedBridge` adversarial subclass +
+    tests (old plan Task 20 listing, now deferred here because
+    the tests call `SimCaller.produceFrame`).
+  - **Task 28** (from §5.11) — `tests/api/sim-sip-bridge.spec.ts`
+    Playwright API E2E adversarial suite. Uses the extended
+    `SimCaller` from Task 19b + `SimCompromisedBridge` from Task 20.
 
 ## Verification gate
 

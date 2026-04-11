@@ -48,12 +48,14 @@
 | `src/client/routes/admin/settings/voice-e2ee.test.tsx` | Route component unit tests |
 | `sip-bridge/src/sframe-mode-dispatcher.ts` | ARI Stasis argument parsing — routes calls to `sframe` or `pstn` mode |
 | `sip-bridge/src/sframe-mode-dispatcher.test.ts` | Dispatcher unit tests |
-| `tests/fixtures/sim-sip-bridge.ts` | Pure-TypeScript simulated SIP bridge |
-| `tests/fixtures/sim-sip-bridge.test.ts` | Fixture sanity tests |
-| `tests/fixtures/sim-caller.ts` | Simulated WebRTC caller |
-| `tests/fixtures/sim-caller.test.ts` | Fixture sanity tests |
-| `tests/fixtures/sim-compromised-bridge.ts` | Adversarial bridge subclass |
-| `tests/fixtures/sim-compromised-bridge.test.ts` | Adversarial fixture sanity tests |
+| `tests/fixtures/sim-sip-bridge.ts` | Simulated Asterisk ARI + in-memory RTP bridge (prereq PR) |
+| `tests/fixtures/sim-sip-bridge.test.ts` | Fixture sanity tests (prereq PR) |
+| `tests/fixtures/sim-caller.ts` | Simulated inbound caller: Opus clip + jitter + DTMF (prereq PR); extended in Tier 5 main with SFrame produce/consume (Task 19b) |
+| `tests/fixtures/sim-caller.test.ts` | Fixture sanity tests (prereq PR + Tier 5 main addendum) |
+| `tests/helpers/sframe-test-utils.ts` | Mock RTP layout + mock SFrame key-material helpers — no `@shared/sframe/` imports (prereq PR) |
+| `docs/testing/TEST_FIXTURES_SFRAME.md` | Reference for how to use the fixtures in call tests (prereq PR) |
+| `tests/fixtures/sim-compromised-bridge.ts` | Adversarial bridge subclass (Tier 5 main PR — depends on Task 19b) |
+| `tests/fixtures/sim-compromised-bridge.test.ts` | Adversarial fixture sanity tests (Tier 5 main PR) |
 | `tests/api/sframe-key-event.spec.ts` | API E2E — kind-20002 key event round-trip |
 | `tests/api/dtls-fingerprint-event.spec.ts` | API E2E — kind-20003 fingerprint event |
 | `tests/api/voice-e2ee-policy.spec.ts` | API E2E — hub policy CRUD |
@@ -2487,11 +2489,30 @@ git commit -m "feat(webrtc-adapters): install SFrame transforms across twilio/vo
 
 ## Workstream 5.8 — Test fixtures (sim bridge, sim caller, adversarial)
 
-### Task 18: `SimSipBridge` fixture
+> **PR split (decided 2026-04-11, enacted in Tier 5 prereq PR):**
+>
+> Per spec §5.12, the test fixtures ship as a **prerequisite PR** (`feat/sec-tier-5-prereq-sim-sip-bridge`) BEFORE the Tier 5 main PR. The original plan wrote the SimCaller fixture as an SFrame frame producer that imported from `src/shared/sframe/` — but those production modules don't exist yet on main when the prereq PR lands, and spec §5.12 explicitly bans SFrame production code in the prereq. The original Task 19 listing was self-contradictory.
+>
+> Resolution:
+>
+> - **Tasks 18 + 19 (prereq PR)** — `SimSipBridge` + `SimCaller` ship as pure test infrastructure with zero `@shared/sframe/` imports. `SimSipBridge` mocks the Asterisk ARI WebSocket surface and the RTP media plane in memory. `SimCaller` simulates an inbound caller with a canned Opus payload, a simple jitter buffer, and DTMF digit emission for IVR tests. Both are framework-agnostic (callable from `bun:test` unit tests AND Playwright API/UI tests).
+> - **Task 19b (Tier 5 main PR)** — extend `SimCaller` with `loadKey`, `produceFrame`, `consumeFrame` methods once `src/shared/sframe/frame-codec.ts` and `src/shared/sframe/cipher-suite.ts` exist (after Workstreams 5.1 and 5.2 land). This is the content of the old Task 19 code listing, now deferred.
+> - **Task 20 (Tier 5 main PR)** — `SimCompromisedBridge` ships with the Tier 5 main PR so its adversarial tests can use `SimCaller.produceFrame` / `consumeFrame`. The class body (`modifyFrame`, `modifyTrailer`, `maybeDrop`) is byte-level and format-agnostic, but the tests that validate its behavior need the SFrame-capable SimCaller from Task 19b.
+> - **New prereq files not in the original plan** (per spec §5.12):
+>   - `tests/helpers/sframe-test-utils.ts` — mock RTP packet layout + mock SFrame key-material helpers that carry no `@shared/sframe/` imports. Prereq PR.
+>   - `docs/testing/TEST_FIXTURES_SFRAME.md` — reference for how to use the fixtures in call tests. Prereq PR.
+>
+> Session B of Tier 5 main MUST pick up Task 19b and Task 20 — they are the critical path for adversarial test coverage of the SFrame pipeline.
+
+### Task 18: `SimSipBridge` fixture (prereq PR)
 
 **Files:**
 - Create: `tests/fixtures/sim-sip-bridge.ts`
 - Create: `tests/fixtures/sim-sip-bridge.test.ts`
+- Create: `tests/helpers/sframe-test-utils.ts`
+- Create: `docs/testing/TEST_FIXTURES_SFRAME.md`
+
+**Scope note:** The code listing below is the minimal-stub starting point that the old plan captured. The prereq PR implementation adds (on top of it): a mock Asterisk ARI WebSocket surface, an in-memory RTP packet stream with a simple SSRC/timestamp/sequence number generator, a dialplan-event injector (`inject({ callId, callerNumber, remote, mode })` per spec §5.12.1), and a `getEvents()` accessor returning the ARI events the bridge would have dispatched. No kernel sockets — pure in-memory. Framework-agnostic. `tests/helpers/sframe-test-utils.ts` carries shared helpers that do NOT import from `@shared/sframe/` (e.g. mock RTP header layout, canned packet builders). `docs/testing/TEST_FIXTURES_SFRAME.md` documents how to wire the fixtures into unit + Playwright tests.
 
 - [ ] **Step 1: Write failing test**
 
@@ -2595,23 +2616,86 @@ git add tests/fixtures/sim-sip-bridge.ts tests/fixtures/sim-sip-bridge.test.ts
 git commit -m "test(fixtures): SimSipBridge for Tier 5 SFrame integration tests"
 ```
 
-### Task 19: `SimCaller` fixture
+### Task 19: `SimCaller` fixture (prereq PR — Opus / jitter / DTMF)
 
 **Files:**
 - Create: `tests/fixtures/sim-caller.ts`
 - Create: `tests/fixtures/sim-caller.test.ts`
 
+**Scope:** `SimCaller` simulates an inbound caller for IVR and call-path tests. It:
+
+- Holds a canned Opus-encoded audio clip (stubbed as a 2-second 440 Hz tone packaged as deterministic bytes — real Opus encoding is too heavy for CI).
+- Drives the clip through a simple jitter buffer that accepts an inter-packet delay and delivers frames on a `nextFrame()` pull API.
+- Emits DTMF digits on demand via `pressDigit(digit)` / `pressSequence("1234#")` for IVR test flows.
+- Exposes state (`getFramesSent()`, `getDigitsEmitted()`) for assertions.
+
+**Explicitly NOT in scope for the prereq PR:** SFrame `produceFrame` / `consumeFrame` / `loadKey` methods that exercise `@shared/sframe/frame-codec`. Those live in Task 19b inside the Tier 5 main PR — they can only exist after Workstreams 5.1 and 5.2 create `src/shared/sframe/cipher-suite.ts` and `src/shared/sframe/frame-codec.ts`.
+
+- [ ] **Step 1: Write failing test**
+
+Draft unit tests in `tests/fixtures/sim-caller.test.ts` for: (a) the caller produces N frames from the canned clip, (b) the jitter buffer respects inter-packet delay, (c) `pressSequence` emits DTMF events in order, (d) `getFramesSent()` + `getDigitsEmitted()` counts match what was produced. No SFrame imports.
+
+- [ ] **Step 2: Run failing test**
+
+Run: `bun test tests/fixtures/sim-caller.test.ts`
+Expected: FAIL.
+
+- [ ] **Step 3: Implement**
+
+Sketch (shape is indicative — implementer tunes for the assertions that land):
+
+```typescript
+// tests/fixtures/sim-caller.ts — NO @shared/sframe imports
+export interface SimCallerOptions {
+  clipDurationMs?: number        // default 2000
+  frameIntervalMs?: number       // default 20 (Opus default)
+  toneHz?: number                // default 440
+}
+
+export class SimCaller {
+  constructor(public readonly deviceId: string, options?: SimCallerOptions) {...}
+  nextFrame(): Uint8Array | null           // drains the canned clip frame by frame
+  pressDigit(digit: DtmfDigit): void       // '0'..'9', '*', '#', 'A'..'D'
+  pressSequence(seq: string): void
+  drainDigits(): DtmfDigit[]               // returns + clears
+  getFramesSent(): number
+  getDigitsEmitted(): number
+  reset(): void
+}
+```
+
+- [ ] **Step 4: Re-run test**
+
+Run: `bun test tests/fixtures/sim-caller.test.ts`
+Expected: all tests PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add tests/fixtures/sim-caller.ts tests/fixtures/sim-caller.test.ts
+git commit -m "test(fixtures): SimCaller — Opus clip + jitter buffer + DTMF"
+```
+
+### Task 19b: Extend `SimCaller` with SFrame produce/consume (Tier 5 main PR)
+
+**Moved from the old Task 19.** Runs in the Tier 5 main PR after Workstreams 5.1 (`src/shared/sframe/cipher-suite.ts`) and 5.2 (`src/shared/sframe/frame-codec.ts`) land.
+
+**Files:**
+- Modify: `tests/fixtures/sim-caller.ts` — add `loadKey`, `produceFrame`, `consumeFrame`
+- Modify: `tests/fixtures/sim-caller.test.ts` — add SFrame round-trip tests
+
 - [ ] **Step 1: Write failing test**
 
 ```typescript
-// tests/fixtures/sim-caller.test.ts
+// tests/fixtures/sim-caller.test.ts (addendum)
 import { describe, expect, test } from 'bun:test'
 import { SimCaller } from './sim-caller'
 
-describe('SimCaller', () => {
+describe('SimCaller — SFrame', () => {
   test('produces and consumes a frame successfully', async () => {
     const callSecret = new Uint8Array(32).fill(0x11)
-    const caller = new SimCaller('device-a', callSecret, '00000000-0000-4000-8000-000000000001')
+    const caller = new SimCaller('device-a')
+    caller.bindCall(callSecret, '00000000-0000-4000-8000-000000000001')
     await caller.loadKey(0)
     const plaintext = new Uint8Array([0x01, 0xAA, 0xBB, 0xCC])
     const wire = await caller.produceFrame(plaintext, 0, 1)
@@ -2622,8 +2706,10 @@ describe('SimCaller', () => {
   test('consumes a frame from another sender with the same callSecret', async () => {
     const callSecret = new Uint8Array(32).fill(0x22)
     const callId = '00000000-0000-4000-8000-000000000002'
-    const alice = new SimCaller('alice-device', callSecret, callId)
-    const bob = new SimCaller('bob-device', callSecret, callId)
+    const alice = new SimCaller('alice-device')
+    const bob = new SimCaller('bob-device')
+    alice.bindCall(callSecret, callId)
+    bob.bindCall(callSecret, callId)
     await alice.loadKey(0)
     await bob.loadKey(0)
     const plaintext = new Uint8Array([0x01, 0xDE, 0xAD, 0xBE, 0xEF])
@@ -2637,76 +2723,29 @@ describe('SimCaller', () => {
 - [ ] **Step 2: Run failing test**
 
 Run: `bun test tests/fixtures/sim-caller.test.ts`
-Expected: FAIL.
+Expected: FAIL (methods not implemented).
 
 - [ ] **Step 3: Implement**
 
+Extend `SimCaller` with a `bindCall(callSecret, callId)` binder and the SFrame methods:
+
 ```typescript
-// tests/fixtures/sim-caller.ts
+// tests/fixtures/sim-caller.ts (extension in Tier 5 main PR)
 import { sealFrame, openFrame } from '../../src/shared/sframe/frame-codec'
 import { deriveBaseKey, importAesKey } from '../../src/shared/sframe/cipher-suite'
 
-export class SimCaller {
-  private keys = new Map<number, CryptoKey>()
-  constructor(
-    public readonly deviceId: string,
-    private readonly callSecret: Uint8Array,
-    private readonly callId: string,
-  ) {}
-
-  async loadKey(keyId: number): Promise<void> {
-    const raw = await deriveBaseKey(this.callSecret, this.callId, this.deviceId)
-    const key = await importAesKey(raw)
-    this.keys.set(keyId, key)
-  }
-
-  async produceFrame(
-    plaintext: Uint8Array,
-    keyId: number,
-    counter: number,
-    ssrc = 0xCAFEBABE,
-    rtpTimestamp = 1000,
-  ): Promise<Uint8Array> {
-    const key = this.keys.get(keyId)
-    if (!key) throw new Error('key not loaded')
-    return sealFrame({
-      plaintext,
-      key,
-      callId: this.callId,
-      senderId: this.deviceId,
-      keyId,
-      counter,
-      ssrc,
-      rtpTimestamp,
-      codecHeaderLength: 1,
-    })
-  }
-
-  async consumeFrame(
-    wire: Uint8Array,
-    expectedPlaintext: Uint8Array,
-    keyId: number,
-    _counter: number,
-    senderId: string,
-    ssrc = 0xCAFEBABE,
-    rtpTimestamp = 1000,
-  ): Promise<boolean> {
-    // For inter-SimCaller tests, the receiver needs the SENDER's base key.
-    const senderRaw = await deriveBaseKey(this.callSecret, this.callId, senderId)
-    const senderKey = await importAesKey(senderRaw)
-    const opened = await openFrame(senderKey, wire, {
-      callId: this.callId,
-      senderId,
-      keyId,
-      ssrc,
-      rtpTimestamp,
-      codecHeaderLength: 1,
-    })
-    if (opened.length !== expectedPlaintext.length) return false
-    return opened.every((b, i) => b === expectedPlaintext[i])
-  }
-}
+// Added to the SimCaller class:
+//   private callSecret?: Uint8Array
+//   private callId?: string
+//   private keys = new Map<number, CryptoKey>()
+//
+// bindCall(secret, id)
+// async loadKey(keyId)
+// async produceFrame(plaintext, keyId, counter, ssrc?, rtpTimestamp?)
+// async consumeFrame(wire, expected, keyId, counter, senderId, ssrc?, rtpTimestamp?)
 ```
+
+Implementation mirrors the old Task 19 bodies for these methods (derive base key → import AES → `sealFrame` / `openFrame`).
 
 - [ ] **Step 4: Re-run test**
 
@@ -2717,10 +2756,12 @@ Expected: all tests PASS.
 
 ```bash
 git add tests/fixtures/sim-caller.ts tests/fixtures/sim-caller.test.ts
-git commit -m "test(fixtures): SimCaller — produce/consume SFrame wire frames"
+git commit -m "test(fixtures): extend SimCaller with SFrame produce/consume"
 ```
 
-### Task 20: Adversarial bridge subclass
+### Task 20: Adversarial bridge subclass (Tier 5 main PR)
+
+**Moved to Tier 5 main.** Blocked on Task 19b — the test file below calls `SimCaller.produceFrame` / `consumeFrame`, which only exist once Task 19b has landed inside the Tier 5 main PR. The class body itself (`modifyFrame`, `modifyTrailer`, `maybeDrop`) is byte-level and could ship earlier in principle, but keeping class + tests together avoids a dangling untested module on main.
 
 **Files:**
 - Create: `tests/fixtures/sim-compromised-bridge.ts`

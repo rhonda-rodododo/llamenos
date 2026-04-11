@@ -20,7 +20,7 @@ The "pick up where we left off" breadcrumb for the seven-tier security overhaul 
 | **2 Unlock+Recovery** | #54 | **Merged** | — | Waits on Tier 1 implementation |
 | **3 Per-device keys** | #55 | **Merged** | — | Waits on Tier 2 Diceware (2.B) |
 | **4 Delivery hardening** | #56 | **Merged** | — | Waits on Tier 0 only; parallel with Tier 1/2/3 |
-| **5 Voice E2EE** | #57 | **Merged** | — | Main waits on Tier 1; prereq sim-SIP-bridge PR has **no tier dependency** |
+| **5 Voice E2EE** | #57 | **Merged** | prereq PR in flight on `feat/sec-tier-5-prereq-sim-sip-bridge` (Session B, 2026-04-11) | Main waits on Tier 1; prereq sim-SIP-bridge PR has **no tier dependency** |
 | **6 MLS + PQ** | #58 | **Merged** | — | PR #1 waits on Tier 3.A; PR #2 waits on Tier 3.C |
 
 ## Dependency graph
@@ -172,3 +172,4 @@ Support typically responds in 24–48 h.
 
 - **2026-04-10 (Rhonda + Claude Opus 4.6):** Initial queue created. All 7 tier specs + plans + reviews in PRs #52–#58. Doc hygiene PRs #60, #61 in flight. Tier 0 is queue head.
 - **2026-04-11 (Rhonda + Claude Opus 4.6):** All prep PRs merged — #60, #61, #62, #52, #53, #54, #55, #56, #57, #58, #63. Main now contains every tier's spec+plan+review plus the 16 paste-ready implementation prompts in `TIER_SESSION_PROMPTS.md`. Ready for parallel implementation sessions (Session A on Tier 0, Session B on Tier 5 prereq).
+- **2026-04-11 (Rhonda + Claude Opus 4.6, Session B):** Tier 5 prereq PR opened on `feat/sec-tier-5-prereq-sim-sip-bridge`. Ships `tests/fixtures/sim-sip-bridge.ts`, `tests/fixtures/sim-caller.ts`, `tests/helpers/sframe-test-utils.ts`, and `docs/testing/TEST_FIXTURES_SFRAME.md`. Plan's Workstream 5.8 rescoped: `SimCaller` here is Opus clip + jitter buffer + DTMF only; its SFrame `produceFrame` / `consumeFrame` methods are deferred to Tier 5 main as **Task 19b**, and the `SimCompromisedBridge` adversarial subclass (Task 20) is deferred to Tier 5 main because its tests depend on Task 19b. Both the plan and `TIER_SESSION_PROMPTS.md` Section 14 updated so Session B of Tier 5 main picks up the deferred work.
