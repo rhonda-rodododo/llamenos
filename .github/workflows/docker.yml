@@ -142,6 +142,12 @@ jobs:
           # GCP-service-account regex). Real credential leaks are caught by
           # gitleaks (.github/workflows/ci.yml) and the secret-scan workflow.
           scanners: 'vuln'
+          # Critical: trivy-action unsets TRIVY_SEVERITY when format=sarif
+          # UNLESS this flag is true. Without it, exit-code fires on EVERY
+          # finding (MEDIUM, LOW, UNKNOWN) regardless of the severity filter,
+          # breaking the gate. With it, both SARIF and exit-code honor the
+          # CRITICAL,HIGH filter above.
+          limit-severities-for-sarif: true
 
       - name: Upload Trivy SARIF to code scanning
         if: always()  # upload even when the scan step failed
@@ -265,6 +271,7 @@ jobs:
           ignore-unfixed: true
           exit-code: '1'
           scanners: 'vuln'
+          limit-severities-for-sarif: true
 
       - name: Upload Trivy SARIF to code scanning
         if: always()
