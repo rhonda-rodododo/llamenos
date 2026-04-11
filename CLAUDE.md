@@ -172,6 +172,7 @@ bun run lint:fix                         # Biome lint auto-fix
 bun run start                            # Start Bun server (production)
 bun run deploy                           # Deploy marketing site
 bun run deploy:site                      # Deploy marketing site only (cd site && ...)
+bun run build:iso                        # Build a Debian 13 FDE installer ISO (see docs/deployment/iso-install.md)
 bun run test:unit                        # Run colocated unit tests (bun:test)
 bun run test:api                         # Run API integration tests (no browser)
 bun run test:e2e                         # Run UI E2E tests (Chromium)
