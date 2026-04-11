@@ -114,6 +114,53 @@ describe('SimCaller — jitter buffer', () => {
       expect(caller.nextFrameDelayMs()).toBe(20)
     }
   })
+
+  test('setJitter rejects negative values', () => {
+    const caller = new SimCaller('device-a', { frameIntervalMs: 20 })
+    expect(() => caller.setJitter(-1)).toThrow(/>= 0/)
+  })
+
+  test('setJitter rejects values >= frameIntervalMs', () => {
+    const caller = new SimCaller('device-a', { frameIntervalMs: 20 })
+    expect(() => caller.setJitter(20)).toThrow(/strictly less than/)
+    expect(() => caller.setJitter(21)).toThrow(/strictly less than/)
+  })
+
+  test('setJitter rejects NaN', () => {
+    const caller = new SimCaller('device-a', { frameIntervalMs: 20 })
+    expect(() => caller.setJitter(Number.NaN)).toThrow(/finite/)
+  })
+
+  test('setJitter rejects Infinity', () => {
+    const caller = new SimCaller('device-a', { frameIntervalMs: 20 })
+    expect(() => caller.setJitter(Number.POSITIVE_INFINITY)).toThrow(/finite/)
+    expect(() => caller.setJitter(Number.NEGATIVE_INFINITY)).toThrow(/finite/)
+  })
+
+  test('setJitter accepts the largest legal value', () => {
+    const caller = new SimCaller('device-a', { frameIntervalMs: 20 })
+    expect(() => caller.setJitter(19)).not.toThrow()
+  })
+
+  test('nextFrameDelayMs throws when the RNG returns a value outside [0, 1)', () => {
+    const caller = new SimCaller('device-a', { frameIntervalMs: 20 })
+    caller.setJitter(5)
+    caller.useRng(() => 1)
+    expect(() => caller.nextFrameDelayMs()).toThrow(/\[0, 1\)/)
+    caller.useRng(() => -0.1)
+    expect(() => caller.nextFrameDelayMs()).toThrow(/\[0, 1\)/)
+    caller.useRng(() => Number.NaN)
+    expect(() => caller.nextFrameDelayMs()).toThrow(/\[0, 1\)/)
+    caller.useRng(() => Number.POSITIVE_INFINITY)
+    expect(() => caller.nextFrameDelayMs()).toThrow(/\[0, 1\)/)
+  })
+
+  test('nextFrameDelayMs does not validate the RNG when jitter is 0', () => {
+    const caller = new SimCaller('device-a', { frameIntervalMs: 20 })
+    caller.useRng(() => Number.NaN)
+    // zero-jitter short-circuit returns the interval directly
+    expect(caller.nextFrameDelayMs()).toBe(20)
+  })
 })
 
 describe('SimCaller — DTMF', () => {

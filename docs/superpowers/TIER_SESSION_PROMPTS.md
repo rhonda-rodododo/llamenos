@@ -1032,7 +1032,7 @@ first.
   - **Task 20** — `SimCompromisedBridge` adversarial subclass +
     tests (old plan Task 20 listing, now deferred here because
     the tests call `SimCaller.produceFrame`).
-  - **Task 28** (from §5.11) — `tests/api/sim-sip-bridge.spec.ts`
+  - **Task 32** (plan Workstream 5.11) — `tests/api/sim-sip-bridge.spec.ts`
     Playwright API E2E adversarial suite. Uses the extended
     `SimCaller` from Task 19b + `SimCompromisedBridge` from Task 20.
 

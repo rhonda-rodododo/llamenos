@@ -63,6 +63,49 @@ describe('sframe-test-utils — mock RTP', () => {
   test('parseMockRtpHeader rejects short input', () => {
     expect(() => parseMockRtpHeader(new Uint8Array(4))).toThrow()
   })
+
+  test('parseMockRtpHeader rejects headers with csrcCount > 0 (symmetric with builder)', () => {
+    const bytes = new Uint8Array(MOCK_RTP_HEADER_BYTES)
+    bytes[0] = 0x81 // version 2, csrcCount 1
+    expect(() => parseMockRtpHeader(bytes)).toThrow(/CSRC/)
+  })
+
+  test('round-trips timestamp and ssrc at the uint32 upper bound', () => {
+    const fields = {
+      version: 2,
+      padding: false,
+      extension: false,
+      csrcCount: 0,
+      marker: false,
+      payloadType: 111,
+      sequenceNumber: 0xffff,
+      timestamp: 0xffffffff,
+      ssrc: 0xffffffff,
+    }
+    const header = buildMockRtpHeader(fields)
+    const parsed = parseMockRtpHeader(header)
+    expect(parsed.timestamp).toBe(0xffffffff)
+    expect(parsed.ssrc).toBe(0xffffffff)
+    expect(parsed.sequenceNumber).toBe(0xffff)
+  })
+
+  test('round-trips timestamp at the uint32 sign boundary', () => {
+    const fields = {
+      version: 2,
+      padding: false,
+      extension: false,
+      csrcCount: 0,
+      marker: false,
+      payloadType: 0,
+      sequenceNumber: 0,
+      timestamp: 0x80000000,
+      ssrc: 0x80000000,
+    }
+    const header = buildMockRtpHeader(fields)
+    const parsed = parseMockRtpHeader(header)
+    expect(parsed.timestamp).toBe(0x80000000)
+    expect(parsed.ssrc).toBe(0x80000000)
+  })
 })
 
 describe('sframe-test-utils — mock key material', () => {

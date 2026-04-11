@@ -2,17 +2,19 @@
  * SimCaller — in-memory simulated inbound caller for IVR and call-path
  * tests.
  *
- * Holds a canned "Opus" payload (stubbed as a deterministic byte pattern
- * representing a 440 Hz tone — real Opus encoding is too heavy for CI),
- * drives it through a simple jitter buffer with configurable inter-packet
- * delay, and emits DTMF digits on demand. Zero external dependencies.
+ * Holds a canned "Opus" payload (a deterministic byte pattern representing
+ * a 440 Hz tone — real Opus encoding via ONNX or native bindings is too
+ * heavy for CI, and the SFrame layer under test cares about per-frame byte
+ * length, ordering, and "was this encrypted?" assertions, not codec
+ * correctness). Drives the clip through a simple jitter buffer with
+ * configurable inter-packet delay, and emits DTMF digits on demand. Zero
+ * external dependencies.
  *
- * **Intentionally NO imports from `@shared/sframe/`.** The SFrame
- * produce/consume methods live in Tier 5 main as Task 19b; this prereq
- * file only establishes the fixture's shape, audio clip, jitter buffer,
- * and DTMF behavior.
- *
- * Related: Tier 5 spec §5.12.2, Tier 5 plan Workstream 5.8 Task 19.
+ * **Deliberately codec-agnostic.** This fixture carries no imports from
+ * `@shared/sframe/` so it can be reused by Tier 3/4 call-path tests that
+ * exercise the call pipeline without touching SFrame crypto. Tests that
+ * need real SFrame round-trips import `@shared/sframe/frame-codec`
+ * directly alongside this fixture.
  */
 
 export const DTMF_DIGITS = [
@@ -127,6 +129,9 @@ export class SimCaller {
   }
 
   setJitter(jitterMs: number): void {
+    if (!Number.isFinite(jitterMs)) {
+      throw new Error('jitter must be a finite number')
+    }
     if (jitterMs < 0) throw new Error('jitter must be >= 0')
     if (jitterMs >= this.frameIntervalMs) {
       throw new Error('jitter must be strictly less than frameIntervalMs')
@@ -140,8 +145,12 @@ export class SimCaller {
 
   nextFrameDelayMs(): number {
     if (this.jitterMs === 0) return this.frameIntervalMs
+    const r = this.rng()
+    if (!Number.isFinite(r) || r < 0 || r >= 1) {
+      throw new Error(`SimCaller.rng must return a number in [0, 1), got ${r}`)
+    }
     // Symmetric jitter: uniform in [-jitterMs, +jitterMs].
-    const offset = (this.rng() * 2 - 1) * this.jitterMs
+    const offset = (r * 2 - 1) * this.jitterMs
     return Math.round(this.frameIntervalMs + offset)
   }
 
