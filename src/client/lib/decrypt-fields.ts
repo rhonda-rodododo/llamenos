@@ -142,15 +142,22 @@ async function fireLockOnce(): Promise<void> {
  * function's "broken worker" branch, which is the last line of defence. The
  * primary guard is that `decryptObjectFields` / `resolveEncryptedFields`
  * only scans the fields the caller asked for.
+ *
+ * AAD: callers can pass an explicit `aadOverride` to bind the decrypt to a
+ * specific `(recordId, fieldName)` tuple. When omitted (legacy callers), the
+ * AAD falls back to label-only — matching what the encrypt path currently
+ * produces for envelope-encrypted fields (contacts, sessions, bans, call
+ * records). Migrating those fields to per-record AAD is tracked as a
+ * follow-up in AEAD_AUDIT_2026-04-10.md; see Tier 1 PR-B notes.
  */
 async function decryptFieldWithRecovery(
   ciphertext: string,
   envelope: RecipientEnvelope,
-  label: CryptoLabel
+  label: CryptoLabel,
+  aadOverride?: Uint8Array
 ): Promise<string | null> {
   const worker = cryptoWorker
-  // AAD is derived from the label for domain separation
-  const aad = utf8ToBytes(label)
+  const aad = aadOverride ?? utf8ToBytes(label)
 
   // First attempt
   try {

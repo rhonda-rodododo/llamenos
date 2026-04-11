@@ -25,32 +25,42 @@ import {
   hashContactPhone,
 } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
+import { cryptoWorker } from '@/lib/crypto-worker-client'
 import * as keyManager from '@/lib/key-manager'
 import { useCreateContact } from '@/lib/queries/contacts'
 import { useToast } from '@/lib/toast'
 import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import { type CryptoLabel, LABEL_CONTACT_PII, LABEL_CONTACT_SUMMARY } from '@shared/crypto-labels'
-import { eciesWrapKey, symmetricEncrypt } from '@shared/crypto-primitives'
 import type { Ciphertext, HmacHash } from '@shared/crypto-types'
 import type { RecipientEnvelope } from '@shared/types'
 import { AlertTriangle, Loader2, Lock } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-/** Envelope-encrypt plaintext for multiple recipients (public-key only, no secret key needed). */
-function envelopeEncrypt(
+/**
+ * Envelope-encrypt plaintext for multiple recipients via the crypto worker.
+ * Keeps the random message key material inside the worker rather than the
+ * main thread, and reuses the canonical ECIES/XChaCha primitive stack.
+ */
+async function envelopeEncryptViaWorker(
   plaintext: string,
   recipientPubkeys: string[],
   label: CryptoLabel
-): { encrypted: Ciphertext; envelopes: RecipientEnvelope[] } {
-  const messageKey = new Uint8Array(32)
-  crypto.getRandomValues(messageKey)
-  const encrypted = symmetricEncrypt(utf8ToBytes(plaintext), messageKey, utf8ToBytes(label))
-  const envelopes: RecipientEnvelope[] = recipientPubkeys.map((pk) => ({
-    pubkey: pk,
-    ...eciesWrapKey(messageKey, pk, label),
-  }))
-  return { encrypted, envelopes }
+): Promise<{ encrypted: Ciphertext; envelopes: RecipientEnvelope[] }> {
+  const { encryptedHex, envelopes } = await cryptoWorker.envelopeEncryptField(
+    plaintext,
+    recipientPubkeys,
+    label,
+    utf8ToBytes(label)
+  )
+  return {
+    encrypted: encryptedHex as Ciphertext,
+    envelopes: envelopes.map((e) => ({
+      pubkey: e.recipientPubkey,
+      wrappedKey: e.wrappedKeyHex as Ciphertext,
+      ephemeralPubkey: e.ephemeralPubkeyHex,
+    })),
+  }
 }
 
 interface Props {
@@ -156,17 +166,22 @@ export function CreateContactDialog({ open, onOpenChange, onCreated }: Props) {
       const tags = form.tags
 
       // Encrypt Tier 1: display name (required)
-      const { encrypted: encryptedDisplayName, envelopes: displayNameEnvelopes } = envelopeEncrypt(
-        form.displayName.trim(),
-        summaryPubkeys,
-        LABEL_CONTACT_SUMMARY
-      )
+      const { encrypted: encryptedDisplayName, envelopes: displayNameEnvelopes } =
+        await envelopeEncryptViaWorker(
+          form.displayName.trim(),
+          summaryPubkeys,
+          LABEL_CONTACT_SUMMARY
+        )
 
       // Encrypt notes if present
       let encryptedNotes: string | undefined
       let notesEnvelopes: RecipientEnvelope[] | undefined
       if (form.notes.trim()) {
-        const result = envelopeEncrypt(form.notes.trim(), summaryPubkeys, LABEL_CONTACT_SUMMARY)
+        const result = await envelopeEncryptViaWorker(
+          form.notes.trim(),
+          summaryPubkeys,
+          LABEL_CONTACT_SUMMARY
+        )
         encryptedNotes = result.encrypted
         notesEnvelopes = result.envelopes
       }
@@ -180,7 +195,11 @@ export function CreateContactDialog({ open, onOpenChange, onCreated }: Props) {
 
       if (canViewPii) {
         if (form.fullName.trim()) {
-          const result = envelopeEncrypt(form.fullName.trim(), piiPubkeys, LABEL_CONTACT_PII)
+          const result = await envelopeEncryptViaWorker(
+            form.fullName.trim(),
+            piiPubkeys,
+            LABEL_CONTACT_PII
+          )
           encryptedFullName = result.encrypted
           fullNameEnvelopes = result.envelopes
         }
@@ -189,7 +208,11 @@ export function CreateContactDialog({ open, onOpenChange, onCreated }: Props) {
           // Get HMAC from server (client doesn't have the HMAC secret)
           const { identifierHash: hash } = await hashContactPhone(form.phone.trim())
           identifierHash = hash as HmacHash
-          const result = envelopeEncrypt(form.phone.trim(), piiPubkeys, LABEL_CONTACT_PII)
+          const result = await envelopeEncryptViaWorker(
+            form.phone.trim(),
+            piiPubkeys,
+            LABEL_CONTACT_PII
+          )
           encryptedPhone = result.encrypted
           phoneEnvelopes = result.envelopes
         }
