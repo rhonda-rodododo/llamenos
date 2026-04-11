@@ -233,6 +233,18 @@ Use the `test-writer` skill for guidance on writing tests. Use the `test-runner`
 - **Run tests iteratively**: Don't wait until the end. Run affected suites after each logical chunk of implementation.
 - **Hub-encrypted data in tests**: After creating hub-encrypted data (shifts, roles, report types, custom fields), remember that the React Query cache must be invalidated for other pages to see the new data.
 
+### PII pre-commit hook
+
+`scripts/pii-check.sh` (run by lefthook on every commit) blocks commits that introduce content matching any pattern in the `PII_CHECK_PATTERNS` environment variable. The script is checked in; the patterns are NOT — each developer sets their own in `~/.zshrc`/`~/.bashrc`:
+
+```bash
+export PII_CHECK_PATTERNS='your\.real\.name|your@email\.example|/home/yourusername|github\.com/your-private-handle|other\.regexes'
+```
+
+Pipe-separated, **case-insensitive** `grep -iE` syntax — write patterns in lowercase only; "Rikki", "RIKKI", "rikki" all match a lowercase `rikki` pattern. Full installation + behavior notes are in `scripts/pii-check.sh`. If you have not set `PII_CHECK_PATTERNS` the hook warns on every commit and passes; if set, any match in the staged diff blocks the commit (matched line redacted in the hook output so the failure itself does not re-leak).
+
+The hook is wired up automatically by the `prepare` npm lifecycle script (`"prepare": "lefthook install"` in `package.json`) which runs on every `bun install`. Every new clone and every new sibling worktree inherits the same hook after one `bun install`. The hook is shared across all git worktrees via `core.hooksPath`, so installing in any one worktree covers all of them. **If you see `Can't find lefthook in PATH` when committing**, run `bun install` in the main repo worktree to populate `node_modules/@evilmartians/lefthook/` — the dispatcher hook finds lefthook there via an absolute path.
+
 ## Claude Code Working Style
 
 - **Always run `bun run typecheck` and `bun run build` before committing and pushing.** Never push code that doesn't build. If typecheck or build fails, fix it before committing.
