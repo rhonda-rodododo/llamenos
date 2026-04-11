@@ -20,6 +20,20 @@ import type {
 import type { EnabledChannels, SetupState } from '@shared/schemas/settings'
 import type { Ciphertext } from './crypto-types'
 
+// --- Versioned ECIES Key Envelope ---
+
+/**
+ * Wire-format versioned ECIES key envelope with embedded label identity.
+ * The `labelId` byte is looked up against LABEL_REGISTRY; a receiver that
+ * expected a different label will refuse to unwrap (CryptoLabelMismatchError).
+ */
+export interface EnvelopeV2 {
+  v: 2
+  labelId: number
+  wrappedKey: Ciphertext
+  ephemeralPubkey: string
+}
+
 // --- ECIES Key Envelopes ---
 // These use the branded Ciphertext type for internal type safety.
 // The schema equivalents in @shared/schemas/records use plain strings (for zod validation).
