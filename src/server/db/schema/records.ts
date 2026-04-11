@@ -1,4 +1,5 @@
 import { boolean, index, integer, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
+import type { AuditEntryPayload } from '../../../shared/schemas/audit-entries'
 import type { RecipientEnvelope } from '../../../shared/types'
 import { jsonb } from '../bun-jsonb'
 import { ciphertext, hmacHashed } from '../crypto-columns'
@@ -34,6 +35,34 @@ export const auditLog = pgTable(
   (table) => [
     index('audit_log_hub_idx').on(table.hubId),
     index('audit_log_hub_created_idx').on(table.hubId, table.createdAt),
+  ]
+)
+
+/**
+ * Signed audit entries — Tier 0 high-assurance audit chain.
+ *
+ * Separate from `audit_log` (activity log). These entries are schnorr-signed
+ * by the signer's identity key, chained by SHA-256 of the canonicalized
+ * payload, and carry a discriminated-union payload describing membership
+ * changes, role changes, key rotations, and device lifecycle events.
+ */
+export const signedAuditEntries = pgTable(
+  'signed_audit_entries',
+  {
+    id: text('id').primaryKey(),
+    hubId: text('hub_id').notNull(),
+    type: text('type').notNull(),
+    payload: jsonb<AuditEntryPayload>()('payload').notNull(),
+    prevEntryHash: text('prev_entry_hash'),
+    entryHash: text('entry_hash').notNull(),
+    signerDeviceId: text('signer_device_id').notNull(),
+    signerPubkey: text('signer_pubkey').notNull(),
+    signature: text('signature').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('signed_audit_entries_hub_type_created_idx').on(table.hubId, table.type, table.createdAt),
+    index('signed_audit_entries_hub_signer_idx').on(table.hubId, table.signerPubkey),
   ]
 )
 

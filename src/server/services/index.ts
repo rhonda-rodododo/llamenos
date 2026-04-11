@@ -1,6 +1,7 @@
 import type { Database } from '../db'
 import type { CryptoService } from '../lib/crypto-service'
 import type { StorageManager } from '../types'
+import { DrizzleAuditLogService } from './audit-log-service'
 import { AuthEventsService } from './auth-events'
 import { BlastService } from './blasts'
 import { CallService } from './calls'
@@ -27,6 +28,7 @@ import { TeamsService } from './teams'
 import { UserNotificationsService } from './user-notifications'
 
 export type {
+  DrizzleAuditLogService,
   AuthEventsService,
   BlastService,
   FirehoseService,
@@ -57,6 +59,7 @@ export interface Services {
   identity: IdentityService
   settings: SettingsService
   records: RecordsService
+  auditLog: DrizzleAuditLogService
   shifts: ShiftService
   calls: CallService
   conversations: ConversationService
@@ -119,6 +122,7 @@ export function createServices(
     identity,
     settings,
     records: new RecordsService(db, crypto),
+    auditLog: new DrizzleAuditLogService(db),
     shifts: new ShiftService(db, crypto, settings),
     calls: new CallService(db, crypto),
     conversations: new ConversationService(db, crypto),
