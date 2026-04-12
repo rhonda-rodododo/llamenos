@@ -82,4 +82,53 @@ describe('securityHeaders middleware (Tier 4 PR-A)', () => {
     expect(res.headers.get('x-frame-options')).toBe('DENY')
     expect(res.headers.get('x-content-type-options')).toBe('nosniff')
   })
+
+  test('CSP defaults to enforcing when CSP_MODE is unset', async () => {
+    const prev = process.env.CSP_MODE
+    // biome-ignore lint/performance/noDelete: `process.env.X = undefined` coerces to the string "undefined" on Node; actual unset requires delete.
+    delete process.env.CSP_MODE
+    try {
+      const app = makeApp()
+      const res = await app.request('/ok')
+      // In dev mode, CSP uses the SPA policy (script-src 'self'), not the API-only policy
+      const csp = res.headers.get('content-security-policy')
+      expect(csp).toBeTruthy()
+      expect(res.headers.get('content-security-policy-report-only')).toBeNull()
+    } finally {
+      if (prev !== undefined) process.env.CSP_MODE = prev
+    }
+  })
+
+  test('CSP_MODE=report-only downgrades to report-only header', async () => {
+    const prev = process.env.CSP_MODE
+    process.env.CSP_MODE = 'report-only'
+    try {
+      const app = makeApp()
+      const res = await app.request('/ok')
+      const cspRo = res.headers.get('content-security-policy-report-only')
+      expect(cspRo).toBeTruthy()
+      expect(res.headers.get('content-security-policy')).toBeNull()
+    } finally {
+      // biome-ignore lint/performance/noDelete: see note above — needed for real unset.
+      if (prev === undefined) delete process.env.CSP_MODE
+      else process.env.CSP_MODE = prev
+    }
+  })
+
+  test('CSP_MODE=enforcing explicitly enforces', async () => {
+    const prev = process.env.CSP_MODE
+    process.env.CSP_MODE = 'enforcing'
+    try {
+      const app = makeApp()
+      const res = await app.request('/ok')
+      // In dev mode, CSP uses the SPA policy (script-src 'self'), not the API-only policy
+      const csp = res.headers.get('content-security-policy')
+      expect(csp).toBeTruthy()
+      expect(res.headers.get('content-security-policy-report-only')).toBeNull()
+    } finally {
+      // biome-ignore lint/performance/noDelete: see note above — needed for real unset.
+      if (prev === undefined) delete process.env.CSP_MODE
+      else process.env.CSP_MODE = prev
+    }
+  })
 })

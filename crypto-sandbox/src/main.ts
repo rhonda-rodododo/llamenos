@@ -42,26 +42,26 @@ type TrustedTypesAPI = {
 // without pulling in @types/trusted-types.
 declare const trustedTypes: TrustedTypesAPI | undefined
 
-try {
-  if (typeof trustedTypes !== 'undefined' && 'createPolicy' in trustedTypes) {
-    trustedTypes.createPolicy('llamenos', {
-      createHTML: () => {
-        throw new Error('trusted-types: HTML construction is forbidden in the crypto sandbox')
-      },
-      createScript: () => {
-        throw new Error('trusted-types: script construction is forbidden in the crypto sandbox')
-      },
-      createScriptURL: () => {
-        throw new Error('trusted-types: scriptURL construction is forbidden in the crypto sandbox')
-      },
-    })
-  }
-} catch (err) {
-  // If another script already created the 'llamenos' policy that is a bug —
-  // nothing else should run in the sandbox. Surface it so the parent client
-  // can hard-fail instead of booting a half-configured sandbox.
-  // biome-ignore lint/suspicious/noConsole: sandbox has no logging transport and this must be loud
-  console.error('trusted-types policy install failed', err)
+// Install the Trusted Types policy declared in the iframe CSP
+// (`trusted-types llamenos-sandbox`). The policy name MUST match the CSP
+// allowlist exactly — Chromium will throw `TypeError` on any mismatch. No
+// try/catch swallow here: if policy install fails the sandbox is in an
+// unsafe state and MUST NOT broadcast `ready` to the parent. Letting the
+// error propagate aborts the module so `window.parent.postMessage(...ready)`
+// below never runs and the SPA boot times out cleanly instead of unlocking
+// against a half-configured sandbox.
+if (typeof trustedTypes !== 'undefined' && 'createPolicy' in trustedTypes) {
+  trustedTypes.createPolicy('llamenos-sandbox', {
+    createHTML: () => {
+      throw new Error('trusted-types: HTML construction is forbidden in the crypto sandbox')
+    },
+    createScript: () => {
+      throw new Error('trusted-types: script construction is forbidden in the crypto sandbox')
+    },
+    createScriptURL: () => {
+      throw new Error('trusted-types: scriptURL construction is forbidden in the crypto sandbox')
+    },
+  })
 }
 
 // Parent origin detection. Prefer the compile-time pin; fall back to
