@@ -53,6 +53,14 @@ export const DeviceRevokePayloadSchema = z.object({
   devicePubkey: hexPubkey,
 })
 
+export const DeviceFingerprintVerifiedPayloadSchema = z.object({
+  type: z.literal('device_fingerprint_verified'),
+  hubId: z.string().uuid(),
+  verifiedDeviceId: z.string().uuid(),
+  verifiedDevicePubkey: hexPubkey,
+  verifierDeviceId: z.string().uuid(),
+})
+
 export const AuditEntryPayloadSchema = z.discriminatedUnion('type', [
   MembershipAddPayloadSchema,
   MembershipRemovePayloadSchema,
@@ -62,6 +70,7 @@ export const AuditEntryPayloadSchema = z.discriminatedUnion('type', [
   HubDeletePayloadSchema,
   DeviceAddPayloadSchema,
   DeviceRevokePayloadSchema,
+  DeviceFingerprintVerifiedPayloadSchema,
 ])
 export type AuditEntryPayload = z.infer<typeof AuditEntryPayloadSchema>
 

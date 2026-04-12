@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   type AuditEntryPayload,
   AuditEntryPayloadSchema,
+  DeviceFingerprintVerifiedPayloadSchema,
   SignedAuditEntrySchema,
 } from './audit-entries'
 
@@ -47,6 +48,16 @@ const payloadFixtures: Array<{ name: string; payload: AuditEntryPayload }> = [
     name: 'device_revoke',
     payload: { type: 'device_revoke', userId: UUID, devicePubkey: HEX64 },
   },
+  {
+    name: 'device_fingerprint_verified',
+    payload: {
+      type: 'device_fingerprint_verified',
+      hubId: UUID,
+      verifiedDeviceId: UUID,
+      verifiedDevicePubkey: HEX64,
+      verifierDeviceId: UUID,
+    },
+  },
 ]
 
 describe('AuditEntryPayloadSchema', () => {
@@ -89,6 +100,42 @@ describe('AuditEntryPayloadSchema', () => {
       newRole: 'admin',
     })
     expect(result.success).toBe(false)
+  })
+})
+
+describe('device_fingerprint_verified payload', () => {
+  test('round-trips through both schemas', () => {
+    const payload = {
+      type: 'device_fingerprint_verified' as const,
+      hubId: UUID,
+      verifiedDeviceId: UUID,
+      verifiedDevicePubkey: HEX64,
+      verifierDeviceId: UUID,
+    }
+    expect(DeviceFingerprintVerifiedPayloadSchema.safeParse(payload).success).toBe(true)
+    expect(AuditEntryPayloadSchema.safeParse(payload).success).toBe(true)
+  })
+
+  test('rejects non-64-char hex pubkey', () => {
+    const payload = {
+      type: 'device_fingerprint_verified' as const,
+      hubId: UUID,
+      verifiedDeviceId: UUID,
+      verifiedDevicePubkey: 'short',
+      verifierDeviceId: UUID,
+    }
+    expect(DeviceFingerprintVerifiedPayloadSchema.safeParse(payload).success).toBe(false)
+  })
+
+  test('rejects non-UUID deviceId', () => {
+    const payload = {
+      type: 'device_fingerprint_verified' as const,
+      hubId: UUID,
+      verifiedDeviceId: 'not-a-uuid',
+      verifiedDevicePubkey: HEX64,
+      verifierDeviceId: UUID,
+    }
+    expect(DeviceFingerprintVerifiedPayloadSchema.safeParse(payload).success).toBe(false)
   })
 })
 
