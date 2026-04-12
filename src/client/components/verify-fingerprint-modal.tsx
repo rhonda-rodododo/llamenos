@@ -63,24 +63,18 @@ export function VerifyFingerprintModal(props: VerifyFingerprintModalProps) {
 
         <p className="text-sm font-medium">{t('verifyFingerprint.clickPrompt')}</p>
         <div className="grid grid-cols-8 gap-1" data-testid="sas-picker">
-          {SAS_EMOJI_TABLE.map((e, idx) => {
-            const nextIdx = picked.length
-            const isCorrectNext = nextIdx < 7 && e === correctEmoji[nextIdx]
-            return (
-              <button
-                key={idx}
-                type="button"
-                data-testid={
-                  isCorrectNext ? `sas-picker-correct-${nextIdx}` : `sas-picker-wrong-${idx}`
-                }
-                onClick={() => setPicked((p) => [...p, e])}
-                disabled={mismatch || complete}
-                className="text-2xl p-1 border rounded hover:bg-accent disabled:opacity-50"
-              >
-                {e}
-              </button>
-            )
-          })}
+          {SAS_EMOJI_TABLE.map((e, idx) => (
+            <button
+              key={idx}
+              type="button"
+              data-testid={`sas-picker-${idx}`}
+              onClick={() => setPicked((p) => [...p, e])}
+              disabled={mismatch || complete}
+              className="text-2xl p-1 border rounded hover:bg-accent disabled:opacity-50"
+            >
+              {e}
+            </button>
+          ))}
         </div>
 
         {mismatch ? (

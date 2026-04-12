@@ -5,7 +5,7 @@ import { request } from '@/lib/api/client'
 import { useAuth } from '@/lib/auth'
 import { useConfig } from '@/lib/config'
 import { hexToBytes } from '@noble/hashes/utils.js'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -18,12 +18,15 @@ interface Device {
   createdAt: string
 }
 
+const HEX64_RE = /^[0-9a-f]{64}$/
+
 export function DevicesSection() {
   const { t } = useTranslation()
   const { currentHubId } = useConfig()
   const auth = useAuth()
   const queryClient = useQueryClient()
   const [verifying, setVerifying] = useState<Device | null>(null)
+  const [verifyError, setVerifyError] = useState<string | null>(null)
   const isAdmin =
     auth.roles.includes('role-admin') ||
     auth.roles.includes('role-super-admin') ||
@@ -40,18 +43,41 @@ export function DevicesSection() {
     enabled: !!currentHubId,
   })
 
+  const verifyMutation = useMutation({
+    mutationFn: async (device: Device) => {
+      if (!currentHubId) throw new Error('No hub context')
+      // TODO(tier6-pr2): Implement actual audit chain signing.
+      // This requires constructing a SignedAuditEntry with proper hash chain
+      // linking and Schnorr signature. Currently throws to prevent silent failure.
+      throw new Error('Device verification signing is not yet implemented — coming in Tier 6 PR #2')
+      // When implemented, the call will be:
+      // await request(`/hubs/${currentHubId}/devices/${device.id}/verify`, {
+      //   method: 'POST',
+      //   body: JSON.stringify({ signedEntry }),
+      // })
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['hub', currentHubId, 'devices'] })
+      setVerifying(null)
+      setVerifyError(null)
+    },
+    onError: (err: Error) => {
+      setVerifyError(err.message)
+    },
+  })
+
   const handleVerify = async () => {
-    if (!verifying || !currentHubId) return
-    await request(`/hubs/${currentHubId}/devices/${verifying.id}/verify`, {
-      method: 'POST',
-      body: JSON.stringify({
-        signedEntry: {
-          /* Placeholder — real implementation needs audit chain signing */
-        },
-      }),
-    })
-    void queryClient.invalidateQueries({ queryKey: ['hub', currentHubId, 'devices'] })
-    setVerifying(null)
+    if (!verifying) return
+    verifyMutation.mutate(verifying)
+  }
+
+  const handleStartVerify = (device: Device) => {
+    if (!HEX64_RE.test(device.ed25519Pubkey)) {
+      setVerifyError(t('device.invalidPubkey', 'Invalid device public key'))
+      return
+    }
+    setVerifyError(null)
+    setVerifying(device)
   }
 
   return (
@@ -74,7 +100,7 @@ export function DevicesSection() {
                   size="sm"
                   variant="outline"
                   data-testid={`verify-device-${d.id}`}
-                  onClick={() => setVerifying(d)}
+                  onClick={() => handleStartVerify(d)}
                 >
                   {t('device.verifyButton')}
                 </Button>
@@ -84,12 +110,25 @@ export function DevicesSection() {
         </div>
       )}
 
+      {verifyError ? (
+        <div
+          data-testid="verify-error"
+          className="mt-4 p-2 bg-destructive/10 text-destructive rounded"
+          role="alert"
+        >
+          {verifyError}
+        </div>
+      ) : null}
+
       {verifying ? (
         <VerifyFingerprintModal
           open
           targetDevicePubkey={hexToBytes(verifying.ed25519Pubkey)}
           onVerify={handleVerify}
-          onCancel={() => setVerifying(null)}
+          onCancel={() => {
+            setVerifying(null)
+            setVerifyError(null)
+          }}
         />
       ) : null}
     </div>

@@ -1,11 +1,9 @@
 /**
  * Thin wrapper around @wireapp/core-crypto MLS conversation API.
  *
- * This file is a SKELETON — no methods are implemented in PR #1.
- * PR #2 fills in the MLS group lifecycle: createConversation,
- * addMembers, encryptMessage, decryptMessage, etc.
- *
- * The wrapper exists so PR #2 has a clean place to land.
+ * SKELETON — no methods are implemented yet. MLS group lifecycle methods
+ * (createConversation, addMembers, encryptMessage, decryptMessage) will be
+ * added when the MLS feature flag is enabled.
  */
 
 import { isMlsEnabled } from './core-crypto-loader'
