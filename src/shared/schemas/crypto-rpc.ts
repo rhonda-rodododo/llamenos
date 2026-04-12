@@ -5,7 +5,12 @@
 //
 // See docs/superpowers/specs/2026-04-10-security-tier-4-delivery-hardening-design.md §4.2.3.
 
-import { z } from '@hono/zod-openapi'
+// NOTE: this schema is never served over HTTP — it's a postMessage contract
+// between the main SPA frame and the sandboxed crypto iframe. Importing
+// plain `zod` (not `@hono/zod-openapi`) keeps the iframe bundle from pulling
+// in Hono. The iframe bundle must stay small (< 100 KiB gzipped) so it
+// boots instantly.
+import { z } from 'zod'
 
 const Uuid = z.string().uuid()
 const Hex = (lenSpec?: { exactHex?: number }) =>

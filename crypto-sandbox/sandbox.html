@@ -3,9 +3,48 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!--
+      Tier 4 iframe CSP — defense in depth. The authoritative CSP is
+      emitted by Caddy at the HTTP layer so it applies even if this
+      document is served by a misconfigured static host; this meta tag
+      duplicates the same policy so the contract is visible in source
+      and enforced in every environment (local dev, staging, prod).
+
+      HARD INVARIANTS:
+        - default-src 'none'         : deny every resource category by default
+        - connect-src 'none'         : iframe CANNOT issue fetch/XHR/WebSocket/
+                                       EventSource/sendBeacon/SSE. The iframe
+                                       is an offline crypto oracle — ciphertext
+                                       flows in via postMessage, plaintext flows
+                                       out via postMessage. ZERO network. This
+                                       is the Tier 4 design invariant; NEVER
+                                       change this to 'self' or anything else.
+        - script-src 'self' 'wasm-unsafe-eval'
+                                     : only the iframe's own bundled JS can
+                                       execute. wasm-unsafe-eval is required
+                                       for noble ciphers + Whisper WASM when
+                                       crypto modules are wired in a follow-up.
+        - require-trusted-types-for 'script'
+                                     : Trusted Types enforcement — document.
+                                       innerHTML, Worker(new Worker(str)), etc.
+                                       all refuse strings and require TT objects.
+        - trusted-types llamenos     : the ONE named policy that may produce
+                                       trusted sinks. Its createHTML/createScript
+                                       implementations in main.ts throw on every
+                                       call — so even our own code cannot
+                                       construct trusted HTML at runtime.
+        - frame-ancestors            : set by Caddy to the SPA origin so only
+                                       the real app can embed this iframe.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'none'; worker-src 'self'; base-uri 'none'; form-action 'none'; require-trusted-types-for 'script'; trusted-types llamenos"
+    />
+    <meta name="referrer" content="no-referrer" />
     <title>Llamenos Crypto Sandbox</title>
   </head>
   <body>
+    <noscript>This sandbox requires JavaScript.</noscript>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
