@@ -77,6 +77,116 @@ const payloadFixtures: Array<{ name: string; payload: AuditEntryPayload }> = [
       reason: 'migration_v2_v3',
     },
   },
+  // Tier 3: sigchain payload variants
+  {
+    name: 'user_init',
+    payload: {
+      type: 'user_init',
+      userId: UUID,
+      deviceId: 'device-1',
+      signingPubkey: HEX64,
+      encryptionPubkey: HEX64,
+      pukGeneration: 1,
+      pukSignPubkey: HEX64,
+      pukDhPubkey: HEX64,
+    },
+  },
+  {
+    name: 'tier3_device_add',
+    payload: {
+      type: 'tier3_device_add',
+      userId: UUID,
+      newDeviceId: 'device-2',
+      newDeviceSigningPubkey: HEX64,
+      newDeviceEncryptionPubkey: HEX64,
+      signedByDeviceId: 'device-1',
+      newDeviceDisplayName: 'encrypted-name',
+      pukGeneration: 1,
+    },
+  },
+  {
+    name: 'tier3_device_remove',
+    payload: {
+      type: 'tier3_device_remove',
+      userId: UUID,
+      removedDeviceId: 'device-2',
+      removedSigningPubkey: HEX64,
+      signedByDeviceId: 'device-1',
+      reason: 'compromised',
+      pukGeneration: 2,
+    },
+  },
+  {
+    name: 'puk_rotate',
+    payload: {
+      type: 'puk_rotate',
+      userId: UUID,
+      oldGeneration: 1,
+      newGeneration: 2,
+      newPukSignPubkey: HEX64,
+      newPukDhPubkey: HEX64,
+      signedByDeviceId: 'device-1',
+    },
+  },
+  {
+    name: 'user_master_signing_update',
+    payload: {
+      type: 'user_master_signing_update',
+      userId: UUID,
+      newMasterSigningPubkey: HEX64,
+      signedByDeviceId: 'device-1',
+    },
+  },
+  {
+    name: 'device_cross_sign',
+    payload: {
+      type: 'device_cross_sign',
+      signerDeviceId: 'device-1',
+      targetDeviceId: 'device-2',
+      targetSigningPubkey: HEX64,
+      signature: HEX128,
+    },
+  },
+  {
+    name: 'user_cross_sign',
+    payload: {
+      type: 'user_cross_sign',
+      signerUserId: UUID,
+      targetUserId: UUID,
+      targetMasterPubkey: HEX64,
+      signature: HEX128,
+    },
+  },
+  {
+    name: 'hub_ptk_rotate',
+    payload: {
+      type: 'hub_ptk_rotate',
+      hubId: UUID,
+      oldGeneration: 1,
+      newGeneration: 2,
+      deviceCommitments: [{ deviceId: 'device-1', commitmentHash: HEX64 }],
+      signedByDeviceId: 'device-1',
+    },
+  },
+  {
+    name: 'recovery_initiated',
+    payload: {
+      type: 'recovery_initiated',
+      userId: UUID,
+      initiatorDeviceId: 'device-1',
+      recoveryType: 'paper_key',
+    },
+  },
+  {
+    name: 'recovery_completed',
+    payload: {
+      type: 'recovery_completed',
+      userId: UUID,
+      newDeviceId: 'device-3',
+      recoveryType: 'admin_reset',
+      pukGeneration: 3,
+    },
+  },
 ]
 
 describe('AuditEntryPayloadSchema', () => {
