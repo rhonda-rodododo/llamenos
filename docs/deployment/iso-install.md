@@ -97,54 +97,111 @@ verify this yourself:
 
 Expected output: `==> REPRODUCIBLE: SHAs match`.
 
+## Choosing a provider
+
+Before choosing a VPS provider, read the [deployment tier analysis in
+THREAT_MODEL.md](../security/THREAT_MODEL.md#provider-jurisdiction-and-deployment-tiers).
+Not every provider is suitable — FDE only works against a subset of adversaries,
+and provider corporate jurisdiction matters at least as much as the datacenter
+location. In short:
+
+- **Do use:** Non-US providers — Hetzner (Germany), OVH (France/Canada), Scaleway
+  (France), 1984 Hosting (Iceland) only for stock images, or self-hosting on
+  owned hardware.
+- **Do NOT use for this threat model:** AWS, GCP, Azure, Vultr, Linode, DigitalOcean,
+  and Cloudflare paid products — all are US-subject regardless of datacenter
+  location (CLOUD Act reach) and stacking FDE on top of a US-subject host is a
+  false sense of security.
+
 ## Uploading to your VPS provider
 
-### Vultr (recommended)
+### Hetzner Cloud (recommended)
 
-Vultr is the recommended provider because it supports custom ISO uploads,
-KVM-based virtualization with virtio disks, and has EU datacenters (Amsterdam).
-FDE is most practical and secure with Vultr.
+Hetzner Cloud is the recommended provider for the default threat model: German
+jurisdiction (outside US CLOUD Act reach), KVM with virtio disks, EU datacenters
+(Falkenstein, Nuremberg, Helsinki), cheap. The trade-off is that Hetzner custom
+ISO uploads are NOT self-service — you open a support ticket and they add your
+ISO to your account's library within a business day.
 
-1. Build the ISO with `--disk /dev/vda` (Vultr uses virtio disks):
+1. Build the ISO with `--disk /dev/sda` (Hetzner Cloud uses the traditional
+   device name despite being KVM):
 
    ```bash
    bun run build:iso \
      --hostname llamenos-01 \
-     --ssh-key ~/.ssh/id_ed25519.pub \
-     --disk /dev/vda
+     --ssh-key ~/.ssh/id_ed25519.pub
    ```
 
-2. Host the ISO on Vultr Object Storage (or any publicly accessible URL):
+2. Host the ISO at a publicly accessible URL. Any non-US S3-compatible object
+   storage works (Hetzner Object Storage, Scaleway Object Storage, Infomaniak,
+   Exoscale). For a throwaway test, you can also use a GitHub release draft
+   temporarily.
 
-   ```bash
-   s3cmd --host="ams1.vultrobjects.com" \
-     --host-bucket="%(bucket)s.ams1.vultrobjects.com" \
-     --access_key="$VULTR_S3_KEY" \
-     --secret_key="$VULTR_S3_SECRET" \
-     --acl-public \
-     put dist/iso/llamenos-debian13-dropbear.iso s3://llamenos-iso/
-   ```
+3. Open a Hetzner support ticket at <https://console.hetzner.cloud/> → Support,
+   with:
 
-3. In the Vultr dashboard: **Products** → **Orchestration** → **ISOs** → **Add ISO**
-4. Paste the public URL (e.g. `https://llamenos-iso.ams1.vultrobjects.com/llamenos-debian13-dropbear.iso`)
-5. Wait for Vultr to download the ISO (a few minutes for ~940 MB)
-6. Create a **Cloud Compute** instance in your preferred region:
-   - Plan: 4 vCPU / 8 GB RAM (vc2-4c-8gb, $40/mo)
-   - ISO: select your uploaded `llamenos-debian13-dropbear.iso`
-7. Open the **View Console** link — the installer starts automatically
+   - Subject: **Please add custom ISO to my account**
+   - Body: the public HTTPS URL of your ISO, and its SHA-256 from
+     `llamenos-debian13-dropbear.iso.sha256`
+   - They will verify the file and add it to your account's ISO library (usually
+     within a business day, Germany hours)
 
-### Generic provider (any KVM-based ISO upload)
+4. Once the ISO appears in your account's ISO list: create a new Cloud server
+   in the Hetzner Console, **Cloud** → **Servers** → **Add Server**:
 
-Any KVM-based VPS provider that accepts custom ISO uploads will work:
+   - Location: **Falkenstein**, **Nuremberg**, or **Helsinki** (EU)
+   - Image: any (will be replaced)
+   - Type: **CPX21** or larger (2 vCPU / 4 GB RAM is the minimum for Llamenos,
+     `cpx31` 4 vCPU / 8 GB RAM is comfortable)
+   - SSH keys: add your public key
 
-1. Find the provider's "Custom ISO" or "ISO Boot" option in the VPS settings
-2. Upload `llamenos-debian13-dropbear.iso` (via URL or direct upload, depending on provider)
-3. Set the boot order to CD-ROM first
-4. Boot the VPS
+5. After creation, go to the server detail page → **ISO Images** tab →
+   select your custom ISO → **Mount**.
 
-If your provider doesn't accept custom ISO uploads (e.g. 1984 Hosting), this
-guide doesn't apply — see the standard self-hosting docs in
-`deploy/ansible/README.md`.
+6. Power-cycle the server (**Power** → **Reset**). It will boot from the
+   mounted ISO.
+
+7. Open **Console** (noVNC) from the server detail page. The installer should
+   start automatically. Type your LUKS passphrase when prompted. Wait for
+   install to complete and reboot.
+
+8. After install completes, **unmount the ISO** from the ISO Images tab so the
+   server boots from disk on future reboots.
+
+> **Rescue-mode alternative (no support ticket).** If you don't want to wait
+> for Hetzner support, you can boot the server into Hetzner's rescue system
+> and run the installer inside `qemu-system-x86_64` with host disk passthrough,
+> then reboot out of rescue. This is more error-prone and not formally
+> documented here yet — open a tracking issue before relying on it.
+
+### OVHcloud / Scaleway (direct custom ISO upload)
+
+OVHcloud (France, Canada) and Scaleway (France) both support self-service
+custom ISO uploads on their dedicated servers and (for Scaleway) some Public
+Cloud instance types. Their workflows change often; consult their current
+docs and follow the same principle: upload the ISO, attach it to the instance,
+boot from it, type LUKS passphrase at the console.
+
+### 1984 Hosting (stock images only)
+
+1984 Hosting (Iceland) is excellent for Llamenos deployments on jurisdictional
+grounds (Iceland has strong journalist-source protections and is outside the
+EU/US/UK surveillance frameworks), **but does not accept custom ISO uploads**.
+You can deploy Llamenos on a 1984 VPS using one of their stock Debian images,
+accepting that the installer-time FDE path in this guide does not apply. The
+resulting deployment is **Tier 4** in the threat model table and is still a
+valid choice for operators whose primary adversary class does not include
+compelled runtime instrumentation.
+
+### Self-hosting on your own hardware
+
+The highest-assurance deployment is Tier 1: install the FDE ISO directly on
+physical hardware you own (a mini PC, a server in a closet, a rented
+colocated U). The ISO works identically on bare metal — boot it from a USB
+stick (use `dd` to write it), walk through the installer, and continue from
+"Subsequent boots — dropbear unlock" below. See
+[`docs/security/THREAT_MODEL.md`](../security/THREAT_MODEL.md#provider-jurisdiction-and-deployment-tiers)
+for the full tier analysis.
 
 ## First boot — installer (one-time)
 
