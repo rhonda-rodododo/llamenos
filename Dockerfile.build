@@ -38,6 +38,7 @@ RUN bun install --frozen-lockfile --ignore-scripts
 # Copy source
 COPY src/ src/
 COPY public/ public/
+COPY crypto-sandbox/ crypto-sandbox/
 COPY scripts/verify-no-console.sh scripts/verify-no-console.sh
 COPY index.html vite.config.ts tsconfig.json ./
 COPY tailwind.config.ts* ./
