@@ -256,6 +256,9 @@ export const LABEL_SFRAME_CALL_SECRET = 'llamenos:sframe-call-secret:v1' as Cryp
 /** HKDF info for per-sender SFrame base key derivation from call secret */
 export const LABEL_SFRAME_BASE_KEY = 'llamenos:sframe-base-key:v1' as CryptoLabel
 
+/** HKDF salt for forward-secret ratchet on device join */
+export const LABEL_SFRAME_RATCHET = 'llamenos:sframe-ratchet:v1' as CryptoLabel
+
 // --- Label Registry ---
 // The index of each label is its stable on-wire `labelId` byte.
 // ORDER IS A WIRE FORMAT — never reorder, only append.
@@ -286,6 +289,7 @@ export const LABEL_REGISTRY = [
   LABEL_STORAGE_CREDENTIAL_WRAP,
   LABEL_HUB_FIELD,
   LABEL_SFRAME_CALL_SECRET,
+  LABEL_SFRAME_RATCHET,
 ] as const satisfies readonly CryptoLabel[]
 
 export function labelToId(label: CryptoLabel): number {

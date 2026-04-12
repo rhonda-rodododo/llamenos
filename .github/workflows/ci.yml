@@ -670,6 +670,21 @@ jobs:
             exit 1
           fi
 
+      - name: Tier 5 — no raw llamenos:sframe-* label literals
+        run: |
+          # SFrame crypto labels must be imported from crypto-labels.ts, not inlined.
+          # Inline literals bypass domain separation and make label audits incomplete.
+          HITS=$(grep -rn "'llamenos:sframe-" \
+            src/ --include='*.ts' 2>/dev/null \
+            | grep -v 'crypto-labels\.ts' \
+            | grep -v '\.test\.ts' \
+            | grep -v '\.spec\.ts' || true)
+          if [ -n "$HITS" ]; then
+            echo "$HITS"
+            echo "::error::Raw llamenos:sframe-* literal detected — import from @shared/crypto-labels instead"
+            exit 1
+          fi
+
   # ─── CI Status Gate ─────────────────────────────────────────
   # Single status check for branch protection rules.
   # All required jobs must pass for PRs to be mergeable.

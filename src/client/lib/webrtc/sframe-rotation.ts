@@ -1,8 +1,9 @@
 import { hkdf } from '@noble/hashes/hkdf.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { utf8ToBytes } from '@noble/hashes/utils.js'
+import { LABEL_SFRAME_RATCHET } from '@shared/crypto-labels.js'
 
-const RATCHET_SALT = utf8ToBytes('llamenos:sframe-ratchet:v1')
+const RATCHET_SALT = utf8ToBytes(LABEL_SFRAME_RATCHET)
 
 /**
  * Forward-secret ratchet: derive the next call secret when a new device joins.
