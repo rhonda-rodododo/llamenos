@@ -79,6 +79,8 @@ function payloadIsAuthorizedFor(payload: AuditEntryPayload, role: string): boole
       return role === 'admin' || role === 'super_admin'
     case 'hub_create':
       return role === 'super_admin'
+    case 'device_fingerprint_verified':
+      return role === 'admin' || role === 'super_admin'
     case 'device_add':
     case 'device_revoke':
       // Any authenticated signer may claim device-lifecycle events in Tier 0;
