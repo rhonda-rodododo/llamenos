@@ -259,6 +259,20 @@ export const LABEL_SFRAME_BASE_KEY = 'llamenos:sframe-base-key:v1' as CryptoLabe
 /** HKDF salt for forward-secret ratchet on device join */
 export const LABEL_SFRAME_RATCHET = 'llamenos:sframe-ratchet:v1' as CryptoLabel
 
+// --- Tier 6 (MLS + PQ) ---
+
+/** 7-emoji SAS derivation from device Ed25519 pubkey (Tier 6 fingerprint verification) */
+export const LABEL_SAS_V2 = 'llamenos:sas:v2' as CryptoLabel
+
+/** MLS exporter-secret → per-user items_key derivation */
+export const LABEL_ITEMS_KEY_EXPORT = 'llamenos:items-key-export:v1' as CryptoLabel
+
+/** MLS exporter-secret → per-note epoch-bound key (provable delete) */
+export const LABEL_NOTE_EPOCH_KEY = 'llamenos:note-epoch-key:v1' as CryptoLabel
+
+/** HKDF domain separation for MLS credential provisioning */
+export const LABEL_MLS_PROVISION = 'llamenos:mls-provision:v1' as CryptoLabel
+
 // --- Label Registry ---
 // The index of each label is its stable on-wire `labelId` byte.
 // ORDER IS A WIRE FORMAT — never reorder, only append.
@@ -290,6 +304,10 @@ export const LABEL_REGISTRY = [
   LABEL_HUB_FIELD,
   LABEL_SFRAME_CALL_SECRET,
   LABEL_SFRAME_RATCHET,
+  LABEL_SAS_V2,
+  LABEL_ITEMS_KEY_EXPORT,
+  LABEL_NOTE_EPOCH_KEY,
+  LABEL_MLS_PROVISION,
 ] as const satisfies readonly CryptoLabel[]
 
 export function labelToId(label: CryptoLabel): number {
