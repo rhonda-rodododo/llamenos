@@ -177,7 +177,8 @@ export class CryptoIframeClient {
    */
   private async call(req: CryptoRpcRequest): Promise<unknown> {
     await this.ready
-    if (!this.iframe?.contentWindow) {
+    const contentWindow = this.iframe?.contentWindow
+    if (!contentWindow) {
       throw new Error('CryptoIframeClient: iframe contentWindow is unavailable')
     }
     const id = req.id
@@ -189,7 +190,7 @@ export class CryptoIframeClient {
       }, this.callTimeoutMs)
       this.pending.set(id, { resolve, reject, timeoutId })
       // Target origin must be the exact crypto origin — never '*'.
-      this.iframe!.contentWindow!.postMessage(req, this.cryptoOrigin)
+      contentWindow.postMessage(req, this.cryptoOrigin)
     })
   }
 

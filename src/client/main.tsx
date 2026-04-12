@@ -2,6 +2,15 @@ import { installTrustedTypesPolicy } from '@/lib/trusted-types-policy'
 
 installTrustedTypesPolicy()
 
+// Tier 4 PR-B — kick off the crypto-sandbox iframe boot in parallel with
+// SPA render. Non-blocking: when VITE_CRYPTO_ORIGIN is unset (local dev,
+// same-origin layout) this is a no-op. When it is set, the iframe loads
+// alongside the React tree and a future PR will gate mount on its ready
+// promise via SandboxLoader. See src/client/lib/boot-crypto-sandbox.ts.
+import { bootCryptoSandbox } from '@/lib/boot-crypto-sandbox'
+
+bootCryptoSandbox()
+
 import { AuthProvider } from '@/lib/auth'
 import { ConfigProvider } from '@/lib/config'
 import { NoteSheetProvider } from '@/lib/note-sheet-context'
