@@ -248,6 +248,14 @@ export const LABEL_AUTH_EVENT = 'llamenos:user-auth-event:v1' as CryptoLabel
 /** Signal contact identifier envelope (user-scoped) */
 export const LABEL_SIGNAL_CONTACT = 'llamenos:signal-contact:v1' as CryptoLabel
 
+// --- SFrame Voice E2EE (Tier 5) ---
+
+/** HPKE-wrapped SFrame call secret — distributed per-call via Nostr to peer devices */
+export const LABEL_SFRAME_CALL_SECRET = 'llamenos:sframe-call-secret:v1' as CryptoLabel
+
+/** HKDF info for per-sender SFrame base key derivation from call secret */
+export const LABEL_SFRAME_BASE_KEY = 'llamenos:sframe-base-key:v1' as CryptoLabel
+
 // --- Label Registry ---
 // The index of each label is its stable on-wire `labelId` byte.
 // ORDER IS A WIRE FORMAT — never reorder, only append.
@@ -277,6 +285,7 @@ export const LABEL_REGISTRY = [
   LABEL_CONTACT_RELATIONSHIP,
   LABEL_STORAGE_CREDENTIAL_WRAP,
   LABEL_HUB_FIELD,
+  LABEL_SFRAME_CALL_SECRET,
 ] as const satisfies readonly CryptoLabel[]
 
 export function labelToId(label: CryptoLabel): number {
