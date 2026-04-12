@@ -40,6 +40,7 @@ import metricsRoutes, { httpMetrics } from './routes/metrics'
 import notesRoutes from './routes/notes'
 import notificationsRoutes from './routes/notifications'
 import { notificationsPublic } from './routes/notifications-public'
+import opaqueRoutes from './routes/opaque'
 import providerSetupRoutes from './routes/provider-setup'
 import provisioningRoutes from './routes/provisioning'
 import reportTypesRoutes from './routes/report-types'
@@ -270,6 +271,7 @@ authenticated.route('/firehose', firehoseRoutes)
 authenticated.route('/gdpr', gdprRoutes)
 authenticated.route('/geocoding', geocodingRoutes)
 authenticated.route('/notifications', notificationsRoutes)
+authenticated.route('/opaque', opaqueRoutes)
 
 // Hub-scoped authenticated routes
 const hubScoped = new OpenAPIHono<AppEnv>()
@@ -310,6 +312,7 @@ const KNOWN_API_PREFIXES = new Set([
   'messaging',
   'notifications',
   'ivr-audio',
+  'opaque',
   // Authenticated routes
   'users',
   'analytics',

@@ -53,6 +53,46 @@ export const DeviceRevokePayloadSchema = z.object({
   devicePubkey: hexPubkey,
 })
 
+// --- Tier 2: root-KEK factor lifecycle (2026-04) ---
+
+const factorTypeEnum = z.enum(['prf', 'opaque', 'recoveryPhrase', 'recoveryGroup'])
+
+/**
+ * A new unlock factor was enrolled into the user's root-KEK bundle.
+ * Emitted alongside every successful `appendEnvelope()` on the client,
+ * then mirrored into the hub audit log.
+ */
+export const FactorAddPayloadSchema = z.object({
+  type: z.literal('factor_add'),
+  userId: z.string().uuid(),
+  rootKeyId: z.string().uuid(),
+  factorType: factorTypeEnum,
+  factorId: z.string().min(1).max(256),
+})
+
+/**
+ * A new unlock factor was removed from the user's root-KEK bundle.
+ */
+export const FactorRemovePayloadSchema = z.object({
+  type: z.literal('factor_remove'),
+  userId: z.string().uuid(),
+  rootKeyId: z.string().uuid(),
+  factorType: factorTypeEnum,
+  factorId: z.string().min(1).max(256),
+})
+
+/**
+ * The root KEK itself was rotated (all existing envelopes invalidated,
+ * fresh ones enrolled). Emitted on every `rotateBundle()` call.
+ */
+export const RootKekRotatePayloadSchema = z.object({
+  type: z.literal('root_kek_rotate'),
+  userId: z.string().uuid(),
+  oldRootKeyId: z.string().uuid().nullable(),
+  newRootKeyId: z.string().uuid(),
+  reason: z.enum(['factor_added', 'factor_removed', 'scheduled', 'manual', 'migration_v2_v3']),
+})
+
 export const AuditEntryPayloadSchema = z.discriminatedUnion('type', [
   MembershipAddPayloadSchema,
   MembershipRemovePayloadSchema,
@@ -62,6 +102,9 @@ export const AuditEntryPayloadSchema = z.discriminatedUnion('type', [
   HubDeletePayloadSchema,
   DeviceAddPayloadSchema,
   DeviceRevokePayloadSchema,
+  FactorAddPayloadSchema,
+  FactorRemovePayloadSchema,
+  RootKekRotatePayloadSchema,
 ])
 export type AuditEntryPayload = z.infer<typeof AuditEntryPayloadSchema>
 

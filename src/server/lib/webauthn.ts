@@ -8,11 +8,22 @@ import {
 } from '@simplewebauthn/server'
 import type { WebAuthnCredential } from '../types'
 
+export interface WebAuthnExtensionOptions {
+  /**
+   * When true, advertise the WebAuthn PRF extension during registration.
+   * The authenticator replies with `clientExtensionResults.prf.enabled` so
+   * the client can decide whether PRF-primary unlock is available for this
+   * credential. The server does not consume the PRF output at registration.
+   */
+  prf?: boolean
+}
+
 export async function generateRegOptions(
   user: { pubkey: string; name: string },
   existingCreds: WebAuthnCredential[],
   rpID: string,
-  rpName: string
+  rpName: string,
+  options: WebAuthnExtensionOptions = {}
 ) {
   return generateRegistrationOptions({
     rpName,
@@ -28,6 +39,10 @@ export async function generateRegOptions(
       id: c.id,
       transports: c.transports as AuthenticatorTransport[],
     })),
+    // PRF is a WebAuthn Level 3 extension — lib.dom's
+    // AuthenticationExtensionsClientInputs does not yet declare it, but
+    // @simplewebauthn/server passes the extensions object through verbatim.
+    extensions: options.prf ? ({ prf: {} } as AuthenticationExtensionsClientInputs) : undefined,
   })
 }
 
@@ -45,7 +60,21 @@ export async function verifyRegResponse(
   })
 }
 
-export async function generateAuthOptions(credentials: WebAuthnCredential[], rpID: string) {
+export interface WebAuthnAuthOptions {
+  /**
+   * When provided, request a PRF evaluation with this salt during the
+   * WebAuthn assertion. The authenticator returns 32 stable bytes that the
+   * client feeds into HKDF to derive the PRF KEK. Must be exactly 32 bytes
+   * of domain-separated salt (e.g. HKDF of `LABEL_PRF_KEK_SALT_V1`).
+   */
+  prfSalt?: Uint8Array
+}
+
+export async function generateAuthOptions(
+  credentials: WebAuthnCredential[],
+  rpID: string,
+  options: WebAuthnAuthOptions = {}
+) {
   return generateAuthenticationOptions({
     rpID,
     userVerification: 'required',
@@ -56,6 +85,13 @@ export async function generateAuthOptions(credentials: WebAuthnCredential[], rpI
             transports: c.transports as AuthenticatorTransport[],
           }))
         : undefined,
+    // PRF is a WebAuthn Level 3 extension — see generateRegOptions for the
+    // reason we cast.
+    extensions: options.prfSalt
+      ? ({
+          prf: { eval: { first: options.prfSalt } },
+        } as AuthenticationExtensionsClientInputs)
+      : undefined,
   })
 }
 

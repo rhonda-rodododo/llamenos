@@ -38,7 +38,12 @@ import { hmac } from '@noble/hashes/hmac.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import type { CryptoLabel } from '@shared/crypto-labels'
-import { LABEL_DEVICE_PROVISION, SAS_INFO, SAS_SALT } from '@shared/crypto-labels'
+import {
+  LABEL_DEVICE_PROVISION,
+  LABEL_ROOT_KEK_WRAP,
+  SAS_INFO,
+  SAS_SALT,
+} from '@shared/crypto-labels'
 import { unbiasedSixDigitCode } from '@shared/crypto-primitives'
 import type { EnvelopeV3 } from '@shared/envelope-v3'
 import { buildAad, hpkeOpen, hpkeSeal } from '@shared/hpke-primitives'
@@ -158,6 +163,32 @@ type WorkerRequest =
       hubKey: CryptoKey
     }
   | { type: 'hpkePublicKeyRaw'; id: string }
+  // ---- Tier 2 root-KEK handlers ----
+  //
+  // The root KEK is a 256-bit AES-KW CryptoKey held exclusively in the worker
+  // closure. Each factor (PRF, OPAQUE export key, recovery phrase, recovery
+  // group share) contributes 32 bytes of entropy; the worker derives an
+  // ephemeral AES-KW wrapping key via HKDF-SHA256 over those bytes with
+  // `LABEL_ROOT_KEK_WRAP` and a per-envelope salt, then wraps the root KEK
+  // under that factor key and drops the ephemeral handle. The main thread
+  // persists only `{ hkdfSalt, wrappedKey }` per factor and never sees
+  // either the factor bytes or the root KEK in the clear.
+  | { type: 'rootKekCreate'; id: string }
+  | {
+      type: 'rootKekWrap'
+      id: string
+      factorBytesHex: string
+      hkdfSaltHex: string
+    }
+  | {
+      type: 'rootKekUnwrap'
+      id: string
+      factorBytesHex: string
+      hkdfSaltHex: string
+      wrappedKeyHex: string
+    }
+  | { type: 'rootKekClear'; id: string }
+  | { type: 'rootKekIsLoaded'; id: string }
 
 interface WorkerSuccessResponse {
   type: 'success'
@@ -185,6 +216,11 @@ let publicKeyHex: string | null = null
 let hpkePrivateKey: CryptoKey | null = null
 let hpkePublicKeyRawCache: Uint8Array | null = null
 let hubKey: CryptoKey | null = null
+
+// Tier 2 root KEK. A 256-bit AES-KW key generated or unwrapped inside the
+// worker and held only as a CryptoKey handle. Never posted back to the main
+// thread. Cleared by `autoLock()` alongside the Tier 1 handles.
+let rootKek: CryptoKey | null = null
 
 // ---- Rate limiting ----
 
@@ -244,6 +280,8 @@ function autoLock(): void {
     hpkePublicKeyRawCache.fill(0)
     hpkePublicKeyRawCache = null
   }
+  // Tier 2 root KEK — drop the handle for GC.
+  rootKek = null
   resetRateLimits()
 }
 
@@ -622,6 +660,117 @@ async function handleHubFieldDecryptV3(
   return decryptHubFieldV3(ciphertext, hubKey, recordId, fieldName)
 }
 
+// ---- Tier 2 root-KEK handlers ----
+
+/**
+ * Derive an ephemeral AES-KW wrapping key from raw factor bytes and a
+ * per-envelope salt. The derivation uses HKDF-SHA256 with
+ * `LABEL_ROOT_KEK_WRAP` as the `info` parameter so every factor in the
+ * root-KEK bundle is domain-separated from other uses of the same raw bytes
+ * (e.g. OPAQUE export keys, PRF outputs, and recovery phrases all feed in
+ * here but the resulting key is bound to this label).
+ *
+ * The returned CryptoKey is non-extractable and only usable for
+ * `wrapKey`/`unwrapKey`. Callers must drop the reference after use so the
+ * ephemeral key doesn't outlive a single wrap/unwrap round.
+ */
+async function deriveFactorAesKw(
+  factorBytes: Uint8Array,
+  hkdfSalt: Uint8Array
+): Promise<CryptoKey> {
+  const baseKey = await crypto.subtle.importKey(
+    'raw',
+    factorBytes.buffer.slice(
+      factorBytes.byteOffset,
+      factorBytes.byteOffset + factorBytes.byteLength
+    ) as ArrayBuffer,
+    'HKDF',
+    false,
+    ['deriveKey']
+  )
+  const infoBytes = new TextEncoder().encode(LABEL_ROOT_KEK_WRAP)
+  return crypto.subtle.deriveKey(
+    {
+      name: 'HKDF',
+      hash: 'SHA-256',
+      salt: hkdfSalt.buffer.slice(
+        hkdfSalt.byteOffset,
+        hkdfSalt.byteOffset + hkdfSalt.byteLength
+      ) as ArrayBuffer,
+      info: infoBytes.buffer.slice(
+        infoBytes.byteOffset,
+        infoBytes.byteOffset + infoBytes.byteLength
+      ) as ArrayBuffer,
+    },
+    baseKey,
+    { name: 'AES-KW', length: 256 },
+    false,
+    ['wrapKey', 'unwrapKey']
+  )
+}
+
+/**
+ * Generate a fresh random root KEK and install it in the worker. Any
+ * existing root KEK handle is dropped. Used at first-time enrollment and
+ * during root-KEK rotation.
+ *
+ * The key is extractable at the SubtleCrypto level so `wrapKey` can produce
+ * per-factor envelopes — but the CryptoKey handle itself is held only in
+ * the worker closure, so the main thread can never read the raw bytes.
+ */
+async function handleRootKekCreate(): Promise<void> {
+  rootKek = await crypto.subtle.generateKey({ name: 'AES-KW', length: 256 }, true, [
+    'wrapKey',
+    'unwrapKey',
+  ])
+}
+
+async function handleRootKekWrap(factorBytesHex: string, hkdfSaltHex: string): Promise<string> {
+  if (!rootKek) throw new Error('root KEK not loaded')
+  const factorBytes = hexToBytes(factorBytesHex)
+  try {
+    const factorKey = await deriveFactorAesKw(factorBytes, hexToBytes(hkdfSaltHex))
+    const wrapped = await crypto.subtle.wrapKey('raw', rootKek, factorKey, 'AES-KW')
+    return bytesToHex(new Uint8Array(wrapped))
+  } finally {
+    factorBytes.fill(0)
+  }
+}
+
+async function handleRootKekUnwrap(
+  factorBytesHex: string,
+  hkdfSaltHex: string,
+  wrappedKeyHex: string
+): Promise<void> {
+  const factorBytes = hexToBytes(factorBytesHex)
+  try {
+    const factorKey = await deriveFactorAesKw(factorBytes, hexToBytes(hkdfSaltHex))
+    const wrapped = hexToBytes(wrappedKeyHex)
+    rootKek = await crypto.subtle.unwrapKey(
+      'raw',
+      wrapped.buffer.slice(
+        wrapped.byteOffset,
+        wrapped.byteOffset + wrapped.byteLength
+      ) as ArrayBuffer,
+      factorKey,
+      'AES-KW',
+      { name: 'AES-KW', length: 256 },
+      true,
+      ['wrapKey', 'unwrapKey']
+    )
+  } finally {
+    factorBytes.fill(0)
+  }
+}
+
+function handleRootKekClear(): void {
+  rootKek = null
+}
+
+function handleRootKekIsLoaded(): boolean {
+  return rootKek !== null
+}
+
 async function handleHpkePublicKeyRaw(): Promise<Uint8Array | null> {
   if (!hpkePrivateKey) return null
   if (hpkePublicKeyRawCache) return hpkePublicKeyRawCache
@@ -668,6 +817,24 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
         break
       case 'hpkePublicKeyRaw':
         result = await handleHpkePublicKeyRaw()
+        break
+      case 'rootKekCreate':
+        await handleRootKekCreate()
+        result = null
+        break
+      case 'rootKekWrap':
+        result = await handleRootKekWrap(req.factorBytesHex, req.hkdfSaltHex)
+        break
+      case 'rootKekUnwrap':
+        await handleRootKekUnwrap(req.factorBytesHex, req.hkdfSaltHex, req.wrappedKeyHex)
+        result = null
+        break
+      case 'rootKekClear':
+        handleRootKekClear()
+        result = null
+        break
+      case 'rootKekIsLoaded':
+        result = handleRootKekIsLoaded()
         break
       case 'lock':
         handleLock()
@@ -809,4 +976,13 @@ export function _test_clearHpkeState(): void {
     hpkePublicKeyRawCache.fill(0)
     hpkePublicKeyRawCache = null
   }
+}
+
+/** @internal Test only — direct access to the Tier 2 root-KEK handlers. */
+export {
+  handleRootKekCreate as _test_handleRootKekCreate,
+  handleRootKekWrap as _test_handleRootKekWrap,
+  handleRootKekUnwrap as _test_handleRootKekUnwrap,
+  handleRootKekClear as _test_handleRootKekClear,
+  handleRootKekIsLoaded as _test_handleRootKekIsLoaded,
 }

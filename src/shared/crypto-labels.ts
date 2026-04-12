@@ -248,6 +248,35 @@ export const LABEL_AUTH_EVENT = 'llamenos:user-auth-event:v1' as CryptoLabel
 /** Signal contact identifier envelope (user-scoped) */
 export const LABEL_SIGNAL_CONTACT = 'llamenos:signal-contact:v1' as CryptoLabel
 
+// --- Tier 2: Root KEK + factor wrapping (2026-04) ---
+//
+// These are HKDF info / AES-KW context strings — they bind a factor-specific
+// wrapping key to its purpose so the same raw bytes (e.g. a WebAuthn PRF
+// output) can never be reused across factor types. They are NOT enrolled in
+// LABEL_REGISTRY: the on-wire ciphertext is an AES-KW blob stored in the
+// root-KEK envelope, not in the legacy label-tagged framing.
+
+/** WebAuthn PRF evaluation salt (Tier 2 root KEK unlock, primary factor). */
+export const LABEL_PRF_KEK_SALT_V1 = 'llamenos:kek-prf-salt:v1' as CryptoLabel
+
+/** AES-KW wrap of the root KEK — used as HKDF `info` suffix per factor. */
+export const LABEL_ROOT_KEK_WRAP = 'llamenos:root-kek-wrap' as CryptoLabel
+
+/** HKDF context for deriving a wrapping key from a BIP-39 recovery phrase. */
+export const LABEL_RECOVERY_PHRASE_KEK = 'llamenos:recovery-phrase-kek' as CryptoLabel
+
+/** HKDF context for deriving a wrapping key from the OPAQUE 64-byte export key. */
+export const LABEL_OPAQUE_EXPORT_KEK = 'llamenos:opaque-export-kek' as CryptoLabel
+
+/** HKDF context for deriving a wrapping key from a recovery-group share. */
+export const LABEL_RECOVERY_GROUP_WRAP = 'llamenos:recovery-group-wrap' as CryptoLabel
+
+/** HKDF context for per-member SSS share derivation in the recovery group. */
+export const LABEL_RECOVERY_GROUP_SHARE = 'llamenos:recovery-group-share' as CryptoLabel
+
+/** HKDF context for the per-session payload wrapping the reconstructed KEK. */
+export const LABEL_RECOVERY_SESSION_PAYLOAD = 'llamenos:recovery-session-payload' as CryptoLabel
+
 // --- Label Registry ---
 // The index of each label is its stable on-wire `labelId` byte.
 // ORDER IS A WIRE FORMAT — never reorder, only append.
