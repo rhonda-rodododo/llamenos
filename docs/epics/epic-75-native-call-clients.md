@@ -637,3 +637,20 @@ KEK + nsec -> XChaCha20-Poly1305 -> encrypted_nsec (stored)
 ### Push Notification Infrastructure
 - `src/worker/durable-objects/call-router.ts` — needs push notification sending alongside Nostr relay publish
 - New endpoint: `POST /api/devices/register` for push token + wake key registration
+
+## Voice E2EE via SFrame (Tier 5)
+
+Tier 5 of the security hardening workstream adds end-to-end encryption for voice calls between WebRTC endpoints. This is relevant to native call clients because:
+
+1. **Desktop (Tauri)**: The Twilio Voice JS SDK running inside WebView has access to `RTCRtpScriptTransform`. SFrame encryption works identically to the web app since it runs in the same browser engine (WKWebView on macOS, WebView2 on Windows).
+
+2. **Mobile (React Native)**: The `@twilio/voice-react-native-sdk` uses native WebRTC under the hood. SFrame support on mobile depends on whether the native SDK exposes encoded transform APIs. This is a known gap that will be addressed when mobile clients are implemented.
+
+3. **Key distribution**: Per-call SFrame secrets are HPKE-wrapped per participant device and distributed via Nostr ephemeral events (`KIND_SFRAME_KEY = 20002`). Native clients must subscribe to these events and feed the decrypted key into their SFrame worker/transform.
+
+4. **DTLS fingerprint binding**: Fingerprints are verified via Nostr ephemeral events (`KIND_DTLS_BINDING = 20003`). Native clients must participate in this verification to display the correct E2EE badge.
+
+5. **Badge states**: `e2ee-direct` (peer-to-peer), `e2ee-relayed` (via TURN), `not-e2ee` (PSTN leg). Native clients must display these badges consistently with the web app.
+
+**Design spec**: `docs/superpowers/specs/2026-04-10-security-tier-5-voice-e2ee-design.md`
+**User-facing docs**: `docs/security/VOICE_E2EE.md`, `docs/security/VOICE_E2EE_BROWSER_MATRIX.md`

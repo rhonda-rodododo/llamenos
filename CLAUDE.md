@@ -94,6 +94,7 @@ public/
 - **Hub key distribution**: Random 32 bytes (`crypto.getRandomValues`), ECIES-wrapped individually per member via `LABEL_HUB_KEY_WRAP`. Rotation on member departure excludes departed member.
 - **Client-side transcription**: WASM Whisper via `@huggingface/transformers` ONNX runtime. AudioWorklet ring buffer → Web Worker isolation. Audio never leaves the browser.
 - **SIP WebRTC (JsSIP)**: Browser calling for self-hosted SIP providers (Asterisk, FreeSWITCH, Kamailio). `SipWebRTCAdapter` wraps JsSIP UA for SIP-over-WSS signaling + browser DTLS-SRTP media. Endpoints provisioned via `AsteriskProvisioner` → sip-bridge → ARI dynamic config. coturn provides TURN relay for NAT traversal. Caddy terminates TLS and proxies WSS to Asterisk.
+- **Voice E2EE (SFrame)**: Per-call 32-byte secret → HKDF per-sender base key → AES-128-GCM with JFrame trailer. HPKE-wrapped key distribution via Nostr ephemeral events (KIND_SFRAME_KEY=20002). DTLS fingerprint binding via KIND_DTLS_BINDING=20003. Admin-configurable policy (required/preferred/off). See `docs/security/VOICE_E2EE.md`.
 - **Reproducible builds**: `Dockerfile.build` with `SOURCE_DATE_EPOCH`, content-hashed filenames. `CHECKSUMS.txt` in GitHub Releases. SLSA provenance. Verification via `scripts/verify-build.sh`.
 - **Hash-chained audit log**: SHA-256 chain with `previousEntryHash` + `entryHash` for tamper detection (Epic 77).
 - **Blob storage (RustFS)**: S3-compatible object storage via `StorageManager` (`src/server/services/storage-manager.ts`). Per-hub buckets (`hub-{hubId}`) with lifecycle policies. Provider-agnostic `STORAGE_*` env vars (`STORAGE_ENDPOINT`, `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY`). Used for voicemail recordings, attachments, and encrypted exports.
@@ -156,6 +157,12 @@ Every query key domain in `queryKeys` must be classified as either `ENCRYPTED_QU
 - Ansible roles use the dispatcher pattern (`tasks/install.yml` → `install_{family}.yml`) plus per-family vars files. When adding distro-specific behavior, never put `when: ansible_distribution == ...` in role bodies — use the dispatcher and a vars file. See `roles/common/` for the canonical example.
 - Ansible vars must be prefixed with the role name (e.g., `firewall_service`, `common_chrony_package`) to satisfy ansible-lint's `var-naming[no-role-prefix]` production rule. Bare names will fail lint.
 - After cloning, run `cd deploy/ansible && just bootstrap` once to vendor `geerlingguy.docker` and other galaxy dependencies into `roles/galaxy/` (gitignored).
+- SFrame worker is a singleton — `src/client/lib/webrtc/sframe-worker-client.ts` exports one instance per tab. Do not create additional workers.
+- SFrame keys never persisted — per-call secret is generated from `crypto.getRandomValues` at call start and zeroed on `releaseCall`.
+- Asterisk `volunteers-sframe` dialplan context forbids recording — `MixMonitor`/`Record` on this context will throw via `SframeModeDispatcher`.
+- Opus-only on SFrame contexts — G.711 transcoding is refused at codec negotiation, not silently accepted.
+- Voice E2EE badge has three states (`e2ee-direct`, `e2ee-relayed`, `not-e2ee`) — see `ActiveCallBadge.tsx`
+- `CallModePayloadSchema.callId` is NOT a UUID — it's the telephony provider's call ID (e.g. Twilio SID `CAxxxx`)
 
 ## Development Commands
 
