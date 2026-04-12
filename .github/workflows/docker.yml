@@ -1,50 +1,166 @@
-# Build and push Docker image to GitHub Container Registry
+# Reusable Docker build workflow.
+# Invoked by release.yml after a new version tag is cut. Not directly triggered
+# by tag pushes because release.yml uses GITHUB_TOKEN to push, and that token
+# cannot trigger downstream workflows. workflow_call sidesteps that rule.
+#
+# Publishes the `llamenos-hotline` app image and the `llamenos-hotline-sip-bridge`
+# image to GHCR with: full SHA-pinned actions, StepSecurity harden-runner,
+# SBOM + SLSA build provenance, GitHub-native build-provenance attestation,
+# cosign keyless OIDC signature, and a pre-push Trivy CRITICAL/HIGH gate.
 name: Docker Build
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_call:
+    inputs:
+      version:
+        description: 'Semver version being released, e.g. "1.2.3" (no leading v)'
+        required: true
+        type: string
+      ref:
+        description: 'Git ref to check out (typically refs/tags/vX.Y.Z)'
+        required: true
+        type: string
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Semver override for manual runs; leave empty to publish only latest + sha'
+        required: false
+        type: string
+        default: ''
+      ref:
+        description: 'Git ref to check out; defaults to the current default branch'
+        required: false
+        type: string
+        default: ''
+  push:
+    tags: ['v*']  # dormant fallback — currently unreachable under GITHUB_TOKEN-authored tag pushes
+
+# Deny everything at workflow level; each job opts into the minimum scopes it needs.
+permissions: {}
+
+# Tag-triggered runs should always complete; manual dispatches can be superseded safely.
+concurrency:
+  group: docker-${{ github.ref }}-${{ inputs.version || github.sha }}
+  cancel-in-progress: false
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build:
+  app:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-      security-events: write
-
+      id-token: write         # OIDC for cosign keyless + attestations
+      attestations: write     # GH attestation store
+      security-events: write  # SARIF upload to code scanning
     steps:
+      - name: Harden the runner (audit egress)
+        uses: step-security/harden-runner@f808768d1510423e83855289c910610ca9b43176 # v2.17.0
+        with:
+          egress-policy: audit
+
+      - name: Resolve ref to check out
+        id: resolve_ref
+        env:
+          INPUT_REF: ${{ inputs.ref }}
+        run: |
+          if [ -n "$INPUT_REF" ]; then
+            echo "ref=$INPUT_REF" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${{ github.ref }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ steps.resolve_ref.outputs.ref }}
+          persist-credentials: false
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata
+      - name: Extract image metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6.0.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # Tag rules:
+          #   - semver rules are gated on a non-empty version input (workflow_call always
+          #     has one; workflow_dispatch may not). Without the guard, value=v is passed
+          #     to the semver parser and the step fails.
+          #   - `latest` fires only when the checked-out ref is on the default branch.
+          #     release.yml commits+tags on main, so the tag points at the main tip at
+          #     publish time → is_default_branch is true → latest applies. Manual dispatches
+          #     against other branches get only sha-.
+          #   - sha- is always present for traceability.
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=sha
+            type=semver,pattern={{version}},value=v${{ inputs.version }},enable=${{ inputs.version != '' }}
+            type=semver,pattern={{major}}.{{minor}},value=v${{ inputs.version }},enable=${{ inputs.version != '' }}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,format=short,prefix=sha-
 
-      - name: Build and push
-        uses: docker/build-push-action@v6
+      # Phase 1: build for local Trivy scan. load: true requires single-platform.
+      # When multi-arch is introduced, this pattern must be reworked — see spec follow-ups.
+      - name: Build (phase 1 — for scanning, not pushed)
+        id: build_scan
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          load: true
+          push: false
+          tags: local-scan:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILD_VERSION=${{ inputs.version }}
+            BUILD_COMMIT=${{ github.sha }}
+            BUILD_TIME=${{ github.event.repository.updated_at }}
+
+      - name: Scan image for CRITICAL/HIGH CVEs (fail on hit)
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        with:
+          image-ref: local-scan:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+          exit-code: '1'
+          # Only scan for OS/library vulnerabilities. Trivy's secret scanner
+          # false-positives on placeholder strings in the minified frontend JS
+          # bundle (e.g. `{****...}` in React form placeholder props matches its
+          # GCP-service-account regex). Real credential leaks are caught by
+          # gitleaks (.github/workflows/ci.yml) and the secret-scan workflow.
+          scanners: 'vuln'
+          # Critical: trivy-action unsets TRIVY_SEVERITY when format=sarif
+          # UNLESS this flag is true. Without it, exit-code fires on EVERY
+          # finding (MEDIUM, LOW, UNKNOWN) regardless of the severity filter,
+          # breaking the gate. With it, both SARIF and exit-code honor the
+          # CRITICAL,HIGH filter above.
+          limit-severities-for-sarif: true
+
+      - name: Upload Trivy SARIF to code scanning
+        if: always()  # upload even when the scan step failed
+        uses: github/codeql-action/upload-sarif@c10b8064de6f491fea524254123dbe5e09572f13 # v4.35.1
+        with:
+          sarif_file: 'trivy-results.sarif'
+          category: trivy-app
+
+      # Phase 2: re-build from cache and push. sbom + provenance attach SPDX SBOM
+      # and SLSA build provenance to the image manifest as OCI referrers.
+      - name: Build and push (phase 2)
+        id: build_push
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
         with:
           context: .
           file: deploy/docker/Dockerfile
@@ -53,59 +169,144 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          sbom: true
+          provenance: mode=max
+          build-args: |
+            BUILD_VERSION=${{ inputs.version }}
+            BUILD_COMMIT=${{ github.sha }}
+            BUILD_TIME=${{ github.event.repository.updated_at }}
 
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@v0.35.0
+      - name: Attest image build provenance (GitHub)
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-          severity: 'CRITICAL,HIGH'
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.build_push.outputs.digest }}
+          push-to-registry: true
 
-      - name: Upload Trivy scan results
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: 'trivy-results.sarif'
+      - name: Install cosign
+        uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
 
-  # Build asterisk bridge image
+      - name: Sign image with cosign (keyless, OIDC)
+        env:
+          DIGEST: ${{ steps.build_push.outputs.digest }}
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        run: |
+          cosign sign --yes "${IMAGE}@${DIGEST}"
+
   bridge:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-
+      id-token: write
+      attestations: write
+      security-events: write
     steps:
+      - name: Harden the runner (audit egress)
+        uses: step-security/harden-runner@f808768d1510423e83855289c910610ca9b43176 # v2.17.0
+        with:
+          egress-policy: audit
+
+      - name: Resolve ref to check out
+        id: resolve_ref
+        env:
+          INPUT_REF: ${{ inputs.ref }}
+        run: |
+          if [ -n "$INPUT_REF" ]; then
+            echo "ref=$INPUT_REF" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${{ github.ref }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ steps.resolve_ref.outputs.ref }}
+          persist-credentials: false
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata
+      - name: Extract image metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6.0.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-sip-bridge
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=sha
+            type=semver,pattern={{version}},value=v${{ inputs.version }},enable=${{ inputs.version != '' }}
+            type=semver,pattern={{major}}.{{minor}},value=v${{ inputs.version }},enable=${{ inputs.version != '' }}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,format=short,prefix=sha-
 
-      - name: Build and push
-        uses: docker/build-push-action@v6
+      - name: Build (phase 1 — for scanning, not pushed)
+        id: build_scan
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
         with:
-          context: .
-          file: sip-bridge/Dockerfile
+          # sip-bridge is a self-contained subproject with its own package.json,
+          # bun.lock, and src/. Build context must be the subproject directory,
+          # NOT the repo root — otherwise the root package.json's prepare script
+          # (lefthook install) runs inside the image and fails on missing git.
+          context: ./sip-bridge
+          file: ./sip-bridge/Dockerfile
+          load: true
+          push: false
+          tags: local-scan-bridge:${{ github.sha }}
+          cache-from: type=gha,scope=bridge
+          cache-to: type=gha,mode=max,scope=bridge
+
+      - name: Scan image for CRITICAL/HIGH CVEs (fail on hit)
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        with:
+          image-ref: local-scan-bridge:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-results-bridge.sarif'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+          exit-code: '1'
+          scanners: 'vuln'
+          limit-severities-for-sarif: true
+
+      - name: Upload Trivy SARIF to code scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@c10b8064de6f491fea524254123dbe5e09572f13 # v4.35.1
+        with:
+          sarif_file: 'trivy-results-bridge.sarif'
+          category: trivy-bridge
+
+      - name: Build and push (phase 2)
+        id: build_push
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
+        with:
+          context: ./sip-bridge
+          file: ./sip-bridge/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=bridge
+          cache-to: type=gha,mode=max,scope=bridge
+          sbom: true
+          provenance: mode=max
+
+      - name: Attest image build provenance (GitHub)
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-sip-bridge
+          subject-digest: ${{ steps.build_push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
+
+      - name: Sign image with cosign (keyless, OIDC)
+        env:
+          DIGEST: ${{ steps.build_push.outputs.digest }}
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-sip-bridge
+        run: |
+          cosign sign --yes "${IMAGE}@${DIGEST}"
