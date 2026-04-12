@@ -226,13 +226,14 @@ export async function recoverFromPaperKey(params: {
     pukGeneration: params.pukGeneration,
   }
 
-  // Build sigchain entry: remove the paper key device (signed by paper key)
+  // Build sigchain entry: remove the paper key device (signed by the NEW device,
+  // not the paper key — the sigchain verifier rejects self-removal)
   const removeEntry: Tier3DeviceRemovePayload = {
     type: 'tier3_device_remove',
     userId: params.userId,
     removedDeviceId: paperKey.deviceId,
     removedSigningPubkey: pubkeyToHex(paperKey.signing.publicKey),
-    signedByDeviceId: paperKey.deviceId,
+    signedByDeviceId: newDevice.deviceId,
     reason: 'user_revoked',
     pukGeneration: params.pukGeneration,
   }

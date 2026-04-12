@@ -50,7 +50,18 @@ function createMockDb() {
 
     // .set()
     chain.set = (data: Record<string, unknown>) => {
-      state.setData = data
+      // Handle drizzle SQL expressions (e.g. sql`col + 1`) by detecting
+      // objects with queryChunks — our mock applies the increment to the row.
+      const resolved: Record<string, unknown> = {}
+      for (const [key, val] of Object.entries(data)) {
+        if (val && typeof val === 'object' && 'queryChunks' in (val as Record<string, unknown>)) {
+          // Mark as SQL increment — we'll resolve it in the update handler
+          resolved[key] = { __sqlIncrement: true }
+        } else {
+          resolved[key] = val
+        }
+      }
+      state.setData = resolved
       return chain
     }
 
@@ -102,7 +113,14 @@ function createMockDb() {
         const matched = findRows(state.filters)
         const updated: Array<Record<string, unknown>> = []
         for (const row of matched) {
-          Object.assign(row, state.setData)
+          // Apply setData, resolving SQL increments
+          for (const [key, val] of Object.entries(state.setData)) {
+            if (val && typeof val === 'object' && (val as Record<string, unknown>).__sqlIncrement) {
+              row[key] = (row[key] as number) + 1
+            } else {
+              row[key] = val
+            }
+          }
           updated.push(
             state.returning
               ? Object.fromEntries(Object.keys(state.returning).map((k) => [k, row[k]]))
@@ -128,7 +146,19 @@ function createMockDb() {
           } else if (op === 'update' && !state.returning) {
             const matched = findRows(state.filters)
             for (const row of matched) {
-              Object.assign(row, state.setData)
+              if (state.setData) {
+                for (const [key, val] of Object.entries(state.setData)) {
+                  if (
+                    val &&
+                    typeof val === 'object' &&
+                    (val as Record<string, unknown>).__sqlIncrement
+                  ) {
+                    row[key] = (row[key] as number) + 1
+                  } else {
+                    row[key] = val
+                  }
+                }
+              }
             }
             resolve(matched)
           } else {
@@ -265,7 +295,7 @@ describe('RecoveryService', () => {
     expect(result.thresholdMet).toBe(true)
   })
 
-  test('completeRecovery updates status to completed', async () => {
+  test('completeRecovery updates status to completed when threshold met', async () => {
     const db = createMockDb()
     const svc = new RecoveryService(db)
 
@@ -273,7 +303,12 @@ describe('RecoveryService', () => {
       userId,
       initiatedByUserId: adminUserId,
       recoveryType: 'admin_reset',
+      threshold: 2,
     })
+
+    // Meet the threshold first
+    await svc.addParticipant({ recoveryRequestId, participantUserId: 'p1', sharePayload: 's1' })
+    await svc.addParticipant({ recoveryRequestId, participantUserId: 'p2', sharePayload: 's2' })
 
     await svc.completeRecovery({
       recoveryRequestId,
@@ -289,6 +324,29 @@ describe('RecoveryService', () => {
     expect(request!.completedAt).toBeInstanceOf(Date)
   })
 
+  test('completeRecovery rejects when threshold not met', async () => {
+    const db = createMockDb()
+    const svc = new RecoveryService(db)
+
+    const { recoveryRequestId } = await svc.initiateRecovery({
+      userId,
+      initiatedByUserId: adminUserId,
+      recoveryType: 'recovery_group',
+      threshold: 3,
+    })
+
+    // Only 1 participant, need 3
+    await svc.addParticipant({ recoveryRequestId, participantUserId: 'p1', sharePayload: 's1' })
+
+    await expect(
+      svc.completeRecovery({
+        recoveryRequestId,
+        newDeviceId: 'device-1',
+        sigchainEntryId: 'entry-1',
+      })
+    ).rejects.toThrow(/threshold not met/)
+  })
+
   test('completeRecovery on non-pending request throws', async () => {
     const db = createMockDb()
     const svc = new RecoveryService(db)
@@ -297,9 +355,12 @@ describe('RecoveryService', () => {
       userId,
       initiatedByUserId: adminUserId,
       recoveryType: 'admin_reset',
+      threshold: 2,
     })
 
-    // Complete it first
+    // Meet threshold and complete
+    await svc.addParticipant({ recoveryRequestId, participantUserId: 'p1', sharePayload: 's1' })
+    await svc.addParticipant({ recoveryRequestId, participantUserId: 'p2', sharePayload: 's2' })
     await svc.completeRecovery({
       recoveryRequestId,
       newDeviceId: 'device-1',

@@ -136,7 +136,7 @@ describe('paper-key', () => {
       expect(result.removeEntry.userId).toBe(userId)
       expect(result.removeEntry.removedDeviceId).toBe(result.paperKeyDeviceId)
       expect(result.removeEntry.removedSigningPubkey).toBe(pubkeyToHex(paperKey.signing.publicKey))
-      expect(result.removeEntry.signedByDeviceId).toBe(result.paperKeyDeviceId)
+      expect(result.removeEntry.signedByDeviceId).toBe(result.newDevice.deviceId)
       expect(result.removeEntry.reason).toBe('user_revoked')
       expect(result.removeEntry.pukGeneration).toBe(pukGeneration)
     })

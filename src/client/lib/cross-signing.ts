@@ -215,8 +215,7 @@ export async function deriveMasterFromWrapped({
 
 /**
  * Sign a device's signing pubkey with the self-signing key.
- * Returns a DeviceCrossSignPayload-compatible object (minus signerDeviceId/targetDeviceId
- * which are caller-supplied).
+ * Returns a complete DeviceCrossSignPayload including the caller-supplied device IDs.
  */
 export async function crossSignOwnDevice({
   deviceSigningPubkey,

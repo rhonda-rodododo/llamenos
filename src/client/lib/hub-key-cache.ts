@@ -19,10 +19,11 @@
  * re-renders and can be accessed from the RelayManager callback.
  */
 
+import { LABEL_HUB_KEY_WRAP } from '@shared/crypto-labels'
 import type { KeyEnvelope } from '@shared/crypto-primitives'
 import { getMyHubKeyEnvelope } from './api'
+import { eciesUnwrapKey } from './crypto-worker-helpers'
 import { importHubKeyCryptoKey } from './hub-field-crypto-v3'
-import { unwrapHubKey } from './hub-key-manager'
 
 interface CachedHubKey {
   raw: Uint8Array
@@ -83,7 +84,7 @@ export async function loadHubKeysForUser(hubIds: string[]): Promise<void> {
           wrappedKey: raw.wrappedKey,
           ephemeralPubkey: raw.ephemeralPubkey || raw.ephemeralPk || '',
         }
-        const hubKeyBytes = await unwrapHubKey(envelope)
+        const hubKeyBytes = await eciesUnwrapKey(envelope, LABEL_HUB_KEY_WRAP)
         const cryptoKey = await importHubKeyCryptoKey(hubKeyBytes)
         // Only write if this load is still the current generation
         if (cacheGeneration === myGeneration) {

@@ -75,26 +75,38 @@ export class RecoveryService {
     participantUserId: string
     sharePayload: string
   }): Promise<{ participantsCount: number; thresholdMet: boolean }> {
-    const request = await this.getRecoveryRequest(params.recoveryRequestId)
-    if (!request) {
-      throw new Error(`Recovery request ${params.recoveryRequestId} not found`)
-    }
-    if (request.status !== 'pending') {
+    // Atomic increment + status guard in a single SQL statement to avoid TOCTOU race.
+    // Two concurrent addParticipant calls will each see a unique post-increment value.
+    const [result] = await this.db
+      .update(recoveryRequests)
+      .set({
+        participantsCount: sql`${recoveryRequests.participantsCount} + 1`,
+      })
+      .where(
+        and(
+          eq(recoveryRequests.id, params.recoveryRequestId),
+          eq(recoveryRequests.status, 'pending')
+        )
+      )
+      .returning({
+        participantsCount: recoveryRequests.participantsCount,
+        threshold: recoveryRequests.threshold,
+      })
+
+    if (!result) {
+      // Either not found or not pending — fetch to distinguish
+      const request = await this.getRecoveryRequest(params.recoveryRequestId)
+      if (!request) {
+        throw new Error(`Recovery request ${params.recoveryRequestId} not found`)
+      }
       throw new Error(
         `Recovery request ${params.recoveryRequestId} is not pending (status: ${request.status})`
       )
     }
 
-    const newCount = request.participantsCount + 1
-
-    await this.db
-      .update(recoveryRequests)
-      .set({ participantsCount: newCount })
-      .where(eq(recoveryRequests.id, params.recoveryRequestId))
-
     return {
-      participantsCount: newCount,
-      thresholdMet: newCount >= request.threshold,
+      participantsCount: result.participantsCount,
+      thresholdMet: result.participantsCount >= result.threshold,
     }
   }
 
@@ -114,6 +126,11 @@ export class RecoveryService {
     if (request.status !== 'pending') {
       throw new Error(
         `Cannot complete recovery request ${params.recoveryRequestId}: status is '${request.status}', expected 'pending'`
+      )
+    }
+    if (request.participantsCount < request.threshold) {
+      throw new Error(
+        `Cannot complete recovery request ${params.recoveryRequestId}: threshold not met (${request.participantsCount}/${request.threshold})`
       )
     }
 

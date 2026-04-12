@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS "recovery_requests" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  "user_id" uuid NOT NULL,
-  "initiated_by_user_id" uuid NOT NULL,
+  "user_id" text NOT NULL,
+  "initiated_by_user_id" text NOT NULL,
   "recovery_type" text NOT NULL DEFAULT 'admin_reset',
   "status" text NOT NULL DEFAULT 'pending',
   "threshold" integer NOT NULL DEFAULT 2,
