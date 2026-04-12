@@ -1,5 +1,11 @@
 import { LABEL_SFRAME_BASE_KEY, LABEL_SFRAME_CALL_SECRET, labelToId } from '../crypto-labels.js'
 import { SFRAME_CIPHER_SUITE } from './cipher-suite.js'
+import {
+  type CiphertextBytes,
+  type PlaintextBytes,
+  asCiphertextBytes,
+  asPlaintextBytes,
+} from './sframe-types.js'
 import { TRAILER_LENGTH, parseTrailer, writeTrailer } from './trailer.js'
 
 /**
@@ -42,7 +48,7 @@ export interface OpenContext {
 }
 
 export interface OpenResult {
-  plaintext: Uint8Array
+  plaintext: PlaintextBytes
   counter: number
   keyId: number
 }
@@ -104,7 +110,7 @@ export async function sealFrame(
   frame: Uint8Array,
   key: CryptoKey,
   ctx: SealContext
-): Promise<Uint8Array> {
+): Promise<CiphertextBytes> {
   const headerLen = ctx.codecHeaderLength ?? 0
   if (headerLen < 0 || headerLen > frame.byteLength) {
     throw new Error(
@@ -135,7 +141,7 @@ export async function sealFrame(
   out.set(header, 0)
   out.set(ct, header.byteLength)
   out.set(trailer, header.byteLength + ct.byteLength)
-  return out
+  return asCiphertextBytes(out)
 }
 
 /**
@@ -147,7 +153,7 @@ export async function sealFrame(
  * counter and keyId so callers can update replay-window state.
  */
 export async function openFrame(
-  frame: Uint8Array,
+  frame: CiphertextBytes,
   key: CryptoKey,
   ctx: OpenContext
 ): Promise<OpenResult> {
@@ -180,5 +186,5 @@ export async function openFrame(
   const out = new Uint8Array(header.byteLength + pt.byteLength)
   out.set(header, 0)
   out.set(pt, header.byteLength)
-  return { plaintext: out, counter, keyId }
+  return { plaintext: asPlaintextBytes(out), counter, keyId }
 }

@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { deriveBaseKey, importAesKey } from './cipher-suite.js'
 import { openFrame, sealFrame } from './frame-codec.js'
+import { asCiphertextBytes } from './sframe-types.js'
 import { TRAILER_LENGTH } from './trailer.js'
 
 const SECRET_A = new Uint8Array(32).fill(0x42)
@@ -38,7 +39,7 @@ describe('SFrame frame codec — round-trip', () => {
     })
     expect(opened.counter).toBe(17)
     expect(opened.keyId).toBe(3)
-    expect(opened.plaintext).toEqual(plaintext)
+    expect(Array.from(opened.plaintext)).toEqual(Array.from(plaintext))
   })
 
   test('preserves a non-zero codec header passthrough', async () => {
@@ -65,7 +66,7 @@ describe('SFrame frame codec — round-trip', () => {
       rtpTimestamp: 1000,
       codecHeaderLength: 3,
     })
-    expect(opened.plaintext).toEqual(frame)
+    expect(Array.from(opened.plaintext)).toEqual(Array.from(frame))
     expect(opened.counter).toBe(0)
     expect(opened.keyId).toBe(0)
   })
@@ -87,7 +88,7 @@ describe('SFrame frame codec — round-trip', () => {
       ssrc: 1,
       rtpTimestamp: 1,
     })
-    expect(opened.plaintext).toEqual(frame)
+    expect(Array.from(opened.plaintext)).toEqual(Array.from(frame))
   })
 
   test('counter round-trips at 0, 1, and 0xdeadbeef', async () => {
@@ -109,7 +110,7 @@ describe('SFrame frame codec — round-trip', () => {
         rtpTimestamp: 7,
       })
       expect(opened.counter).toBe(counter)
-      expect(opened.plaintext).toEqual(frame)
+      expect(Array.from(opened.plaintext)).toEqual(Array.from(frame))
     }
   })
 
@@ -132,7 +133,7 @@ describe('SFrame frame codec — round-trip', () => {
         rtpTimestamp: 1,
       })
       expect(opened.keyId).toBe(keyId)
-      expect(opened.plaintext).toEqual(frame)
+      expect(Array.from(opened.plaintext)).toEqual(Array.from(frame))
     }
   })
 })
@@ -258,7 +259,7 @@ describe('SFrame frame codec — tamper detection', () => {
       rtpTimestamp: 1,
     })
     // Flip a byte inside the ciphertext region (well before the trailer).
-    const tampered = new Uint8Array(sealed)
+    const tampered = asCiphertextBytes(new Uint8Array(sealed))
     tampered[2] ^= 0x01
     await expect(
       openFrame(tampered, key, {
@@ -281,7 +282,7 @@ describe('SFrame frame codec — tamper detection', () => {
       ssrc: 1,
       rtpTimestamp: 1,
     })
-    const tampered = new Uint8Array(sealed)
+    const tampered = asCiphertextBytes(new Uint8Array(sealed))
     // Last byte is the config byte; flip a low (keyId) bit.
     tampered[tampered.byteLength - 1] ^= 0x01
     await expect(
@@ -305,7 +306,7 @@ describe('SFrame frame codec — tamper detection', () => {
       ssrc: 1,
       rtpTimestamp: 1,
     })
-    const tampered = new Uint8Array(sealed)
+    const tampered = asCiphertextBytes(new Uint8Array(sealed))
     // Counter is the 4 bytes before the config byte.
     tampered[tampered.byteLength - 2] ^= 0x01
     await expect(
@@ -353,7 +354,7 @@ describe('SFrame frame codec — input validation', () => {
   test('openFrame rejects frame too short to decrypt', async () => {
     const key = await makeKey(SECRET_A, 'call-1', 'alice')
     // Need at least header + tag(16) + trailer(5) = 21 bytes for headerLen=0
-    const tooShort = new Uint8Array(20)
+    const tooShort = asCiphertextBytes(new Uint8Array(20))
     await expect(
       openFrame(tooShort, key, {
         callId: 'call-1',
