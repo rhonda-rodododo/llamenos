@@ -1,6 +1,6 @@
 {
   "name": "llamenos",
-  "version": "0.44.0",
+  "version": "0.41.1",
   "private": true,
   "license": "AGPL-3.0-or-later",
   "type": "module",
@@ -52,8 +52,8 @@
     "@noble/hashes": "^2.0.1",
     "@scalar/hono-api-reference": "^0.10.5",
     "@scure/base": "^2.0.0",
+    "@scure/bip39": "^2.0.1",
     "@serenity-kit/opaque": "^1.1.0",
-    "shamir-secret-sharing": "^0.0.4",
     "@simplewebauthn/browser": "^13.3.0",
     "@simplewebauthn/server": "^13.3.0",
     "@tanstack/react-query": "^5.96.0",
