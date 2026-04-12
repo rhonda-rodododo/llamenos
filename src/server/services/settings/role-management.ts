@@ -104,7 +104,7 @@ export async function createRole(
     data.description ??
     null) as Ciphertext | null
 
-  const id = `role-${crypto.randomUUID()}`
+  const id = data.id ?? `role-${crypto.randomUUID()}`
   const [row] = await db
     .insert(roles)
     .values({

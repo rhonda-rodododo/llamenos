@@ -14,6 +14,8 @@ type FirehoseMessageBuffer = typeof firehoseMessageBuffer.$inferSelect
 type FirehoseNotificationOptout = typeof firehoseNotificationOptouts.$inferSelect
 
 export type CreateConnectionData = {
+  /** Client-generated UUID for AAD binding. */
+  id?: string
   signalGroupId?: string | null
   displayName?: string
   encryptedDisplayName?: Ciphertext | null
@@ -59,7 +61,7 @@ export class FirehoseService {
   // ---------------------------------------------------------------------------
 
   async createConnection(hubId: string, data: CreateConnectionData): Promise<FirehoseConnection> {
-    const id = crypto.randomUUID()
+    const id = data.id ?? crypto.randomUUID()
     const now = new Date()
     const [row] = await this.db
       .insert(firehoseConnections)

@@ -30,6 +30,7 @@ const FallbackBodySchema = z.object({
 })
 
 const CreateShiftBodySchema = z.object({
+  id: z.string().uuid().optional(),
   name: z.string().optional(),
   startTime: z.string(),
   endTime: z.string(),

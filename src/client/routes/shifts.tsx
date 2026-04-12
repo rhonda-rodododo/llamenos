@@ -104,7 +104,7 @@ function ShiftsPage() {
                 }
               )
             } else {
-              createShift.mutate(data as Omit<Shift, 'id'>, {
+              createShift.mutate(data as Omit<Shift, 'id'> & { id?: string }, {
                 onSuccess: () => {
                   setShowForm(false)
                   setEditingShift(null)
@@ -253,6 +253,7 @@ function ShiftForm({
     // For an existing shift, use the server-assigned ID.
     const recordId = shift?.id ?? crypto.randomUUID()
     onSave({
+      id: recordId,
       name,
       encryptedName: encryptHubField(name, hubId, recordId, 'encrypted_name'),
       startTime,

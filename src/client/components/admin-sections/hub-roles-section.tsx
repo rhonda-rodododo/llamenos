@@ -296,9 +296,10 @@ export function HubRolesSection() {
       const trimmedName = form.name.trim()
       const trimmedDesc = form.description.trim()
       // Pre-generate a client UUID for the new role so the AAD can be bound to a stable ID.
-      const newId = crypto.randomUUID()
+      const newId = `role-${crypto.randomUUID()}`
       createRole.mutate(
         {
+          id: newId,
           name: trimmedName,
           description: trimmedDesc,
           permissions: form.permissions,

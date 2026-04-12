@@ -92,7 +92,7 @@ export function useShiftStatus() {
 export function useCreateShift() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (data: Omit<Shift, 'id'>) => createShift(data),
+    mutationFn: (data: Omit<Shift, 'id'> & { id?: string }) => createShift(data),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.shifts.all })
     },

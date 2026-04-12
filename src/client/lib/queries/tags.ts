@@ -46,6 +46,7 @@ export function useCreateTag() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (data: {
+      id?: string
       name: string
       encryptedLabel: Ciphertext
       color?: string

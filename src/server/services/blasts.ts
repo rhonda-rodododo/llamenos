@@ -77,7 +77,7 @@ export class BlastService {
   }
 
   async createBlast(data: CreateBlastData): Promise<Blast> {
-    const id = crypto.randomUUID()
+    const id = data.id ?? crypto.randomUUID()
     const hId = data.hubId ?? 'global'
     // Client provides hub-key encrypted name
     const encryptedName = (data.encryptedName ?? data.name) as Ciphertext

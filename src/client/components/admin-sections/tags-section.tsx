@@ -108,6 +108,7 @@ export function TagsSection() {
 
       createTag.mutate(
         {
+          id: newId,
           name,
           encryptedLabel,
           color: form.color,

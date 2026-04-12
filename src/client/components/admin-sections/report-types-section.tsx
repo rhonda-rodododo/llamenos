@@ -88,8 +88,11 @@ export function ReportTypesSection() {
         const trimmedName = editing.name.trim()
         const trimmedDesc = editing.description.trim()
         // Pre-generate a client UUID for the new report type so the AAD can be bound to a stable ID.
+        // Pass it as `id` so the server uses the same UUID as the record's primary key —
+        // otherwise the ciphertext is bound to a UUID the server doesn't know about.
         const newId = crypto.randomUUID()
         await createReportType({
+          id: newId,
           name: trimmedName,
           description: trimmedDesc || undefined,
           isDefault: editing.isDefault,

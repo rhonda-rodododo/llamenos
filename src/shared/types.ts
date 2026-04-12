@@ -271,6 +271,8 @@ export interface ReportType {
 }
 
 export interface CreateReportTypeInput {
+  /** Client-generated UUID for AAD binding. See CreateReportTypeSchema for rationale. */
+  id?: string
   name: string
   description?: string
   isDefault?: boolean

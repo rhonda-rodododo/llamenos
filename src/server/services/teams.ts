@@ -23,12 +23,14 @@ export class TeamsService {
   ) {}
 
   async createTeam(input: {
+    /** Client-generated UUID for AAD binding. */
+    id?: string
     hubId: string
     encryptedName: Ciphertext
     encryptedDescription?: Ciphertext | null
     createdBy: string
   }): Promise<TeamRow> {
-    const id = crypto.randomUUID()
+    const id = input.id ?? crypto.randomUUID()
     const now = new Date()
     const [row] = await this.db
       .insert(teams)

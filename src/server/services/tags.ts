@@ -17,6 +17,8 @@ export class TagsService {
   ) {}
 
   async createTag(data: {
+    /** Client-generated UUID for AAD binding. */
+    id?: string
     hubId: string
     name?: string
     encryptedLabel?: Ciphertext
@@ -26,7 +28,7 @@ export class TagsService {
   }): Promise<TagRow> {
     const encLabel = (data.encryptedLabel ?? data.name ?? '') as Ciphertext
     const slug = (data.name ?? data.encryptedLabel ?? '').toLowerCase().replace(/[^a-z0-9-]/g, '-')
-    const id = crypto.randomUUID()
+    const id = data.id ?? crypto.randomUUID()
     const [row] = await this.db
       .insert(tags)
       .values({

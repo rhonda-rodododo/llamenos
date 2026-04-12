@@ -85,6 +85,7 @@ export function TeamsSection() {
       }
       createTeam.mutate(
         {
+          id: newId,
           encryptedName,
           encryptedDescription: trimmedDesc
             ? encryptHubField(trimmedDesc, hubId, newId, 'encrypted_description')
