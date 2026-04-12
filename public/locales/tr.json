@@ -172,7 +172,9 @@
     "voicemailModeNever": "Asla — kimse müsait değilse aramayı kapat",
     "retentionDays": "Sesli Mesaj Saklama Süresi (gün)",
     "retentionDaysDescription": "Sesli mesajları bu kadar gün sonra otomatik sil. Süresiz saklama için boş bırakın.",
-    "retentionNotYetActive": "Otomatik silme henüz aktif değil — saklama süresi ayarı ileride kullanılmak üzere kaydedildi"
+    "retentionNotYetActive": "Otomatik silme henüz aktif değil — saklama süresi ayarı ileride kullanılmak üzere kaydedildi",
+    "voiceE2eePolicy": "Voice Call E2EE Policy",
+    "voiceE2eePolicyDescription": "Controls whether WebRTC voice calls must negotiate SFrame end-to-end encryption."
   },
   "notes": {
     "title": "Arama Notları",
@@ -1696,5 +1698,36 @@
   "platform": {
     "description": "Platform-wide settings and configuration.",
     "emptyState": "No platform-level settings yet."
+  },
+  "voice": {
+    "e2ee": {
+      "badge": {
+        "direct": "End-to-end encrypted (direct)",
+        "relayed": "End-to-end encrypted (relayed)",
+        "none": "Not end-to-end encrypted"
+      },
+      "fallback": {
+        "title": "End-to-end encryption not available",
+        "body": {
+          "browser_unsupported": "Your browser does not support end-to-end encrypted calls.",
+          "caller_pstn_leg": "This call involves a telephone leg that cannot be end-to-end encrypted.",
+          "policy_required": "This hub requires end-to-end encrypted calls, which your browser does not support."
+        },
+        "continue": "Continue without E2EE",
+        "cancel": "Cancel call"
+      },
+      "policy": {
+        "legend": "Voice call E2EE policy",
+        "required": "Required — unsupported browsers cannot call",
+        "preferred": "Preferred — warning shown when unavailable",
+        "off": "Off — never attempt E2EE"
+      },
+      "error": {
+        "dtls_fingerprint_mismatch": "DTLS fingerprint mismatch — possible MITM. Call terminated.",
+        "sframe_key_not_received": "Failed to receive encryption key. Call terminated.",
+        "key_rotation_gap": "Encryption key rotation is out of order. Call terminated.",
+        "aad_mismatch": "Frame authentication failed."
+      }
+    }
   }
 }

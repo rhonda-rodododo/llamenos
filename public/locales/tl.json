@@ -165,7 +165,9 @@
     "queueTimeout": "Timeout ng Pila",
     "queueTimeoutDescription": "Gaano katagal naghihintay ang mga tumatawag bago maipadala sa voicemail (segundo).",
     "voicemailMax": "Max na Haba ng Voicemail",
-    "voicemailMaxDescription": "Pinakamataas na haba ng recording para sa mga mensahe ng voicemail (segundo)."
+    "voicemailMaxDescription": "Pinakamataas na haba ng recording para sa mga mensahe ng voicemail (segundo).",
+    "voiceE2eePolicy": "Voice Call E2EE Policy",
+    "voiceE2eePolicyDescription": "Controls whether WebRTC voice calls must negotiate SFrame end-to-end encryption."
   },
   "notes": {
     "title": "Mga Tala ng Tawag",
@@ -1725,5 +1727,36 @@
     "body": "Gumagamit ang Llámenos ng browser cookies para panatilihing naka-sign in ang iyong session. Walang tracking, walang third party — ang mga cookies lang na kailangan ng site na ito para gumana. Paki-enable ang cookies para sa site na ito at subukan muli.",
     "retry": "Na-enable ko ang cookies — subukan muli",
     "stillBlocked": "Mukhang naka-block pa rin ang cookies. Tingnan ang mga setting ng browser mo para sa site na ito."
+  },
+  "voice": {
+    "e2ee": {
+      "badge": {
+        "direct": "End-to-end encrypted (direct)",
+        "relayed": "End-to-end encrypted (relayed)",
+        "none": "Not end-to-end encrypted"
+      },
+      "fallback": {
+        "title": "End-to-end encryption not available",
+        "body": {
+          "browser_unsupported": "Your browser does not support end-to-end encrypted calls.",
+          "caller_pstn_leg": "This call involves a telephone leg that cannot be end-to-end encrypted.",
+          "policy_required": "This hub requires end-to-end encrypted calls, which your browser does not support."
+        },
+        "continue": "Continue without E2EE",
+        "cancel": "Cancel call"
+      },
+      "policy": {
+        "legend": "Voice call E2EE policy",
+        "required": "Required — unsupported browsers cannot call",
+        "preferred": "Preferred — warning shown when unavailable",
+        "off": "Off — never attempt E2EE"
+      },
+      "error": {
+        "dtls_fingerprint_mismatch": "DTLS fingerprint mismatch — possible MITM. Call terminated.",
+        "sframe_key_not_received": "Failed to receive encryption key. Call terminated.",
+        "key_rotation_gap": "Encryption key rotation is out of order. Call terminated.",
+        "aad_mismatch": "Frame authentication failed."
+      }
+    }
   }
 }

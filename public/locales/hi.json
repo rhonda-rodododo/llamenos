@@ -165,7 +165,9 @@
     "queueTimeout": "कतार टाइमआउट",
     "queueTimeoutDescription": "वॉइसमेल पर भेजे जाने से पहले कॉल करने वाले कितनी देर प्रतीक्षा करें (सेकंड)।",
     "voicemailMax": "अधिकतम वॉइसमेल अवधि",
-    "voicemailMaxDescription": "वॉइसमेल संदेशों के लिए अधिकतम रिकॉर्डिंग अवधि (सेकंड)।"
+    "voicemailMaxDescription": "वॉइसमेल संदेशों के लिए अधिकतम रिकॉर्डिंग अवधि (सेकंड)।",
+    "voiceE2eePolicy": "Voice Call E2EE Policy",
+    "voiceE2eePolicyDescription": "Controls whether WebRTC voice calls must negotiate SFrame end-to-end encryption."
   },
   "notes": {
     "title": "कॉल नोट्स",
@@ -1725,5 +1727,36 @@
     "body": "Llámenos आपके सत्र को साइन इन रखने के लिए ब्राउज़र कुकीज़ का उपयोग करता है। कोई ट्रैकिंग नहीं, कोई तृतीय पक्ष नहीं — बस वे कुकीज़ जो इस साइट को काम करने के लिए चाहिए। कृपया इस साइट के लिए कुकीज़ सक्षम करें और फिर से प्रयास करें।",
     "retry": "मैंने कुकीज़ सक्षम कीं — पुनः प्रयास करें",
     "stillBlocked": "कुकीज़ अभी भी अवरुद्ध प्रतीत होती हैं। इस साइट के लिए अपने ब्राउज़र सेटिंग्स की जाँच करें।"
+  },
+  "voice": {
+    "e2ee": {
+      "badge": {
+        "direct": "End-to-end encrypted (direct)",
+        "relayed": "End-to-end encrypted (relayed)",
+        "none": "Not end-to-end encrypted"
+      },
+      "fallback": {
+        "title": "End-to-end encryption not available",
+        "body": {
+          "browser_unsupported": "Your browser does not support end-to-end encrypted calls.",
+          "caller_pstn_leg": "This call involves a telephone leg that cannot be end-to-end encrypted.",
+          "policy_required": "This hub requires end-to-end encrypted calls, which your browser does not support."
+        },
+        "continue": "Continue without E2EE",
+        "cancel": "Cancel call"
+      },
+      "policy": {
+        "legend": "Voice call E2EE policy",
+        "required": "Required — unsupported browsers cannot call",
+        "preferred": "Preferred — warning shown when unavailable",
+        "off": "Off — never attempt E2EE"
+      },
+      "error": {
+        "dtls_fingerprint_mismatch": "DTLS fingerprint mismatch — possible MITM. Call terminated.",
+        "sframe_key_not_received": "Failed to receive encryption key. Call terminated.",
+        "key_rotation_gap": "Encryption key rotation is out of order. Call terminated.",
+        "aad_mismatch": "Frame authentication failed."
+      }
+    }
   }
 }
