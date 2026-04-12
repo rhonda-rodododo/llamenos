@@ -32,9 +32,12 @@ const THIRTY_DAYS = 30 * 24 * ONE_HOUR
 /** Shared defaults for every auth cookie. */
 function baseOptions(): CookieOptions {
   const domain = apiCookieDomain()
+  // In development (HTTP), secure: true prevents browsers from storing
+  // cookies — disable it so Playwright E2E tests and local dev work.
+  const secure = process.env.ENVIRONMENT !== 'development'
   return {
     httpOnly: true,
-    secure: true,
+    secure,
     sameSite: 'Strict',
     ...(domain ? { domain } : {}),
   }

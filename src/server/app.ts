@@ -1,3 +1,5 @@
+import path from 'node:path'
+import { serveStatic } from '@hono/node-server/serve-static'
 import { OpenAPIHono } from '@hono/zod-openapi'
 import { Scalar } from '@scalar/hono-api-reference'
 import { Hono } from 'hono'
@@ -357,8 +359,18 @@ app.route('/api', api)
 
 app.use('*', securityHeaders)
 
-// Tier 4 PR-A: this host is API-only — no SPA fallback. Any request outside
-// /api/* or /telephony/* returns JSON 404 (matches the API error envelope).
-app.notFound((c) => c.json({ error: 'Not Found' }, 404))
+// Tier 4 PR-A: in production, this host is API-only — no SPA fallback.
+// In development/test mode, serve the SPA from dist/client/ so Playwright
+// E2E tests and local dev work without a Caddy reverse proxy.
+if (process.env.ENVIRONMENT === 'development') {
+  const staticDir = path.resolve(process.cwd(), 'dist', 'client')
+  app.use('*', serveStatic({ root: staticDir }))
+  // SPA fallback — serve index.html for all unmatched routes
+  app.use('*', serveStatic({ root: staticDir, path: '/index.html' }))
+} else {
+  // Production: API-only. Any request outside /api/* or /telephony/* returns
+  // JSON 404 (matches the API error envelope).
+  app.notFound((c) => c.json({ error: 'Not Found' }, 404))
+}
 
 export default app

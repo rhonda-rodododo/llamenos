@@ -3,9 +3,10 @@ import path from 'node:path'
  * Node.js server entry point.
  * Runs the Hono app with @hono/node-server.
  *
- * Tier 4 PR-A: API-only. The SPA bundle and the crypto sandbox are served by
- * separate Caddy workers on distinct origins (app.*, crypto.*). This process
- * only answers requests under /api/* and /telephony/*.
+ * Tier 4 PR-A: in production, this is API-only — the SPA bundle and the
+ * crypto sandbox are served by separate Caddy workers on distinct origins
+ * (app.*, crypto.*). In development/test mode, the server also serves the
+ * SPA from dist/client/ for local dev and Playwright E2E tests (no Caddy).
  *
  * Real-time events use the Nostr relay (strfry) — no direct WebSocket
  * handling needed in the app server. Clients connect to the relay via
@@ -293,10 +294,6 @@ async function main() {
   app.route('/', serverApp as any)
 
   app.onError(errorHandler)
-
-  // Tier 4 PR-A: no SPA fallback here. The SPA is hosted on app.* by a
-  // separate Caddy worker. Any unknown path falls through to the mounted
-  // app.notFound() which returns JSON 404.
 
   const port = Number(process.env.PORT) || 3000
   const server = serve(
