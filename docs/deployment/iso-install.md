@@ -99,23 +99,52 @@ Expected output: `==> REPRODUCIBLE: SHAs match`.
 
 ## Uploading to your VPS provider
 
-### 1984 Hosting
+### Vultr (recommended)
 
-1. Log in to the 1984 control panel
-2. Create a new VPS, but do NOT pick a stock OS image — pick "Boot from custom ISO"
-3. Upload `llamenos-debian13-dropbear.iso` via the provided ISO URL upload form
-4. Wait for upload to complete (a few minutes)
-5. Power on the VPS — it boots into the installer
+Vultr is the recommended provider because it supports custom ISO uploads,
+KVM-based virtualization with virtio disks, and has EU datacenters (Amsterdam).
+FDE is most practical and secure with Vultr.
+
+1. Build the ISO with `--disk /dev/vda` (Vultr uses virtio disks):
+
+   ```bash
+   bun run build:iso \
+     --hostname llamenos-01 \
+     --ssh-key ~/.ssh/id_ed25519.pub \
+     --disk /dev/vda
+   ```
+
+2. Host the ISO on Vultr Object Storage (or any publicly accessible URL):
+
+   ```bash
+   s3cmd --host="ams1.vultrobjects.com" \
+     --host-bucket="%(bucket)s.ams1.vultrobjects.com" \
+     --access_key="$VULTR_S3_KEY" \
+     --secret_key="$VULTR_S3_SECRET" \
+     --acl-public \
+     put dist/iso/llamenos-debian13-dropbear.iso s3://llamenos-iso/
+   ```
+
+3. In the Vultr dashboard: **Products** → **Orchestration** → **ISOs** → **Add ISO**
+4. Paste the public URL (e.g. `https://llamenos-iso.ams1.vultrobjects.com/llamenos-debian13-dropbear.iso`)
+5. Wait for Vultr to download the ISO (a few minutes for ~940 MB)
+6. Create a **Cloud Compute** instance in your preferred region:
+   - Plan: 4 vCPU / 8 GB RAM (vc2-4c-8gb, $40/mo)
+   - ISO: select your uploaded `llamenos-debian13-dropbear.iso`
+7. Open the **View Console** link — the installer starts automatically
 
 ### Generic provider (any KVM-based ISO upload)
 
+Any KVM-based VPS provider that accepts custom ISO uploads will work:
+
 1. Find the provider's "Custom ISO" or "ISO Boot" option in the VPS settings
-2. Upload `llamenos-debian13-dropbear.iso`
+2. Upload `llamenos-debian13-dropbear.iso` (via URL or direct upload, depending on provider)
 3. Set the boot order to CD-ROM first
 4. Boot the VPS
 
-If your provider doesn't accept ISO uploads, this guide doesn't apply — see
-the standard self-hosting docs in `deploy/ansible/README.md`.
+If your provider doesn't accept custom ISO uploads (e.g. 1984 Hosting), this
+guide doesn't apply — see the standard self-hosting docs in
+`deploy/ansible/README.md`.
 
 ## First boot — installer (one-time)
 
