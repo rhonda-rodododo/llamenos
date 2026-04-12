@@ -89,8 +89,13 @@ async function main() {
   if (!env.APP_URL) {
     log.warn('APP_URL not set — invite links and webhooks may use wrong base URL')
   }
+  if (!process.env.APP_ORIGIN && env.ENVIRONMENT !== 'development') {
+    log.warn(
+      'APP_ORIGIN not set — split-origin CORS (Tier 4) is disabled; all cross-site requests will be rejected'
+    )
+  }
   if (!env.CORS_ALLOWED_ORIGINS) {
-    log.warn('CORS_ALLOWED_ORIGINS not set — only built-in origins allowed (localhost in dev)')
+    log.warn('CORS_ALLOWED_ORIGINS not set — only APP_ORIGIN and dev localhost allowed')
   }
   if (!env.TWILIO_ACCOUNT_SID || !env.TWILIO_AUTH_TOKEN) {
     log.warn('Twilio credentials missing — telephony features disabled')
