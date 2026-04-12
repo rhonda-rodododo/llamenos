@@ -20,6 +20,12 @@ export const adminNavConfig: AdminNavConfig = {
           requiredPermissions: ['settings:read'],
           testid: 'admin-sidebar-item-passkey-policy',
         },
+        {
+          slug: 'devices',
+          labelKey: 'adminNav.items.devices',
+          requiredPermissions: ['audit:read'],
+          testid: 'admin-sidebar-item-devices',
+        },
       ],
     },
     {

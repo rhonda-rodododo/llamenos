@@ -1518,7 +1518,8 @@
       "audit": "Audit",
       "analytics": "Analytics",
       "health": "Health",
-      "platform": "Platform"
+      "platform": "Platform",
+      "devices": "Devices"
     }
   },
   "locationLookup": {
