@@ -1,9 +1,19 @@
 /**
  * Hub Key Cache
  *
- * Fetches and caches per-hub symmetric keys for Nostr event decryption.
- * Each hub has a 32-byte key distributed as ECIES-wrapped envelopes.
- * After login, call `loadHubKeysForUser()` to populate the cache.
+ * Fetches and caches per-hub symmetric keys for Nostr event decryption and
+ * hub-field AEAD. Each hub has a 32-byte key distributed as ECIES-wrapped
+ * envelopes. After login, call `loadHubKeysForUser()` to populate the cache.
+ *
+ * The cache holds two representations per hub:
+ *   - raw 32-byte `Uint8Array` — needed by Nostr event decryption and any
+ *     legacy XChaCha20 path still in the tree (scheduled for removal)
+ *   - non-extractable AES-256-GCM `CryptoKey` — the Tier 1 hub-field path
+ *     (`hub-field-crypto-v3.ts`) operates on this handle. Raw bytes never
+ *     flow through the worker boundary for the v3 path.
+ *
+ * Both representations are populated atomically by `loadHubKeysForUser` so
+ * there is no window where the v1 path sees a key the v3 path does not.
  *
  * The cache is module-level (not React state) so it survives component
  * re-renders and can be accessed from the RelayManager callback.
@@ -11,17 +21,39 @@
 
 import type { KeyEnvelope } from '@shared/crypto-primitives'
 import { getMyHubKeyEnvelope } from './api'
+import { importHubKeyCryptoKey } from './hub-field-crypto-v3'
 import { unwrapHubKey } from './hub-key-manager'
 
-const hubKeyCache = new Map<string, Uint8Array>()
+interface CachedHubKey {
+  raw: Uint8Array
+  cryptoKey: CryptoKey
+}
+
+const hubKeyCache = new Map<string, CachedHubKey>()
 /** Monotonically-increasing generation counter. Prevents stale concurrent loads from writing. */
 let cacheGeneration = 0
 
 /**
- * Retrieve a hub key by hub ID. Returns null if not yet loaded or decryption failed.
+ * Retrieve a hub key by hub ID as raw bytes.
+ *
+ * Returns null if not yet loaded or decryption failed. Used by the Nostr
+ * event decryption path (which needs the 32 raw bytes to feed into
+ * XChaCha20-Poly1305) and by any remaining v1 hub-field call site.
  */
 export function getHubKeyForId(hubId: string): Uint8Array | null {
-  return hubKeyCache.get(hubId) ?? null
+  return hubKeyCache.get(hubId)?.raw ?? null
+}
+
+/**
+ * Retrieve a hub key by hub ID as a non-extractable AES-256-GCM CryptoKey.
+ *
+ * Returns null if not yet loaded or decryption failed. This is the Tier 1
+ * entry point for hub-field crypto: the CryptoKey handle never exposes raw
+ * bytes, so there is no path for the key to leak into the main thread or a
+ * future silent logging sink.
+ */
+export function getHubKeyCryptoKeyForId(hubId: string): CryptoKey | null {
+  return hubKeyCache.get(hubId)?.cryptoKey ?? null
 }
 
 /**
@@ -51,10 +83,11 @@ export async function loadHubKeysForUser(hubIds: string[]): Promise<void> {
           wrappedKey: raw.wrappedKey,
           ephemeralPubkey: raw.ephemeralPubkey || raw.ephemeralPk || '',
         }
-        const hubKey = await unwrapHubKey(envelope)
+        const hubKeyBytes = await unwrapHubKey(envelope)
+        const cryptoKey = await importHubKeyCryptoKey(hubKeyBytes)
         // Only write if this load is still the current generation
         if (cacheGeneration === myGeneration) {
-          hubKeyCache.set(hubId, hubKey)
+          hubKeyCache.set(hubId, { raw: hubKeyBytes, cryptoKey })
         }
       } catch {
         // Hub key unavailable or decryption failed — skip; REST polling covers this hub
@@ -65,6 +98,10 @@ export async function loadHubKeysForUser(hubIds: string[]): Promise<void> {
 
 /**
  * Clear the cache — called on sign-out or key lock.
+ *
+ * Dropping the CryptoKey handle releases the non-extractable reference; the
+ * browser frees the underlying AES-GCM key material as soon as GC runs and
+ * no other code holds the handle.
  */
 export function clearHubKeyCache(): void {
   cacheGeneration++ // Invalidate any in-flight loadHubKeysForUser calls
@@ -76,10 +113,12 @@ export function clearHubKeyCache(): void {
  *
  * For E2E tests only — allows Playwright to provision a known hub key so that
  * encrypted org metadata can be decrypted in the browser without going through
- * the full ECIES envelope unwrap flow.
+ * the full ECIES envelope unwrap flow. Imports the CryptoKey handle so that
+ * both the v1 and v3 read paths work immediately after injection.
  */
-export function setHubKeyForTest(hubId: string, key: Uint8Array): void {
-  hubKeyCache.set(hubId, key)
+export async function setHubKeyForTest(hubId: string, key: Uint8Array): Promise<void> {
+  const cryptoKey = await importHubKeyCryptoKey(key)
+  hubKeyCache.set(hubId, { raw: key, cryptoKey })
 }
 
 /**

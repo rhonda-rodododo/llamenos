@@ -271,6 +271,11 @@ export interface ReportType {
 }
 
 export interface CreateReportTypeInput {
+  /**
+   * Client-generated id. Required when `encryptedName` is provided so the
+   * server stores the same id the client bound into AAD via buildAad().
+   */
+  id?: string
   name: string
   description?: string
   isDefault?: boolean

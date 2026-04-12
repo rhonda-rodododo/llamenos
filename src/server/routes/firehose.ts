@@ -144,6 +144,7 @@ firehoseRoutes.openapi(createRoute_, async (c) => {
   // then update with the sealed result.
   const placeholder = 'pending'
   const raw = await services.firehose.createConnection(hubId, {
+    id: body.id,
     displayName: body.displayName?.trim() ?? '',
     encryptedDisplayName: body.encryptedDisplayName?.trim() as Ciphertext | undefined,
     reportTypeId: body.reportTypeId,

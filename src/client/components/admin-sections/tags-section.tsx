@@ -88,7 +88,7 @@ export function TagsSection() {
     setTimeout(() => setShowSaved(false), 2000)
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!form.label.trim()) return
 
     if (editingId === 'new') {
@@ -97,17 +97,23 @@ export function TagsSection() {
 
       // Pre-generate a client UUID for the new tag so the AAD can be bound to a stable ID.
       const newId = crypto.randomUUID()
-      const encryptedLabel = encryptHubField(form.label.trim(), hubId, newId, 'encrypted_label')
+      const encryptedLabel = await encryptHubField(
+        form.label.trim(),
+        hubId,
+        newId,
+        'encrypted_label'
+      )
       if (!encryptedLabel) {
         toast(t('common.error', { defaultValue: 'Error' }), 'error')
         return
       }
       const encryptedCategory = form.category.trim()
-        ? encryptHubField(form.category.trim(), hubId, newId, 'encrypted_category')
+        ? await encryptHubField(form.category.trim(), hubId, newId, 'encrypted_category')
         : undefined
 
       createTag.mutate(
         {
+          id: newId,
           name,
           encryptedLabel,
           color: form.color,
@@ -130,13 +136,18 @@ export function TagsSection() {
         }
       )
     } else if (editingId) {
-      const encryptedLabel = encryptHubField(form.label.trim(), hubId, editingId, 'encrypted_label')
+      const encryptedLabel = await encryptHubField(
+        form.label.trim(),
+        hubId,
+        editingId,
+        'encrypted_label'
+      )
       if (!encryptedLabel) {
         toast(t('common.error', { defaultValue: 'Error' }), 'error')
         return
       }
       const encryptedCategory = form.category.trim()
-        ? encryptHubField(form.category.trim(), hubId, editingId, 'encrypted_category')
+        ? await encryptHubField(form.category.trim(), hubId, editingId, 'encrypted_category')
         : undefined
 
       updateTag.mutate(

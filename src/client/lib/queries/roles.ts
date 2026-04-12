@@ -34,17 +34,25 @@ export const rolesListOptions = (hubId = 'global') =>
     queryKey: queryKeys.roles.list(),
     queryFn: async () => {
       const { roles } = await listRoles()
-      return roles.map((role) => ({
-        ...role,
-        name: decryptHubField(role.encryptedName, hubId, role.id, 'encrypted_name', role.name),
-        description: decryptHubField(
-          role.encryptedDescription,
-          hubId,
-          role.id,
-          'encrypted_description',
-          role.description
-        ),
-      }))
+      return Promise.all(
+        roles.map(async (role) => ({
+          ...role,
+          name: await decryptHubField(
+            role.encryptedName,
+            hubId,
+            role.id,
+            'encrypted_name',
+            role.name
+          ),
+          description: await decryptHubField(
+            role.encryptedDescription,
+            hubId,
+            role.id,
+            'encrypted_description',
+            role.description
+          ),
+        }))
+      )
     },
     staleTime: 5 * 60 * 1000,
   })
@@ -84,6 +92,7 @@ export function useCreateRole() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (data: {
+      id?: string
       name: string
       permissions: string[]
       description: string
