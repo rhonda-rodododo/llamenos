@@ -63,6 +63,7 @@
     "@tanstack/react-router": "^1.168.10",
     "@tanstack/router-plugin": "^1.167.12",
     "@vonage/client-sdk": "^2.3.0",
+    "@wireapp/core-crypto": "file:./vendor/@wireapp/core-crypto",
     "axios": "^1.15.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

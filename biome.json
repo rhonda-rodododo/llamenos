@@ -52,6 +52,7 @@
       "node_modules",
       "dist",
       "site",
+      "vendor",
       "*.config.ts",
       "*.config.js",
       "*.config.mjs",
