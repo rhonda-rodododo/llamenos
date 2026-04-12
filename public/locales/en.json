@@ -1730,7 +1730,8 @@
       "analytics": "Analytics",
       "health": "Health",
       "platform": "Platform",
-      "recoveryGroup": "Recovery Group"
+      "recoveryGroup": "Recovery Group",
+      "devices": "Devices"
     },
     "openMenu": "Open navigation menu"
   },
