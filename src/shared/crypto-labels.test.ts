@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import * as labels from '@shared/crypto-labels'
 import {
+  type CryptoLabel,
   LABEL_DEVICE_DISPLAY,
   LABEL_DEVICE_ENROLLMENT_SAS,
   LABEL_HUB_PTK_PREV_GEN,
@@ -93,16 +94,16 @@ describe('Tier 3 labels', () => {
 
 describe('Tier 6 crypto labels', () => {
   test('LABEL_SAS_V2 exists and is distinct', () => {
-    expect(LABEL_SAS_V2).toBe('llamenos:sas:v2')
+    expect(LABEL_SAS_V2 as string).toBe('llamenos:sas:v2')
   })
   test('LABEL_ITEMS_KEY_EXPORT exists', () => {
-    expect(LABEL_ITEMS_KEY_EXPORT).toBe('llamenos:items-key-export:v1')
+    expect(LABEL_ITEMS_KEY_EXPORT as string).toBe('llamenos:items-key-export:v1')
   })
   test('LABEL_NOTE_EPOCH_KEY exists', () => {
-    expect(LABEL_NOTE_EPOCH_KEY).toBe('llamenos:note-epoch-key:v1')
+    expect(LABEL_NOTE_EPOCH_KEY as string).toBe('llamenos:note-epoch-key:v1')
   })
   test('LABEL_MLS_PROVISION exists', () => {
-    expect(LABEL_MLS_PROVISION).toBe('llamenos:mls-provision:v1')
+    expect(LABEL_MLS_PROVISION as string).toBe('llamenos:mls-provision:v1')
   })
   test('all Tier 6 labels registered in LABEL_REGISTRY', () => {
     for (const label of [

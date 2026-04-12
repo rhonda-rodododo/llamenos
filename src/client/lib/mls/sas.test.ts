@@ -20,8 +20,9 @@ describe('deriveSasEmoji', () => {
   })
 
   test('each emoji is from the 64-entry table', () => {
+    const table: string[] = [...SAS_EMOJI_TABLE]
     for (const e of deriveSasEmoji(key1)) {
-      expect(SAS_EMOJI_TABLE).toContain(e)
+      expect(table).toContain(e)
     }
   })
 
@@ -49,9 +50,11 @@ describe('deriveSasNamesEn', () => {
     const names = deriveSasNamesEn(key1)
     expect(names.length).toBe(7)
     // Names correspond to same indices
+    const table: string[] = [...SAS_EMOJI_TABLE]
+    const nameTable: string[] = [...SAS_EMOJI_NAMES_EN]
     for (let i = 0; i < 7; i++) {
-      const idx = SAS_EMOJI_TABLE.indexOf(emoji[i])
-      expect(names[i]).toBe(SAS_EMOJI_NAMES_EN[idx])
+      const idx = table.indexOf(emoji[i])
+      expect(names[i]).toBe(nameTable[idx])
     }
   })
 })
