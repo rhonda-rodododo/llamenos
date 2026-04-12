@@ -7,15 +7,21 @@
  * heavy for CI, and the SFrame layer under test cares about per-frame byte
  * length, ordering, and "was this encrypted?" assertions, not codec
  * correctness). Drives the clip through a simple jitter buffer with
- * configurable inter-packet delay, and emits DTMF digits on demand. Zero
- * external dependencies.
+ * configurable inter-packet delay, and emits DTMF digits on demand.
  *
- * **Deliberately codec-agnostic.** This fixture carries no imports from
- * `@shared/sframe/` so it can be reused by Tier 3/4 call-path tests that
- * exercise the call pipeline without touching SFrame crypto. Tests that
- * need real SFrame round-trips import `@shared/sframe/frame-codec`
- * directly alongside this fixture.
+ * Additionally carries an optional SFrame-aware surface (Task 19b in the
+ * Tier 5 main PR): `bindCall` stores a per-call secret + callId, `loadKey`
+ * derives a per-(keyId) AES-GCM key for this device, `produceFrame` seals
+ * a plaintext RTP payload into the wire-format ciphertext, and
+ * `consumeFrame` opens a received wire frame and asserts the recovered
+ * plaintext matches the expected bytes. The SFrame methods throw if the
+ * caller has not yet been bound to a call or if the requested key has not
+ * been loaded.
  */
+
+import { deriveBaseKey, importAesKey } from '../../src/shared/sframe/cipher-suite.js'
+import { openFrame, sealFrame } from '../../src/shared/sframe/frame-codec.js'
+import type { CiphertextBytes } from '../../src/shared/sframe/sframe-types.js'
 
 export const DTMF_DIGITS = [
   '0',
@@ -96,6 +102,11 @@ export class SimCaller {
 
   private dtmfQueue: DtmfDigit[] = []
   private dtmfLifetimeCount = 0
+
+  // ---- SFrame state (Task 19b) ----
+  private callSecret?: Uint8Array
+  private callId?: string
+  private keys = new Map<number, CryptoKey>()
 
   constructor(deviceId: string, options: SimCallerOptions = {}) {
     this.deviceId = deviceId
@@ -183,6 +194,123 @@ export class SimCaller {
 
   getDigitsEmitted(): number {
     return this.dtmfLifetimeCount
+  }
+
+  // ---- SFrame produce/consume (Task 19b) ----
+
+  /**
+   * Bind this caller to a specific call. Subsequent `loadKey` calls derive
+   * their per-sender AES base key from `(callSecret, callId, deviceId)`.
+   *
+   * Throws if called twice with a different callId — callers should create
+   * a new `SimCaller` per simulated call rather than rebinding in place.
+   * Re-binding with the same callId (e.g. from test setup helpers) is a
+   * no-op to keep test ergonomics simple.
+   */
+  bindCall(callSecret: Uint8Array, callId: string): void {
+    if (this.callId !== undefined && this.callId !== callId) {
+      throw new Error(
+        `SimCaller.bindCall: already bound to callId ${this.callId}; cannot rebind to ${callId}`
+      )
+    }
+    this.callSecret = callSecret
+    this.callId = callId
+  }
+
+  /**
+   * Derive the AES-GCM base key for `keyId` from the bound call secret and
+   * cache it for subsequent `produceFrame` / `consumeFrame` calls. Throws
+   * if `bindCall` has not been called.
+   */
+  async loadKey(keyId: number): Promise<void> {
+    if (!this.callSecret || !this.callId) {
+      throw new Error('SimCaller.loadKey: call bindCall(callSecret, callId) first')
+    }
+    const raw = deriveBaseKey(this.callSecret, this.callId, this.deviceId)
+    const cryptoKey = await importAesKey(raw)
+    this.keys.set(keyId, cryptoKey)
+  }
+
+  /**
+   * Seal a plaintext RTP payload into wire-format ciphertext under the
+   * previously-loaded `keyId`. The resulting `CiphertextBytes` can be
+   * handed directly to `SimSipBridge.bridgePacket` or to another
+   * `SimCaller.consumeFrame`.
+   */
+  async produceFrame(
+    plaintext: Uint8Array,
+    keyId: number,
+    counter: number,
+    ssrc = 1,
+    rtpTimestamp = 0
+  ): Promise<CiphertextBytes> {
+    if (!this.callId) {
+      throw new Error('SimCaller.produceFrame: call bindCall(callSecret, callId) first')
+    }
+    const key = this.keys.get(keyId)
+    if (!key) {
+      throw new Error(`SimCaller.produceFrame: key ${keyId} not loaded — call loadKey() first`)
+    }
+    return sealFrame(plaintext, key, {
+      callId: this.callId,
+      senderId: this.deviceId,
+      keyId,
+      counter,
+      ssrc,
+      rtpTimestamp,
+    })
+  }
+
+  /**
+   * Open a wire frame produced by `senderId` and assert its plaintext
+   * matches `expected`. Returns `true` on success; throws on AES-GCM
+   * authentication failure or plaintext mismatch so that adversarial
+   * tests can rely on `.rejects.toThrow()` semantics.
+   *
+   * The `_counter` parameter is currently unused — counter tracking is
+   * the receiver pipeline's responsibility, not this fixture's — but is
+   * kept in the signature so call sites can document their intent and
+   * future-proof against Workstream 5.9 tightening.
+   */
+  async consumeFrame(
+    wire: CiphertextBytes,
+    expected: Uint8Array,
+    keyId: number,
+    _counter: number,
+    senderId: string,
+    ssrc = 1,
+    rtpTimestamp = 0
+  ): Promise<boolean> {
+    if (!this.callSecret || !this.callId) {
+      throw new Error('SimCaller.consumeFrame: call bindCall(callSecret, callId) first')
+    }
+    // Receivers derive the sender's base key, not their own.
+    const raw = deriveBaseKey(this.callSecret, this.callId, senderId)
+    const key = await importAesKey(raw)
+    const opened = await openFrame(wire, key, {
+      callId: this.callId,
+      senderId,
+      ssrc,
+      rtpTimestamp,
+    })
+    if (opened.keyId !== keyId) {
+      throw new Error(
+        `SimCaller.consumeFrame: keyId mismatch — expected ${keyId}, got ${opened.keyId}`
+      )
+    }
+    if (opened.plaintext.byteLength !== expected.byteLength) {
+      throw new Error(
+        `SimCaller.consumeFrame: plaintext length mismatch — expected ${expected.byteLength}, got ${opened.plaintext.byteLength}`
+      )
+    }
+    let diff = 0
+    for (let i = 0; i < expected.byteLength; i++) {
+      diff |= (opened.plaintext[i] ?? 0) ^ (expected[i] ?? 0)
+    }
+    if (diff !== 0) {
+      throw new Error('SimCaller.consumeFrame: plaintext mismatch')
+    }
+    return true
   }
 
   // ---- Lifecycle ----

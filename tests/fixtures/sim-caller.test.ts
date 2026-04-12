@@ -282,3 +282,51 @@ describe('SimCaller — DTMF', () => {
     expect(caller.getDigitsEmitted()).toBe(0)
   })
 })
+
+describe('SimCaller — SFrame', () => {
+  test('produces and consumes a frame successfully', async () => {
+    const callSecret = new Uint8Array(32).fill(0x11)
+    const caller = new SimCaller('device-a')
+    caller.bindCall(callSecret, '00000000-0000-4000-8000-000000000001')
+    await caller.loadKey(0)
+    const plaintext = new Uint8Array([0x01, 0xaa, 0xbb, 0xcc])
+    const wire = await caller.produceFrame(plaintext, 0, 1)
+    const ok = await caller.consumeFrame(wire, plaintext, 0, 1, 'device-a')
+    expect(ok).toBe(true)
+  })
+
+  test('consumes a frame from another sender with the same callSecret', async () => {
+    const callSecret = new Uint8Array(32).fill(0x22)
+    const callId = '00000000-0000-4000-8000-000000000002'
+    const alice = new SimCaller('alice-device')
+    const bob = new SimCaller('bob-device')
+    alice.bindCall(callSecret, callId)
+    bob.bindCall(callSecret, callId)
+    await alice.loadKey(0)
+    await bob.loadKey(0)
+    const plaintext = new Uint8Array([0x01, 0xde, 0xad, 0xbe, 0xef])
+    const wire = await alice.produceFrame(plaintext, 0, 1)
+    const ok = await bob.consumeFrame(wire, plaintext, 0, 1, 'alice-device')
+    expect(ok).toBe(true)
+  })
+
+  test('produceFrame throws if called before bindCall', async () => {
+    const caller = new SimCaller('device-a')
+    await expect(caller.produceFrame(new Uint8Array([0x01]), 0, 1)).rejects.toThrow(/bindCall/)
+  })
+
+  test('produceFrame throws if the key was never loaded', async () => {
+    const caller = new SimCaller('device-a')
+    caller.bindCall(new Uint8Array(32).fill(0x33), '00000000-0000-4000-8000-000000000099')
+    await expect(caller.produceFrame(new Uint8Array([0x01]), 0, 1)).rejects.toThrow(/not loaded/)
+  })
+
+  test('bindCall twice with a different callId throws', () => {
+    const caller = new SimCaller('device-a')
+    const secret = new Uint8Array(32).fill(0x44)
+    caller.bindCall(secret, '00000000-0000-4000-8000-000000000010')
+    expect(() => caller.bindCall(secret, '00000000-0000-4000-8000-000000000011')).toThrow(
+      /already bound/
+    )
+  })
+})
