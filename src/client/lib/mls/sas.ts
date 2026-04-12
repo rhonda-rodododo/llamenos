@@ -15,9 +15,6 @@ import { SAS_EMOJI_NAMES_EN, SAS_EMOJI_TABLE } from './emoji-table'
  * @throws if pubkey is not 32 bytes.
  */
 export function deriveSasEmoji(devicePubkey: Uint8Array): readonly string[] {
-  if (devicePubkey.length !== 32) {
-    throw new Error(`SAS pubkey must be 32 bytes, got ${devicePubkey.length}`)
-  }
   const indices = deriveSasIndices(devicePubkey)
   return indices.map((i) => SAS_EMOJI_TABLE[i])
 }
@@ -32,7 +29,10 @@ export function deriveSasNamesEn(devicePubkey: Uint8Array): readonly string[] {
 }
 
 function deriveSasIndices(devicePubkey: Uint8Array): number[] {
-  // 7 x 6 bits = 42 bits — round up to 6 bytes.
+  if (devicePubkey.length !== 32) {
+    throw new Error(`SAS pubkey must be 32 bytes, got ${devicePubkey.length}`)
+  }
+  // Request 6 bytes (48 bits); we extract 7 x 6-bit indices (42 bits used).
   const raw = hkdf(
     sha256,
     devicePubkey,
