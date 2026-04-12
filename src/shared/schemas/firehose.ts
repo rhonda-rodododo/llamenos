@@ -7,6 +7,8 @@ export const FirehoseConnectionStatusSchema = z.enum(['pending', 'active', 'paus
 export type FirehoseConnectionStatus = z.infer<typeof FirehoseConnectionStatusSchema>
 
 export const CreateFirehoseConnectionSchema = z.object({
+  // Client-generated UUID. Required when `encryptedDisplayName` is provided so
+  // the server stores the same id the client used as AAD `recordId`.
   id: z.string().uuid().optional(),
   displayName: z.string().optional(),
   encryptedDisplayName: z.string().optional(),

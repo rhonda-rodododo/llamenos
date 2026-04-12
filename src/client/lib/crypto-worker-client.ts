@@ -8,6 +8,7 @@
 
 import { bytesToHex } from '@noble/hashes/utils.js'
 import type { CryptoLabel } from '@shared/crypto-labels'
+import type { EnvelopeV3 } from '@shared/envelope-v3'
 
 /** Error messages from the worker that indicate the key is no longer available. */
 const LOCKED_ERROR_PATTERNS = [
@@ -332,6 +333,159 @@ export class CryptoWorkerClient {
    */
   async computeHmac(input: string, secretHex: string): Promise<string> {
     return (await this.call({ type: 'computeHmac', input, secretHex })) as string
+  }
+
+  // ---- Tier 1 HPKE sidecar ----
+
+  /**
+   * Unlock the worker from a key-store-v3 unlock result. Accepts raw nsec
+   * bytes (consumed and zeroed inside the worker), the non-extractable HPKE
+   * private CryptoKey, and the non-extractable hub AES-GCM CryptoKey.
+   * Returns the derived x-only public key hex.
+   */
+  async unlockFromKeyStoreV3(
+    nsecRaw: Uint8Array,
+    hpkePrivateKey: CryptoKey,
+    hubKey: CryptoKey
+  ): Promise<string> {
+    return (await this.call({
+      type: 'unlockFromKeyStoreV3',
+      nsecRaw,
+      hpkePrivateKey,
+      hubKey,
+    })) as string
+  }
+
+  /**
+   * HPKE single-shot seal against a recipient's raw X25519 public key.
+   * Produces an EnvelopeV3 `{ v: 3, labelId, enc, ct }`. Never falls back to
+   * ECIES — callers that can tolerate either format must branch on label
+   * themselves.
+   */
+  async hpkeSeal(
+    plaintext: string,
+    recipientPublicKeyRaw: Uint8Array,
+    label: CryptoLabel,
+    recordId: string,
+    fieldName: string
+  ): Promise<EnvelopeV3> {
+    return (await this.call({
+      type: 'hpkeSeal',
+      plaintext,
+      recipientPublicKeyRaw,
+      label,
+      recordId,
+      fieldName,
+    })) as EnvelopeV3
+  }
+
+  /**
+   * HPKE single-shot open against the held non-extractable HPKE private key.
+   * Throws on version, label, or AAD mismatch — never falls back to ECIES.
+   */
+  async hpkeOpen(
+    envelope: EnvelopeV3,
+    expectedLabel: CryptoLabel,
+    recordId: string,
+    fieldName: string
+  ): Promise<string> {
+    return (await this.call({
+      type: 'hpkeOpen',
+      envelope,
+      expectedLabel,
+      recordId,
+      fieldName,
+    })) as string
+  }
+
+  /**
+   * Hub-field AES-GCM encrypt using the held non-extractable hub key.
+   * AAD binds to (recordId, fieldName) via `hubFieldAad`.
+   */
+  async hubFieldEncryptV3(plaintext: string, recordId: string, fieldName: string): Promise<string> {
+    return (await this.call({
+      type: 'hubFieldEncryptV3',
+      plaintext,
+      recordId,
+      fieldName,
+    })) as string
+  }
+
+  /**
+   * Hub-field AES-GCM decrypt using the held non-extractable hub key.
+   * Returns null on any failure — invalid base64, wrong AAD, tag mismatch.
+   */
+  async hubFieldDecryptV3(
+    ciphertext: string,
+    recordId: string,
+    fieldName: string
+  ): Promise<string | null> {
+    return (await this.call({
+      type: 'hubFieldDecryptV3',
+      ciphertext,
+      recordId,
+      fieldName,
+    })) as string | null
+  }
+
+  // ---- Tier 2 root-KEK handlers ----
+
+  /**
+   * Generate a fresh random root KEK inside the worker. Replaces any
+   * existing root KEK handle. No value is returned — the key is held only
+   * in the worker closure and is wrapped for persistence via
+   * {@link rootKekWrap}.
+   */
+  async rootKekCreate(): Promise<void> {
+    await this.call({ type: 'rootKekCreate' })
+  }
+
+  /**
+   * Wrap the currently loaded root KEK under a factor. Raw factor bytes
+   * (32 bytes, hex-encoded) enter the worker, are HKDF-stretched with the
+   * per-envelope salt and `LABEL_ROOT_KEK_WRAP`, and used to produce a
+   * single AES-KW wrapped blob. The caller is responsible for persisting
+   * `{ hkdfSalt, wrappedKey }` into the root-KEK envelope bundle.
+   *
+   * SECURITY: The caller MUST zero its own copy of the factor bytes after
+   * this call returns. The worker zeros its own internal copy.
+   */
+  async rootKekWrap(factorBytesHex: string, hkdfSaltHex: string): Promise<string> {
+    return (await this.call({
+      type: 'rootKekWrap',
+      factorBytesHex,
+      hkdfSaltHex,
+    })) as string
+  }
+
+  /**
+   * Unwrap a persisted root-KEK envelope and install it as the worker's
+   * current root KEK. Any previously loaded root KEK is replaced.
+   *
+   * SECURITY: same as {@link rootKekWrap} — caller must zero its factor
+   * bytes after the promise resolves.
+   */
+  async rootKekUnwrap(
+    factorBytesHex: string,
+    hkdfSaltHex: string,
+    wrappedKeyHex: string
+  ): Promise<void> {
+    await this.call({
+      type: 'rootKekUnwrap',
+      factorBytesHex,
+      hkdfSaltHex,
+      wrappedKeyHex,
+    })
+  }
+
+  /** Drop the loaded root KEK handle. */
+  async rootKekClear(): Promise<void> {
+    await this.call({ type: 'rootKekClear' })
+  }
+
+  /** Return true if a root KEK is currently loaded in the worker. */
+  async rootKekIsLoaded(): Promise<boolean> {
+    return (await this.call({ type: 'rootKekIsLoaded' })) as boolean
   }
 
   /**

@@ -20,6 +20,39 @@ import type {
 import type { EnabledChannels, SetupState } from '@shared/schemas/settings'
 import type { Ciphertext } from './crypto-types'
 
+// --- Device Identity (Tier 3) ---
+
+export interface DeviceKeypair {
+  deviceId: string
+  signing: {
+    privateKey: CryptoKey // non-extractable Ed25519
+    publicKey: Uint8Array // raw 32 bytes
+  }
+  encryption: {
+    privateKey: CryptoKey // non-extractable X25519
+    publicKey: Uint8Array // raw 32 bytes
+  }
+  createdAt: string // ISO 8601
+  isPaperKey: boolean
+}
+
+export interface DeviceMetadata {
+  deviceId: string
+  signingPubkey: string // hex
+  encryptionPubkey: string // hex
+  encryptedDisplayName: string
+  addedByDeviceId: string | null
+  revokedAt: string | null
+  createdAt: string
+  lastSeenAt: string
+}
+
+export interface PukState {
+  generation: number
+  signPubkey: string // hex
+  dhPubkey: string // hex
+}
+
 // --- Versioned ECIES Key Envelope ---
 
 /**
@@ -271,7 +304,10 @@ export interface ReportType {
 }
 
 export interface CreateReportTypeInput {
-  /** Client-generated UUID for AAD binding. See CreateReportTypeSchema for rationale. */
+  /**
+   * Client-generated id. Required when `encryptedName` is provided so the
+   * server stores the same id the client bound into AAD via buildAad().
+   */
   id?: string
   name: string
   description?: string

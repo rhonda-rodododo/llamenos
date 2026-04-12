@@ -379,6 +379,34 @@
       "when": 1775606400000,
       "tag": "0052_signed_audit_unique_constraints",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1775692800000,
+      "tag": "0053_tier1_hpke_envelope_v3",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1775779200000,
+      "tag": "0054_tier1_items_key_indirection",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1775865600000,
+      "tag": "0055_tier2_opaque_root_kek",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1775952000000,
+      "tag": "0056_tier3_per_device_keys",
+      "breakpoints": true
     }
   ]
 }

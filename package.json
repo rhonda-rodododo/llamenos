@@ -8,9 +8,7 @@
   "scripts": {
     "dev": "vite",
     "dev:all": "concurrently -n vite,server,bridge -c cyan,green,magenta \"bun run dev\" \"bun run dev:server\" \"bun run dev:bridge\"",
-    "build": "bun run build:main && bun run build:crypto-sandbox",
-    "build:main": "vite build && scripts/verify-no-console.sh dist/client",
-    "build:crypto-sandbox": "vite build -c crypto-sandbox/vite.config.ts",
+    "build": "vite build && scripts/verify-no-console.sh dist/client",
     "verify:no-console": "scripts/verify-no-console.sh dist/client",
     "preview": "vite preview",
     "deploy": "bun run deploy:site",
@@ -26,7 +24,6 @@
     "format": "biome format --write src/",
     "typecheck": "bunx tsc --noEmit",
     "bootstrap-admin": "bun run scripts/bootstrap-admin.ts",
-    "build:iso": "scripts/build-iso.sh",
     "test": "bunx playwright test",
     "test:unit": "bun test src/ --bail --path-ignore-patterns='**/*.integration.test.ts'",
     "test:integration": "bun test .integration. --bail",
@@ -47,12 +44,16 @@
     "@hono/node-server": "^1.19.12",
     "@hono/node-ws": "^1.3.0",
     "@hono/zod-openapi": "^1.2.4",
+    "@hpke/core": "^1.7.0",
+    "@hpke/dhkem-x25519": "^1.7.0",
     "@huggingface/transformers": "^3.8.1",
     "@noble/ciphers": "^2.1.1",
     "@noble/curves": "^2.0.1",
     "@noble/hashes": "^2.0.1",
     "@scalar/hono-api-reference": "^0.10.5",
     "@scure/base": "^2.0.0",
+    "@serenity-kit/opaque": "^1.1.0",
+    "shamir-secret-sharing": "^0.0.4",
     "@simplewebauthn/browser": "^13.3.0",
     "@simplewebauthn/server": "^13.3.0",
     "@tanstack/react-query": "^5.96.0",
@@ -69,6 +70,7 @@
     "hono": "^4.12.9",
     "i18next": "^25.10.10",
     "i18next-http-backend": "^3.0.4",
+    "idb": "^8.0.3",
     "jose": "^6.2.2",
     "jssip": "^3.13.6",
     "lodash": "^4.18.1",
@@ -124,12 +126,6 @@
     "wrangler": "^4.79.0"
   },
   "overrides": {
-    "axios": "^1.15.0",
-    "tar": "^7.5.13",
-    "lodash": "^4.18.1",
-    "serialize-javascript": "^7.0.5",
-    "picomatch": "^4.0.4",
-    "path-to-regexp": "^8.4.0",
-    "esbuild": "^0.28.0"
+    "axios": "^1.15.0"
   }
 }

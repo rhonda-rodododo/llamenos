@@ -71,11 +71,15 @@ export function HubsEditDialog({
     setPhoneNumber(hub.phoneNumber || '')
   }, [hub])
 
-  function handleSaveGeneral(e: React.FormEvent) {
+  async function handleSaveGeneral(e: React.FormEvent) {
     e.preventDefault()
     if (!name.trim()) return
     const trimmedName = name.trim()
     const trimmedDesc = description.trim()
+    const encryptedName = await encryptHubField(trimmedName, hub.id, hub.id, 'encrypted_name')
+    const encryptedDescription = trimmedDesc
+      ? await encryptHubField(trimmedDesc, hub.id, hub.id, 'encrypted_description')
+      : undefined
     updateHub.mutate(
       {
         id: hub.id,
@@ -83,10 +87,8 @@ export function HubsEditDialog({
           name: trimmedName,
           description: trimmedDesc || undefined,
           phoneNumber: phoneNumber.trim() || undefined,
-          encryptedName: encryptHubField(trimmedName, hub.id, hub.id, 'encrypted_name'),
-          encryptedDescription: trimmedDesc
-            ? encryptHubField(trimmedDesc, hub.id, hub.id, 'encrypted_description')
-            : undefined,
+          encryptedName,
+          encryptedDescription,
         },
       },
       {

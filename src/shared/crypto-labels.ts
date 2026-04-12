@@ -128,6 +128,14 @@ export const LABEL_SERVER_NOSTR_KEY = 'llamenos:server-nostr-key'
 /** HKDF info parameter for server Nostr key (versioned for rotation) */
 export const LABEL_SERVER_NOSTR_KEY_INFO = 'llamenos:server-nostr-key:v1'
 
+// --- Server HPKE Identity (Tier 1) ---
+
+/** HKDF derivation for server HPKE X25519 keypair from SERVER_SECRET */
+export const LABEL_SERVER_HPKE_KEY = 'llamenos:server-hpke-key'
+
+/** HKDF info parameter for server HPKE key (versioned for rotation) */
+export const LABEL_SERVER_HPKE_KEY_INFO = 'llamenos:server-hpke-key:v1'
+
 // --- Push Notification Encryption (Epic 86) ---
 
 /** Wake-tier ECIES push payload — decryptable without PIN (minimal metadata only) */
@@ -240,6 +248,85 @@ export const LABEL_AUTH_EVENT = 'llamenos:user-auth-event:v1' as CryptoLabel
 /** Signal contact identifier envelope (user-scoped) */
 export const LABEL_SIGNAL_CONTACT = 'llamenos:signal-contact:v1' as CryptoLabel
 
+// --- Tier 2: Root KEK + factor wrapping (2026-04) ---
+//
+// These are HKDF info / AES-KW context strings — they bind a factor-specific
+// wrapping key to its purpose so the same raw bytes (e.g. a WebAuthn PRF
+// output) can never be reused across factor types. They are NOT enrolled in
+// LABEL_REGISTRY: the on-wire ciphertext is an AES-KW blob stored in the
+// root-KEK envelope, not in the legacy label-tagged framing.
+
+/** WebAuthn PRF evaluation salt (Tier 2 root KEK unlock, primary factor). */
+export const LABEL_PRF_KEK_SALT_V1 = 'llamenos:kek-prf-salt:v1' as CryptoLabel
+
+/** AES-KW wrap of the root KEK — used as HKDF `info` suffix per factor. */
+export const LABEL_ROOT_KEK_WRAP = 'llamenos:root-kek-wrap' as CryptoLabel
+
+/** HKDF context for deriving a wrapping key from a BIP-39 recovery phrase. */
+export const LABEL_RECOVERY_PHRASE_KEK = 'llamenos:recovery-phrase-kek' as CryptoLabel
+
+/** HKDF context for deriving a wrapping key from the OPAQUE 64-byte export key. */
+export const LABEL_OPAQUE_EXPORT_KEK = 'llamenos:opaque-export-kek' as CryptoLabel
+
+/** HKDF context for deriving a wrapping key from a recovery-group share. */
+export const LABEL_RECOVERY_GROUP_WRAP = 'llamenos:recovery-group-wrap' as CryptoLabel
+
+/** HKDF context for per-member SSS share derivation in the recovery group. */
+export const LABEL_RECOVERY_GROUP_SHARE = 'llamenos:recovery-group-share' as CryptoLabel
+
+/** HKDF context for the per-session payload wrapping the reconstructed KEK. */
+export const LABEL_RECOVERY_SESSION_PAYLOAD = 'llamenos:recovery-session-payload' as CryptoLabel
+
+// --- Tier 3: Per-Device Keys + PUK + Sigchain ---
+
+/** PUK-derived Ed25519 signing key context */
+export const LABEL_PUK_SIGN = 'llamenos:puk:sign:v1' as CryptoLabel
+
+/** PUK-derived X25519 DH key context */
+export const LABEL_PUK_DH = 'llamenos:puk:dh:v1' as CryptoLabel
+
+/** PUK-derived AES-GCM-256 SecretBox key context (wraps previous generations) */
+export const LABEL_PUK_SECRETBOX = 'llamenos:puk:secretbox:v1' as CryptoLabel
+
+/** HPKE info for wrapping the PUK seed to a device X25519 pubkey */
+export const LABEL_PUK_WRAP_TO_DEVICE = 'llamenos:puk:wrap:device:v1' as CryptoLabel
+
+/** AAD for encrypting old PUK seed under the new PUK SecretBox key */
+export const LABEL_PUK_PREVIOUS_GEN = 'llamenos:puk:prev-gen:v1' as CryptoLabel
+
+/** AAD for wrapping the master signing seed under the PUK SecretBox key */
+export const LABEL_MASTER_KEY_WRAP = 'llamenos:master:wrap:v1' as CryptoLabel
+
+/** HMAC label: master seed → self-signing seed */
+export const LABEL_MASTER_SELF_SIGNING = 'llamenos:master:self-signing:v1' as CryptoLabel
+
+/** HMAC label: master seed → user-signing seed */
+export const LABEL_MASTER_USER_SIGNING = 'llamenos:master:user-signing:v1' as CryptoLabel
+
+/** HPKE info for one-shot master seed handoff during recovery */
+export const LABEL_MASTER_RECOVERY_HANDOFF = 'llamenos:master:recovery-handoff:v1' as CryptoLabel
+
+/** AAD for wrapping master seed under Recovery Group pubkey */
+export const LABEL_MASTER_RECOVERY_GROUP_WRAP = 'llamenos:master:recovery-group:v1' as CryptoLabel
+
+/** AAD for wrapping PUK seed under Recovery Group pubkey */
+export const LABEL_PUK_RECOVERY_GROUP_WRAP = 'llamenos:puk:recovery-group:v1' as CryptoLabel
+
+/** AAD for encrypting device display_name under the PUK SecretBox key */
+export const LABEL_DEVICE_DISPLAY = 'llamenos:device:display:v1' as CryptoLabel
+
+/** HKDF info for device enrollment SAS code derivation */
+export const LABEL_DEVICE_ENROLLMENT_SAS = 'llamenos:device:enrollment-sas:v1' as CryptoLabel
+
+/** HMAC label: BIP39 seed → paper-key signing seed */
+export const LABEL_PAPER_KEY_SIGNING = 'llamenos:paper-key:sign:v1' as CryptoLabel
+
+/** HMAC label: BIP39 seed → paper-key encryption seed */
+export const LABEL_PAPER_KEY_ENCRYPTION = 'llamenos:paper-key:encryption:v1' as CryptoLabel
+
+/** AAD for wrapping old hub PTK under new hub PTK in CLKR chain */
+export const LABEL_HUB_PTK_PREV_GEN = 'llamenos:hub-ptk:prev-gen:v1' as CryptoLabel
+
 // --- Label Registry ---
 // The index of each label is its stable on-wire `labelId` byte.
 // ORDER IS A WIRE FORMAT — never reorder, only append.
@@ -269,6 +356,23 @@ export const LABEL_REGISTRY = [
   LABEL_CONTACT_RELATIONSHIP,
   LABEL_STORAGE_CREDENTIAL_WRAP,
   LABEL_HUB_FIELD,
+  // Tier 3: Per-Device Keys + PUK + Sigchain
+  LABEL_PUK_SIGN,
+  LABEL_PUK_DH,
+  LABEL_PUK_SECRETBOX,
+  LABEL_PUK_WRAP_TO_DEVICE,
+  LABEL_PUK_PREVIOUS_GEN,
+  LABEL_MASTER_KEY_WRAP,
+  LABEL_MASTER_SELF_SIGNING,
+  LABEL_MASTER_USER_SIGNING,
+  LABEL_MASTER_RECOVERY_HANDOFF,
+  LABEL_MASTER_RECOVERY_GROUP_WRAP,
+  LABEL_PUK_RECOVERY_GROUP_WRAP,
+  LABEL_DEVICE_DISPLAY,
+  LABEL_DEVICE_ENROLLMENT_SAS,
+  LABEL_PAPER_KEY_SIGNING,
+  LABEL_PAPER_KEY_ENCRYPTION,
+  LABEL_HUB_PTK_PREV_GEN,
 ] as const satisfies readonly CryptoLabel[]
 
 export function labelToId(label: CryptoLabel): number {

@@ -247,15 +247,19 @@ function ShiftForm({
   const [days, setDays] = useState<number[]>(shift?.days || [1, 2, 3, 4, 5])
   const [selectedUsers, setSelectedUsers] = useState<string[]>(shift?.userPubkeys || [])
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     // For a new shift (shift === null) pre-generate a client UUID for AAD binding.
     // For an existing shift, use the server-assigned ID.
     const recordId = shift?.id ?? crypto.randomUUID()
+    const encryptedName = await encryptHubField(name, hubId, recordId, 'encrypted_name')
     onSave({
-      id: recordId,
+      // For creates, pass the pre-generated id through so the server stores
+      // the same id the client used as AAD `recordId`. For updates this is
+      // a no-op (the server ignores body.id on PATCH).
+      ...(shift ? {} : { id: recordId }),
       name,
-      encryptedName: encryptHubField(name, hubId, recordId, 'encrypted_name'),
+      encryptedName,
       startTime,
       endTime,
       days,

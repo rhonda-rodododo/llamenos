@@ -631,6 +631,45 @@ jobs:
             exit 1
           fi
 
+      - name: Tier 1 — no NEW callers of legacy ECIES/XChaCha20 primitives
+        env:
+          TIER1_LEGACY_ALLOW: '^(src/client/lib/(crypto-worker|crypto-worker-client|crypto-worker-helpers|crypto-service|backup|file-crypto|provisioning|key-store-v2|hub-key-manager)\.ts|src/shared/(crypto-envelopes|crypto-primitives|crypto-labels)\.ts|src/server/(idp/authentik-adapter|routes/dev|lib/(crypto-service|agent-identity|hub-event-crypto)|jobs/blast-processor)\.ts)$'
+        run: |
+          # Tier 1 PR-A introduced HPKE/AES-GCM as the going-forward crypto
+          # path. The legacy ECIES + XChaCha20-Poly1305 surface in
+          # crypto-worker / crypto-primitives is still in use by call sites
+          # that migrate in PR-B. NEW code must not import from
+          # xchacha20poly1305 or call secp256k1 getSharedSecret; every such
+          # file is on an allowlist below and must be removed from the
+          # allowlist when its PR-B migration lands.
+          HITS=$(grep -rln \
+            -e "from '@noble/ciphers/chacha" \
+            -e 'getSharedSecret' \
+            src/ --include='*.ts' 2>/dev/null \
+            | grep -Ev '\.test\.ts$' \
+            | grep -Ev "$TIER1_LEGACY_ALLOW" || true)
+          if [ -n "$HITS" ]; then
+            echo "::error::New file importing legacy ECIES/XChaCha20 primitives:"
+            echo "$HITS"
+            echo "Use HPKE primitives from @shared/hpke-primitives instead."
+            echo "If this file is an existing migration target, add it to TIER1_LEGACY_ALLOW."
+            exit 1
+          fi
+
+      - name: Tier 1 — HPKE opener never falls back to ECIES
+        run: |
+          # Flag catch blocks near hpkeOpen / decryptEnvelopeV3 calls that
+          # silently retry with a legacy symmetric path — that would be a
+          # downgrade primitive. Only crypto-worker.ts (dual-era) is allowed.
+          if grep -rPn 'catch[^{]*\{[^}]*(decryptEnvelopeField|symmetricDecrypt)' \
+            src/ --include='*.ts' 2>/dev/null \
+            | grep -v '\.test\.ts' \
+            | grep -v 'crypto-worker\.ts' \
+            | grep -v 'crypto-worker-helpers\.ts'; then
+            echo "::error::Silent HPKE→ECIES fallback pattern detected"
+            exit 1
+          fi
+
   # ─── CI Status Gate ─────────────────────────────────────────
   # Single status check for branch protection rules.
   # All required jobs must pass for PRs to be mergeable.

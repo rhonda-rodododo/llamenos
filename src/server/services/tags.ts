@@ -17,7 +17,6 @@ export class TagsService {
   ) {}
 
   async createTag(data: {
-    /** Client-generated UUID for AAD binding. */
     id?: string
     hubId: string
     name?: string
@@ -28,6 +27,10 @@ export class TagsService {
   }): Promise<TagRow> {
     const encLabel = (data.encryptedLabel ?? data.name ?? '') as Ciphertext
     const slug = (data.name ?? data.encryptedLabel ?? '').toLowerCase().replace(/[^a-z0-9-]/g, '-')
+    // Client-provided id is required for AAD binding: the client seals the
+    // ciphertext with buildAad(label, id, fieldName) before POST. Accept it
+    // verbatim so decrypt on refetch matches. Legacy callers that omit id
+    // fall back to a server-generated UUID.
     const id = data.id ?? crypto.randomUUID()
     const [row] = await this.db
       .insert(tags)

@@ -1,5 +1,3 @@
-import path from 'node:path'
-import { serveStatic } from '@hono/node-server/serve-static'
 import { OpenAPIHono } from '@hono/zod-openapi'
 import { Scalar } from '@scalar/hono-api-reference'
 import { Hono } from 'hono'
@@ -8,6 +6,7 @@ import type { IdPAdapter } from './idp/adapter'
 import messagingRoutes from './messaging/router'
 import { auth } from './middleware/auth'
 import { cors } from './middleware/cors'
+import { cspNonce } from './middleware/csp-nonce'
 import { errorHandler } from './middleware/error'
 import { hubContext } from './middleware/hub'
 import { logContextMiddleware } from './middleware/log-context'
@@ -41,6 +40,7 @@ import metricsRoutes, { httpMetrics } from './routes/metrics'
 import notesRoutes from './routes/notes'
 import notificationsRoutes from './routes/notifications'
 import { notificationsPublic } from './routes/notifications-public'
+import opaqueRoutes from './routes/opaque'
 import providerSetupRoutes from './routes/provider-setup'
 import provisioningRoutes from './routes/provisioning'
 import reportTypesRoutes from './routes/report-types'
@@ -72,14 +72,6 @@ const app = new Hono<AppEnv>()
 // Log context must be the first middleware so every subsequent log call
 // auto-attaches { reqId, traceId } (plus userId/hubId once layered by auth/hub).
 app.use('*', logContextMiddleware)
-
-// Security headers must be registered BEFORE `app.route('/api', api)` and
-// `app.route('/telephony', ...)` — Hono middleware is positional and
-// `app.use('*', ...)` does not apply retroactively to routes mounted earlier.
-// This middleware sets response headers via `await next()` then header-set,
-// so it works in the pre-routes position and attaches CSP/HSTS/COOP/COEP/etc
-// to every /api/* and /telephony/* response.
-app.use('*', securityHeaders)
 
 app.onError(errorHandler)
 
@@ -279,6 +271,7 @@ authenticated.route('/firehose', firehoseRoutes)
 authenticated.route('/gdpr', gdprRoutes)
 authenticated.route('/geocoding', geocodingRoutes)
 authenticated.route('/notifications', notificationsRoutes)
+authenticated.route('/opaque', opaqueRoutes)
 
 // Hub-scoped authenticated routes
 const hubScoped = new OpenAPIHono<AppEnv>()
@@ -319,6 +312,7 @@ const KNOWN_API_PREFIXES = new Set([
   'messaging',
   'notifications',
   'ivr-audio',
+  'opaque',
   // Authenticated routes
   'users',
   'analytics',
@@ -365,20 +359,8 @@ app.route('/telephony', telephonyRoutes)
 // Mount API under /api
 app.route('/api', api)
 
+// CSP nonce must be set before security headers build the CSP string
+app.use('*', cspNonce)
 app.use('*', securityHeaders)
-
-// Tier 4 PR-A: in production, this host is API-only — no SPA fallback.
-// In development/test mode, serve the SPA from dist/client/ so Playwright
-// E2E tests and local dev work without a Caddy reverse proxy.
-if (process.env.ENVIRONMENT === 'development') {
-  const staticDir = path.resolve(process.cwd(), 'dist', 'client')
-  app.use('*', serveStatic({ root: staticDir }))
-  // SPA fallback — serve index.html for all unmatched routes
-  app.use('*', serveStatic({ root: staticDir, path: '/index.html' }))
-} else {
-  // Production: API-only. Any request outside /api/* or /telephony/* returns
-  // JSON 404 (matches the API error envelope).
-  app.notFound((c) => c.json({ error: 'Not Found' }, 404))
-}
 
 export default app

@@ -3,11 +3,8 @@ import { z } from 'zod/v4'
 // ── Create Report Type ──
 export const CreateReportTypeSchema = z
   .object({
-    // Client-generated UUID for AAD binding. When hub-field encryption is
-    // active, the client encrypts the name/description with this ID as part of
-    // the AAD. The server MUST use this as the record's primary key so the
-    // ciphertext can be decrypted on read-back. If omitted, the server
-    // generates its own UUID (plaintext-fallback path).
+    // Client-generated UUID. Required when `encryptedName` is provided so the
+    // server stores the same id the client used as AAD `recordId`.
     id: z.string().uuid().optional(),
     name: z.string().min(1).max(200).optional(),
     encryptedName: z.string().optional(),

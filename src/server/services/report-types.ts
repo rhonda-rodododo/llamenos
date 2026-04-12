@@ -39,9 +39,10 @@ export class ReportTypeService {
   }
 
   async createReportType(hubId: string, data: CreateReportTypeInput): Promise<ReportType> {
-    // Use client-provided ID when present — the client uses this ID as AAD
-    // when encrypting hub-field values, so the server must use the same ID
-    // for the ciphertext to be decryptable on read-back.
+    // Client-provided id is required for AAD binding: the client seals the
+    // ciphertext with buildAad(label, id, fieldName) before POST. Accept it
+    // verbatim so decrypt on refetch matches. Legacy callers that omit id
+    // fall back to a server-generated UUID.
     const id = data.id ?? crypto.randomUUID()
     const now = new Date()
 
