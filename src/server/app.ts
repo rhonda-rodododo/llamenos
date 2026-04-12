@@ -360,4 +360,8 @@ app.route('/api', api)
 app.use('*', cspNonce)
 app.use('*', securityHeaders)
 
+// Tier 4 PR-A: this host is API-only — no SPA fallback. Any request outside
+// /api/* or /telephony/* returns JSON 404 (matches the API error envelope).
+app.notFound((c) => c.json({ error: 'Not Found' }, 404))
+
 export default app

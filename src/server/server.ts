@@ -1,15 +1,17 @@
-import { readFileSync } from 'node:fs'
 import path from 'node:path'
 /**
  * Node.js server entry point.
- * Runs the Hono app with @hono/node-server, serving static files.
+ * Runs the Hono app with @hono/node-server.
+ *
+ * Tier 4 PR-A: API-only. The SPA bundle and the crypto sandbox are served by
+ * separate Caddy workers on distinct origins (app.*, crypto.*). This process
+ * only answers requests under /api/* and /telephony/*.
  *
  * Real-time events use the Nostr relay (strfry) — no direct WebSocket
  * handling needed in the app server. Clients connect to the relay via
  * the Caddy reverse proxy at /nostr.
  */
 import { serve } from '@hono/node-server'
-import { serveStatic } from '@hono/node-server/serve-static'
 import { migrate } from 'drizzle-orm/bun-sql/migrator'
 import { Hono } from 'hono'
 import { initDb } from './db'
@@ -287,25 +289,9 @@ async function main() {
 
   app.onError(errorHandler)
 
-  const staticDir = path.resolve(process.cwd(), 'dist', 'client')
-  app.use('*', serveStatic({ root: staticDir }))
-
-  // SPA fallback with CSP nonce injection — replaces __CSP_NONCE__ in built HTML
-  const indexPath = path.join(staticDir, 'index.html')
-  let indexTemplate: string | null = null
-  try {
-    indexTemplate = readFileSync(indexPath, 'utf-8')
-  } catch {
-    // Built index.html not available (dev mode) — no SPA fallback needed
-  }
-  if (indexTemplate) {
-    const tmpl = indexTemplate
-    app.use('*', async (c) => {
-      const nonce = (c.get as (key: string) => string | undefined)('cspNonce') ?? ''
-      const html = tmpl.replaceAll('__CSP_NONCE__', nonce)
-      return c.html(html)
-    })
-  }
+  // Tier 4 PR-A: no SPA fallback here. The SPA is hosted on app.* by a
+  // separate Caddy worker. Any unknown path falls through to the mounted
+  // app.notFound() which returns JSON 404.
 
   const port = Number(process.env.PORT) || 3000
   const server = serve(
