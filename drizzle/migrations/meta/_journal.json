@@ -400,6 +400,13 @@
       "when": 1775865600000,
       "tag": "0055_tier2_opaque_root_kek",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1775952000000,
+      "tag": "0056_tier3_per_device_keys",
+      "breakpoints": true
     }
   ]
 }

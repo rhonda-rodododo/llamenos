@@ -1,4 +1,16 @@
 import { z } from '@hono/zod-openapi'
+import {
+  DeviceCrossSignPayloadSchema,
+  HubPtkRotatePayloadSchema,
+  PukRotatePayloadSchema,
+  RecoveryCompletedPayloadSchema,
+  RecoveryInitiatedPayloadSchema,
+  Tier3DeviceAddPayloadSchema,
+  Tier3DeviceRemovePayloadSchema,
+  UserCrossSignPayloadSchema,
+  UserInitPayloadSchema,
+  UserMasterSigningUpdatePayloadSchema,
+} from './sigchain'
 
 const hexPubkey = z.string().regex(/^[0-9a-f]{64}$/)
 const roleEnum = z.enum(['volunteer', 'admin', 'super_admin'])
@@ -105,6 +117,17 @@ export const AuditEntryPayloadSchema = z.discriminatedUnion('type', [
   FactorAddPayloadSchema,
   FactorRemovePayloadSchema,
   RootKekRotatePayloadSchema,
+  // Tier 3: sigchain payload variants
+  UserInitPayloadSchema,
+  Tier3DeviceAddPayloadSchema,
+  Tier3DeviceRemovePayloadSchema,
+  PukRotatePayloadSchema,
+  UserMasterSigningUpdatePayloadSchema,
+  DeviceCrossSignPayloadSchema,
+  UserCrossSignPayloadSchema,
+  HubPtkRotatePayloadSchema,
+  RecoveryInitiatedPayloadSchema,
+  RecoveryCompletedPayloadSchema,
 ])
 export type AuditEntryPayload = z.infer<typeof AuditEntryPayloadSchema>
 
