@@ -6,7 +6,6 @@ import type { IdPAdapter } from './idp/adapter'
 import messagingRoutes from './messaging/router'
 import { auth } from './middleware/auth'
 import { cors } from './middleware/cors'
-import { cspNonce } from './middleware/csp-nonce'
 import { errorHandler } from './middleware/error'
 import { hubContext } from './middleware/hub'
 import { logContextMiddleware } from './middleware/log-context'
@@ -356,8 +355,6 @@ app.route('/telephony', telephonyRoutes)
 // Mount API under /api
 app.route('/api', api)
 
-// CSP nonce must be set before security headers build the CSP string
-app.use('*', cspNonce)
 app.use('*', securityHeaders)
 
 // Tier 4 PR-A: this host is API-only — no SPA fallback. Any request outside

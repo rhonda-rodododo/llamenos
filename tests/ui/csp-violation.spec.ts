@@ -1,53 +1,50 @@
 /**
- * Tier 0 — CSP Report-Only header + /api/csp-report endpoint.
+ * Tier 0 + Tier 4 PR-A — API-host CSP + /api/csp-report endpoint.
  *
- * The `ui` Playwright project has baseURL http://localhost:3000, which is the
- * Bun/Hono backend that actually serves the SPA HTML and attaches CSP headers
- * via the `securityHeaders` middleware. (Vite dev server on :5173 is only
- * used for `bun run dev`; Playwright never hits it.) These tests verify:
+ * The `ui` Playwright project has baseURL http://localhost:3000, which in
+ * Tier 4 is the API-only Bun/Hono backend. The server no longer serves the
+ * SPA; `/` returns a JSON 404 but still carries the locked-down API CSP via
+ * the `securityHeaders` middleware. These tests verify:
  *
- *   1. The root document response carries a `Content-Security-Policy-Report-
- *      Only` header that points report-uri at `/api/csp-report`. This is the
- *      browser-side contract: any CSP violation the browser detects will POST
- *      a report to that endpoint.
+ *   1. Any response from the API host — even a 404 — carries the API-locked
+ *      `Content-Security-Policy-Report-Only` header (`script-src 'none'`, every
+ *      active-content directive denied, `report-uri /api/csp-report`).
  *
  *   2. The `/api/csp-report` endpoint accepts a synthetic legacy CSP report
- *      (application/csp-report JSON body) with a 204. We can't reliably make
- *      Chromium *itself* emit a report against an ephemeral test fixture
- *      without baking an intentional inline <script> into the served HTML, so
- *      we round-trip a synthetic violation through the real HTTP endpoint —
- *      which is what the browser would do on its own.
+ *      (application/csp-report JSON body) with a 204.
+ *
+ *   3. The `/api/csp-report` endpoint accepts a Reporting API batch with 204.
  *
  * A unique `x-forwarded-for` IP is used so this test's synthetic report
  * cannot trip the per-IP rate limiter (60/min) shared with other tests.
  */
 
-import { expect, test } from '@playwright/test'
+import { expect, request as pwRequest, test } from '@playwright/test'
 
-test.describe('CSP Report-Only', () => {
-  test('root document includes Content-Security-Policy-Report-Only header with /api/csp-report endpoint', async ({
-    page,
-  }) => {
-    const responsePromise = page.waitForResponse(
-      (resp) => new URL(resp.url()).pathname === '/' && resp.request().resourceType() === 'document'
-    )
-    await page.goto('/')
-    const response = await responsePromise
+test.describe('API-host CSP', () => {
+  test('API host responses carry the locked-down CSP with /api/csp-report endpoint', async () => {
+    // Don't use page.goto — the API host returns 404 for `/` and Playwright
+    // flags document 4xx as failures. Drive the request layer directly.
+    const ctx = await pwRequest.newContext({ baseURL: 'http://localhost:3000' })
+    const response = await ctx.get('/')
+    expect(response.status()).toBe(404)
 
     const headers = response.headers()
-    const csp = headers['content-security-policy-report-only']
-    expect(csp, 'Report-Only CSP header must be present on SPA root').toBeTruthy()
-    expect(csp).toContain("default-src 'self'")
-    expect(csp).toContain("script-src 'self'")
-    expect(csp).toContain("font-src 'self'")
+    const csp = headers['content-security-policy-report-only'] ?? headers['content-security-policy']
+    expect(csp, 'API-locked CSP header must be present on API host').toBeTruthy()
+    expect(csp).toContain("default-src 'none'")
+    expect(csp).toContain("script-src 'none'")
+    expect(csp).toContain("style-src 'none'")
+    expect(csp).toContain("frame-ancestors 'none'")
     expect(csp).toContain('report-uri /api/csp-report')
     expect(csp).toContain('report-to csp-endpoint')
-    expect(csp).toContain("require-trusted-types-for 'script'")
 
     const reportTo = headers['report-to']
     expect(reportTo, 'Report-To header must be present').toBeTruthy()
     expect(reportTo).toContain('csp-endpoint')
     expect(reportTo).toContain('/api/csp-report')
+
+    await ctx.dispose()
   })
 
   test('POST /api/csp-report accepts a synthetic legacy CSP violation with 204', async ({
