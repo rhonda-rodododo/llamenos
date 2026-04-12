@@ -428,6 +428,66 @@ export class CryptoWorkerClient {
     })) as string | null
   }
 
+  // ---- Tier 2 root-KEK handlers ----
+
+  /**
+   * Generate a fresh random root KEK inside the worker. Replaces any
+   * existing root KEK handle. No value is returned — the key is held only
+   * in the worker closure and is wrapped for persistence via
+   * {@link rootKekWrap}.
+   */
+  async rootKekCreate(): Promise<void> {
+    await this.call({ type: 'rootKekCreate' })
+  }
+
+  /**
+   * Wrap the currently loaded root KEK under a factor. Raw factor bytes
+   * (32 bytes, hex-encoded) enter the worker, are HKDF-stretched with the
+   * per-envelope salt and `LABEL_ROOT_KEK_WRAP`, and used to produce a
+   * single AES-KW wrapped blob. The caller is responsible for persisting
+   * `{ hkdfSalt, wrappedKey }` into the root-KEK envelope bundle.
+   *
+   * SECURITY: The caller MUST zero its own copy of the factor bytes after
+   * this call returns. The worker zeros its own internal copy.
+   */
+  async rootKekWrap(factorBytesHex: string, hkdfSaltHex: string): Promise<string> {
+    return (await this.call({
+      type: 'rootKekWrap',
+      factorBytesHex,
+      hkdfSaltHex,
+    })) as string
+  }
+
+  /**
+   * Unwrap a persisted root-KEK envelope and install it as the worker's
+   * current root KEK. Any previously loaded root KEK is replaced.
+   *
+   * SECURITY: same as {@link rootKekWrap} — caller must zero its factor
+   * bytes after the promise resolves.
+   */
+  async rootKekUnwrap(
+    factorBytesHex: string,
+    hkdfSaltHex: string,
+    wrappedKeyHex: string
+  ): Promise<void> {
+    await this.call({
+      type: 'rootKekUnwrap',
+      factorBytesHex,
+      hkdfSaltHex,
+      wrappedKeyHex,
+    })
+  }
+
+  /** Drop the loaded root KEK handle. */
+  async rootKekClear(): Promise<void> {
+    await this.call({ type: 'rootKekClear' })
+  }
+
+  /** Return true if a root KEK is currently loaded in the worker. */
+  async rootKekIsLoaded(): Promise<boolean> {
+    return (await this.call({ type: 'rootKekIsLoaded' })) as boolean
+  }
+
   /**
    * Terminate the current worker and create a fresh one.
    * Used when the worker is in a broken state (responding but not functioning).

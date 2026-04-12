@@ -47,6 +47,36 @@ const payloadFixtures: Array<{ name: string; payload: AuditEntryPayload }> = [
     name: 'device_revoke',
     payload: { type: 'device_revoke', userId: UUID, devicePubkey: HEX64 },
   },
+  {
+    name: 'factor_add',
+    payload: {
+      type: 'factor_add',
+      userId: UUID,
+      rootKeyId: UUID,
+      factorType: 'prf',
+      factorId: 'cred-1',
+    },
+  },
+  {
+    name: 'factor_remove',
+    payload: {
+      type: 'factor_remove',
+      userId: UUID,
+      rootKeyId: UUID,
+      factorType: 'opaque',
+      factorId: 'opaque-1',
+    },
+  },
+  {
+    name: 'root_kek_rotate',
+    payload: {
+      type: 'root_kek_rotate',
+      userId: UUID,
+      oldRootKeyId: null,
+      newRootKeyId: UUID,
+      reason: 'migration_v2_v3',
+    },
+  },
 ]
 
 describe('AuditEntryPayloadSchema', () => {

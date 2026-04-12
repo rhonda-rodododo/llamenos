@@ -4,9 +4,21 @@
  * Auth is handled via the auth facade client (JWT access tokens).
  */
 
-import { LABEL_KEK_PRF } from '@shared/crypto-labels'
+import { LABEL_KEK_PRF, LABEL_PRF_KEK_SALT_V1 } from '@shared/crypto-labels'
 import { startAuthentication, startRegistration } from '@simplewebauthn/browser'
 import { type WebAuthnCredentialInfo, authFacadeClient } from './auth-facade-client'
+
+/**
+ * Thrown when a WebAuthn operation expected PRF support but the authenticator
+ * or browser did not return a PRF evaluation. Callers use this to fall back
+ * to OPAQUE / recovery-phrase unlock.
+ */
+export class PrfUnsupportedError extends Error {
+  constructor(message = 'WebAuthn PRF extension not supported by this authenticator') {
+    super(message)
+    this.name = 'PrfUnsupportedError'
+  }
+}
 
 // Re-export for consumers that import WebAuthnCredentialInfo from this module
 export type { WebAuthnCredentialInfo } from './auth-facade-client'
@@ -72,6 +84,90 @@ export async function registerCredential(label: string): Promise<void> {
 
   // 3. Verify with server
   await authFacadeClient.verifyRegistration(attestation, label, challengeId)
+}
+
+/**
+ * Register a WebAuthn credential with the PRF extension requested.
+ *
+ * Registration itself cannot evaluate PRF — authenticators only advertise PRF
+ * support at create-time via `extensions.prf = {}`. Subsequent auth calls
+ * (see `unlockPrfFromCredential`) perform the actual PRF evaluation with a
+ * salt. The server verifies the attestation unchanged; the extension is
+ * purely a client/authenticator signal.
+ *
+ * Throws `PrfUnsupportedError` if the authenticator does not confirm PRF
+ * support in the client extension results. Callers must treat this as a
+ * hard failure for PRF-primary onboarding and fall back to OPAQUE.
+ */
+export async function registerPrfCredential(label: string): Promise<void> {
+  if (!isWebAuthnAvailable()) throw new PrfUnsupportedError('WebAuthn not available')
+
+  const optionsResponse = await authFacadeClient.getRegisterOptions()
+  const { challengeId, ...optionsJSON } = optionsResponse
+
+  const optionsWithPrf = {
+    ...optionsJSON,
+    extensions: { ...(optionsJSON.extensions ?? {}), prf: {} },
+  }
+
+  const attestation = await startRegistration({ optionsJSON: optionsWithPrf })
+
+  const clientExtensions = attestation.clientExtensionResults as Record<string, unknown> | undefined
+  const prfResult = clientExtensions?.prf as { enabled?: boolean } | undefined
+  if (!prfResult || prfResult.enabled !== true) {
+    throw new PrfUnsupportedError('authenticator did not confirm PRF support during registration')
+  }
+
+  await authFacadeClient.verifyRegistration(attestation, label, challengeId)
+}
+
+/**
+ * Evaluate the WebAuthn PRF extension against `LABEL_PRF_KEK_SALT_V1` to
+ * derive stable 32 bytes of entropy bound to a registered authenticator.
+ * The returned bytes are fed into HKDF (label: `LABEL_PRF_KEK_SALT_V1`) to
+ * derive the per-factor wrapping key inside the crypto worker — this module
+ * never holds the KEK itself.
+ *
+ * This call does NOT require a server challenge: it is a local crypto
+ * primitive, not a login assertion. The main-thread caller should hand the
+ * result to the crypto worker via `importFactorAsAesKw` and zero the
+ * returned `Uint8Array` afterwards.
+ *
+ * Throws `PrfUnsupportedError` if the authenticator or browser cannot
+ * produce a PRF output.
+ */
+export async function unlockPrfFromCredential(): Promise<Uint8Array> {
+  if (!isWebAuthnAvailable()) throw new PrfUnsupportedError('WebAuthn not available')
+
+  const saltBytes = new TextEncoder().encode(LABEL_PRF_KEK_SALT_V1)
+  const salt: ArrayBuffer = saltBytes.buffer.slice(
+    saltBytes.byteOffset,
+    saltBytes.byteOffset + saltBytes.byteLength
+  ) as ArrayBuffer
+  const challengeBytes = new Uint8Array(32)
+  crypto.getRandomValues(challengeBytes)
+  const challenge: ArrayBuffer = challengeBytes.buffer.slice(0) as ArrayBuffer
+
+  let credential: PublicKeyCredential
+  try {
+    credential = (await navigator.credentials.get({
+      publicKey: {
+        challenge,
+        rpId: window.location.hostname,
+        userVerification: 'required',
+        extensions: { prf: { eval: { first: salt } } },
+      },
+    })) as PublicKeyCredential
+  } catch (e) {
+    throw new PrfUnsupportedError(`WebAuthn PRF assertion failed: ${(e as Error).message}`)
+  }
+
+  const results = credential.getClientExtensionResults() as Record<string, unknown>
+  const prf = results.prf as { results?: { first?: ArrayBuffer } } | undefined
+  if (!prf?.results?.first) {
+    throw new PrfUnsupportedError('authenticator returned no PRF evaluation')
+  }
+  return new Uint8Array(prf.results.first)
 }
 
 /**
