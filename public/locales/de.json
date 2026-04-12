@@ -1508,7 +1508,8 @@
       "audit": "Audit",
       "analytics": "Analytics",
       "health": "Health",
-      "platform": "Platform"
+      "platform": "Platform",
+      "recoveryGroup": "Recovery Group"
     }
   },
   "locationLookup": {
@@ -1725,5 +1726,35 @@
     "body": "Llámenos verwendet Browser-Cookies, um deine Sitzung angemeldet zu halten. Kein Tracking, keine Drittanbieter — nur die Cookies, die diese Seite zum Funktionieren braucht. Bitte aktiviere Cookies für diese Seite und versuche es erneut.",
     "retry": "Ich habe Cookies aktiviert — erneut versuchen",
     "stillBlocked": "Cookies scheinen immer noch blockiert zu sein. Prüfe die Browser-Einstellungen für diese Seite."
+  },
+  "admin": {
+    "recoveryGroup": {
+      "title": "Recovery Group",
+      "description": "Configure Shamir secret sharing for account recovery. Admins hold key shares; a threshold of shares is required to recover an account.",
+      "threshold": "Threshold (K)",
+      "totalShares": "Total Shares (N)",
+      "enrolling": "Enrolling…",
+      "enroll": "Enroll Recovery Group",
+      "enrollSuccess": "Recovery group enrolled successfully."
+    }
+  },
+  "recovery": {
+    "volunteerPanel": {
+      "title": "Account Recovery",
+      "description": "Initiate account recovery for a user who has lost access to their device.",
+      "identifierPlaceholder": "User email or identifier",
+      "initiating": "Initiating…",
+      "initiate": "Initiate Recovery",
+      "sessionCreated": "Recovery session created",
+      "availableAfter": "Available after"
+    },
+    "shareContribution": {
+      "title": "Contribute Recovery Share",
+      "contributing": "Contributing…",
+      "contribute": "Contribute Share",
+      "success": "Share contributed successfully.",
+      "emergencyOverride": "Emergency override (reduces delay to 1 hour)",
+      "justificationPlaceholder": "Justification (min 16 characters)"
+    }
   }
 }

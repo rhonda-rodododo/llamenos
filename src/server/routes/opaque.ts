@@ -38,7 +38,6 @@
 
 import { createRoute, z } from '@hono/zod-openapi'
 import { and, eq } from 'drizzle-orm'
-import { opaqueServer } from '../../client/lib/opaque-client'
 import {
   OpaqueLoginFinishRequestSchema,
   OpaqueLoginFinishResponseSchema,
@@ -52,6 +51,7 @@ import {
 import { getDb } from '../db'
 import { userOpaqueRecords } from '../db/schema/opaque'
 import { consumeLoginState, createLoginState } from '../lib/login-state-cache'
+import { opaqueServer } from '../lib/opaque-server'
 import { getOrCreateServerSetup } from '../lib/opaque-server-setup'
 import { createRouter } from '../lib/openapi'
 

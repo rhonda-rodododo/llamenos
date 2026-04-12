@@ -24,7 +24,7 @@ import { loadBundleFromIdb } from './root-kek-store'
 
 export type UnlockFactor =
   | { type: 'prf'; credentialId?: string }
-  | { type: 'opaque'; password: string; userIdentifier?: string }
+  | { type: 'opaque'; password: string; userIdentifier: string; purpose?: string }
   | { type: 'recoveryPhrase'; phrase: string; salt: Uint8Array }
   | { type: 'recoveryGroup'; rootKekBytes: Uint8Array }
 
@@ -86,7 +86,7 @@ async function derivePrf(
   bundle: RootKekEnvelopeBundle,
   factor: Extract<UnlockFactor, { type: 'prf' }>
 ): Promise<DerivedFactor> {
-  const { unlockPrfFromCredential, PrfUnsupportedError } = await import('./webauthn')
+  const { unlockPrfFromCredential } = await import('./webauthn')
   const prfOutput = await unlockPrfFromCredential()
 
   // Find a PRF envelope — if credentialId is specified, match it; otherwise take the first PRF
@@ -104,23 +104,32 @@ async function deriveOpaque(
   factor: Extract<UnlockFactor, { type: 'opaque' }>
 ): Promise<DerivedFactor> {
   const { opaqueClient } = await import('./opaque-client')
+  const purpose = factor.purpose ?? 'root-kek'
+  const credentialIdentifier = `${factor.userIdentifier}:${purpose}`
 
-  // Start login
+  // Start login — client produces credential request
   const start = await opaqueClient.loginStart(factor.password)
 
-  // Send to server
+  // Send credential request to server
   const { authFacadeClient } = await import('./auth-facade-client')
-  const serverResp = await authFacadeClient.opaqueLoginStart(start.message)
+  const serverResp = await authFacadeClient.opaqueLoginStart({
+    purpose,
+    credentialIdentifier,
+    credentialRequest: start.message,
+  })
 
-  // Finish login
+  // Finish login — client processes credential response
   const finish = await opaqueClient.loginFinish({
     stateBase64: start.state,
     password: factor.password,
-    credentialResponseBase64: serverResp.loginResponse,
+    credentialResponseBase64: serverResp.credentialResponse,
   })
 
-  // Finish on server
-  await authFacadeClient.opaqueLoginFinish(finish.message)
+  // Confirm finalization on server
+  await authFacadeClient.opaqueLoginFinish({
+    sessionId: serverResp.sessionId,
+    credentialFinalization: finish.message,
+  })
 
   // HKDF exportKey → 32 bytes
   const derived = hkdf(

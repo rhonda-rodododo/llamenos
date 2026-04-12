@@ -16,6 +16,7 @@ import { PhoneProviderSection } from './phone-provider-section'
 import { PlatformRolesSection } from './platform-roles-section'
 import { PlatformSection } from './platform-section'
 import { RcsChannelSection } from './rcs-channel-section'
+import { RecoveryGroupSection } from './recovery-group-section'
 import { ReportTypesSection } from './report-types-section'
 import { SignalChannelSection } from './signal-channel-section'
 import { SpamProtectionSection } from './spam-section'
@@ -62,3 +63,4 @@ registerSection('audit', AuditSection)
 registerSection('analytics', AnalyticsSection)
 registerSection('health', HealthSection)
 registerSection('platform', PlatformSection)
+registerSection('recovery-group', RecoveryGroupSection)
