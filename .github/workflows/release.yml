@@ -359,3 +359,22 @@ jobs:
             CHECKSUMS.txt
             CHECKSUMS.txt.asc
             provenance.json
+
+  # ─── Docker Image Publish ─────────────────────────────────
+  # Calls the reusable docker.yml workflow. workflow_call runs in the same
+  # logical chain as the caller, so it is NOT subject to the GITHUB_TOKEN
+  # downstream-trigger suppression rule that blocks `on: push: tags`.
+  docker:
+    needs: [version, release]
+    if: needs.version.outputs.should_release == 'true'
+    uses: ./.github/workflows/docker.yml
+    with:
+      version: ${{ needs.version.outputs.new_version }}
+      ref: refs/tags/v${{ needs.version.outputs.new_version }}
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+      security-events: write
+    secrets: inherit

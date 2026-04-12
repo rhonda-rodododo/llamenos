@@ -2,7 +2,8 @@
 #
 # Builds:
 #   Stage 1: Dependencies (bun install)
-#   Stage 2: Production image (runs TypeScript source directly via Bun)
+#   Stage 2: Build frontend SPA
+#   Stage 3: Production image (runs TypeScript source directly via Bun)
 #
 # Bun runs TypeScript natively — no bundling step required.
 
@@ -11,13 +12,13 @@ ARG BUILD_COMMIT=local
 ARG BUILD_TIME=
 
 # Stage 1: Install dependencies
-FROM oven/bun:1@sha256:0733e50325078969732ebe3b15ce4c4be5082f18c4ac1a0f0ca4839c2e4e42a7 AS deps
+FROM oven/bun:1@sha256:8956c7667fa17beb6e3c664115e66bdacfe502da5d99603626e74c197bdef160 AS deps
 WORKDIR /app
 COPY package.json bun.lockb ./
 RUN bun install --frozen-lockfile --ignore-scripts
 
 # Stage 2: Build frontend SPA
-FROM oven/bun:1@sha256:0733e50325078969732ebe3b15ce4c4be5082f18c4ac1a0f0ca4839c2e4e42a7 AS frontend
+FROM oven/bun:1@sha256:8956c7667fa17beb6e3c664115e66bdacfe502da5d99603626e74c197bdef160 AS frontend
 WORKDIR /app
 COPY package.json bun.lockb ./
 COPY --from=deps /app/node_modules/ node_modules/
@@ -35,12 +36,17 @@ ENV BUILD_TIME=${BUILD_TIME}
 RUN bun run build
 
 # Stage 3: Production
-# Pin SHA — update via Dependabot or on new minor release
-FROM oven/bun:1-slim@sha256:478281fdd196871c7e51ba6a820b7803a8ae97042ec86cdbc2e1c6b6626442d9
+# Pin SHA — update via Dependabot or on new minor release.
+FROM oven/bun:1-slim@sha256:d3c7094c144dd3975d183a4dbc4ec0a764223995bff73290d983edb47043a75f
 
-# Install curl for healthcheck
+# Upgrade Debian packages to pick up security patches released after the
+# base image was built (e.g. libssl3t64 CVE-2026-28390 fix in deb13u2),
+# then install curl for the healthcheck.
 USER root
-RUN apt-get update && apt-get install -y --no-install-recommends curl \
+RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
+    && apt-get install -y --no-install-recommends curl \
+    && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user

@@ -15,7 +15,7 @@ The "pick up where we left off" breadcrumb for the seven-tier security overhaul 
 | **docs** | #61 CLAUDE.md drift | **Merged** | — | — |
 | **docs** | #62 implementation queue + kickoff template | **Merged** | — | — |
 | **docs** | #63 tier session prompts | **Merged** | — | — |
-| **0 Albrecht** | #52 | **Merged** | — | None; **ready to implement — queue head** |
+| **0 Albrecht** | #52 | **Merged** | #68 (draft, WS 0.1+0.3+0.4 — 16/36 tasks) | **In progress** — worktree at `~/projects/llamenos-hotline-impl-tier-0-albrecht`; 20 tasks remain across WS 0.2, 0.5, 0.6 + CI/tests |
 | **1 HPKE** | #53 | **Merged** | — | Waits on Tier 0 implementation |
 | **2 Unlock+Recovery** | #54 | **Merged** | — | Waits on Tier 1 implementation |
 | **3 Per-device keys** | #55 | **Merged** | — | Waits on Tier 2 Diceware (2.B) |
@@ -118,7 +118,9 @@ Every session MUST:
 9. **Update this file** at session end with the PR link, status, and any notes for the next session.
 10. **Never use `--no-verify`.** The PII hook and lint are load-bearing.
 
-## Current queue head: **Tier 0 implementation** (ready now)
+## Current queue head: **Tier 0 implementation** (in progress)
+
+**Active PR:** #68 (draft) — `feat/sec-tier-0-impl-albrecht`, worktree at `~/projects/llamenos-hotline-impl-tier-0-albrecht`. Workstreams 0.1, 0.3, 0.4 complete (16/36 tasks, 21 commits). Next session resumes at **Task 17** (start of Workstream 0.2 — signed audit log). Plan task order remaining: WS 0.2 (17–22) → 0.5 (23–28) → 0.6 (29–32) → CI/tests/verify (33–36). Six design compromises documented in the PR body for Tier 1 follow-up, including the WS 0.3+0.4 FIX-row deferral (envelope/server primitives hard-code label-only AAD; Tier 1 rewrites them wholesale, so fix work now is throwaway).
 
 All prep merged to main as of 2026-04-11:
 
@@ -173,3 +175,5 @@ Support typically responds in 24–48 h.
 - **2026-04-10 (Rhonda + Claude Opus 4.6):** Initial queue created. All 7 tier specs + plans + reviews in PRs #52–#58. Doc hygiene PRs #60, #61 in flight. Tier 0 is queue head.
 - **2026-04-11 (Rhonda + Claude Opus 4.6):** All prep PRs merged — #60, #61, #62, #52, #53, #54, #55, #56, #57, #58, #63. Main now contains every tier's spec+plan+review plus the 16 paste-ready implementation prompts in `TIER_SESSION_PROMPTS.md`. Ready for parallel implementation sessions (Session A on Tier 0, Session B on Tier 5 prereq).
 - **2026-04-11 (Rhonda + Claude Opus 4.6, Session B):** Tier 5 prereq PR opened on `feat/sec-tier-5-prereq-sim-sip-bridge`. Ships `tests/fixtures/sim-sip-bridge.ts`, `tests/fixtures/sim-caller.ts`, `tests/helpers/sframe-test-utils.ts`, and `docs/testing/TEST_FIXTURES_SFRAME.md`. Plan's Workstream 5.8 rescoped: `SimCaller` here is Opus clip + jitter buffer + DTMF only; its SFrame `produceFrame` / `consumeFrame` methods are deferred to Tier 5 main as **Task 19b**, and the `SimCompromisedBridge` adversarial subclass (Task 20) is deferred to Tier 5 main because its tests depend on Task 19b. Both the plan and `TIER_SESSION_PROMPTS.md` Section 14 updated so Session B of Tier 5 main picks up the deferred work.
+- **2026-04-11 (Rhonda + Claude Opus 4.6, later session):** Tier 0 implementation started. Draft PR #68 opened for Workstream 0.1 (9/36 tasks: crypto primitives hardening). Worktree `~/projects/llamenos-hotline-impl-tier-0-albrecht` preserved for next session; resume at Task 10 (Workstream 0.2). Verification green: typecheck 0 errors, 228 server + 340 client + shared crypto-primitives tests passing. Five design compromises documented in PR body for Tier 1 follow-up.
+- **2026-04-11 (Rhonda + Claude Opus 4.6, continuation session):** Workstreams 0.3 (AEAD audit report, Tasks 10–15) and 0.4 (export paths, Task 16) landed as audit-only — 8 new commits in PR #68, 404-line audit doc at `docs/security/AEAD_AUDIT_2026-04-10.md` covering 54 ciphertext columns across 17 schemas + 5 export paths. All FIX rows deferred to Tier 1 as the 6th design compromise (envelope/server primitives hard-code label-only AAD; Tier 1 plan line 70 wholesale rewrites them with HPKE + AES-GCM, migration 0052 wipes existing encrypted rows). Notable findings surfaced: `LABEL_USER_PII` reuse across 9+ columns in 5 tables, `LABEL_PROVIDER_CREDENTIAL_WRAP` reuse across 7 columns, `decryptFieldWithRecovery` at `src/client/lib/decrypt-fields.ts:153` is the single client-side anchor for the entire envelope-family fix surface, latent correctness bug in `role-management.ts#listRoles` first-boot seeding triggered only when server is in hub-key envelope list. Next session: Tasks 17–22 (Workstream 0.2 signed audit log — not affected by the primitive gap, introduces its own hash-chain + Schnorr signature path).
