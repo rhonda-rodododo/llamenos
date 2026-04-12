@@ -7,37 +7,38 @@ import { E2eeFallbackBanner, type E2eeFallbackReason } from './E2eeFallbackBanne
 // Minimal i18n bootstrap — bun:test has no @testing-library/react harness,
 // so we verify structure via renderToStaticMarkup + testid/role assertions.
 // onClick wiring is covered by the WS 5.12 UI E2E suite (see tests/ui/voice-*.spec.ts).
+const FALLBACK_RESOURCES = {
+  voice: {
+    e2ee: {
+      fallback: {
+        title: 'End-to-end encryption not available',
+        body: {
+          browser_unsupported: 'Your browser does not support end-to-end encrypted calls.',
+          caller_pstn_leg:
+            'This call involves a telephone leg that cannot be end-to-end encrypted.',
+          policy_required:
+            'This hub requires end-to-end encrypted calls, which your browser does not support.',
+        },
+        continue: 'Continue without E2EE',
+        cancel: 'Cancel call',
+      },
+    },
+  },
+}
+
 beforeAll(async () => {
   if (!i18n.isInitialized) {
     await i18n.use(initReactI18next).init({
       lng: 'en',
       fallbackLng: 'en',
-      resources: {
-        en: {
-          translation: {
-            voice: {
-              e2ee: {
-                fallback: {
-                  title: 'End-to-end encryption not available',
-                  body: {
-                    browser_unsupported:
-                      'Your browser does not support end-to-end encrypted calls.',
-                    caller_pstn_leg:
-                      'This call involves a telephone leg that cannot be end-to-end encrypted.',
-                    policy_required:
-                      'This hub requires end-to-end encrypted calls, which your browser does not support.',
-                  },
-                  continue: 'Continue without E2EE',
-                  cancel: 'Cancel call',
-                },
-              },
-            },
-          },
-        },
-      },
+      resources: { en: { translation: FALLBACK_RESOURCES } },
       interpolation: { escapeValue: false },
       react: { useSuspense: false },
     })
+  } else {
+    // i18n is a singleton — if another test file initialised it first,
+    // merge our keys into the existing bundle via deep addResourceBundle.
+    i18n.addResourceBundle('en', 'translation', FALLBACK_RESOURCES, true, true)
   }
 })
 

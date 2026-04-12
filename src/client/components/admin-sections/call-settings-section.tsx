@@ -71,6 +71,32 @@ export function CallSettingsSection() {
           </Select>
         </SectionField>
         <SectionField
+          className="sm:col-span-2"
+          label={t('callSettings.voiceE2eePolicy')}
+          help={t('callSettings.voiceE2eePolicyDescription')}
+        >
+          <Select
+            value={settings.voiceCallE2eePolicy}
+            onValueChange={(val) =>
+              saveMutation.mutate({
+                voiceCallE2eePolicy: val as 'required' | 'preferred' | 'off',
+              })
+            }
+          >
+            <SelectTrigger
+              className="w-full"
+              data-testid="admin-call-settings-voice-e2ee-policy-select"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="required">{t('voice.e2ee.policy.required')}</SelectItem>
+              <SelectItem value="preferred">{t('voice.e2ee.policy.preferred')}</SelectItem>
+              <SelectItem value="off">{t('voice.e2ee.policy.off')}</SelectItem>
+            </SelectContent>
+          </Select>
+        </SectionField>
+        <SectionField
           label={t('callSettings.queueTimeout')}
           htmlFor="queue-timeout"
           help={t('callSettings.queueTimeoutDescription')}

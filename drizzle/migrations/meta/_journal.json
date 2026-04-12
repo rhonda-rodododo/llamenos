@@ -393,6 +393,13 @@
       "when": 1775779200000,
       "tag": "0054_tier1_items_key_indirection",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1775865600000,
+      "tag": "0055_call_settings_voice_e2ee_policy",
+      "breakpoints": true
     }
   ]
 }

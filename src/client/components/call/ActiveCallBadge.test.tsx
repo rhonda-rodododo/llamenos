@@ -7,29 +7,31 @@ import { ActiveCallBadge, type E2eeBadgeState } from './ActiveCallBadge'
 // Minimal i18n bootstrap so `useTranslation().t(...)` returns real strings
 // during SSR rendering. This is a bun:test-friendly alternative to
 // @testing-library/react, which is not installed in this project.
+const BADGE_RESOURCES = {
+  voice: {
+    e2ee: {
+      badge: {
+        direct: 'End-to-end encrypted (direct)',
+        relayed: 'End-to-end encrypted (relayed)',
+        none: 'Not end-to-end encrypted',
+      },
+    },
+  },
+}
+
 beforeAll(async () => {
   if (!i18n.isInitialized) {
     await i18n.use(initReactI18next).init({
       lng: 'en',
       fallbackLng: 'en',
-      resources: {
-        en: {
-          translation: {
-            voice: {
-              e2ee: {
-                badge: {
-                  direct: 'End-to-end encrypted (direct)',
-                  relayed: 'End-to-end encrypted (relayed)',
-                  none: 'Not end-to-end encrypted',
-                },
-              },
-            },
-          },
-        },
-      },
+      resources: { en: { translation: BADGE_RESOURCES } },
       interpolation: { escapeValue: false },
       react: { useSuspense: false },
     })
+  } else {
+    // i18n is a singleton — merge keys into the existing bundle when another
+    // test file has already initialised i18next.
+    i18n.addResourceBundle('en', 'translation', BADGE_RESOURCES, true, true)
   }
 })
 
