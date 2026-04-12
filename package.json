@@ -26,6 +26,7 @@
     "format": "biome format --write src/",
     "typecheck": "bunx tsc --noEmit",
     "bootstrap-admin": "bun run scripts/bootstrap-admin.ts",
+    "build:iso": "scripts/build-iso.sh",
     "test": "bunx playwright test",
     "test:unit": "bun test src/ --bail --path-ignore-patterns='**/*.integration.test.ts'",
     "test:integration": "bun test .integration. --bail",
