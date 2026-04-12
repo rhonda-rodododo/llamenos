@@ -16,14 +16,28 @@ afterEach(() => {
   }
 })
 
+const ORIGINAL_ENV = process.env.ENVIRONMENT
+
 describe('auth cookie builder (Tier 4 PR-A)', () => {
-  test('refresh cookie is HttpOnly + Secure + SameSite=Strict', () => {
+  afterEach(() => {
+    process.env.ENVIRONMENT = ORIGINAL_ENV
+  })
+
+  test('refresh cookie is HttpOnly + SameSite=Strict (Secure depends on ENVIRONMENT)', () => {
     const opts = refreshCookieOptions(3600)
     expect(opts.httpOnly).toBe(true)
-    expect(opts.secure).toBe(true)
+    // secure = false in development/test (ENVIRONMENT=development), true in production
+    const expectSecure = process.env.ENVIRONMENT !== 'development'
+    expect(opts.secure).toBe(expectSecure)
     expect(opts.sameSite).toBe('Strict')
     expect(opts.path).toBe('/api/auth/token')
     expect(opts.maxAge).toBe(3600)
+  })
+
+  test('refresh cookie is Secure in production mode', () => {
+    process.env.ENVIRONMENT = 'production'
+    const opts = refreshCookieOptions(3600)
+    expect(opts.secure).toBe(true)
   })
 
   test('refresh cookie NEVER uses SameSite=None (discipline rule)', () => {
@@ -33,10 +47,11 @@ describe('auth cookie builder (Tier 4 PR-A)', () => {
     expect(opts.sameSite).toBe('Strict')
   })
 
-  test('session-id cookie is HttpOnly + Secure + SameSite=Strict + path=/', () => {
+  test('session-id cookie is HttpOnly + SameSite=Strict + path=/', () => {
     const opts = sessionIdCookieOptions(3600)
     expect(opts.httpOnly).toBe(true)
-    expect(opts.secure).toBe(true)
+    const expectSecure = process.env.ENVIRONMENT !== 'development'
+    expect(opts.secure).toBe(expectSecure)
     expect(opts.sameSite).toBe('Strict')
     expect(opts.path).toBe('/')
     expect(opts.maxAge).toBe(3600)

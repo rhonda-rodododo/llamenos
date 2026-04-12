@@ -56,20 +56,22 @@ describe('buildApiCsp (Tier 4 PR-A)', () => {
 })
 
 describe('securityHeaders middleware (Tier 4 PR-A)', () => {
-  test('attaches locked-down CSP to JSON responses', async () => {
+  test('attaches CSP with script-src to all responses', async () => {
     const app = makeApp()
     const res = await app.request('/ok')
     const csp =
       res.headers.get('content-security-policy') ??
       res.headers.get('content-security-policy-report-only')
     expect(csp).toBeTruthy()
-    expect(csp).toContain("script-src 'none'")
+    // SPA mode: script-src 'self' (origin-split API host with 'none' requires real subdomain routing)
+    expect(csp).toContain("script-src 'self'")
   })
 
-  test('Cross-Origin-Resource-Policy is cross-origin (app.* must fetch api.*)', async () => {
+  test('Cross-Origin-Resource-Policy is same-origin in single-origin mode', async () => {
     const app = makeApp()
     const res = await app.request('/ok')
-    expect(res.headers.get('cross-origin-resource-policy')).toBe('cross-origin')
+    // Will be 'cross-origin' when origin split is active (app.* fetching from api.*)
+    expect(res.headers.get('cross-origin-resource-policy')).toBe('same-origin')
   })
 
   test('preserves strict HSTS + referrer-policy + X-Frame-Options', async () => {
