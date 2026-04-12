@@ -18,7 +18,7 @@ import {
   updateReport,
 } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
-import { decryptMessage } from '@/lib/crypto'
+import { decryptMessage } from '@/lib/crypto-worker-helpers'
 import { decryptHubField } from '@/lib/hub-field-crypto'
 import * as keyManager from '@/lib/key-manager'
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -247,8 +247,14 @@ export const reportTypesOptions = (hubId = 'global') =>
       const { reportTypes } = await listReportTypes()
       return reportTypes.map((rt) => ({
         ...rt,
-        name: decryptHubField(rt.encryptedName, hubId, rt.name),
-        description: decryptHubField(rt.encryptedDescription, hubId, rt.description),
+        name: decryptHubField(rt.encryptedName, hubId, rt.id, 'encrypted_name', rt.name),
+        description: decryptHubField(
+          rt.encryptedDescription,
+          hubId,
+          rt.id,
+          'encrypted_description',
+          rt.description
+        ),
       }))
     },
     staleTime: 5 * 60 * 1000, // 5 minutes

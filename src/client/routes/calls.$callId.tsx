@@ -13,7 +13,7 @@ import {
   linkToContact,
 } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
-import { decryptCallRecord, decryptNoteV2, decryptTranscription } from '@/lib/crypto'
+import { decryptCallRecord, decryptNoteV2, decryptTranscription } from '@/lib/crypto-worker-helpers'
 import { decryptObjectFields } from '@/lib/decrypt-fields'
 import * as keyManager from '@/lib/key-manager'
 import { useUsers } from '@/lib/queries/users'

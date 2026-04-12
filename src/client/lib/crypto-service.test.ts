@@ -34,15 +34,6 @@ describe('ClientCryptoService', () => {
     })
   })
 
-  describe('hubEncrypt / hubDecrypt', () => {
-    test('round-trip', () => {
-      const hubKey = new Uint8Array(32)
-      globalThis.crypto.getRandomValues(hubKey)
-      const ct = client.hubEncrypt('hub data', hubKey)
-      expect(client.hubDecrypt(ct, hubKey)).toBe('hub data')
-    })
-  })
-
   describe('encryptDraft / decryptDraft', () => {
     test('round-trip', () => {
       const ct = client.encryptDraft('draft text')

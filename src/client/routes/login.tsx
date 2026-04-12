@@ -22,11 +22,11 @@ import {
 } from '@/lib/backup'
 import { useConfig } from '@/lib/config'
 import { areCookiesBlocked } from '@/lib/cookie-detection'
-import { isValidNsec } from '@/lib/crypto'
 import * as keyManager from '@/lib/key-manager'
 import { hasStoredKey } from '@/lib/key-manager'
 import { useTheme } from '@/lib/theme'
 import { isWebAuthnAvailable } from '@/lib/webauthn'
+import { isValidNsec } from '@shared/crypto-primitives'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Link } from '@tanstack/react-router'
 import {
@@ -257,7 +257,7 @@ function LoginPage() {
       }
       // Import the recovered key with the new PIN
       try {
-        const kpModule = await import('@/lib/crypto')
+        const kpModule = await import('@shared/crypto-primitives')
         const kp = kpModule.keyPairFromNsec(recoveredNsec)
         const recoveredPubkey = kp?.publicKey ?? ''
         // Recovery flow: user already exists in IdP, but we don't have a JWT yet.

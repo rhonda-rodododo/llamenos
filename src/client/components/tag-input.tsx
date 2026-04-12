@@ -172,7 +172,12 @@ export function TagInput({ value, onChange, allowCreate = false, placeholder }: 
                   >
                     <span
                       className="mr-2 h-3 w-3 rounded-full shrink-0"
-                      style={{ backgroundColor: tag.color || '#888' }}
+                      style={
+                        {
+                          '--tag-color': tag.color || '#888',
+                          backgroundColor: 'var(--tag-color)',
+                        } as React.CSSProperties
+                      }
                     />
                     <span className="flex-1 truncate">{tag.label}</span>
                     {tag.category && (
@@ -220,11 +225,16 @@ export function TagBadge({ label, color, children, className }: TagBadgeProps) {
       <Badge
         variant="outline"
         className={cn('text-xs', className)}
-        style={{
-          backgroundColor: `${color}20`,
-          color,
-          borderColor: `${color}40`,
-        }}
+        style={
+          {
+            '--tag-bg': `${color}20`,
+            '--tag-fg': color,
+            '--tag-border': `${color}40`,
+            backgroundColor: 'var(--tag-bg)',
+            color: 'var(--tag-fg)',
+            borderColor: 'var(--tag-border)',
+          } as React.CSSProperties
+        }
       >
         {label}
         {children}

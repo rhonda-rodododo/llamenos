@@ -37,8 +37,14 @@ export const teamsListOptions = (hubId = 'global') =>
       const { teams } = await listTeams()
       return teams.map((team) => ({
         ...team,
-        name: decryptHubField(team.encryptedName, hubId, ''),
-        description: decryptHubField(team.encryptedDescription, hubId, ''),
+        name: decryptHubField(team.encryptedName, hubId, team.id, 'encrypted_name', ''),
+        description: decryptHubField(
+          team.encryptedDescription,
+          hubId,
+          team.id,
+          'encrypted_description',
+          ''
+        ),
       }))
     },
     staleTime: 5 * 60 * 1000,
@@ -106,6 +112,7 @@ export function useCreateTeam() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (data: {
+      id?: string
       encryptedName: Ciphertext
       encryptedDescription?: Ciphertext
     }) => createTeam(data),

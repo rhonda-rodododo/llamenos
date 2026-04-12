@@ -6,6 +6,16 @@ import { hkdf } from '@noble/hashes/hkdf.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import {
+  decryptDraft,
+  decryptNote,
+  decryptNoteV2WithKey,
+  encryptDraft,
+  encryptExport,
+  encryptMessage,
+  encryptNoteV2,
+} from '@shared/crypto-envelopes'
+import {
+  type CryptoLabel,
   HKDF_CONTEXT_EXPORT,
   HKDF_CONTEXT_NOTES,
   HKDF_SALT,
@@ -14,22 +24,15 @@ import {
   LABEL_NOTE_KEY,
   LABEL_TRANSCRIPTION,
 } from '@shared/crypto-labels'
-import type { NotePayload } from '@shared/types'
-import type { KeyEnvelope } from './crypto'
 import {
-  decryptDraft,
-  decryptNote,
-  decryptNoteV2WithKey,
+  type KeyEnvelope,
   eciesUnwrapKeyWithSecret,
   eciesWrapKey,
-  encryptDraft,
-  encryptExport,
-  encryptMessage,
-  encryptNoteV2,
   generateKeyPair,
   isValidNsec,
   keyPairFromNsec,
-} from './crypto'
+} from '@shared/crypto-primitives'
+import type { NotePayload } from '@shared/types'
 
 describe('generateKeyPair', () => {
   test('secretKey is 32 bytes (Uint8Array)', () => {
@@ -103,8 +106,8 @@ describe('keyPairFromNsec / isValidNsec', () => {
 })
 
 describe('eciesWrapKey / eciesUnwrapKeyWithSecret', () => {
-  const TEST_LABEL = 'test:ecies-wrap'
-  const OTHER_LABEL = 'test:ecies-other'
+  const TEST_LABEL = 'test:ecies-wrap' as CryptoLabel
+  const OTHER_LABEL = 'test:ecies-other' as CryptoLabel
 
   function randomKey(): Uint8Array {
     const key = new Uint8Array(32)
@@ -380,7 +383,7 @@ describe('decryptCallRecord — cross-boundary interop', () => {
       const data = hexToBytes(encryptedContent)
       const nonce = data.slice(0, 24)
       const ciphertext = data.slice(24)
-      const cipher = xchacha20poly1305(recordKey, nonce)
+      const cipher = xchacha20poly1305(recordKey, nonce, utf8ToBytes(LABEL_CALL_META))
       const plaintext = cipher.decrypt(ciphertext)
       return JSON.parse(new TextDecoder().decode(plaintext))
     } catch {

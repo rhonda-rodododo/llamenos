@@ -4,3 +4,21 @@
 # first_found in tasks/main.yml.
 
 llamenos_cryptsetup_package: cryptsetup
+
+# Tier 4 PR-A split-origin defaults.
+# The deployment exposes three distinct origins sharing the registrable
+# parent domain so that cross-origin cookies remain same-site under
+# SameSite=Strict and CORS stays anchored to the SPA origin only.
+#   app.<parent>     SPA static bundle (file_server)
+#   api.<parent>     Hono backend + /nostr WebSocket
+#   crypto.<parent>  sandboxed crypto iframe
+# Override any of these in inventory/group_vars/host_vars when the
+# default <subdomain>.<parent> layout is not desired.
+llamenos_app_domain: "app.{{ domain }}"
+llamenos_api_domain: "api.{{ domain }}"
+llamenos_crypto_domain: "crypto.{{ domain }}"
+
+# Companion image built from deploy/docker/Dockerfile with target: static.
+# Bakes dist/client into /srv/app and dist/crypto-sandbox into /srv/crypto
+# on top of caddy:2-alpine. Published alongside the main llamenos image.
+llamenos_static_image: "ghcr.io/llamenos/llamenos-static:latest"

@@ -124,9 +124,14 @@ export function FirehoseSection() {
   async function handleCreate() {
     if (!createForm.displayName.trim() || !createForm.reportTypeId) return
 
+    // Pre-generate a client UUID for the new connection so the AAD can be bound to a stable ID.
+    const newId = crypto.randomUUID()
     const input: CreateFirehoseConnectionInput = {
+      id: newId,
       displayName: createForm.displayName.trim(),
-      encryptedDisplayName: encryptHubField(createForm.displayName.trim(), hubId) ?? undefined,
+      encryptedDisplayName:
+        encryptHubField(createForm.displayName.trim(), hubId, newId, 'encrypted_display_name') ??
+        undefined,
       reportTypeId: createForm.reportTypeId,
       extractionIntervalSec: createForm.extractionIntervalSec,
     }

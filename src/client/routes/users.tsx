@@ -17,7 +17,6 @@ import {
 import { type InviteDeliveryChannel, getUserUnmasked, type updateUser } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { useConfig } from '@/lib/config'
-import { generateKeyPair } from '@/lib/crypto'
 import {
   useCreateInvite,
   useInviteChannels,
@@ -29,6 +28,7 @@ import { useRoles } from '@/lib/queries/roles'
 import { useCreateUser, useDeleteUser, useUpdateUser, useUsers } from '@/lib/queries/users'
 import { useToast } from '@/lib/toast'
 import { usePinChallenge } from '@/lib/use-pin-challenge'
+import { generateKeyPair } from '@shared/crypto-primitives'
 import { createFileRoute } from '@tanstack/react-router'
 import {
   AlertTriangle,

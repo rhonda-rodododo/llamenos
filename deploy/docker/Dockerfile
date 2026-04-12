@@ -61,8 +61,8 @@ COPY src/ src/
 COPY drizzle/ drizzle/
 COPY tsconfig.json ./
 
-# Copy built frontend
-COPY --from=frontend /app/dist/client/ dist/client/
+# Tier 4 PR-A: the API image NO LONGER serves the SPA. dist/client and
+# dist/crypto-sandbox are baked into a separate Caddy stage below.
 
 # Set build-time constants
 ARG BUILD_VERSION=dev
@@ -89,3 +89,16 @@ HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 \
   CMD curl -f http://localhost:3000/api/health/live || exit 1
 
 CMD ["bun", "src/server/server.ts"]
+
+# Stage 4: Static asset Caddy — Tier 4 PR-A split origins.
+#
+# Bakes the built SPA (`dist/client/`) and the crypto sandbox
+# (`dist/crypto-sandbox/`) into a caddy:2-alpine image so a single Caddy
+# process can serve app.* + api.* + crypto.* as three distinct origins.
+# The Caddyfile.production from deploy/docker/ is mounted at runtime so
+# operators can tune site blocks without rebuilding the image.
+FROM caddy:2-alpine AS static
+COPY --from=frontend /app/dist/client/ /srv/app/
+COPY --from=frontend /app/dist/crypto-sandbox/ /srv/crypto/
+# Baseline Caddyfile — overridden by docker-compose volume mount.
+RUN mkdir -p /etc/caddy && printf ':80 { respond 404 }\n' > /etc/caddy/Caddyfile

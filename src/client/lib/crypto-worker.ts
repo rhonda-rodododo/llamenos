@@ -16,6 +16,7 @@ import { hmac } from '@noble/hashes/hmac.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { LABEL_DEVICE_PROVISION, SAS_INFO, SAS_SALT } from '@shared/crypto-labels'
+import type { CryptoLabel } from '@shared/crypto-labels'
 import { unbiasedSixDigitCode } from '@shared/crypto-primitives'
 
 // ---- Message protocol types ----
@@ -25,13 +26,24 @@ type WorkerRequest =
   | { type: 'lock'; id: string }
   | { type: 'sign'; id: string; messageHex: string }
   | {
+      // ECIES key unwrap. Domain separation comes from `label` (used to derive
+      // the symmetric wrapping key). Inner AEAD uses empty AAD — do NOT add an
+      // `aad` field here until eciesWrap/eciesUnwrap actually plumb it through,
+      // otherwise callers will think they have binding they don't.
       type: 'decrypt'
       id: string
       ephemeralPubkeyHex: string
       wrappedKeyHex: string
-      label: string
+      label: CryptoLabel
     }
-  | { type: 'encrypt'; id: string; plaintextHex: string; recipientPubkeyHex: string; label: string }
+  | {
+      // ECIES key wrap. See note on `decrypt` re: AAD.
+      type: 'encrypt'
+      id: string
+      plaintextHex: string
+      recipientPubkeyHex: string
+      label: CryptoLabel
+    }
   | { type: 'getPublicKey'; id: string }
   | { type: 'isUnlocked'; id: string }
   | { type: 'reEncrypt'; id: string; newKekHex: string }
@@ -42,15 +54,18 @@ type WorkerRequest =
       encryptedHex: string
       ephemeralPubkeyHex: string
       wrappedKeyHex: string
-      label: string
+      label: CryptoLabel
+      aad: string
     }
   | {
       type: 'envelopeEncryptField'
       id: string
       plaintext: string
       recipientPubkeysHex: string[]
-      label: string
+      label: CryptoLabel
+      aad: string
     }
+  | { type: 'signAuditEntry'; id: string; entryHashHex: string }
   | { type: 'computeHmac'; id: string; input: string; secretHex: string }
   | { type: 'exportSession'; id: string }
   | {
@@ -243,7 +258,11 @@ function handleSign(messageHex: string): string {
   return bytesToHex(signature)
 }
 
-function handleDecrypt(ephemeralPubkeyHex: string, wrappedKeyHex: string, label: string): string {
+function handleDecrypt(
+  ephemeralPubkeyHex: string,
+  wrappedKeyHex: string,
+  label: CryptoLabel
+): string {
   if (!secretKey) throw new Error('Worker is locked')
 
   if (!checkRateLimit('decrypt')) {
@@ -258,7 +277,7 @@ function handleDecrypt(ephemeralPubkeyHex: string, wrappedKeyHex: string, label:
 function handleEncrypt(
   plaintextHex: string,
   recipientPubkeyHex: string,
-  label: string
+  label: CryptoLabel
 ): { ephemeralPubkeyHex: string; wrappedKeyHex: string } {
   // Encrypt doesn't need our nsec (uses ephemeral key), but we keep it
   // in the worker for API consistency and to enforce the worker-is-unlocked
@@ -272,6 +291,16 @@ function handleEncrypt(
 
   const plaintext = hexToBytes(plaintextHex)
   return eciesWrap(plaintext, recipientPubkeyHex, label)
+}
+
+function handleSignAuditEntry(entryHashHex: string): string {
+  if (!secretKey) throw new Error('Worker is locked')
+  if (!checkRateLimit('sign')) {
+    autoLock()
+    throw new Error('Rate limit exceeded — worker auto-locked')
+  }
+  const signature = schnorr.sign(hexToBytes(entryHashHex), secretKey)
+  return bytesToHex(signature)
 }
 
 function handleGetPublicKey(): string | null {
@@ -446,7 +475,7 @@ self.onmessage = (event: MessageEvent<WorkerRequest>) => {
         // ECIES-wrap the key for each recipient. Returns { encryptedHex, envelopes }.
         const messageKey = randomBytes(32)
         const fieldNonce = randomBytes(24)
-        const fieldCipher = xchacha20poly1305(messageKey, fieldNonce)
+        const fieldCipher = xchacha20poly1305(messageKey, fieldNonce, hexToBytes(req.aad))
         const ct = fieldCipher.encrypt(utf8ToBytes(req.plaintext))
         const packed = new Uint8Array(fieldNonce.length + ct.length)
         packed.set(fieldNonce)
@@ -491,11 +520,14 @@ self.onmessage = (event: MessageEvent<WorkerRequest>) => {
         const fieldData = hexToBytes(req.encryptedHex)
         const fieldNonce = fieldData.slice(0, 24)
         const fieldCiphertext = fieldData.slice(24)
-        const fieldCipher = xchacha20poly1305(messageKey, fieldNonce)
+        const fieldCipher = xchacha20poly1305(messageKey, fieldNonce, hexToBytes(req.aad))
         const plaintext = fieldCipher.decrypt(fieldCiphertext)
         result = new TextDecoder().decode(plaintext)
         break
       }
+      case 'signAuditEntry':
+        result = handleSignAuditEntry(req.entryHashHex)
+        break
       default: {
         // Exhaustive check — if we get here, the type is never
         const _exhaustive: never = req
@@ -514,3 +546,22 @@ self.onmessage = (event: MessageEvent<WorkerRequest>) => {
 
   self.postMessage(response)
 }
+
+// ---- Test-only exports (prefixed _test_ — do NOT use in production code) ----
+// These allow unit tests to exercise handler logic directly without a real Worker.
+
+/** @internal Test only — set the module-level secretKey for handler tests. */
+export function _test_setSecretKey(key: Uint8Array): void {
+  secretKey = key
+  publicKeyHex = bytesToHex(schnorr.getPublicKey(key))
+}
+
+/** @internal Test only — zero and clear the module-level secretKey. */
+export function _test_clearSecretKey(): void {
+  if (secretKey) secretKey.fill(0)
+  secretKey = null
+  publicKeyHex = null
+}
+
+/** @internal Test only — direct access to handleSignAuditEntry for unit testing. */
+export { handleSignAuditEntry as _test_handleSignAuditEntry }

@@ -162,7 +162,7 @@
     weekday: "{{ demo_reset_cron.split(' ')[4] }}"
     user: "{{ deploy_user }}"
     job: >-
-      curl -sf -X POST https://{{ domain }}/api/test-reset
+      curl -sf -X POST https://{{ llamenos_api_domain }}/api/test-reset
       -H "X-Test-Secret: {{ dev_reset_secret }}"
       >> /var/log/llamenos-demo-reset.log 2>&1
     state: present
@@ -173,8 +173,10 @@
     msg: |
       Llamenos deployed successfully.
 
-      Application URL: https://{{ domain }}
-      Health check: {{ health_check.stdout | default('OK') }}
+      SPA:             https://{{ llamenos_app_domain }}
+      API:             https://{{ llamenos_api_domain }}
+      Crypto sandbox:  https://{{ llamenos_crypto_domain }}
+      Health check:    {{ health_check.stdout | default('OK') }}
 
       To view logs:
         ssh {{ deploy_user }}@{{ ansible_host }} 'cd {{ app_dir }} && docker compose logs -f'

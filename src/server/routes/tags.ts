@@ -19,6 +19,7 @@ const IdParamSchema = z.object({
 // (hub-key ciphertext) must be provided. See CreateTagSchema in shared/schemas/tags.ts.
 const CreateTagBodySchema = z
   .object({
+    id: z.string().uuid().optional(),
     name: z.string().min(1).optional(),
     encryptedLabel: z.string().min(1).optional(),
     color: z.string().optional(),
@@ -121,6 +122,7 @@ tags.openapi(createTagRoute, async (c) => {
 
   try {
     const tag = await services.tags.createTag({
+      id: body.id,
       hubId,
       name: body.name,
       encryptedLabel: body.encryptedLabel as import('@shared/crypto-types').Ciphertext | undefined,

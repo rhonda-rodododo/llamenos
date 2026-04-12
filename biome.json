@@ -70,6 +70,16 @@
           }
         }
       }
+    },
+    {
+      "include": ["src/**/crypto*.ts", "src/**/hub-*.ts", "src/**/file-*.ts", "src/**/envelope-*.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noEmptyBlockStatements": "error"
+          }
+        }
+      }
     }
   ]
 }

@@ -31,7 +31,7 @@ export const shiftsListOptions = (hubId = 'global') =>
       const { shifts } = await listShifts()
       return shifts.map((shift) => ({
         ...shift,
-        name: decryptHubField(shift.encryptedName, hubId, shift.name),
+        name: decryptHubField(shift.encryptedName, hubId, shift.id, 'encrypted_name', shift.name),
       }))
     },
   })
@@ -92,7 +92,7 @@ export function useShiftStatus() {
 export function useCreateShift() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (data: Omit<Shift, 'id'>) => createShift(data),
+    mutationFn: (data: Omit<Shift, 'id'> & { id?: string }) => createShift(data),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.shifts.all })
     },

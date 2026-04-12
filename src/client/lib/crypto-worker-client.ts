@@ -6,6 +6,9 @@
  * are delegated to the worker.
  */
 
+import { bytesToHex } from '@noble/hashes/utils.js'
+import type { CryptoLabel } from '@shared/crypto-labels'
+
 /** Error messages from the worker that indicate the key is no longer available. */
 const LOCKED_ERROR_PATTERNS = [
   'Not unlocked',
@@ -159,10 +162,18 @@ export class CryptoWorkerClient {
   }
 
   /**
-   * ECIES decrypt (unwrap) using the worker's secret key.
-   * Returns decrypted plaintext as hex.
+   * ECIES key unwrap using the worker's secret key. Returns the unwrapped
+   * 32-byte key as hex. Domain separation is provided via the `label` used
+   * to derive the inner wrapping key — there is intentionally no AAD
+   * parameter because the inner AEAD is called with empty AAD today. Adding
+   * an AAD here would be a silent no-op; hardening that end-to-end is a
+   * Tier 1 item.
    */
-  async decrypt(ephemeralPubkeyHex: string, wrappedKeyHex: string, label: string): Promise<string> {
+  async decrypt(
+    ephemeralPubkeyHex: string,
+    wrappedKeyHex: string,
+    label: CryptoLabel
+  ): Promise<string> {
     return (await this.call({
       type: 'decrypt',
       ephemeralPubkeyHex,
@@ -180,7 +191,8 @@ export class CryptoWorkerClient {
     encryptedHex: string,
     ephemeralPubkeyHex: string,
     wrappedKeyHex: string,
-    label: string
+    label: CryptoLabel,
+    aad: Uint8Array
   ): Promise<string> {
     return (await this.call({
       type: 'decryptEnvelopeField',
@@ -188,17 +200,18 @@ export class CryptoWorkerClient {
       ephemeralPubkeyHex,
       wrappedKeyHex,
       label,
+      aad: bytesToHex(aad),
     })) as string
   }
 
   /**
-   * ECIES encrypt (wrap) for a recipient. Uses an ephemeral key inside the worker.
-   * Returns the envelope (ephemeralPubkeyHex + wrappedKeyHex).
+   * ECIES key wrap for a recipient. Uses an ephemeral key inside the worker.
+   * See {@link decrypt} for why there is no `aad` parameter today.
    */
   async encrypt(
     plaintextHex: string,
     recipientPubkeyHex: string,
-    label: string
+    label: CryptoLabel
   ): Promise<EncryptResult> {
     return (await this.call({
       type: 'encrypt',
@@ -278,7 +291,8 @@ export class CryptoWorkerClient {
   async envelopeEncryptField(
     plaintext: string,
     recipientPubkeysHex: string[],
-    label: string
+    label: CryptoLabel,
+    aad: Uint8Array
   ): Promise<{
     encryptedHex: string
     envelopes: Array<{
@@ -292,6 +306,7 @@ export class CryptoWorkerClient {
       plaintext,
       recipientPubkeysHex,
       label,
+      aad: bytesToHex(aad),
     })) as {
       encryptedHex: string
       envelopes: Array<{
@@ -300,6 +315,15 @@ export class CryptoWorkerClient {
         wrappedKeyHex: string
       }>
     }
+  }
+
+  /**
+   * Schnorr sign an audit entry hash (hex-encoded SHA-256). Returns the 64-byte
+   * Schnorr signature as 128 hex chars. Rate limited via the 'sign' bucket;
+   * exceeding the limit triggers auto-lock.
+   */
+  async signAuditEntry(entryHashHex: string): Promise<string> {
+    return (await this.call({ type: 'signAuditEntry', entryHashHex })) as string
   }
 
   /**

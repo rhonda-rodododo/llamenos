@@ -5,6 +5,8 @@
  * PushManager API and syncing subscription state with the server.
  */
 
+import { API_BASE } from './api/client'
+
 /** Returns true if the browser supports Web Push */
 export function isPushSupported(): boolean {
   return (
@@ -91,7 +93,9 @@ export async function subscribeToPush(): Promise<boolean> {
 
   try {
     // Fetch VAPID public key
-    const resp = await fetch('/api/notifications/vapid-public-key')
+    const resp = await fetch(`${API_BASE}/notifications/vapid-public-key`, {
+      credentials: 'include',
+    })
     if (!resp.ok) return false
     const { publicKey } = (await resp.json()) as { publicKey: string }
     if (!publicKey) return false

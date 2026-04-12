@@ -29,7 +29,7 @@ import * as keyManager from '@/lib/key-manager'
 import { useCreateContact } from '@/lib/queries/contacts'
 import { useToast } from '@/lib/toast'
 import { utf8ToBytes } from '@noble/ciphers/utils.js'
-import { LABEL_CONTACT_PII, LABEL_CONTACT_SUMMARY } from '@shared/crypto-labels'
+import { type CryptoLabel, LABEL_CONTACT_PII, LABEL_CONTACT_SUMMARY } from '@shared/crypto-labels'
 import { eciesWrapKey, symmetricEncrypt } from '@shared/crypto-primitives'
 import type { Ciphertext, HmacHash } from '@shared/crypto-types'
 import type { RecipientEnvelope } from '@shared/types'
@@ -41,11 +41,11 @@ import { useTranslation } from 'react-i18next'
 function envelopeEncrypt(
   plaintext: string,
   recipientPubkeys: string[],
-  label: string
+  label: CryptoLabel
 ): { encrypted: Ciphertext; envelopes: RecipientEnvelope[] } {
   const messageKey = new Uint8Array(32)
   crypto.getRandomValues(messageKey)
-  const encrypted = symmetricEncrypt(utf8ToBytes(plaintext), messageKey)
+  const encrypted = symmetricEncrypt(utf8ToBytes(plaintext), messageKey, utf8ToBytes(label))
   const envelopes: RecipientEnvelope[] = recipientPubkeys.map((pk) => ({
     pubkey: pk,
     ...eciesWrapKey(messageKey, pk, label),

@@ -7,6 +7,7 @@ export const FirehoseConnectionStatusSchema = z.enum(['pending', 'active', 'paus
 export type FirehoseConnectionStatus = z.infer<typeof FirehoseConnectionStatusSchema>
 
 export const CreateFirehoseConnectionSchema = z.object({
+  id: z.string().uuid().optional(),
   displayName: z.string().optional(),
   encryptedDisplayName: z.string().optional(),
   reportTypeId: z.string(),

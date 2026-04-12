@@ -28,6 +28,7 @@ const IdContactParamSchema = z.object({
 })
 
 const CreateTeamBodySchema = z.object({
+  id: z.string().uuid().optional(),
   encryptedName: z.string(),
   encryptedDescription: z.string().optional(),
 })
@@ -109,6 +110,7 @@ teams.openapi(createTeamRoute, async (c) => {
   }
 
   const team = await services.teams.createTeam({
+    id: body.id,
     hubId,
     encryptedName: body.encryptedName as import('@shared/crypto-types').Ciphertext,
     encryptedDescription:

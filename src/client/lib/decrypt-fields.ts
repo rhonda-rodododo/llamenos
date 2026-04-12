@@ -10,7 +10,8 @@
  */
 
 import { createDebugLog } from '@/lib/debug-log'
-import { LABEL_USER_PII } from '@shared/crypto-labels'
+import { utf8ToBytes } from '@noble/ciphers/utils.js'
+import { type CryptoLabel, LABEL_USER_PII } from '@shared/crypto-labels'
 import type { RecipientEnvelope } from '@shared/types'
 import { CryptoWorkerLockedError, cryptoWorker, isWorkerLockedError } from './crypto-worker-client'
 import * as keyManager from './key-manager'
@@ -145,9 +146,11 @@ async function fireLockOnce(): Promise<void> {
 async function decryptFieldWithRecovery(
   ciphertext: string,
   envelope: RecipientEnvelope,
-  label: string
+  label: CryptoLabel
 ): Promise<string | null> {
   const worker = cryptoWorker
+  // AAD is derived from the label for domain separation
+  const aad = utf8ToBytes(label)
 
   // First attempt
   try {
@@ -155,7 +158,8 @@ async function decryptFieldWithRecovery(
       ciphertext,
       envelope.ephemeralPubkey,
       envelope.wrappedKey,
-      label
+      label,
+      aad
     )
   } catch (firstErr) {
     // Known locked — no point retrying, fire lock so PIN prompt appears
@@ -170,7 +174,8 @@ async function decryptFieldWithRecovery(
         ciphertext,
         envelope.ephemeralPubkey,
         envelope.wrappedKey,
-        label
+        label,
+        aad
       )
     } catch (secondErr) {
       // Both attempts failed.
@@ -327,7 +332,7 @@ export function resolveEncryptedFields(
 export async function decryptObjectFields<T extends Record<string, unknown>>(
   obj: T,
   readerPubkey: string,
-  label: string = LABEL_USER_PII,
+  label: CryptoLabel = LABEL_USER_PII,
   fieldNames?: readonly string[]
 ): Promise<T> {
   const refs = resolveEncryptedFields(obj, readerPubkey, fieldNames)
@@ -387,7 +392,7 @@ export async function decryptObjectFields<T extends Record<string, unknown>>(
 export async function decryptEnvelopeJson<T>(
   ciphertext: string,
   envelope: RecipientEnvelope,
-  label: string
+  label: CryptoLabel
 ): Promise<T | null> {
   const cached = decryptCache.get(ciphertext, label)
   if (cached !== null) {
@@ -410,7 +415,7 @@ export async function decryptEnvelopeJson<T>(
 export async function decryptArrayFields<T extends Record<string, unknown>>(
   items: T[],
   readerPubkey: string,
-  label: string = LABEL_USER_PII,
+  label: CryptoLabel = LABEL_USER_PII,
   fieldNames?: readonly string[]
 ): Promise<T[]> {
   await Promise.all(items.map((item) => decryptObjectFields(item, readerPubkey, label, fieldNames)))

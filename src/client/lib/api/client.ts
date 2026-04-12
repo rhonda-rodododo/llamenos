@@ -1,6 +1,13 @@
 import { authFacadeClient } from '../auth-facade-client'
 
-export const API_BASE = '/api'
+// Split-origin configuration — Tier 4 PR-A.
+// In dev the VITE_API_ORIGIN env var is unset and API_ORIGIN resolves to '',
+// which yields a same-origin API_BASE of '/api' (the Vite proxy handles it).
+// In production the SPA is hosted on app.* and VITE_API_ORIGIN points at
+// https://api.* so API_BASE is absolute.
+export const API_ORIGIN = import.meta.env.VITE_API_ORIGIN ?? ''
+export const CRYPTO_ORIGIN = import.meta.env.VITE_CRYPTO_ORIGIN ?? ''
+export const API_BASE = `${API_ORIGIN}/api`
 
 // Auth expiry callback — set by AuthProvider to handle 401s reactively
 let onAuthExpired: (() => void) | null = null
@@ -26,7 +33,11 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
     ...getAuthHeaders(),
     ...options.headers,
   }
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers })
+  const res = await fetch(`${API_BASE}${path}`, {
+    credentials: 'include',
+    ...options,
+    headers,
+  })
   if (!res.ok) {
     if (res.status === 401 && !path.startsWith('/auth/')) {
       // Session expired — notify auth provider (don't clear nsec for reconnect)

@@ -160,7 +160,12 @@ export function GettingStartedChecklist() {
         <div className="mt-2 h-1.5 rounded-full bg-primary/10">
           <div
             className="h-full rounded-full bg-primary transition-all"
-            style={{ width: `${(completedCount / items.length) * 100}%` }}
+            style={
+              {
+                '--progress-width': `${(completedCount / items.length) * 100}%`,
+                width: 'var(--progress-width)',
+              } as React.CSSProperties
+            }
           />
         </div>
       </CardHeader>

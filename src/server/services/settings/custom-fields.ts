@@ -63,32 +63,54 @@ export async function updateCustomFields(
 
   if (fields.length === 0) return []
 
-  // Client provides hub-key encrypted values; hub-encrypt fallback for server-initiated ops
+  // Client provides hub-key encrypted values; hub-encrypt fallback for server-initiated ops.
+  // Any server fallback AAD must use the final row id + field name so the client can decrypt.
   const hubKey = hId ? await getHubKey(hId) : null
 
-  const encryptOrPassthrough = (encrypted: Ciphertext | undefined, plaintext: string): Ciphertext =>
-    encrypted ?? (hubKey ? cryptoService.hubEncrypt(plaintext, hubKey) : (plaintext as Ciphertext))
+  const encryptOrPassthrough = (
+    encrypted: Ciphertext | undefined,
+    plaintext: string,
+    recordId: string,
+    fieldName: string
+  ): Ciphertext =>
+    encrypted ??
+    (hubKey
+      ? cryptoService.hubEncryptField(plaintext, hubKey, recordId, fieldName)
+      : (plaintext as Ciphertext))
 
   const rows = await db
     .insert(customFieldDefinitions)
     .values(
-      fields.map((f, i) => ({
-        id: f.id || crypto.randomUUID(),
-        hubId: hId,
-        fieldType: f.type,
-        required: f.required,
-        visibleTo: f.visibleTo ?? 'contacts:envelope-summary',
-        order: i,
-        encryptedFieldName: encryptOrPassthrough(f.encryptedFieldName, f.name),
-        encryptedLabel: encryptOrPassthrough(f.encryptedLabel, f.label),
-        encryptedOptions:
-          f.encryptedOptions ??
-          (f.options && f.options.length > 0
-            ? hubKey
-              ? cryptoService.hubEncrypt(JSON.stringify(f.options), hubKey)
-              : (JSON.stringify(f.options) as Ciphertext)
-            : null),
-      }))
+      fields.map((f, i) => {
+        const id = f.id || crypto.randomUUID()
+        return {
+          id,
+          hubId: hId,
+          fieldType: f.type,
+          required: f.required,
+          visibleTo: f.visibleTo ?? 'contacts:envelope-summary',
+          order: i,
+          encryptedFieldName: encryptOrPassthrough(
+            f.encryptedFieldName,
+            f.name,
+            id,
+            'encrypted_field_name'
+          ),
+          encryptedLabel: encryptOrPassthrough(f.encryptedLabel, f.label, id, 'encrypted_label'),
+          encryptedOptions:
+            f.encryptedOptions ??
+            (f.options && f.options.length > 0
+              ? hubKey
+                ? cryptoService.hubEncryptField(
+                    JSON.stringify(f.options),
+                    hubKey,
+                    id,
+                    'encrypted_options'
+                  )
+                : (JSON.stringify(f.options) as Ciphertext)
+              : null),
+        }
+      })
     )
     .returning()
   return rows.map((r) => rowToCustomField(r))

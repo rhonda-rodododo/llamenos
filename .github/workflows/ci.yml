@@ -546,11 +546,96 @@ jobs:
             -i inventory.example.yml \
             --extra-vars "@vars.example.yml"
 
+  # ─── Security Grep Guardrails ──────────────────────────────
+  # Fast regex checks that block known regression patterns.
+  # Each check is a simple grep that exits non-zero on match.
+  grep-guardrails:
+    needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: No raw crypto label literals in crypto files
+        run: |
+          # Crypto labels must be imported from crypto-labels.ts, not constructed inline.
+          # Match utf8ToBytes('llamenos:...) or utf8ToBytes("llamenos:...) in crypto paths.
+          if grep -rn "utf8ToBytes(['\"]llamenos:" \
+            src/client/lib/crypto*.ts \
+            src/client/lib/hub-*.ts \
+            src/client/lib/file-*.ts \
+            src/client/lib/envelope-*.ts \
+            src/client/lib/decrypt-*.ts \
+            src/client/lib/backup.ts \
+            src/server/lib/crypto*.ts \
+            src/server/lib/hub-*.ts \
+            src/shared/crypto-primitives.ts \
+            2>/dev/null | grep -v '\.test\.ts'; then
+            echo "::error::Raw crypto label literal detected — must import from crypto-labels.ts"
+            exit 1
+          fi
+
+      - name: No @ts-ignore bypassing crypto function signatures
+        run: |
+          # TypeScript enforces the 3-arg symmetric(En|De)crypt signature.
+          # Block @ts-ignore/@ts-expect-error near crypto calls that could bypass AAD enforcement.
+          if grep -rPn '@ts-(ignore|expect-error)' \
+            src/shared/crypto-primitives.ts \
+            src/client/lib/crypto-service.ts \
+            src/server/lib/crypto-service.ts \
+            src/client/lib/file-crypto.ts \
+            src/client/lib/hub-key-manager.ts \
+            2>/dev/null; then
+            echo "::error::@ts-ignore found in crypto files — type safety must not be bypassed"
+            exit 1
+          fi
+
+      - name: Deleted crypto.ts must stay deleted
+        run: |
+          if [ -f src/client/lib/crypto.ts ]; then
+            echo "::error::src/client/lib/crypto.ts was deleted in Tier 0 — do not recreate"
+            exit 1
+          fi
+
+      - name: No --no-verify in hooks or scripts
+        run: |
+          HITS=$(grep -rn -- '--no-verify' scripts/ lefthook.yml 2>/dev/null || true)
+          HITS+=$(grep -rn --exclude='ci.yml' -- '--no-verify' .github/ 2>/dev/null || true)
+          if [ -n "$HITS" ]; then
+            echo "$HITS"
+            echo "::error::--no-verify found — hooks must not be bypassed"
+            exit 1
+          fi
+
+      - name: No unsafe-inline in script-src or style-src CSP directives
+        run: |
+          # style-src-attr 'unsafe-inline' is allowed (dynamic computed styles).
+          # script-src and style-src must never have unsafe-inline.
+          if grep -n "script-src.*unsafe-inline\|style-src [^-].*unsafe-inline" \
+            src/server/middleware/security-headers.ts 2>/dev/null; then
+            echo "::error::'unsafe-inline' found in script-src or style-src — banned in Tier 0"
+            exit 1
+          fi
+
+      - name: No external Google Fonts references
+        run: |
+          # Fonts must be self-hosted. External font CDN references are banned.
+          if grep -rn 'fonts\.googleapis\.com\|fonts\.gstatic\.com' \
+            src/ public/ .github/ \
+            --include='*.ts' --include='*.tsx' --include='*.html' \
+            --include='*.css' --include='*.yml' --include='*.yaml' \
+            2>/dev/null; then
+            echo "::error::External Google Fonts reference found — fonts must be self-hosted"
+            exit 1
+          fi
+
   # ─── CI Status Gate ─────────────────────────────────────────
   # Single status check for branch protection rules.
   # All required jobs must pass for PRs to be mergeable.
   ci-status:
-    needs: [lint, build, audit, unit-tests, integration-tests, api-tests, e2e-tests, ansible-validate]
+    needs: [lint, build, audit, unit-tests, integration-tests, api-tests, e2e-tests, ansible-validate, grep-guardrails]
     if: always()
     runs-on: ubuntu-latest
 
@@ -566,6 +651,7 @@ jobs:
           API_TESTS_RESULT: ${{ needs.api-tests.result }}
           E2E_TESTS_RESULT: ${{ needs.e2e-tests.result }}
           ANSIBLE_RESULT: ${{ needs.ansible-validate.result }}
+          GUARDRAILS_RESULT: ${{ needs.grep-guardrails.result }}
         run: |
           FAILED=false
 
@@ -582,7 +668,7 @@ jobs:
           done
 
           # These jobs may be legitimately skipped (docs-only or no ansible changes)
-          for job_info in "unit-tests:$UNIT_TESTS_RESULT" "integration-tests:$INTEGRATION_TESTS_RESULT" "api-tests:$API_TESTS_RESULT" "ansible-validate:$ANSIBLE_RESULT"; do
+          for job_info in "unit-tests:$UNIT_TESTS_RESULT" "integration-tests:$INTEGRATION_TESTS_RESULT" "api-tests:$API_TESTS_RESULT" "ansible-validate:$ANSIBLE_RESULT" "grep-guardrails:$GUARDRAILS_RESULT"; do
             job="${job_info%%:*}"
             result="${job_info#*:}"
             if [[ "$result" != "success" && "$result" != "skipped" ]]; then

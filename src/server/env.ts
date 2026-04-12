@@ -37,6 +37,8 @@ export function loadEnv() {
     TWILIO_PHONE_NUMBER: process.env.TWILIO_PHONE_NUMBER || '',
     SERVER_NOSTR_SECRET: readSecret('server-nostr-secret', 'SERVER_NOSTR_SECRET') || undefined,
     CORS_ALLOWED_ORIGINS: process.env.CORS_ALLOWED_ORIGINS || undefined,
+    APP_ORIGIN: process.env.APP_ORIGIN || undefined,
+    API_COOKIE_DOMAIN: process.env.API_COOKIE_DOMAIN || undefined,
     APP_URL: process.env.APP_URL || undefined,
     NOSTR_RELAY_URL: process.env.NOSTR_RELAY_URL || undefined,
     NOSTR_RELAY_PUBLIC_URL: process.env.NOSTR_RELAY_PUBLIC_URL || undefined,

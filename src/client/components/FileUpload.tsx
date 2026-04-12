@@ -43,6 +43,8 @@ export function FileUpload({
         status: 'encrypting' as const,
         completedChunks: 0,
         totalChunks: 1,
+        // Pre-generate fileId so it can be used in AAD during encryption
+        fileId: crypto.randomUUID(),
       }))
 
       setUploads((prev) => [...prev, ...newUploads])
@@ -52,9 +54,11 @@ export function FileUpload({
       for (let i = 0; i < files.length; i++) {
         const file = files[i]
         const uploadIndex = uploads.length + i
+        // Use the pre-generated fileId as the AAD identity for this file
+        const fileId = newUploads[i].fileId ?? crypto.randomUUID()
 
         try {
-          const encrypted = await encryptFile(file, recipientPubkeys)
+          const encrypted = await encryptFile(file, fileId, recipientPubkeys)
 
           setUploads((prev) =>
             prev.map((u, idx) =>
@@ -74,6 +78,7 @@ export function FileUpload({
             conversationId,
             recipientEnvelopes: encrypted.recipientEnvelopes,
             encryptedMetadata: encrypted.encryptedMetadata,
+            fileId,
             onProgress: (completed, total) => {
               setUploads((prev) =>
                 prev.map((u, idx) =>

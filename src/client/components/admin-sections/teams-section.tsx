@@ -76,15 +76,20 @@ export function TeamsSection() {
     const trimmedDesc = form.description.trim()
 
     if (editingId === 'new') {
-      const encryptedName = encryptHubField(trimmedName, hubId)
+      // Pre-generate a client UUID for the new team so the AAD can be bound to a stable ID.
+      const newId = crypto.randomUUID()
+      const encryptedName = encryptHubField(trimmedName, hubId, newId, 'encrypted_name')
       if (!encryptedName) {
         toast(t('common.error', { defaultValue: 'Error' }), 'error')
         return
       }
       createTeam.mutate(
         {
+          id: newId,
           encryptedName,
-          encryptedDescription: trimmedDesc ? encryptHubField(trimmedDesc, hubId) : undefined,
+          encryptedDescription: trimmedDesc
+            ? encryptHubField(trimmedDesc, hubId, newId, 'encrypted_description')
+            : undefined,
         },
         {
           onSuccess: () => {
@@ -96,7 +101,7 @@ export function TeamsSection() {
         }
       )
     } else if (editingId) {
-      const encryptedName = encryptHubField(trimmedName, hubId)
+      const encryptedName = encryptHubField(trimmedName, hubId, editingId, 'encrypted_name')
       if (!encryptedName) {
         toast(t('common.error', { defaultValue: 'Error' }), 'error')
         return
@@ -106,7 +111,9 @@ export function TeamsSection() {
           id: editingId,
           data: {
             encryptedName,
-            encryptedDescription: trimmedDesc ? encryptHubField(trimmedDesc, hubId) : null,
+            encryptedDescription: trimmedDesc
+              ? encryptHubField(trimmedDesc, hubId, editingId, 'encrypted_description')
+              : null,
           },
         },
         {

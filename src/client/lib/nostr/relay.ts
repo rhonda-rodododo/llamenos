@@ -9,6 +9,8 @@
  * - Event deduplication and validation
  */
 
+import { utf8ToBytes } from '@noble/ciphers/utils.js'
+import { LABEL_HUB_EVENT } from '@shared/crypto-labels'
 import type { Ciphertext } from '@shared/crypto-types'
 import type { Event as NostrEvent } from 'nostr-tools/core'
 import { getEventHash, verifyEvent } from 'nostr-tools/pure'
@@ -302,7 +304,12 @@ export class RelayManager {
     let content: LlamenosEvent | null = null
 
     if (hubKey) {
-      const decrypted = decryptFromHub(event.content as Ciphertext, hubKey)
+      // AAD binds the decryption to the hub-event domain
+      const decrypted = decryptFromHub(
+        event.content as Ciphertext,
+        hubKey,
+        utf8ToBytes(LABEL_HUB_EVENT)
+      )
       content = parseLlamenosContent(decrypted)
     }
 

@@ -213,7 +213,11 @@ export class BlastProcessor {
           // Send the batch concurrently
           const results = await Promise.allSettled(
             batch.map(async ({ sub, channel }) => {
-              const identifier = await this._decryptIdentifier(sub.encryptedIdentifier!, hubKey)
+              const identifier = await this._decryptIdentifier(
+                sub.id,
+                sub.encryptedIdentifier!,
+                hubKey
+              )
               if (!identifier) {
                 failedCount++
                 await this.services.blasts.createDelivery({
@@ -311,9 +315,23 @@ export class BlastProcessor {
     return this.crypto.unwrapHubKey(envelopes)
   }
 
-  /** Decrypt an encrypted subscriber identifier. Override in tests. */
-  async _decryptIdentifier(encrypted: string, hubKey: Uint8Array): Promise<string | null> {
-    return this.crypto.hubDecrypt(encrypted as Ciphertext, hubKey)
+  /**
+   * Decrypt an encrypted subscriber identifier. Override in tests.
+   *
+   * AAD is bound to `(subscriber.id, 'encrypted_identifier')` via the shared
+   * hub-field formula — must match whatever path populated the column.
+   */
+  async _decryptIdentifier(
+    subscriberId: string,
+    encrypted: string,
+    hubKey: Uint8Array
+  ): Promise<string | null> {
+    return this.crypto.hubDecryptField(
+      encrypted as Ciphertext,
+      hubKey,
+      subscriberId,
+      'encrypted_identifier'
+    )
   }
 
   /**

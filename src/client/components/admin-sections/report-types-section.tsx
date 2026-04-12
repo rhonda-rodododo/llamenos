@@ -75,8 +75,10 @@ export function ReportTypesSection() {
         await updateReportType(editing.id, {
           name: trimmedName,
           description: trimmedDesc || undefined,
-          encryptedName: encryptHubField(trimmedName, hubId),
-          encryptedDescription: trimmedDesc ? encryptHubField(trimmedDesc, hubId) : undefined,
+          encryptedName: encryptHubField(trimmedName, hubId, editing.id, 'encrypted_name'),
+          encryptedDescription: trimmedDesc
+            ? encryptHubField(trimmedDesc, hubId, editing.id, 'encrypted_description')
+            : undefined,
         })
         const existing = reportTypes.find((rt) => rt.id === editing.id)
         if (editing.isDefault && !existing?.isDefault) {
@@ -85,12 +87,19 @@ export function ReportTypesSection() {
       } else {
         const trimmedName = editing.name.trim()
         const trimmedDesc = editing.description.trim()
+        // Pre-generate a client UUID for the new report type so the AAD can be bound to a stable ID.
+        // Pass it as `id` so the server uses the same UUID as the record's primary key —
+        // otherwise the ciphertext is bound to a UUID the server doesn't know about.
+        const newId = crypto.randomUUID()
         await createReportType({
+          id: newId,
           name: trimmedName,
           description: trimmedDesc || undefined,
           isDefault: editing.isDefault,
-          encryptedName: encryptHubField(trimmedName, hubId),
-          encryptedDescription: trimmedDesc ? encryptHubField(trimmedDesc, hubId) : undefined,
+          encryptedName: encryptHubField(trimmedName, hubId, newId, 'encrypted_name'),
+          encryptedDescription: trimmedDesc
+            ? encryptHubField(trimmedDesc, hubId, newId, 'encrypted_description')
+            : undefined,
         })
       }
       void queryClient.invalidateQueries({ queryKey: queryKeys.settings.reportTypes() })

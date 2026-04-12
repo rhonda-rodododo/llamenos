@@ -14,6 +14,7 @@ This directory contains security documentation for Llamenos, a crisis response h
 | [Threat Model](THREAT_MODEL.md) | Adversaries, attack surfaces, trust boundaries | Auditors, security engineers |
 | [Protocol Specification](../protocol/llamenos-protocol.md) | Cryptographic algorithms, key management, wire formats | Auditors, cryptographers |
 | [Security Audit R6](SECURITY_AUDIT_2026-02-R6.md) | Latest audit findings and remediation status | Auditors |
+| [Supply Chain Security](SUPPLY_CHAIN.md) | Cosign signing, SBOM, reproducible builds, SLSA provenance, verification | Operators, auditors |
 | [Deployment Hardening](DEPLOYMENT_HARDENING.md) | Infrastructure security for operators | Operators, DevOps |
 
 ## Security Architecture Summary
@@ -158,6 +159,7 @@ All cryptographic code uses audited, constant-time implementations from the `@no
 | Hash-chained audit log | SHA-256 chain with `previousEntryHash` + `entryHash` for tamper detection | Shipped |
 | Client-side transcription | WASM Whisper in-browser; audio never leaves device | Shipped |
 | Reproducible builds | `SOURCE_DATE_EPOCH`, `CHECKSUMS.txt` in GitHub Releases, SLSA provenance | Shipped |
+| Supply chain signing | Cosign keyless signatures, CycloneDX SBOM attestation, GPG signatures | Shipped |
 | Admin key separation | Identity key (signing) separate from decryption key (envelope unwrap) | Shipped |
 
 ## What We Do NOT Claim

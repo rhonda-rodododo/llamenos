@@ -1,14 +1,18 @@
 import path from 'node:path'
 /**
  * Node.js server entry point.
- * Runs the Hono app with @hono/node-server, serving static files.
+ * Runs the Hono app with @hono/node-server.
+ *
+ * Tier 4 PR-A: in production, this is API-only — the SPA bundle and the
+ * crypto sandbox are served by separate Caddy workers on distinct origins
+ * (app.*, crypto.*). In development/test mode, the server also serves the
+ * SPA from dist/client/ for local dev and Playwright E2E tests (no Caddy).
  *
  * Real-time events use the Nostr relay (strfry) — no direct WebSocket
  * handling needed in the app server. Clients connect to the relay via
  * the Caddy reverse proxy at /nostr.
  */
 import { serve } from '@hono/node-server'
-import { serveStatic } from '@hono/node-server/serve-static'
 import { migrate } from 'drizzle-orm/bun-sql/migrator'
 import { Hono } from 'hono'
 import { initDb } from './db'
@@ -86,8 +90,13 @@ async function main() {
   if (!env.APP_URL) {
     log.warn('APP_URL not set — invite links and webhooks may use wrong base URL')
   }
+  if (!process.env.APP_ORIGIN && env.ENVIRONMENT !== 'development') {
+    log.warn(
+      'APP_ORIGIN not set — split-origin CORS (Tier 4) is disabled; all cross-site requests will be rejected'
+    )
+  }
   if (!env.CORS_ALLOWED_ORIGINS) {
-    log.warn('CORS_ALLOWED_ORIGINS not set — only built-in origins allowed (localhost in dev)')
+    log.warn('CORS_ALLOWED_ORIGINS not set — only APP_ORIGIN and dev localhost allowed')
   }
   if (!env.TWILIO_ACCOUNT_SID || !env.TWILIO_AUTH_TOKEN) {
     log.warn('Twilio credentials missing — telephony features disabled')
@@ -285,15 +294,6 @@ async function main() {
   app.route('/', serverApp as any)
 
   app.onError(errorHandler)
-
-  // Static file serving (replaces CF ASSETS binding)
-  // The worker app's catch-all calls next() when ASSETS is null,
-  // allowing these middleware to serve static files on Node.js.
-  const staticDir = path.resolve(process.cwd(), 'dist', 'client')
-  app.use('*', serveStatic({ root: staticDir }))
-
-  // SPA fallback — serve index.html for all unmatched routes
-  app.use('*', serveStatic({ root: staticDir, path: '/index.html' }))
 
   const port = Number(process.env.PORT) || 3000
   const server = serve(

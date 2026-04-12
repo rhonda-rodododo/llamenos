@@ -569,6 +569,8 @@ export interface IvrAudioMeta {
 }
 
 export interface CreateRoleData {
+  /** Client-generated UUID for AAD binding. See CreateReportTypeSchema for rationale. */
+  id?: string
   name: string
   permissions: string[]
   description: string
@@ -728,6 +730,8 @@ export interface ShiftSchedule {
 }
 
 export interface CreateScheduleData {
+  /** Client-generated UUID for AAD binding. See CreateReportTypeSchema for rationale. */
+  id?: string
   hubId?: string
   /** Plaintext name (legacy / server-side fallback). Prefer encryptedName for new clients. */
   name?: string
@@ -768,6 +772,8 @@ export interface RingGroup {
 }
 
 export interface CreateRingGroupData {
+  /** Client-generated UUID for AAD binding. See CreateReportTypeSchema for rationale. */
+  id?: string
   hubId?: string
   name: string
   userPubkeys: string[]
@@ -927,6 +933,8 @@ export interface Blast {
 }
 
 export interface CreateBlastData {
+  /** Client-generated UUID for AAD binding. See CreateReportTypeSchema for rationale. */
+  id?: string
   hubId?: string
   name: string
   targetChannels?: string[]

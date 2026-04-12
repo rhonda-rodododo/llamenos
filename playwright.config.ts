@@ -98,11 +98,53 @@ export default defineConfig({
           reuseExistingServer: !process.env.CI,
           env: {
             ...process.env,
+            ENVIRONMENT: process.env.ENVIRONMENT ?? "development",
             USE_TEST_ADAPTER: "true",
             // Disable opaque-token rotation in test mode so Playwright storage-state
             // fixtures can reuse refresh cookies across tests. Rotation + replay
             // detection remain enabled in dev/prod and are covered by unit tests.
             DISABLE_TOKEN_ROTATION: "true",
+            // Dev defaults — use process.env overrides if set
+            DATABASE_URL:
+              process.env.DATABASE_URL ??
+              "postgres://llamenos:llamenos@localhost:5433/llamenos",
+            JWT_SECRET:
+              process.env.JWT_SECRET ??
+              "0000000000000000000000000000000000000000000000000000000000000003",
+            HMAC_SECRET:
+              process.env.HMAC_SECRET ??
+              "deadbeefcafebabe0123456789abcdef0123456789abcdef0123456789abcdef",
+            SERVER_NOSTR_SECRET:
+              process.env.SERVER_NOSTR_SECRET ??
+              "0000000000000000000000000000000000000000000000000000000000000001",
+            IDP_VALUE_ENCRYPTION_KEY:
+              process.env.IDP_VALUE_ENCRYPTION_KEY ??
+              "0000000000000000000000000000000000000000000000000000000000000088",
+            IDP_VALUE_KEY_VERSION: process.env.IDP_VALUE_KEY_VERSION ?? "1",
+            AUTHENTIK_URL:
+              process.env.AUTHENTIK_URL ?? "http://localhost:9100",
+            AUTHENTIK_API_TOKEN:
+              process.env.AUTHENTIK_API_TOKEN ??
+              "dev-bootstrap-token-not-for-production",
+            STORAGE_ACCESS_KEY:
+              process.env.STORAGE_ACCESS_KEY ?? "rustfsadmin",
+            STORAGE_SECRET_KEY:
+              process.env.STORAGE_SECRET_KEY ?? "rustfsadmin",
+            STORAGE_ENDPOINT:
+              process.env.STORAGE_ENDPOINT ?? "http://localhost:9002",
+            NOSTR_RELAY_URL:
+              process.env.NOSTR_RELAY_URL ?? "ws://localhost:7778",
+            FIREHOSE_AGENT_SEAL_KEY:
+              process.env.FIREHOSE_AGENT_SEAL_KEY ??
+              "0000000000000000000000000000000000000000000000000000000000000001",
+            AUTH_WEBAUTHN_RP_ID:
+              process.env.AUTH_WEBAUTHN_RP_ID ?? "localhost",
+            AUTH_WEBAUTHN_RP_NAME:
+              process.env.AUTH_WEBAUTHN_RP_NAME ?? "Llamenos",
+            AUTH_WEBAUTHN_ORIGIN:
+              process.env.AUTH_WEBAUTHN_ORIGIN ?? "http://localhost:3000",
+            DEV_RESET_SECRET:
+              process.env.DEV_RESET_SECRET ?? "test-reset-secret",
           },
         },
         // sip-bridge for Asterisk API tests. Skipped in CI (started via docker

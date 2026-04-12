@@ -44,7 +44,7 @@ export class ShiftService {
     if (!isValidTimeFormat(data.startTime) || !isValidTimeFormat(data.endTime)) {
       throw new AppError(400, 'Invalid time format — expected HH:MM (00:00–23:59)')
     }
-    const id = crypto.randomUUID()
+    const id = data.id ?? crypto.randomUUID()
     const hId = data.hubId ?? 'global'
     // Client provides hub-key encrypted name
     const encryptedName = (data.encryptedName ?? data.name) as Ciphertext
@@ -146,7 +146,7 @@ export class ShiftService {
   }
 
   async createRingGroup(data: CreateRingGroupData): Promise<RingGroup> {
-    const id = crypto.randomUUID()
+    const id = data.id ?? crypto.randomUUID()
     const hId = data.hubId ?? 'global'
     // Client provides hub-key encrypted name
     const encryptedName = (data.encryptedName ?? data.name) as Ciphertext

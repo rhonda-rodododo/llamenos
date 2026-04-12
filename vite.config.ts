@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
@@ -7,6 +7,18 @@ import { sriWorkboxPlugin } from './src/client/lib/sri-workbox-plugin'
 import path from 'path'
 
 import { readFileSync } from 'fs'
+
+function cspNoncePlaceholderPlugin(): Plugin {
+  return {
+    name: 'csp-nonce-placeholder',
+    enforce: 'post',
+    transformIndexHtml(html) {
+      return html
+        .replace(/<script(?![^>]*nonce=)/g, '<script nonce="__CSP_NONCE__"')
+        .replace(/<link([^>]*rel="stylesheet")/g, '<link nonce="__CSP_NONCE__"$1')
+    },
+  }
+}
 
 // Build-time constants for reproducible builds (Epic 79)
 // CI sets SOURCE_DATE_EPOCH from git commit timestamp; dev builds use current time
@@ -62,6 +74,7 @@ export default defineConfig(({ mode }) => ({
       },
     }),
     sriWorkboxPlugin(),
+    cspNoncePlaceholderPlugin(),
   ],
   root: '.',
   publicDir: 'public',

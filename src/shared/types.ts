@@ -20,6 +20,20 @@ import type {
 import type { EnabledChannels, SetupState } from '@shared/schemas/settings'
 import type { Ciphertext } from './crypto-types'
 
+// --- Versioned ECIES Key Envelope ---
+
+/**
+ * Wire-format versioned ECIES key envelope with embedded label identity.
+ * The `labelId` byte is looked up against LABEL_REGISTRY; a receiver that
+ * expected a different label will refuse to unwrap (CryptoLabelMismatchError).
+ */
+export interface EnvelopeV2 {
+  v: 2
+  labelId: number
+  wrappedKey: Ciphertext
+  ephemeralPubkey: string
+}
+
 // --- ECIES Key Envelopes ---
 // These use the branded Ciphertext type for internal type safety.
 // The schema equivalents in @shared/schemas/records use plain strings (for zod validation).
@@ -257,6 +271,8 @@ export interface ReportType {
 }
 
 export interface CreateReportTypeInput {
+  /** Client-generated UUID for AAD binding. See CreateReportTypeSchema for rationale. */
+  id?: string
   name: string
   description?: string
   isDefault?: boolean
@@ -283,7 +299,20 @@ export interface EncryptedFileMetadata {
   checksum: string // SHA-256 of plaintext for integrity verification
 }
 
-/** ECIES-wrapped file encryption key for one recipient. */
+/**
+ * V2 ECIES-wrapped file encryption key for one recipient.
+ * Extends EnvelopeV2 with a recipient pubkey tag for multi-recipient selection.
+ * This is the canonical type for new file uploads (Task 8+).
+ */
+export interface FileKeyEnvelopeV2 extends EnvelopeV2 {
+  pubkey: string
+}
+
+/**
+ * @deprecated Legacy ECIES-wrapped file key (pre-Task 8 wire format).
+ * Used only for compatibility with old API responses until the server is upgraded.
+ * New uploads produce FileKeyEnvelopeV2.
+ */
 export interface FileKeyEnvelope {
   pubkey: string
   encryptedFileKey: Ciphertext
@@ -325,11 +354,22 @@ export interface UploadInit {
   totalSize: number
   totalChunks: number
   conversationId: string
+  /**
+   * New uploads (Task 8+) send FileKeyEnvelopeV2 entries.
+   * Typed as FileKeyEnvelope[] for backward compat with server code that stores/reads
+   * the old shape; Task 9 will update both the server and this type to FileKeyEnvelopeV2[].
+   */
   recipientEnvelopes: FileKeyEnvelope[]
   encryptedMetadata: EncryptedMetaItem[]
   /** Optional context binding — can be provided at init time or later via PATCH /context. */
   contextType?: 'conversation' | 'note' | 'report' | 'custom_field' | 'voicemail'
   contextId?: string
+  /**
+   * Client-generated UUID used as the AAD file identity during encryption (Task 8+).
+   * Server uses this as the canonical fileId so that fileId-bound AAD round-trips on decrypt.
+   * Server-side acceptance is implemented in Task 9.
+   */
+  fileId?: string
 }
 
 /** What gets encrypted before storage — replaces plain text */

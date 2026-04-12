@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
+import type { CryptoLabel } from '@shared/crypto-labels'
 import { CryptoWorkerLockedError } from './crypto-worker-client'
 
 // We need to mock the crypto-worker-client module and key-manager module
@@ -190,13 +191,14 @@ describe('fieldNames filter', () => {
     }
 
     // Pass 1: only decrypt summary fields. Phone must NOT be touched.
-    await decryptObjectFields(obj, 'aabb', 'label:summary', ['encryptedDisplayName'])
+    await decryptObjectFields(obj, 'aabb', 'label:summary' as CryptoLabel, ['encryptedDisplayName'])
     expect(mockDecryptEnvelopeField).toHaveBeenCalledTimes(1)
     expect(mockDecryptEnvelopeField).toHaveBeenCalledWith(
       'ct-summary',
       'ccdd',
       'eeff',
-      'label:summary'
+      'label:summary',
+      expect.any(Uint8Array)
     )
     expect(obj.displayName).toBe('decrypted-value')
     expect(obj.phone).toBe('[encrypted]') // untouched
@@ -205,9 +207,15 @@ describe('fieldNames filter', () => {
 
     // Pass 2: only decrypt PII fields. Display name must NOT be re-attempted
     // with the wrong label (which was the root cause of the recovery-lock bug).
-    await decryptObjectFields(obj, 'aabb', 'label:pii', ['encryptedPhone'])
+    await decryptObjectFields(obj, 'aabb', 'label:pii' as CryptoLabel, ['encryptedPhone'])
     expect(mockDecryptEnvelopeField).toHaveBeenCalledTimes(1)
-    expect(mockDecryptEnvelopeField).toHaveBeenCalledWith('ct-pii', '1122', '3344', 'label:pii')
+    expect(mockDecryptEnvelopeField).toHaveBeenCalledWith(
+      'ct-pii',
+      '1122',
+      '3344',
+      'label:pii',
+      expect.any(Uint8Array)
+    )
     expect(obj.phone).toBe('decrypted-value')
     // No lock was fired — proves we never hit the retry/recovery branch.
     expect(lockCallCount).toBe(0)

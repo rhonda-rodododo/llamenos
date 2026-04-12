@@ -2,10 +2,10 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { type EncryptedNote, downloadFile, getFileEnvelopes, listNotes } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
-import { decryptNoteV2 } from '@/lib/crypto'
+import { decryptNoteV2 } from '@/lib/crypto-worker-helpers'
 import { decryptFile } from '@/lib/file-crypto'
 import * as keyManager from '@/lib/key-manager'
-import type { FileKeyEnvelope } from '@shared/types'
+import type { FileKeyEnvelopeV2 } from '@shared/types'
 import { AlertCircle, Loader2, Pause, Play, Voicemail } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -91,13 +91,14 @@ export function VoicemailPlayer({ fileId, callId, canListen }: VoicemailPlayerPr
       ])
 
       const myPubkey = publicKey ?? ''
-      const envelope: FileKeyEnvelope | undefined = isAdmin
+      const envelope: FileKeyEnvelopeV2 | undefined = isAdmin
         ? (envelopes.find((e) => e.pubkey === myPubkey) ?? envelopes[0])
         : envelopes.find((e) => e.pubkey === myPubkey)
 
       if (!envelope) throw new Error('No key envelope found')
 
-      const { blob } = await decryptFile(content, envelope)
+      // fileId is bound into the AAD — passing wrong fileId causes auth failure
+      const { blob } = await decryptFile(content, envelope, fileId)
       const url = URL.createObjectURL(blob)
       setBlobUrl(url)
     } catch {

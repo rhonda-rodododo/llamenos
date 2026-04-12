@@ -15,7 +15,7 @@ import {
   sendBlast,
   updateBlastSettings,
 } from '@/lib/api'
-import { decryptBlastContent } from '@/lib/crypto'
+import { decryptBlastContent } from '@/lib/crypto-worker-helpers'
 import { decryptHubField } from '@/lib/hub-field-crypto'
 import * as keyManager from '@/lib/key-manager'
 import type { Blast, BlastContent, BlastSettings, Subscriber } from '@shared/types'
@@ -50,7 +50,7 @@ export const blastsListOptions = (hubId = 'global') =>
       const res = await listBlasts()
       const blasts = res.blasts.map((blast) => ({
         ...blast,
-        name: decryptHubField(blast.encryptedName, hubId, blast.name),
+        name: decryptHubField(blast.encryptedName, hubId, blast.id, 'encrypted_name', blast.name),
       }))
 
       const unlocked = await keyManager.isUnlocked()

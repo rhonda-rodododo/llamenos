@@ -23,8 +23,8 @@ export const tagsListOptions = (hubId = 'global') =>
       const { tags } = await listTags()
       return tags.map((tag) => ({
         ...tag,
-        label: decryptHubField(tag.encryptedLabel, hubId, tag.name),
-        category: decryptHubField(tag.encryptedCategory, hubId, ''),
+        label: decryptHubField(tag.encryptedLabel, hubId, tag.id, 'encrypted_label', tag.name),
+        category: decryptHubField(tag.encryptedCategory, hubId, tag.id, 'encrypted_category', ''),
       }))
     },
     staleTime: 5 * 60 * 1000,
@@ -46,6 +46,7 @@ export function useCreateTag() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (data: {
+      id?: string
       name: string
       encryptedLabel: Ciphertext
       color?: string

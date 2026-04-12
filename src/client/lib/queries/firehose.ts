@@ -37,7 +37,13 @@ export const firehoseConnectionsOptions = (hubId: string) =>
       const { connections } = await listFirehoseConnections()
       return connections.map((c) => ({
         ...c,
-        displayName: decryptHubField(c.encryptedDisplayName, hubId, c.displayName),
+        displayName: decryptHubField(
+          c.encryptedDisplayName,
+          hubId,
+          c.id,
+          'encrypted_display_name',
+          c.displayName
+        ),
       }))
     },
     staleTime: 30_000,
