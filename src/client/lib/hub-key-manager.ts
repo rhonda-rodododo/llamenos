@@ -320,3 +320,29 @@ export async function rotateHubKeyClkr(params: {
     deviceCommitments,
   }
 }
+
+// ---- Rotation cascade planning (Task 26) ----
+
+export interface RotationCascadePlan {
+  triggerHub: string
+  affectedHubs: string[]
+  reason: 'member_removed' | 'device_removed' | 'scheduled' | 'manual'
+}
+
+/**
+ * Plan which hubs need rotation when a trigger event occurs.
+ *
+ * Identity function for now — returns only the trigger hub. Future tiers will
+ * extend this to walk hub-hierarchy relationships (e.g. when a member is removed
+ * from a parent hub, child hubs may also need rotation).
+ */
+export function planRotationCascade(
+  triggerHub: string,
+  reason: RotationCascadePlan['reason']
+): RotationCascadePlan {
+  return {
+    triggerHub,
+    affectedHubs: [triggerHub],
+    reason,
+  }
+}

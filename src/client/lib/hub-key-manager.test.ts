@@ -6,6 +6,7 @@ import {
   decryptFromHub,
   encryptForHub,
   generateHubKey,
+  planRotationCascade,
   rotateHubKeyClkr,
   unwrapHubKeyForDevice,
   unwrapOldGen,
@@ -354,5 +355,32 @@ describe('rotateHubKeyClkr', () => {
     expect(result.deviceCommitments).toHaveLength(1)
     expect(result.deviceCommitments[0].commitmentHash).toMatch(/^[0-9a-f]{64}$/)
     expect(result.deviceCommitments[0].deviceId).toBe('dev-1')
+  })
+})
+
+// ---- Rotation cascade planning (Task 26) ----
+
+describe('planRotationCascade', () => {
+  test('returns identity (single hub) for member_removed', () => {
+    const plan = planRotationCascade(HUB_ID, 'member_removed')
+    expect(plan.triggerHub).toBe(HUB_ID)
+    expect(plan.affectedHubs).toEqual([HUB_ID])
+    expect(plan.reason).toBe('member_removed')
+  })
+
+  test('returns identity for device_removed', () => {
+    const plan = planRotationCascade(HUB_ID, 'device_removed')
+    expect(plan.affectedHubs).toEqual([HUB_ID])
+    expect(plan.reason).toBe('device_removed')
+  })
+
+  test('returns identity for scheduled', () => {
+    const plan = planRotationCascade(HUB_ID, 'scheduled')
+    expect(plan.affectedHubs).toEqual([HUB_ID])
+  })
+
+  test('returns identity for manual', () => {
+    const plan = planRotationCascade(HUB_ID, 'manual')
+    expect(plan.affectedHubs).toEqual([HUB_ID])
   })
 })
