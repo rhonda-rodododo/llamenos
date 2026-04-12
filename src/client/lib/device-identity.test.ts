@@ -47,7 +47,7 @@ describe('generateDeviceKeypair', () => {
     // Import the public key for verification
     const pubKey = await crypto.subtle.importKey(
       'raw',
-      kp.signing.publicKey,
+      kp.signing.publicKey as BufferSource,
       { name: 'Ed25519' },
       true,
       ['verify']

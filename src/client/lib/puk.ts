@@ -94,7 +94,7 @@ export async function derivePukSubkeys(seed: Uint8Array, generation: number): Pr
   // AES-GCM-256 key
   const sbKey = await crypto.subtle.importKey(
     'raw',
-    sbSeed,
+    sbSeed as BufferSource,
     { name: 'AES-GCM', length: 256 },
     false,
     ['encrypt', 'decrypt']
@@ -259,7 +259,7 @@ async function aesGcmEncrypt(
   const ct = await crypto.subtle.encrypt(
     { name: 'AES-GCM', iv, additionalData: aad },
     key,
-    plaintext
+    plaintext as BufferSource
   )
   // Pack: iv (12) || ciphertext
   const packed = new Uint8Array(12 + ct.byteLength)
@@ -359,7 +359,7 @@ export async function getPukSeedForGeneration(params: GenerationWalkParams): Pro
     throw new Error('targetGen must be >= 1')
   }
 
-  let seed = new Uint8Array(params.currentSeed)
+  let seed: Uint8Array = new Uint8Array(params.currentSeed)
   let gen = params.currentGen
 
   while (gen > params.targetGen) {
@@ -370,7 +370,7 @@ export async function getPukSeedForGeneration(params: GenerationWalkParams): Pro
     }
     const prevSeed = await decryptOldGenWrap(wrappedHex, derived.secretBoxKey, gen)
     seed.fill(0)
-    seed = prevSeed
+    seed = new Uint8Array(prevSeed)
     gen--
   }
 
