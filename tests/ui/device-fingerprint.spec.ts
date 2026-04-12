@@ -66,9 +66,20 @@ test.describe('Device fingerprint verification UI', () => {
     await verifyButtons.first().click()
     await expect(adminPage.getByTestId('verify-fingerprint-modal')).toBeVisible({ timeout: 5000 })
 
-    // Pick all 7 correct emoji in sequence
+    // Read the 7 displayed SAS emoji, then find and click the matching
+    // picker buttons by emoji content (testids are now neutral sas-picker-N).
     for (let i = 0; i < 7; i++) {
-      await adminPage.getByTestId(`sas-picker-correct-${i}`).click()
+      const emojiText = await adminPage.getByTestId(`sas-emoji-${i}`).textContent()
+      // Find the picker button whose text matches the expected emoji
+      const pickerButtons = adminPage.getByTestId('sas-picker').locator('button')
+      const buttonCount = await pickerButtons.count()
+      for (let b = 0; b < buttonCount; b++) {
+        const btn = pickerButtons.nth(b)
+        if ((await btn.textContent()) === emojiText && (await btn.isEnabled())) {
+          await btn.click()
+          break
+        }
+      }
     }
 
     // No mismatch warning
@@ -92,9 +103,17 @@ test.describe('Device fingerprint verification UI', () => {
     await verifyButtons.first().click()
     await expect(adminPage.getByTestId('verify-fingerprint-modal')).toBeVisible({ timeout: 5000 })
 
-    // Click a wrong emoji (these have testid sas-picker-wrong-*)
-    const wrongButton = adminPage.locator('[data-testid^="sas-picker-wrong-"]').first()
-    await wrongButton.click()
+    // Read the first expected emoji, then click a different one
+    const firstExpected = await adminPage.getByTestId('sas-emoji-0').textContent()
+    const pickerButtons = adminPage.getByTestId('sas-picker').locator('button')
+    const buttonCount = await pickerButtons.count()
+    for (let b = 0; b < buttonCount; b++) {
+      const btn = pickerButtons.nth(b)
+      if ((await btn.textContent()) !== firstExpected && (await btn.isEnabled())) {
+        await btn.click()
+        break
+      }
+    }
 
     // Mismatch warning should appear
     await expect(adminPage.getByTestId('sas-mismatch-warning')).toBeVisible()
@@ -118,7 +137,16 @@ test.describe('Device fingerprint verification UI', () => {
     await expect(adminPage.getByTestId('verify-fingerprint-modal')).toBeVisible({ timeout: 5000 })
 
     // Pick a wrong emoji to trigger mismatch
-    await adminPage.locator('[data-testid^="sas-picker-wrong-"]').first().click()
+    const firstExpected = await adminPage.getByTestId('sas-emoji-0').textContent()
+    const pickerButtons = adminPage.getByTestId('sas-picker').locator('button')
+    const buttonCount = await pickerButtons.count()
+    for (let b = 0; b < buttonCount; b++) {
+      const btn = pickerButtons.nth(b)
+      if ((await btn.textContent()) !== firstExpected && (await btn.isEnabled())) {
+        await btn.click()
+        break
+      }
+    }
     await expect(adminPage.getByTestId('sas-mismatch-warning')).toBeVisible()
 
     // Reset

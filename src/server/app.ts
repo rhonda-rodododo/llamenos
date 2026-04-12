@@ -298,7 +298,7 @@ hubScoped.route('/tags', tagsRoutes)
 hubScoped.route('/teams', teamsRoutes)
 hubScoped.route('/intakes', intakesRoutes)
 hubScoped.route('/firehose', firehoseRoutes)
-hubScoped.route('/', deviceVerificationRoutes)
+hubScoped.route('/devices', deviceVerificationRoutes)
 
 authenticated.route('/hubs/:hubId', hubScoped)
 
