@@ -25,7 +25,7 @@ export interface CallMode {
  * propagates mode from the caller leg to the bridge recording guard.
  */
 export function parseStasisArgs(args: string[]): CallMode {
-  if (args.includes('sframe')) return { mode: 'sframe' }
+  if (args.some((a) => a.toLowerCase() === 'sframe')) return { mode: 'sframe' }
   return { mode: 'pstn' }
 }
 

@@ -17,6 +17,12 @@ describe('parseStasisArgs', () => {
   test('detects sframe mode when mixed with other args', () => {
     expect(parseStasisArgs(['dialed', 'sframe'])).toEqual({ mode: 'sframe' })
   })
+
+  test('detects sframe mode case-insensitively', () => {
+    expect(parseStasisArgs(['SFrame'])).toEqual({ mode: 'sframe' })
+    expect(parseStasisArgs(['SFRAME'])).toEqual({ mode: 'sframe' })
+    expect(parseStasisArgs(['Sframe'])).toEqual({ mode: 'sframe' })
+  })
 })
 
 describe('SframeModeDispatcher', () => {

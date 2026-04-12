@@ -11,7 +11,7 @@ import { TRAILER_LENGTH, parseTrailer, writeTrailer } from './trailer.js'
 /**
  * Per-frame seal/open helpers for the Llámenos voice E2EE pipeline.
  *
- * Wire layout (Jitsi JFrame v1 compatible):
+ * Wire layout (structurally modeled after Jitsi JFrame v1, NOT wire-compatible):
  *   [ codec header (passthrough) ][ ciphertext + GCM tag ][ counter | keyId ]
  *
  * AES-GCM nonce (96 bits):

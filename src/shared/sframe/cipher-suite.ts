@@ -25,7 +25,7 @@ function utf8(s: string): Uint8Array {
 /**
  * Derive a per-sender SFrame base key from the per-call secret.
  *
- * HKDF-Expand-Label style:
+ * HKDF (RFC 5869, extract + expand):
  *   salt = callId (utf8)
  *   info = LABEL_SFRAME_BASE_KEY || 0x00 || senderId (utf8)
  *   okm  = 16 bytes (AES-128 key)

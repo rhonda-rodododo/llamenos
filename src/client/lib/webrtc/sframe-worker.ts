@@ -168,7 +168,7 @@ export async function handleRequest(req: SFrameWorkerRequest): Promise<SFrameWor
       type: 'error',
       id: req.id,
       error: err instanceof Error ? err.message : String(err),
-      code: 'worker_not_ready',
+      code: 'internal_error',
     }
   }
 }

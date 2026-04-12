@@ -18,6 +18,7 @@ export const SFrameErrorCodeSchema = z.enum([
   'aad_mismatch',
   'header_parse_failed',
   'worker_not_ready',
+  'internal_error',
 ])
 export type SFrameErrorCode = z.infer<typeof SFrameErrorCodeSchema>
 

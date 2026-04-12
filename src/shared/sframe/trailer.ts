@@ -7,8 +7,9 @@
  *
  * The trailer travels in the clear (it's needed by the receiver before
  * decryption to look up the key and reconstruct the nonce). Its contents are
- * still bound into the per-frame AAD by the codec, so flipping any trailer bit
- * causes AES-GCM authentication to fail.
+ * still bound cryptographically: the keyId is part of the AAD and the counter
+ * is part of the nonce, so flipping any trailer bit causes AES-GCM
+ * authentication to fail.
  */
 
 export const TRAILER_LENGTH = 5 // 4 counter + 1 config

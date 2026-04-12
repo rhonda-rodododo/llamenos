@@ -624,8 +624,9 @@ export class CommandHandler {
       // throwing here aborts the recording attempt without tearing down the
       // bridge, keeping the volunteer-to-volunteer leg up.
       // If the caller's ActiveCall is not tracked (shouldn't happen for a
-      // just-bridged call), default to mode='pstn' for backward compat.
-      const guardMode: CallMode = { mode: callerCall?.mode ?? 'pstn' }
+      // just-bridged call), default to mode='sframe' (fail-closed) so an
+      // untracked SFrame call is never accidentally recorded.
+      const guardMode: CallMode = { mode: callerCall?.mode ?? 'sframe' }
       try {
         this.sframeDispatcher.assertRecordingAllowed(guardMode)
       } catch (err) {
