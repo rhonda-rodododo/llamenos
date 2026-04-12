@@ -312,6 +312,127 @@ class AuthFacadeClient {
     })
     await AuthFacadeClient.assertOk(res, 'Failed to delete device')
   }
+
+  // ---------------------------------------------------------------------------
+  // OPAQUE endpoints (Tier 2)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Start an OPAQUE login handshake. Sends the client's start message to the
+   * server and returns the server's login response (credential response).
+   */
+  async opaqueLoginStart(startLoginRequest: string): Promise<{ loginResponse: string }> {
+    const res = await this.authedFetch('/api/auth/opaque/login-start', {
+      method: 'POST',
+      body: JSON.stringify({ startLoginRequest }),
+    })
+    await AuthFacadeClient.assertOk(res, 'OPAQUE login start failed')
+    return res.json() as Promise<{ loginResponse: string }>
+  }
+
+  /**
+   * Finish an OPAQUE login handshake. Sends the client's finalization message
+   * to the server for session-key confirmation.
+   */
+  async opaqueLoginFinish(finishLoginRequest: string): Promise<void> {
+    const res = await this.authedFetch('/api/auth/opaque/login-finish', {
+      method: 'POST',
+      body: JSON.stringify({ finishLoginRequest }),
+    })
+    await AuthFacadeClient.assertOk(res, 'OPAQUE login finish failed')
+  }
+
+  /**
+   * Start an OPAQUE registration handshake.
+   */
+  async opaqueRegisterStart(
+    registrationRequest: string
+  ): Promise<{ registrationResponse: string }> {
+    const res = await this.authedFetch('/api/auth/opaque/register-start', {
+      method: 'POST',
+      body: JSON.stringify({ registrationRequest }),
+    })
+    await AuthFacadeClient.assertOk(res, 'OPAQUE register start failed')
+    return res.json() as Promise<{ registrationResponse: string }>
+  }
+
+  /**
+   * Finish an OPAQUE registration handshake.
+   */
+  async opaqueRegisterFinish(registrationRecord: string): Promise<void> {
+    const res = await this.authedFetch('/api/auth/opaque/register-finish', {
+      method: 'POST',
+      body: JSON.stringify({ registrationRecord }),
+    })
+    await AuthFacadeClient.assertOk(res, 'OPAQUE register finish failed')
+  }
+
+  // ---------------------------------------------------------------------------
+  // Recovery phrase endpoints (Tier 2)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Fetch the recovery phrase metadata (salt, KDF params) for the current user.
+   * Used by the unlock orchestrator to derive the recovery-phrase KEK.
+   */
+  async getRecoveryPhraseMeta(): Promise<{
+    salt: string
+    kdfParams: { algo: string; t: number; m: number; p: number }
+  }> {
+    const res = await this.authedFetch('/api/auth/recovery-phrase/meta')
+    await AuthFacadeClient.assertOk(res, 'Failed to get recovery phrase metadata')
+    return res.json() as Promise<{
+      salt: string
+      kdfParams: { algo: string; t: number; m: number; p: number }
+    }>
+  }
+
+  /**
+   * Store (or rotate) the recovery phrase metadata. Called during enrollment
+   * or recovery phrase rotation. The phrase itself is never sent to the server —
+   * only the Argon2id salt + KDF params.
+   */
+  async setRecoveryPhraseMeta(params: {
+    salt: string
+    kdfParams: { algo: string; t: number; m: number; p: number }
+  }): Promise<void> {
+    const res = await this.authedFetch('/api/auth/recovery-phrase/meta', {
+      method: 'PUT',
+      body: JSON.stringify(params),
+    })
+    await AuthFacadeClient.assertOk(res, 'Failed to set recovery phrase metadata')
+  }
+
+  // ---------------------------------------------------------------------------
+  // Root-KEK envelope endpoints (Tier 2)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Fetch the root-KEK envelope bundle from the server. Returns null if no
+   * bundle is stored yet (first-time enrollment).
+   */
+  async getRootKekBundle(): Promise<unknown | null> {
+    try {
+      const res = await this.authedFetch('/api/auth/root-kek/bundle')
+      if (res.status === 404) return null
+      await AuthFacadeClient.assertOk(res, 'Failed to get root-KEK bundle')
+      return res.json()
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * Persist the root-KEK envelope bundle on the server. Overwrites any
+   * existing bundle. The bundle is also stored in IDB client-side.
+   */
+  async putRootKekBundle(bundle: unknown): Promise<void> {
+    const res = await this.authedFetch('/api/auth/root-kek/bundle', {
+      method: 'PUT',
+      body: JSON.stringify(bundle),
+    })
+    await AuthFacadeClient.assertOk(res, 'Failed to store root-KEK bundle')
+  }
 }
 
 // ---------------------------------------------------------------------------
