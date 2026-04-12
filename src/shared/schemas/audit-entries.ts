@@ -105,6 +105,16 @@ export const RootKekRotatePayloadSchema = z.object({
   reason: z.enum(['factor_added', 'factor_removed', 'scheduled', 'manual', 'migration_v2_v3']),
 })
 
+// --- Tier 6: device fingerprint verification (2026-04) ---
+
+export const DeviceFingerprintVerifiedPayloadSchema = z.object({
+  type: z.literal('device_fingerprint_verified'),
+  hubId: z.string().uuid(),
+  verifiedDeviceId: z.string().uuid(),
+  verifiedDevicePubkey: hexPubkey,
+  verifierDeviceId: z.string().uuid(),
+})
+
 export const AuditEntryPayloadSchema = z.discriminatedUnion('type', [
   MembershipAddPayloadSchema,
   MembershipRemovePayloadSchema,
@@ -128,6 +138,8 @@ export const AuditEntryPayloadSchema = z.discriminatedUnion('type', [
   HubPtkRotatePayloadSchema,
   RecoveryInitiatedPayloadSchema,
   RecoveryCompletedPayloadSchema,
+  // Tier 6: device fingerprint verification
+  DeviceFingerprintVerifiedPayloadSchema,
 ])
 export type AuditEntryPayload = z.infer<typeof AuditEntryPayloadSchema>
 
