@@ -52,11 +52,19 @@ export async function provisionEndpoint(
       aors: username,
       webrtc: 'yes',
       transport: 'transport-wss',
-      context: 'volunteers',
+      context: 'volunteers-sframe', // Tier 5: dedicated SFrame passthrough context
       dtls_auto_generate_cert: 'yes',
       media_encryption: 'dtls',
       disallow: 'all',
-      allow: 'opus,ulaw',
+      allow: 'opus', // Tier 5: Opus-only — SFrame requires a single codec end-to-end
+      // Asterisk 18+ advanced codec negotiation — refuse any transcoding
+      // (pending = offered codecs kept, intersect = answer must overlap).
+      incoming_offer_codec_prefs: 'pending:prefer:pending:keep:all',
+      outgoing_offer_codec_prefs: 'pending:prefer:pending:keep:all',
+      incoming_answer_codec_prefs: 'intersect:prefer:pending:keep:all',
+      outgoing_answer_codec_prefs: 'intersect:prefer:pending:keep:all',
+      codec_prefs_incoming_offer_resolve: 'refuse',
+      codec_prefs_outgoing_offer_resolve: 'refuse',
     })
   } catch (err) {
     // Rollback auth + aor on endpoint failure

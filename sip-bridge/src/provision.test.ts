@@ -77,6 +77,51 @@ describe('provisionEndpoint', () => {
   })
 })
 
+describe('provisionEndpoint — Tier 5 SFrame', () => {
+  test('Tier 5: provisioned endpoint forces Opus-only + refuses transcoding', async () => {
+    const calls: Array<{
+      configClass: string
+      objectType: string
+      id: string
+      fields: Record<string, string>
+    }> = []
+
+    const mockAri: Pick<AriClient, 'configureDynamic' | 'deleteDynamic'> = {
+      configureDynamic: mock(
+        async (
+          configClass: string,
+          objectType: string,
+          id: string,
+          fields: Record<string, string>
+        ) => {
+          calls.push({ configClass, objectType, id, fields })
+        }
+      ),
+      deleteDynamic: mock(async () => {}),
+    }
+
+    await provisionEndpoint(mockAri, 'abcdef0123456789')
+
+    const endpointCall = calls.find(
+      (c) => c.objectType === 'endpoint' && c.id === 'vol_abcdef012345'
+    )
+    expect(endpointCall).toBeDefined()
+
+    const fields = endpointCall?.fields ?? {}
+    expect(fields.context).toBe('volunteers-sframe')
+    expect(fields.allow).toBe('opus')
+    expect(fields.disallow).toBe('all')
+
+    expect(fields.incoming_offer_codec_prefs).toBe('pending:prefer:pending:keep:all')
+    expect(fields.outgoing_offer_codec_prefs).toBe('pending:prefer:pending:keep:all')
+    expect(fields.incoming_answer_codec_prefs).toBe('intersect:prefer:pending:keep:all')
+    expect(fields.outgoing_answer_codec_prefs).toBe('intersect:prefer:pending:keep:all')
+
+    expect(fields.codec_prefs_incoming_offer_resolve).toBe('refuse')
+    expect(fields.codec_prefs_outgoing_offer_resolve).toBe('refuse')
+  })
+})
+
 describe('deprovisionEndpoint', () => {
   test('deprovisions in reverse order: endpoint, aor, auth', async () => {
     const ariCalls: Array<{ objectType: string; id: string }> = []
