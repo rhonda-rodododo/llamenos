@@ -25,6 +25,7 @@ import { schnorr } from '@noble/curves/secp256k1.js'
 import { hexToBytes } from '@noble/hashes/utils.js'
 import { computeEntryHash } from '@shared/lib/audit-entry-hash'
 import { type SignedAuditEntry, SignedAuditEntrySchema } from '@shared/schemas/audit-entries'
+import { API_BASE, API_ORIGIN } from './api/client'
 
 // ---- error type ----
 
@@ -124,7 +125,8 @@ async function defaultFetchEntriesSince(
   hubId: string,
   since: string | null
 ): Promise<SignedAuditEntry[]> {
-  const url = new URL(`/api/hubs/${encodeURIComponent(hubId)}/audit/signed`, window.location.origin)
+  const base = API_ORIGIN || window.location.origin
+  const url = new URL(`${API_BASE}/hubs/${encodeURIComponent(hubId)}/audit/signed`, base)
   if (since) url.searchParams.set('sinceEntryHash', since)
   const res = await fetch(url.toString(), { credentials: 'include' })
   if (!res.ok) throw new Error(`audit/signed fetch failed: ${res.status}`)

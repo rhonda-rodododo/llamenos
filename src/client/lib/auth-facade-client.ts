@@ -5,6 +5,7 @@ import type {
   PublicKeyCredentialRequestOptionsJSON,
   RegistrationResponseJSON,
 } from '@simplewebauthn/browser'
+import { API_ORIGIN } from './api/client'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -92,7 +93,8 @@ class AuthFacadeClient {
 
   private async authedFetch(path: string, opts: RequestInit = {}): Promise<Response> {
     if (!this.accessToken) throw new AuthFacadeError(401, 'Not authenticated')
-    return fetch(path, {
+    return fetch(`${API_ORIGIN}${path}`, {
+      credentials: 'include',
       ...opts,
       headers: {
         'Content-Type': 'application/json',
@@ -124,7 +126,10 @@ class AuthFacadeClient {
    * The returned object includes a `challengeId` that must be passed to `verifyLogin`.
    */
   async getLoginOptions(): Promise<LoginOptionsResponse> {
-    const res = await fetch('/api/auth/webauthn/login-options', { method: 'POST' })
+    const res = await fetch(`${API_ORIGIN}/api/auth/webauthn/login-options`, {
+      method: 'POST',
+      credentials: 'include',
+    })
     await AuthFacadeClient.assertOk(res, 'Failed to get login options')
     return res.json() as Promise<LoginOptionsResponse>
   }
@@ -140,7 +145,7 @@ class AuthFacadeClient {
     assertion: AuthenticationResponseJSON,
     challengeId: string
   ): Promise<{ accessToken: string; pubkey: string }> {
-    const res = await fetch('/api/auth/webauthn/login-verify', {
+    const res = await fetch(`${API_ORIGIN}/api/auth/webauthn/login-verify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ assertion, challengeId }),
@@ -157,10 +162,11 @@ class AuthFacadeClient {
    * Returns `{ valid: true, roles }` on success or `{ valid: false }` on failure.
    */
   async acceptInvite(code: string): Promise<{ valid: boolean; roles?: string[] }> {
-    const res = await fetch('/api/auth/invite/accept', {
+    const res = await fetch(`${API_ORIGIN}/api/auth/invite/accept`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code }),
+      credentials: 'include',
     })
     if (!res.ok) {
       return { valid: false }
@@ -206,7 +212,7 @@ class AuthFacadeClient {
    * Stores the returned access token in memory.
    */
   async refreshToken(): Promise<{ accessToken: string }> {
-    const res = await fetch('/api/auth/token/refresh', {
+    const res = await fetch(`${API_ORIGIN}/api/auth/token/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),

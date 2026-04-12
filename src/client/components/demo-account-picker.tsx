@@ -1,3 +1,4 @@
+import { API_BASE } from '@/lib/api/client'
 import { useAuth } from '@/lib/auth'
 import { authFacadeClient } from '@/lib/auth-facade-client'
 import * as keyManager from '@/lib/key-manager'
@@ -68,10 +69,11 @@ export function DemoAccountPicker() {
       keyManager.disableAutoLock()
 
       // 2. Acquire JWT from demo-login endpoint (no IdP needed in demo mode)
-      const res = await fetch('/api/auth/demo-login', {
+      const res = await fetch(`${API_BASE}/auth/demo-login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pubkey }),
+        credentials: 'include',
       })
       if (!res.ok) throw new Error('Demo login failed')
       const { token } = (await res.json()) as { token: string }

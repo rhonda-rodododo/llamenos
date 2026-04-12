@@ -1,5 +1,6 @@
 import { computeEntryHash } from '@shared/lib/audit-entry-hash'
 import type { AuditEntryPayload, SignedAuditEntry } from '@shared/schemas/audit-entries'
+import { API_BASE, getAuthHeaders } from './api/client'
 import { cryptoWorker } from './crypto-worker-client'
 
 export async function buildSignedAuditEntry(params: {
@@ -29,10 +30,11 @@ export async function appendSignedAuditEntry(
   hubId: string,
   entry: SignedAuditEntry
 ): Promise<void> {
-  const res = await fetch(`/api/hubs/${encodeURIComponent(hubId)}/audit`, {
+  const res = await fetch(`${API_BASE}/hubs/${encodeURIComponent(hubId)}/audit`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify(entry),
+    credentials: 'include',
   })
   if (!res.ok) throw new Error(`Append audit entry failed: ${res.status}`)
 }

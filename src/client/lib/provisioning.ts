@@ -23,6 +23,7 @@ import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { LABEL_DEVICE_PROVISION, SAS_INFO, SAS_SALT } from '@shared/crypto-labels'
 import { unbiasedSixDigitCode } from '@shared/crypto-primitives'
+import { API_BASE } from './api/client'
 
 function randomBytes(n: number): Uint8Array {
   const buf = new Uint8Array(n)
@@ -100,10 +101,11 @@ export async function createProvisioningRoom(): Promise<ProvisioningSession> {
   const ephemeralSecret = randomBytes(32)
   const ephemeralPubkey = secp256k1.getPublicKey(ephemeralSecret, true)
 
-  const res = await fetch('/api/provision/rooms', {
+  const res = await fetch(`${API_BASE}/provision/rooms`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ephemeralPubkey: bytesToHex(ephemeralPubkey) }),
+    credentials: 'include',
   })
   if (!res.ok) throw new Error('Failed to create provisioning room')
   const data = (await res.json()) as { roomId: string; token: string }
@@ -126,7 +128,9 @@ export async function pollProvisioningRoom(
   roomId: string,
   token: string
 ): Promise<ProvisioningRoomStatus> {
-  const res = await fetch(`/api/provision/rooms/${roomId}?token=${token}`)
+  const res = await fetch(`${API_BASE}/provision/rooms/${roomId}?token=${token}`, {
+    credentials: 'include',
+  })
   if (!res.ok) {
     if (res.status === 404 || res.status === 410) return { status: 'expired' }
     throw new Error('Failed to poll room')
@@ -183,7 +187,9 @@ export async function getProvisioningRoom(
   roomId: string,
   token: string
 ): Promise<{ ephemeralPubkey: string; status: string }> {
-  const res = await fetch(`/api/provision/rooms/${roomId}?token=${token}`)
+  const res = await fetch(`${API_BASE}/provision/rooms/${roomId}?token=${token}`, {
+    credentials: 'include',
+  })
   if (!res.ok) throw new Error('Room not found or expired')
   return (await res.json()) as { ephemeralPubkey: string; status: string }
 }
@@ -218,13 +224,14 @@ export async function sendProvisionedKey(
   primaryPubkey: string,
   authHeaders: Record<string, string>
 ): Promise<void> {
-  const res = await fetch(`/api/provision/rooms/${roomId}/payload`, {
+  const res = await fetch(`${API_BASE}/provision/rooms/${roomId}/payload`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       ...authHeaders,
     },
     body: JSON.stringify({ token, encryptedNsec, primaryPubkey }),
+    credentials: 'include',
   })
   if (!res.ok) throw new Error('Failed to send provisioned key')
 }
