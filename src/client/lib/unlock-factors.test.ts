@@ -112,7 +112,11 @@ describe('runUnlockFactor', () => {
       { factorType: 'recoveryPhrase', factorId: 'phrase-1' },
     ])
     const { runUnlockFactor } = await import('./unlock-factors')
-    await runUnlockFactor({ type: 'opaque', password: 'horse-battery' })
+    await runUnlockFactor({
+      type: 'opaque',
+      password: 'horse-battery',
+      userIdentifier: 'test-user-pub',
+    })
     expect(mockRootKekUnwrap).toHaveBeenCalledTimes(1)
     expect(mockOpaqueLoginStart).toHaveBeenCalledTimes(1)
     expect(mockOpaqueLoginFinish).toHaveBeenCalledTimes(1)

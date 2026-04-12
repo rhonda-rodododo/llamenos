@@ -8,9 +8,9 @@
  *   needed — the library handles encoding internally).
  *
  * Export key handling:
- *   The library produces a hex-encoded export key. For KEK derivation we
- *   convert to Uint8Array (32 bytes) so the crypto worker can HKDF it into
- *   a non-extractable AES-KW CryptoKey. The hex string is never persisted.
+ *   The library produces a base64url-encoded export key. For KEK derivation
+ *   we convert to Uint8Array so the crypto worker can HKDF it into a
+ *   non-extractable AES-KW CryptoKey. The raw bytes are never persisted.
  *
  * Security:
  *   - This module NEVER logs, persists, or returns the raw password.
@@ -209,7 +209,7 @@ export const opaqueServer = {
 }
 
 // ---------------------------------------------------------------------------
-// Base64url helpers (for opaque-wrapper.ts consumers).
+// Base64url helpers (for opaqueClient/opaqueServer consumers).
 // ---------------------------------------------------------------------------
 
 function bytesToBase64Url(bytes: Uint8Array): string {
@@ -222,16 +222,7 @@ function bytesToBase64Url(bytes: Uint8Array): string {
   return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-function base64UrlToBytes(s: string): Uint8Array {
-  const padded = s.replace(/-/g, '+').replace(/_/g, '/')
-  const padding = padded.length % 4 === 0 ? '' : '='.repeat(4 - (padded.length % 4))
-  const binary = atob(padded + padding)
-  const bytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-  return bytes
-}
-
 export const opaqueEncoding = {
   bytesToBase64Url,
-  base64UrlToBytes,
+  base64UrlToBytes: decodeBase64Url,
 }

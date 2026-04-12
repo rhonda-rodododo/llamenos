@@ -1,13 +1,15 @@
 /**
  * Convenience PIN — in-session re-lock only.
  *
- * NOT a KEK factor. Stored server-side as Argon2id(PIN, random salt). When the
- * auto-lock timer fires, the worker stays "unlocked" but the UI enters a
- * convenience-locked state; a matching PIN re-enables the UI gate.
- * 5 wrong attempts demote the worker to full Locked.
+ * NOT a KEK factor. The PIN protects against casual shoulder-surfing, not
+ * against a compromised device — the crypto worker retains the root KEK in
+ * memory during convenience-lock, so an attacker with browser memory access
+ * can bypass the PIN entirely.
  *
- * Server integration: The convenience PIN hash is stored via auth-facade-client
- * endpoints. This module is the client-side interface that manages the flow.
+ * Stored client-side in localStorage as Argon2id(PIN, random salt). When
+ * the auto-lock timer fires, the worker stays "unlocked" but the UI enters
+ * a convenience-locked state; a matching PIN re-enables the UI gate.
+ * 5 wrong attempts demote the worker to full Locked (no server component).
  */
 import { argon2id } from '@noble/hashes/argon2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'

@@ -3,7 +3,7 @@
  *
  * Each Llamenos hub runs three independent OPAQUE instances — one per
  * `OpaquePurpose` (`root-kek`, `recovery-phrase`, `recovery-group`). A
- * ServerSetup is the long-lived RFC 9807 blob produced by
+ * ServerSetup is the long-lived blob produced by
  * `opaqueServer.createSetup()` and is the private half of the long-term
  * server identity for that purpose. It MUST be stable: rotating it
  * invalidates every password file registered against the previous setup.
@@ -27,10 +27,10 @@
  */
 
 import { eq } from 'drizzle-orm'
-import { opaqueServer } from '../../client/lib/opaque-client'
 import type { OpaquePurpose } from '../../shared/schemas/opaque'
 import type { Database } from '../db'
 import { opaqueServerSetup } from '../db/schema/opaque'
+import { opaqueServer } from './opaque-server'
 
 const setupCache = new Map<OpaquePurpose, string>()
 

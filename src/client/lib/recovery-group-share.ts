@@ -6,13 +6,19 @@ import { bytesToHex } from '@noble/hashes/utils.js'
  *
  *   generateRecoveryGroupKeyPair() → (RG_pub, RG_priv)  [secp256k1]
  *   splitRecoveryGroupSecret(secret, shares, threshold) → shares[]
- *   combineRecoveryGroupShares(shares) → secret
+ *   combineRecoveryGroupShares(shares) → secret  (no verification!)
+ *   combineAndVerifyShares(shares, commitments) → secret (verified)
  *   commitShare(share)  → commitment (32 bytes SHA-256 hex)
  *   verifyShareCommitment(share, commitment) → bool
  *
  * Uses `shamir-secret-sharing` from privy-io — GF(2^8), Cure53/Zellic audited.
- * Note: the library does not verify reconstructed secrets, so the caller MUST
- * verify via the per-share SHA-256 commitment stored at enrollment.
+ *
+ * IMPORTANT: The library does NOT verify reconstructed secrets. With fewer
+ * shares than the threshold, `combine()` returns silently wrong bytes — not
+ * an error. Callers MUST use `combineAndVerifyShares()` to verify each share's
+ * SHA-256 commitment before combination and validate the result. Given N
+ * total shares, any K (threshold) shares suffice to reconstruct the secret;
+ * K-1 or fewer shares reveal zero information (information-theoretic security).
  */
 import { combine, split } from 'shamir-secret-sharing'
 
@@ -54,6 +60,35 @@ export async function verifyShareCommitment(
 ): Promise<boolean> {
   const actual = await commitShare(share)
   return actual === commitment
+}
+
+/**
+ * Verify each share against its commitment, then combine. Throws
+ * ShareCommitmentError with the failing index if any share is tampered.
+ *
+ * This is the only safe way to reconstruct a secret — raw
+ * `combineRecoveryGroupShares` returns garbage for below-threshold or
+ * tampered shares with no error.
+ */
+export async function combineAndVerifyShares(
+  shares: Uint8Array[],
+  commitments: string[]
+): Promise<Uint8Array> {
+  if (shares.length !== commitments.length) {
+    throw new ShareCommitmentError(
+      `share/commitment count mismatch: ${shares.length} shares vs ${commitments.length} commitments`
+    )
+  }
+  if (shares.length < 2) {
+    throw new ShareCommitmentError(`need at least 2 shares, got ${shares.length}`)
+  }
+  for (let i = 0; i < shares.length; i++) {
+    const valid = await verifyShareCommitment(shares[i]!, commitments[i]!)
+    if (!valid) {
+      throw new ShareCommitmentError(`share at index ${i} does not match its commitment`)
+    }
+  }
+  return combine(shares)
 }
 
 export interface RecoveryGroupKeyPair {

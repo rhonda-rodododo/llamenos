@@ -315,56 +315,73 @@ class AuthFacadeClient {
 
   // ---------------------------------------------------------------------------
   // OPAQUE endpoints (Tier 2)
+  //
+  // Routes live under /api/opaque/* (authenticated router), NOT /api/auth/*.
+  // Request/response shapes match src/shared/schemas/opaque.ts.
   // ---------------------------------------------------------------------------
 
   /**
-   * Start an OPAQUE login handshake. Sends the client's start message to the
-   * server and returns the server's login response (credential response).
+   * Start an OPAQUE registration handshake. The server creates a registration
+   * response against the purpose's ServerSetup.
    */
-  async opaqueLoginStart(startLoginRequest: string): Promise<{ loginResponse: string }> {
-    const res = await this.authedFetch('/api/auth/opaque/login-start', {
-      method: 'POST',
-      body: JSON.stringify({ startLoginRequest }),
-    })
-    await AuthFacadeClient.assertOk(res, 'OPAQUE login start failed')
-    return res.json() as Promise<{ loginResponse: string }>
-  }
-
-  /**
-   * Finish an OPAQUE login handshake. Sends the client's finalization message
-   * to the server for session-key confirmation.
-   */
-  async opaqueLoginFinish(finishLoginRequest: string): Promise<void> {
-    const res = await this.authedFetch('/api/auth/opaque/login-finish', {
-      method: 'POST',
-      body: JSON.stringify({ finishLoginRequest }),
-    })
-    await AuthFacadeClient.assertOk(res, 'OPAQUE login finish failed')
-  }
-
-  /**
-   * Start an OPAQUE registration handshake.
-   */
-  async opaqueRegisterStart(
+  async opaqueRegisterStart(params: {
+    purpose: string
+    credentialIdentifier: string
     registrationRequest: string
-  ): Promise<{ registrationResponse: string }> {
-    const res = await this.authedFetch('/api/auth/opaque/register-start', {
+  }): Promise<{ sessionId: string; registrationResponse: string }> {
+    const res = await this.authedFetch('/api/opaque/registration/start', {
       method: 'POST',
-      body: JSON.stringify({ registrationRequest }),
+      body: JSON.stringify(params),
     })
     await AuthFacadeClient.assertOk(res, 'OPAQUE register start failed')
-    return res.json() as Promise<{ registrationResponse: string }>
+    return res.json() as Promise<{ sessionId: string; registrationResponse: string }>
   }
 
   /**
-   * Finish an OPAQUE registration handshake.
+   * Finish an OPAQUE registration handshake. The server stores the password file.
    */
-  async opaqueRegisterFinish(registrationRecord: string): Promise<void> {
-    const res = await this.authedFetch('/api/auth/opaque/register-finish', {
+  async opaqueRegisterFinish(params: {
+    sessionId: string
+    credentialIdentifier: string
+    registrationUpload: string
+  }): Promise<void> {
+    const res = await this.authedFetch('/api/opaque/registration/finish', {
       method: 'POST',
-      body: JSON.stringify({ registrationRecord }),
+      body: JSON.stringify(params),
     })
     await AuthFacadeClient.assertOk(res, 'OPAQUE register finish failed')
+  }
+
+  /**
+   * Start an OPAQUE login handshake. Sends the client's credential request
+   * to the server and returns the server's credential response.
+   */
+  async opaqueLoginStart(params: {
+    purpose: string
+    credentialIdentifier: string
+    credentialRequest: string
+  }): Promise<{ sessionId: string; credentialResponse: string }> {
+    const res = await this.authedFetch('/api/opaque/login/start', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    })
+    await AuthFacadeClient.assertOk(res, 'OPAQUE login start failed')
+    return res.json() as Promise<{ sessionId: string; credentialResponse: string }>
+  }
+
+  /**
+   * Finish an OPAQUE login handshake. Sends the client's credential finalization
+   * to the server for session-key confirmation.
+   */
+  async opaqueLoginFinish(params: {
+    sessionId: string
+    credentialFinalization: string
+  }): Promise<void> {
+    const res = await this.authedFetch('/api/opaque/login/finish', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    })
+    await AuthFacadeClient.assertOk(res, 'OPAQUE login finish failed')
   }
 
   // ---------------------------------------------------------------------------
@@ -494,22 +511,19 @@ class AuthFacadeClient {
     expiresAt: string
     delayRemainingMs: number
   } | null> {
-    try {
-      const res = await fetch(`/api/auth/recovery-group/session/${encodeURIComponent(sessionId)}`)
-      if (res.status === 404) return null
-      return res.json() as Promise<{
-        sessionId: string
-        hubId: string
-        status: string
-        contributionCount: number
-        threshold: number
-        createdAt: string
-        expiresAt: string
-        delayRemainingMs: number
-      }>
-    } catch {
-      return null
-    }
+    const res = await fetch(`/api/auth/recovery-group/session/${encodeURIComponent(sessionId)}`)
+    if (res.status === 404) return null
+    await AuthFacadeClient.assertOk(res, 'Failed to fetch recovery session')
+    return res.json() as Promise<{
+      sessionId: string
+      hubId: string
+      status: string
+      contributionCount: number
+      threshold: number
+      createdAt: string
+      expiresAt: string
+      delayRemainingMs: number
+    }>
   }
 
   async recoveryGroupComplete(body: {

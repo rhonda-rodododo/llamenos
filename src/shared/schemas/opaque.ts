@@ -1,7 +1,7 @@
 import { z } from '@hono/zod-openapi'
 
 /**
- * OPAQUE (RFC 9807) wire schemas.
+ * OPAQUE wire schemas.
  *
  * All byte payloads cross the network as base64url-encoded strings so they
  * are safe inside JSON bodies. The Rust WASM wrapper handles decoding.

@@ -55,8 +55,13 @@ export function normalizeRecoveryPhrase(phrase: string): string {
 
 const wordSet = new Set<string>(EFF_LARGE_WORDLIST)
 
+/**
+ * Validate a recovery phrase. Throws RecoveryPhraseError with a specific
+ * error code if invalid.
+ */
 export function validateRecoveryPhrase(phrase: string): boolean {
   const words = normalizeRecoveryPhrase(phrase).split(' ')
+  if (words.length === 0 || words[0] === '') return false
   if (![12, 15, 18, 24].includes(words.length)) return false
   for (const w of words) {
     if (!wordSet.has(w)) return false
@@ -64,22 +69,41 @@ export function validateRecoveryPhrase(phrase: string): boolean {
   return true
 }
 
+/** Validate and throw with the specific error code. */
+function assertValidRecoveryPhrase(phrase: string): void {
+  const normalized = normalizeRecoveryPhrase(phrase)
+  if (normalized === '') throw new RecoveryPhraseError('empty')
+  const words = normalized.split(' ')
+  if (![12, 15, 18, 24].includes(words.length)) {
+    throw new RecoveryPhraseError('wrong_length')
+  }
+  for (const w of words) {
+    if (!wordSet.has(w)) throw new RecoveryPhraseError('invalid_word')
+  }
+}
+
 /**
- * Derive the recovery phrase KEK as 32 raw bytes. The caller is responsible for
- * importing these bytes as a non-extractable AES-KW CryptoKey via
- * handleImportRecoveryPhraseKek in the crypto worker.
+ * Derive the recovery phrase KEK as 32 raw bytes. The caller is responsible
+ * for importing these bytes as a non-extractable AES-KW CryptoKey via the
+ * crypto worker.
  *
  * KDF parameters follow OWASP 2026 low-resource floor:
  *   Argon2id(t=2, m=19456 KiB, p=1, dkLen=32)
  * then HKDF-SHA256 with LABEL_RECOVERY_PHRASE_KEK + ':phrase' as info.
  */
 export function deriveRecoveryPhraseKekBytes(phrase: string, salt: Uint8Array): Uint8Array {
-  if (!validateRecoveryPhrase(phrase)) {
-    throw new RecoveryPhraseError('invalid_word')
+  assertValidRecoveryPhrase(phrase)
+  if (salt.length !== 32) {
+    throw new Error(`Recovery phrase salt must be 32 bytes, got ${salt.length}`)
   }
   const normalized = normalizeRecoveryPhrase(phrase)
   const ikm = utf8ToBytes(normalized)
-  const raw = argon2id(ikm, salt, { t: 2, m: 19456, p: 1, dkLen: 32 })
+  const raw = argon2id(ikm, salt, {
+    t: RECOVERY_PHRASE_KDF_PARAMS.t,
+    m: RECOVERY_PHRASE_KDF_PARAMS.m,
+    p: RECOVERY_PHRASE_KDF_PARAMS.p,
+    dkLen: 32,
+  })
   ikm.fill(0)
   const info = utf8ToBytes(`${LABEL_RECOVERY_PHRASE_KEK}:phrase`)
   const kek = hkdf(sha256, raw, new Uint8Array(0), info, 32)

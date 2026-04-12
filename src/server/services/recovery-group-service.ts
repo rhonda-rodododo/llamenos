@@ -196,9 +196,15 @@ export class RecoveryGroupService {
       )[0]
       if (!session) throw new Error('recovery session not found')
       if (session.status !== 'ready') {
+        const group = (
+          await tx
+            .select({ threshold: hubRecoveryGroups.threshold })
+            .from(hubRecoveryGroups)
+            .where(eq(hubRecoveryGroups.hubId, session.hubId))
+        )[0]
         throw new RecoveryGroupThresholdError(
           (session.contributions as RecoveryContribution[]).length,
-          0 // will be filled below
+          group?.threshold ?? 0
         )
       }
       const elapsedMs = Date.now() - session.createdAt.getTime()
