@@ -1,23 +1,21 @@
 /**
- * AuditLogService — Tier 0 signed audit chain (server side).
+ * AuditLogService — signed audit chain (server side).
  *
  * Verifies and appends {@link SignedAuditEntry} records produced by clients:
  *   1. zod validation of the entry shape
  *   2. prevEntryHash matches the current chain head for the hub
  *   3. entryHash matches a server-side recomputation
  *   4. schnorr signature validates against signerPubkey + entryHash
- *   5. signer is a known user
+ *   5. signer is a known user or registered device
  *   6. signer's role is authorized for the payload type
  *
  * The service is storage-agnostic — it takes a small port object so the unit
  * tests can run without a live database, and so production wiring can bind
  * it to Drizzle via {@link createDrizzleAuditLogService}.
  *
- * TODO(tier-3): Steps 5 and 6 currently fall back to a users-table lookup
- * because DeviceRegistry (plan-required per-device signer registration) is a
- * Tier 3 concern. When the real device registry lands, replace
- * {@link AuditSignerLookup} with a per-device query so signer revocation is
- * finer-grained than "deactivate the user". See PR #68 compromise #7.
+ * Signer resolution checks the device registry first (per-device signing
+ * pubkeys from Tier 3), then falls back to the users.pubkey column for
+ * backward compatibility with Tier 0 entries.
  */
 import { schnorr } from '@noble/curves/secp256k1.js'
 import { hexToBytes } from '@noble/hashes/utils.js'
@@ -27,9 +25,9 @@ import {
   type SignedAuditEntry,
   SignedAuditEntrySchema,
 } from '@shared/schemas/audit-entries'
-import { and, asc, desc, eq, gt } from 'drizzle-orm'
+import { and, asc, desc, eq, gt, isNull } from 'drizzle-orm'
 import type { Database } from '../db'
-import { signedAuditEntries } from '../db/schema'
+import { signedAuditEntries, userDevices } from '../db/schema'
 import { users } from '../db/schema/identity'
 
 // ---- errors ----
@@ -71,18 +69,39 @@ export interface AuditLogServicePort {
 
 function payloadIsAuthorizedFor(payload: AuditEntryPayload, role: string): boolean {
   switch (payload.type) {
+    // Admin-level hub management
     case 'membership_add':
     case 'membership_remove':
     case 'role_change':
     case 'hub_key_rotate':
     case 'hub_delete':
+    case 'hub_ptk_rotate':
       return role === 'admin' || role === 'super_admin'
     case 'hub_create':
       return role === 'super_admin'
+    // Tier 0 device lifecycle (legacy)
     case 'device_add':
     case 'device_revoke':
-      // Any authenticated signer may claim device-lifecycle events in Tier 0;
-      // Tier 3's DeviceRegistry will tighten this once per-device identity exists.
+      return true
+    // Tier 2 factor lifecycle — users manage their own factors
+    case 'factor_add':
+    case 'factor_remove':
+    case 'root_kek_rotate':
+      return true
+    // Tier 3 sigchain identity events — any authenticated user for their own
+    case 'user_init':
+    case 'tier3_device_add':
+    case 'tier3_device_remove':
+    case 'puk_rotate':
+    case 'user_master_signing_update':
+      return true
+    // Tier 3 cross-signing — any authenticated signer
+    case 'device_cross_sign':
+    case 'user_cross_sign':
+      return true
+    // Tier 3 recovery — any authenticated signer
+    case 'recovery_initiated':
+    case 'recovery_completed':
       return true
     default:
       return false
@@ -110,8 +129,8 @@ export class AuditLogService {
   /**
    * Verify and append a signed audit entry.
    *
-   * TODO(tier-3): replace users-table signer lookup with a DeviceRegistry
-   * per-device check so signer revocation can be granular.
+   * Signer resolution checks the device registry first for per-device
+   * signing pubkeys, then falls back to users.pubkey for Tier 0 entries.
    */
   async appendSigned(entry: SignedAuditEntry): Promise<void> {
     SignedAuditEntrySchema.parse(entry)
@@ -291,6 +310,26 @@ export class DrizzleAuditLogService {
   }
 
   private async findSignerByPubkey(pubkey: string): Promise<AuditSigner | null> {
+    // Tier 3: check device registry first
+    const deviceRows = await this.db
+      .select({ userId: userDevices.userId })
+      .from(userDevices)
+      .where(and(eq(userDevices.signingPubkey, pubkey), isNull(userDevices.revokedAt)))
+      .limit(1)
+    if (deviceRows[0]) {
+      const userRows = await this.db
+        .select({ roles: users.roles })
+        .from(users)
+        .where(eq(users.pubkey, deviceRows[0].userId))
+        .limit(1)
+      if (userRows[0]) {
+        return {
+          id: deviceRows[0].userId,
+          role: rolesToCanonical(userRows[0].roles as string[] | undefined),
+        }
+      }
+    }
+    // Fallback: Tier 0 users.pubkey lookup
     const rows = await this.db
       .select({ id: users.pubkey, roles: users.roles })
       .from(users)
