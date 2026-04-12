@@ -18,6 +18,12 @@ import { jsonb } from '../bun-jsonb'
  * `recoverySessions`: Transient recovery ceremony state. Created when a user
  * initiates recovery; tracks admin share contributions, threshold readiness,
  * the 24h delay, and optional emergency override.
+ *
+ * Tier 3 PR-C — Recovery Request table.
+ *
+ * `recoveryRequests`: Admin-initiated recovery request tracking with Shamir
+ * threshold enforcement. Tracks participant count, recovery type, associated
+ * device and sigchain entry, and expiry for stale request cleanup.
  */
 
 export const hubRecoveryGroups = pgTable('hub_recovery_groups', {
@@ -91,3 +97,28 @@ export const recoverySessions = pgTable(
     statusIdx: index('recovery_sessions_status_idx').on(t.status),
   })
 )
+
+/**
+ * `recoveryRequests`: Admin-initiated recovery request tracking.
+ *
+ * Tracks Shamir threshold enforcement, participant count, recovery type
+ * (paper_key | recovery_group | admin_reset), associated new device and
+ * sigchain entry, and expiry timestamp for stale request cleanup.
+ *
+ * Lifecycle: pending → completed (threshold met + device enrolled)
+ *                    → expired  (stale after maxAgeMs)
+ */
+export const recoveryRequests = pgTable('recovery_requests', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id').notNull(),
+  initiatedByUserId: text('initiated_by_user_id').notNull(),
+  recoveryType: text('recovery_type').notNull().default('admin_reset'),
+  status: text('status').notNull().default('pending'),
+  threshold: integer('threshold').notNull().default(2),
+  participantsCount: integer('participants_count').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  expiredAt: timestamp('expired_at', { withTimezone: true }),
+  newDeviceId: text('new_device_id'),
+  sigchainEntryId: text('sigchain_entry_id'),
+})

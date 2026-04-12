@@ -315,7 +315,7 @@ export const LABEL_PUK_RECOVERY_GROUP_WRAP = 'llamenos:puk:recovery-group:v1' as
 /** AAD for encrypting device display_name under the PUK SecretBox key */
 export const LABEL_DEVICE_DISPLAY = 'llamenos:device:display:v1' as CryptoLabel
 
-/** HKDF info for device enrollment SAS code derivation */
+/** HKDF salt for device enrollment SAS code derivation */
 export const LABEL_DEVICE_ENROLLMENT_SAS = 'llamenos:device:enrollment-sas:v1' as CryptoLabel
 
 /** HMAC label: BIP39 seed → paper-key signing seed */
