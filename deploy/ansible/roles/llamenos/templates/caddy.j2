@@ -100,9 +100,15 @@
 	try_files {path} /sandbox.html
 
 	header {
-		# Iframe-only CSP: no inline, no eval, no cross-site connections
-		# except the API. frame-ancestors restricts who may embed us.
-		Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'none'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://{{ llamenos_api_domain }} wss://{{ llamenos_api_domain }}; worker-src 'self' blob:; frame-ancestors https://{{ llamenos_app_domain }}; base-uri 'none'; form-action 'none'; require-trusted-types-for 'script'; trusted-types llamenos-sandbox default; report-uri https://{{ llamenos_api_domain }}/api/csp-report"
+		# Iframe-only CSP. HARD INVARIANT: `connect-src 'none'` — the crypto
+		# sandbox is an offline oracle. Ciphertext flows in via postMessage,
+		# plaintext flows out via postMessage. ZERO network. Never widen this
+		# to 'self' or api.*; doing so would break the Tier 4 threat model.
+		# `style-src 'self'` matches the sandbox.html meta CSP (no inline
+		# styles are used, but `'none'` forbids even the <link rel=stylesheet>
+		# we ship in the bundle). `script-src` adds 'wasm-unsafe-eval' so
+		# noble/whisper WASM modules can instantiate once crypto wiring lands.
+		Content-Security-Policy "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'none'; worker-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors https://{{ llamenos_app_domain }}; require-trusted-types-for 'script'; trusted-types llamenos-sandbox default; report-uri https://{{ llamenos_api_domain }}/api/csp-report"
 
 		Cross-Origin-Opener-Policy "same-origin"
 		Cross-Origin-Embedder-Policy "require-corp"

@@ -28,17 +28,20 @@
                                      : Trusted Types enforcement — document.
                                        innerHTML, Worker(new Worker(str)), etc.
                                        all refuse strings and require TT objects.
-        - trusted-types llamenos     : the ONE named policy that may produce
+        - trusted-types llamenos-sandbox
+                                     : the ONE named policy that may produce
                                        trusted sinks. Its createHTML/createScript
                                        implementations in main.ts throw on every
                                        call — so even our own code cannot
-                                       construct trusted HTML at runtime.
+                                       construct trusted HTML at runtime. Name
+                                       MUST match Caddy CSP + main.ts createPolicy
+                                       exactly; Chromium throws on any mismatch.
         - frame-ancestors            : set by Caddy to the SPA origin so only
                                        the real app can embed this iframe.
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'none'; worker-src 'self'; base-uri 'none'; form-action 'none'; require-trusted-types-for 'script'; trusted-types llamenos"
+      content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'none'; worker-src 'self'; base-uri 'none'; form-action 'none'; require-trusted-types-for 'script'; trusted-types llamenos-sandbox"
     />
     <meta name="referrer" content="no-referrer" />
     <title>Llamenos Crypto Sandbox</title>

@@ -407,4 +407,87 @@ describe('verifyOrThrow', () => {
       })
     ).rejects.toBeInstanceOf(VerifierFailure)
   })
+
+  test('throws on signature-invalid (forged signature)', async () => {
+    const { sk } = newKeypair()
+    const other = newKeypair()
+    const manifest: ReleaseManifest = { version: 1, releaseTag: 'v1', builtAt: 1, files: {} }
+    const canonical = canonicalizeJson(manifest)
+    const sig = ed25519.sign(new TextEncoder().encode(canonical), sk)
+    const signed = { manifest, signature: bytesToHex(sig), signingKey: other.pkHex }
+    const fetchFn = makeFakeFetch(signed, [], API)
+    await expect(
+      verifyOrThrow({
+        apiOrigin: API,
+        appOrigin: APP,
+        pinnedSigningKey: other.pkHex,
+        fetchFn,
+        documentRef: makeFakeDocument([]),
+      })
+    ).rejects.toBeInstanceOf(VerifierFailure)
+  })
+
+  test('throws on key-not-pinned (wrong signing key)', async () => {
+    const { sk, pkHex } = newKeypair()
+    const other = newKeypair()
+    const signed = signManifest({ version: 1, releaseTag: 'v1', builtAt: 1, files: {} }, sk, pkHex)
+    const fetchFn = makeFakeFetch(signed, [], API)
+    await expect(
+      verifyOrThrow({
+        apiOrigin: API,
+        appOrigin: APP,
+        pinnedSigningKey: other.pkHex,
+        fetchFn,
+        documentRef: makeFakeDocument([]),
+      })
+    ).rejects.toBeInstanceOf(VerifierFailure)
+  })
+
+  test('throws on manifest-unparseable (server returns garbage)', async () => {
+    const fetchFn = (async () => new Response('{"garbage": true}')) as unknown as typeof fetch
+    await expect(
+      verifyOrThrow({
+        apiOrigin: API,
+        appOrigin: APP,
+        pinnedSigningKey: 'a'.repeat(64),
+        fetchFn,
+        documentRef: makeFakeDocument([]),
+      })
+    ).rejects.toBeInstanceOf(VerifierFailure)
+  })
+
+  test('throws on fetch-error (manifest endpoint down)', async () => {
+    const fetchFn = (async () => new Response('', { status: 503 })) as unknown as typeof fetch
+    await expect(
+      verifyOrThrow({
+        apiOrigin: API,
+        appOrigin: APP,
+        pinnedSigningKey: 'a'.repeat(64),
+        fetchFn,
+        documentRef: makeFakeDocument([]),
+      })
+    ).rejects.toBeInstanceOf(VerifierFailure)
+  })
+
+  test('VerifierFailure exposes the underlying result', async () => {
+    const { sk, pkHex } = newKeypair()
+    const other = newKeypair()
+    const signed = signManifest({ version: 1, releaseTag: 'v1', builtAt: 1, files: {} }, sk, pkHex)
+    const fetchFn = makeFakeFetch(signed, [], API)
+    try {
+      await verifyOrThrow({
+        apiOrigin: API,
+        appOrigin: APP,
+        pinnedSigningKey: other.pkHex,
+        fetchFn,
+        documentRef: makeFakeDocument([]),
+      })
+      throw new Error('should have thrown')
+    } catch (err) {
+      expect(err).toBeInstanceOf(VerifierFailure)
+      const failure = err as VerifierFailure
+      expect(failure.result.status).toBe('key-not-pinned')
+      expect(failure.message).toContain('key-not-pinned')
+    }
+  })
 })

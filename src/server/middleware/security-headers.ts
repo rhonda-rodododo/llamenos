@@ -88,10 +88,16 @@ export const securityHeaders = createMiddleware<AppEnv>(async (c, next) => {
   c.header('Cross-Origin-Resource-Policy', isDev ? 'same-origin' : 'cross-origin')
   c.header('X-Permitted-Cross-Domain-Policies', 'none')
 
+  // Fail-closed default: enforce the locked-down CSP unless explicitly
+  // downgraded to report-only via CSP_MODE=report-only. An API host that
+  // silently ships report-only in production is indistinguishable from no
+  // CSP at all for browsers that honour the header — MIME-confused script
+  // execution would be caught AFTER it runs, which defeats the purpose.
+  // Fail-closed: enforce CSP by default, opt-in to report-only via env var
   const cspMode =
-    process.env.CSP_MODE === 'enforcing'
-      ? 'Content-Security-Policy'
-      : 'Content-Security-Policy-Report-Only'
+    process.env.CSP_MODE === 'report-only'
+      ? 'Content-Security-Policy-Report-Only'
+      : 'Content-Security-Policy'
 
   if (isDev) {
     const host = new URL(c.req.url).host
