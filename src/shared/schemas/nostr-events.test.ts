@@ -90,13 +90,14 @@ describe('DtlsBindingEventPayloadSchema', () => {
 })
 
 describe('CallModePayloadSchema', () => {
-  test('accepts pstn with reason', () => {
+  test('accepts pstn with reason and hubId', () => {
     expect(() =>
       CallModePayloadSchema.parse({
         type: 'call:mode',
-        callId: validCallId,
+        callId: 'CA1234567890abcdef1234567890abcd',
         mode: 'pstn',
-        reason: 'caller is a PSTN phone',
+        reason: 'caller_on_pstn_trunk',
+        hubId: 'hub-1',
       })
     ).not.toThrow()
   })
@@ -107,8 +108,31 @@ describe('CallModePayloadSchema', () => {
         type: 'call:mode',
         callId: validCallId,
         mode: 'sframe',
+        hubId: 'global',
       })
     ).not.toThrow()
+  })
+
+  test('accepts non-UUID callId (Twilio SID)', () => {
+    expect(() =>
+      CallModePayloadSchema.parse({
+        type: 'call:mode',
+        callId: 'CA00000000000000000000000000000000',
+        mode: 'pstn',
+        hubId: 'hub-1',
+      })
+    ).not.toThrow()
+  })
+
+  test('rejects empty callId', () => {
+    expect(() =>
+      CallModePayloadSchema.parse({
+        type: 'call:mode',
+        callId: '',
+        mode: 'pstn',
+        hubId: 'hub-1',
+      })
+    ).toThrow()
   })
 
   test('rejects unknown mode', () => {
@@ -117,6 +141,17 @@ describe('CallModePayloadSchema', () => {
         type: 'call:mode',
         callId: validCallId,
         mode: 'quantum',
+        hubId: 'hub-1',
+      })
+    ).toThrow()
+  })
+
+  test('rejects missing hubId', () => {
+    expect(() =>
+      CallModePayloadSchema.parse({
+        type: 'call:mode',
+        callId: validCallId,
+        mode: 'sframe',
       })
     ).toThrow()
   })

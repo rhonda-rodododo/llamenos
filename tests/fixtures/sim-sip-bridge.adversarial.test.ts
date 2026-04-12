@@ -6,7 +6,6 @@
  * valid ciphertext that the intended recipient can decrypt.
  */
 import { describe, expect, it } from 'bun:test'
-import type { CiphertextBytes, PlaintextBytes } from '../../src/shared/sframe/sframe-types.js'
 import { SimCaller } from './sim-caller'
 import { SimSipBridge } from './sim-sip-bridge'
 

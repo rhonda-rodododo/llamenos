@@ -55,11 +55,16 @@ export type DtlsBindingEvent = z.infer<typeof DtlsBindingEventPayloadSchema>
 /**
  * Call mode signal. Peers announce whether they're operating in E2EE SFrame
  * mode or falling back to PSTN bridge mode (which cannot be E2EE).
+ *
+ * `callId` is the telephony provider's call identifier (e.g. Twilio SID
+ * `CAxxxx`, Asterisk channel ID) — NOT a UUID. Relaxed to `string().min(1)`.
+ * `hubId` is the routing scope; falls back to `'global'` for single-hub deployments.
  */
 export const CallModePayloadSchema = z.object({
   type: z.literal('call:mode'),
-  callId: z.string().uuid(),
+  callId: z.string().min(1),
   mode: z.enum(['sframe', 'pstn']),
   reason: z.string().optional(),
+  hubId: z.string().min(1),
 })
 export type CallModeEvent = z.infer<typeof CallModePayloadSchema>
