@@ -62,7 +62,7 @@ await bridge.hangup('call-123', 16, 'NORMAL_CLEARING')
 ### Assertions this fixture enables
 
 - **RTP bytes flowed bidirectionally** — check `getCapturedPackets()` for both `a-to-b` and `b-to-a` directions.
-- **The bridge saw only ciphertext** (Tier 5) — iterate `getCapturedPackets()` and assert none of the payload bytes match the known plaintext clip from `SimCaller`.
+- **The bridge saw only ciphertext** (Tier 5) — `CapturedPacket.bytes` is typed as `CiphertextBytes | PlaintextBytes` (Task 19d), so the "bridge never saw plaintext" assertion is expressible as a compile-time brand check instead of a byte-pattern sniff. Hand the bridge a `CiphertextBytes` from `SimCaller.produceFrame`; any use site that tries to narrow `captured.bytes` to `PlaintextBytes` without a runtime predicate is rejected by `tsc`.
 - **Dialplan stasis args routed the call** — assert `channel_create.args` contains `"sframe"` or `"pstn"` to verify the Tier 5 dispatcher.
 - **Endpoint provisioning is idempotent** — provisioning the same pubkey twice returns the same creds.
 

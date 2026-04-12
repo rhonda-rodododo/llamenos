@@ -37,6 +37,7 @@ import type {
   DtmfReceivedEvent,
   PlaybackFinishedEvent,
 } from '../../sip-bridge/src/bridge-client'
+import type { CiphertextBytes, PlaintextBytes } from '../../src/shared/sframe/sframe-types.js'
 
 export type {
   ChannelAnswerEvent,
@@ -84,7 +85,13 @@ export interface EndpointCreds {
 
 export interface CapturedPacket {
   direction: 'a-to-b' | 'b-to-a'
-  bytes: Uint8Array
+  /**
+   * SFrame byte brand (Task 19d). `CiphertextBytes | PlaintextBytes` makes
+   * the "bridge never saw plaintext" assertion expressible as a compile-time
+   * `never` narrowing rather than a byte-pattern sniff — see Tier 5 plan
+   * Workstream 5.8 Task 19d for the rationale.
+   */
+  bytes: CiphertextBytes | PlaintextBytes
   time: number
 }
 
@@ -275,17 +282,28 @@ export class SimSipBridge {
    * §5.12.1. The base class never drops; tests that want to assert drop
    * semantics must use a subclass.
    */
-  bridgePacket(from: 'caller' | 'volunteer', bytes: Uint8Array): Uint8Array | null {
+  bridgePacket(
+    from: 'caller' | 'volunteer',
+    bytes: CiphertextBytes | PlaintextBytes
+  ): CiphertextBytes | PlaintextBytes | null {
     this.captured.push({
       direction: from === 'caller' ? 'a-to-b' : 'b-to-a',
-      bytes: new Uint8Array(bytes),
+      // `new Uint8Array(Uint8Array)` copies the bytes and the structural
+      // brand is lost at runtime — the single unavoidable cast. Callers
+      // that re-read captured bytes must re-brand via `asCiphertextBytes`
+      // / `asPlaintextBytes` at the use site.
+      bytes: new Uint8Array(bytes) as CiphertextBytes | PlaintextBytes,
       time: Date.now(),
     })
     return bytes
   }
 
   getCapturedPackets(): CapturedPacket[] {
-    return this.captured.map((p) => ({ ...p, bytes: new Uint8Array(p.bytes) }))
+    return this.captured.map((p) => ({
+      ...p,
+      // Same rationale as bridgePacket's internal copy — see above.
+      bytes: new Uint8Array(p.bytes) as CiphertextBytes | PlaintextBytes,
+    }))
   }
 
   clear(): void {

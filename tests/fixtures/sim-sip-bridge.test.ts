@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { type PlaintextBytes, asCiphertextBytes } from '../../src/shared/sframe/sframe-types.js'
 import { type SimBridgeEvent, type SimChannelState, SimSipBridge } from './sim-sip-bridge'
 
 describe('SimSipBridge — endpoint provisioning', () => {
@@ -438,5 +439,33 @@ describe('SimSipBridge — bridgePacket defensive byte copy', () => {
     bridge.bridgePacket('caller', input)
     input[0] = 0xff
     expect(bridge.getCapturedPackets()[0].bytes[0]).toBe(0x01)
+  })
+})
+
+describe('SimSipBridge — byte-brand assertions (Task 19d)', () => {
+  test('captured packets are typed as CiphertextBytes | PlaintextBytes', () => {
+    const bridge = new SimSipBridge()
+    const ct = asCiphertextBytes(new Uint8Array([0x01, 0x02]))
+    bridge.bridgePacket('caller', ct)
+    const [captured] = bridge.getCapturedPackets()
+    if (!captured) throw new Error('expected one captured packet')
+
+    // Compile-time: assignment to a plain `Uint8Array` (the structural
+    // supertype) must still succeed; this keeps existing byte-inspection
+    // code working.
+    const _asBytes: Uint8Array = captured.bytes
+    expect(_asBytes).toBeInstanceOf(Uint8Array)
+
+    // Compile-time negative check: a fresh `CiphertextBytes` is not
+    // assignable to `PlaintextBytes`. The two brands carry distinct
+    // `unique symbol` keys, so TS rejects the cross-brand assignment —
+    // proving the brand is load-bearing at the type layer. (Task 19d
+    // only widens the bridge surface; the actual narrowing machinery
+    // lives in tests that read `captured.bytes` via a runtime predicate.)
+    const freshCt = asCiphertextBytes(new Uint8Array([0x03]))
+    // @ts-expect-error — CiphertextBytes is not assignable to PlaintextBytes
+    const _mustFail: PlaintextBytes = freshCt
+    // Silence unused-var lint without touching runtime:
+    expect((_mustFail as Uint8Array) === (freshCt as Uint8Array)).toBe(true)
   })
 })
