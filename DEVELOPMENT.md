@@ -189,6 +189,39 @@ V1 and V2 run concurrently with different ports:
 | RustFS | 9000/9001 | 9002/9003 |
 | strfry | 7777 | 7778 |
 
+## Split-Origin Dev Setup (Tier 4 PR-A)
+
+In production the SPA, the API, and the crypto sandbox live on three distinct
+origins — `app.<parent>`, `api.<parent>`, and `crypto.<parent>`. CORS, cookie
+scoping, and iframe sandboxing all depend on that separation. Local dev mirrors
+the same layout using `llamenos.localhost` subdomains.
+
+**One-time /etc/hosts setup:**
+
+```bash
+./scripts/dev-hosts.sh        # adds the three hosts to /etc/hosts (sudo)
+./scripts/dev-hosts.sh --check
+```
+
+The script installs an idempotent managed block:
+
+```
+# >>> llamenos-dev-hosts >>>
+127.0.0.1 app.llamenos.localhost
+127.0.0.1 api.llamenos.localhost
+127.0.0.1 crypto.llamenos.localhost
+# <<< llamenos-dev-hosts <<<
+```
+
+Running the script a second time is a no-op. Use `./scripts/dev-hosts.sh --remove`
+to strip the block cleanly. Colocated unit tests in `scripts/dev-hosts.test.ts`
+cover install / idempotency / remove / `--check`.
+
+For now `bun run dev` still serves the SPA on `http://localhost:5173` and the
+backend on `http://localhost:3000`. The split-origin layout is exercised
+end-to-end in the production Docker compose + Ansible deployments. The
+split-origin dev-time Caddy lands in a follow-up PR.
+
 ## Common Gotchas
 
 - `@noble/ciphers` and `@noble/hashes` require `.js` extension in imports
