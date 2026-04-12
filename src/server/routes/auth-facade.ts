@@ -466,6 +466,11 @@ authFacade.use('/signal-contact/*', jwtAuth)
 authFacade.use('/security-prefs', jwtAuth)
 authFacade.use('/kek-proof', jwtAuth)
 authFacade.use('/kek-proof/*', jwtAuth)
+// Recovery group: /enroll, /contribute-share, /user-envelope require auth;
+// /initiate and /complete do not (recovering user has no credentials)
+authFacade.use('/recovery-group/enroll', jwtAuth)
+authFacade.use('/recovery-group/contribute-share', jwtAuth)
+authFacade.use('/recovery-group/user-envelope', jwtAuth)
 
 // POST /webauthn/register-options
 authFacade.post('/webauthn/register-options', async (c) => {
@@ -1391,6 +1396,10 @@ authFacade.patch('/security-prefs', async (c) => {
     alertOnPinChange: row.alertOnPinChange,
   })
 })
+
+// --- Recovery Group routes ---
+import { recoveryGroupRoutes } from './recovery-group'
+authFacade.route('/recovery-group', recoveryGroupRoutes)
 
 export default authFacade
 

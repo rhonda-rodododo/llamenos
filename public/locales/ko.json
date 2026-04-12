@@ -1508,7 +1508,8 @@
       "audit": "Audit",
       "analytics": "Analytics",
       "health": "Health",
-      "platform": "Platform"
+      "platform": "Platform",
+      "recoveryGroup": "Recovery Group"
     }
   },
   "locationLookup": {
@@ -1725,5 +1726,35 @@
     "body": "Llámenos는 세션을 유지하기 위해 브라우저 쿠키를 사용합니다. 추적 없음, 제3자 없음 — 이 사이트가 작동하는 데 필요한 쿠키뿐입니다. 이 사이트에서 쿠키를 활성화하고 다시 시도해 주세요.",
     "retry": "쿠키를 활성화했습니다 — 다시 시도",
     "stillBlocked": "쿠키가 여전히 차단된 것 같습니다. 이 사이트의 브라우저 설정을 확인하세요."
+  },
+  "admin": {
+    "recoveryGroup": {
+      "title": "Recovery Group",
+      "description": "Configure Shamir secret sharing for account recovery. Admins hold key shares; a threshold of shares is required to recover an account.",
+      "threshold": "Threshold (K)",
+      "totalShares": "Total Shares (N)",
+      "enrolling": "Enrolling…",
+      "enroll": "Enroll Recovery Group",
+      "enrollSuccess": "Recovery group enrolled successfully."
+    }
+  },
+  "recovery": {
+    "volunteerPanel": {
+      "title": "Account Recovery",
+      "description": "Initiate account recovery for a user who has lost access to their device.",
+      "identifierPlaceholder": "User email or identifier",
+      "initiating": "Initiating…",
+      "initiate": "Initiate Recovery",
+      "sessionCreated": "Recovery session created",
+      "availableAfter": "Available after"
+    },
+    "shareContribution": {
+      "title": "Contribute Recovery Share",
+      "contributing": "Contributing…",
+      "contribute": "Contribute Share",
+      "success": "Share contributed successfully.",
+      "emergencyOverride": "Emergency override (reduces delay to 1 hour)",
+      "justificationPlaceholder": "Justification (min 16 characters)"
+    }
   }
 }

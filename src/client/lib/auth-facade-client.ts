@@ -407,6 +407,145 @@ class AuthFacadeClient {
   // Root-KEK envelope endpoints (Tier 2)
   // ---------------------------------------------------------------------------
 
+  // ---------------------------------------------------------------------------
+  // Recovery Group endpoints (Tier 2 PR-C)
+  // ---------------------------------------------------------------------------
+
+  async recoveryGroupEnroll(body: {
+    hubId: string
+    threshold: number
+    totalShares: number
+    groupPublicKey: string
+    shareEnvelopes: { adminPubkey: string; envelope: string }[]
+    shareCommitments: string[]
+  }): Promise<{ ok: true }> {
+    const res = await this.authedFetch('/api/auth/recovery-group/enroll', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+    await AuthFacadeClient.assertOk(res, 'Recovery group enrollment failed')
+    return res.json() as Promise<{ ok: true }>
+  }
+
+  async recoveryGroupGetInfo(hubId: string): Promise<{
+    hubId: string
+    groupPublicKey: string
+    threshold: number
+    totalShares: number
+    shareCommitments: string[]
+    createdAt: string
+    rotatedAt: string | null
+  } | null> {
+    try {
+      const res = await this.authedFetch(`/api/auth/recovery-group/${encodeURIComponent(hubId)}`)
+      if (res.status === 404) return null
+      await AuthFacadeClient.assertOk(res, 'Failed to get recovery group info')
+      return res.json() as Promise<{
+        hubId: string
+        groupPublicKey: string
+        threshold: number
+        totalShares: number
+        shareCommitments: string[]
+        createdAt: string
+        rotatedAt: string | null
+      }>
+    } catch {
+      return null
+    }
+  }
+
+  async recoveryGroupInitiate(body: {
+    hubId: string
+    userIdentifier: string
+    newDevicePubkey: string
+  }): Promise<{ sessionId: string; expiresAt: string; coordinatorPubkey: string }> {
+    const res = await fetch('/api/auth/recovery-group/initiate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    await AuthFacadeClient.assertOk(res, 'Recovery group initiation failed')
+    return res.json() as Promise<{
+      sessionId: string
+      expiresAt: string
+      coordinatorPubkey: string
+    }>
+  }
+
+  async recoveryGroupContributeShare(body: {
+    sessionId: string
+    encryptedShare: string
+  }): Promise<{ ok: true; status: string; contributionCount: number }> {
+    const res = await this.authedFetch('/api/auth/recovery-group/contribute-share', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+    await AuthFacadeClient.assertOk(res, 'Share contribution failed')
+    return res.json() as Promise<{ ok: true; status: string; contributionCount: number }>
+  }
+
+  async recoveryGroupGetSession(sessionId: string): Promise<{
+    sessionId: string
+    hubId: string
+    status: string
+    contributionCount: number
+    threshold: number
+    createdAt: string
+    expiresAt: string
+    delayRemainingMs: number
+  } | null> {
+    try {
+      const res = await fetch(`/api/auth/recovery-group/session/${encodeURIComponent(sessionId)}`)
+      if (res.status === 404) return null
+      return res.json() as Promise<{
+        sessionId: string
+        hubId: string
+        status: string
+        contributionCount: number
+        threshold: number
+        createdAt: string
+        expiresAt: string
+        delayRemainingMs: number
+      }>
+    } catch {
+      return null
+    }
+  }
+
+  async recoveryGroupComplete(body: {
+    sessionId: string
+    newBundle: unknown
+    emergencyOverride?: {
+      justification: string
+      coApproverPubkey: string
+      coApproverSignature: string
+    }
+  }): Promise<{ ok: true }> {
+    const res = await fetch('/api/auth/recovery-group/complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    await AuthFacadeClient.assertOk(res, 'Recovery completion failed')
+    return res.json() as Promise<{ ok: true }>
+  }
+
+  async recoveryGroupPutUserEnvelope(body: {
+    hubId: string
+    envelope: string
+  }): Promise<{ ok: true }> {
+    const res = await this.authedFetch('/api/auth/recovery-group/user-envelope', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+    await AuthFacadeClient.assertOk(res, 'Failed to store recovery envelope')
+    return res.json() as Promise<{ ok: true }>
+  }
+
+  // ---------------------------------------------------------------------------
+  // Root-KEK envelope endpoints (Tier 2)
+  // ---------------------------------------------------------------------------
+
   /**
    * Fetch the root-KEK envelope bundle from the server. Returns null if no
    * bundle is stored yet (first-time enrollment).

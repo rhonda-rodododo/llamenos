@@ -1508,7 +1508,8 @@
       "audit": "Audit",
       "analytics": "Analytics",
       "health": "Health",
-      "platform": "Platform"
+      "platform": "Platform",
+      "recoveryGroup": "Recovery Group"
     }
   },
   "locationLookup": {
@@ -1725,5 +1726,35 @@
     "body": "Llámenos 使用浏览器 Cookie 来保持您的登录会话。没有跟踪,没有第三方——只有此网站运行所需的 Cookie。请为此网站启用 Cookie 后重试。",
     "retry": "我已启用 Cookie — 重试",
     "stillBlocked": "Cookie 似乎仍被阻止。请检查此网站的浏览器设置。"
+  },
+  "admin": {
+    "recoveryGroup": {
+      "title": "Recovery Group",
+      "description": "Configure Shamir secret sharing for account recovery. Admins hold key shares; a threshold of shares is required to recover an account.",
+      "threshold": "Threshold (K)",
+      "totalShares": "Total Shares (N)",
+      "enrolling": "Enrolling…",
+      "enroll": "Enroll Recovery Group",
+      "enrollSuccess": "Recovery group enrolled successfully."
+    }
+  },
+  "recovery": {
+    "volunteerPanel": {
+      "title": "Account Recovery",
+      "description": "Initiate account recovery for a user who has lost access to their device.",
+      "identifierPlaceholder": "User email or identifier",
+      "initiating": "Initiating…",
+      "initiate": "Initiate Recovery",
+      "sessionCreated": "Recovery session created",
+      "availableAfter": "Available after"
+    },
+    "shareContribution": {
+      "title": "Contribute Recovery Share",
+      "contributing": "Contributing…",
+      "contribute": "Contribute Share",
+      "success": "Share contributed successfully.",
+      "emergencyOverride": "Emergency override (reduces delay to 1 hour)",
+      "justificationPlaceholder": "Justification (min 16 characters)"
+    }
   }
 }
