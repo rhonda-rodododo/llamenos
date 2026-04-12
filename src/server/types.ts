@@ -454,6 +454,8 @@ export type AppEnv = {
     hubPermissions?: string[]
     /** Injected service instances */
     services: Services
+    /** CSP nonce for the current response (base64, 16 random bytes) */
+    cspNonce: string
   }
 }
 
@@ -569,7 +571,10 @@ export interface IvrAudioMeta {
 }
 
 export interface CreateRoleData {
-  /** Client-generated UUID for AAD binding. See CreateReportTypeSchema for rationale. */
+  /**
+   * Client-generated id. Required when `encryptedName` is provided so the
+   * server stores the same id the client bound into AAD via buildAad().
+   */
   id?: string
   name: string
   permissions: string[]
@@ -730,7 +735,10 @@ export interface ShiftSchedule {
 }
 
 export interface CreateScheduleData {
-  /** Client-generated UUID for AAD binding. See CreateReportTypeSchema for rationale. */
+  /**
+   * Client-generated id. Required when `encryptedName` is provided so the
+   * server stores the same id the client bound into AAD via buildAad().
+   */
   id?: string
   hubId?: string
   /** Plaintext name (legacy / server-side fallback). Prefer encryptedName for new clients. */
@@ -772,7 +780,10 @@ export interface RingGroup {
 }
 
 export interface CreateRingGroupData {
-  /** Client-generated UUID for AAD binding. See CreateReportTypeSchema for rationale. */
+  /**
+   * Client-generated id. Required when `encryptedName` is provided so the
+   * server stores the same id the client bound into AAD via buildAad().
+   */
   id?: string
   hubId?: string
   name: string
@@ -933,8 +944,6 @@ export interface Blast {
 }
 
 export interface CreateBlastData {
-  /** Client-generated UUID for AAD binding. See CreateReportTypeSchema for rationale. */
-  id?: string
   hubId?: string
   name: string
   targetChannels?: string[]

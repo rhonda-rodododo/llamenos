@@ -27,17 +27,25 @@ export const hubsListOptions = (_hubId = 'global') =>
     queryKey: queryKeys.hubs.list(),
     queryFn: async () => {
       const { hubs } = await listHubs()
-      return hubs.map((hub) => ({
-        ...hub,
-        name: decryptHubField(hub.encryptedName, hub.id, hub.id, 'encrypted_name', hub.name),
-        description: decryptHubField(
-          hub.encryptedDescription,
-          hub.id,
-          hub.id,
-          'encrypted_description',
-          hub.description
-        ),
-      }))
+      return Promise.all(
+        hubs.map(async (hub) => ({
+          ...hub,
+          name: await decryptHubField(
+            hub.encryptedName,
+            hub.id,
+            hub.id,
+            'encrypted_name',
+            hub.name
+          ),
+          description: await decryptHubField(
+            hub.encryptedDescription,
+            hub.id,
+            hub.id,
+            'encrypted_description',
+            hub.description
+          ),
+        }))
+      )
     },
     staleTime: 10 * 60 * 1000,
   })

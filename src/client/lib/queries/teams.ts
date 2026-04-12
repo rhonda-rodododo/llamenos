@@ -35,17 +35,19 @@ export const teamsListOptions = (hubId = 'global') =>
     queryKey: queryKeys.teams.list(),
     queryFn: async () => {
       const { teams } = await listTeams()
-      return teams.map((team) => ({
-        ...team,
-        name: decryptHubField(team.encryptedName, hubId, team.id, 'encrypted_name', ''),
-        description: decryptHubField(
-          team.encryptedDescription,
-          hubId,
-          team.id,
-          'encrypted_description',
-          ''
-        ),
-      }))
+      return Promise.all(
+        teams.map(async (team) => ({
+          ...team,
+          name: await decryptHubField(team.encryptedName, hubId, team.id, 'encrypted_name', ''),
+          description: await decryptHubField(
+            team.encryptedDescription,
+            hubId,
+            team.id,
+            'encrypted_description',
+            ''
+          ),
+        }))
+      )
     },
     staleTime: 5 * 60 * 1000,
   })

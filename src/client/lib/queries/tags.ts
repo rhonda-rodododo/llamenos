@@ -21,11 +21,25 @@ export const tagsListOptions = (hubId = 'global') =>
     queryKey: queryKeys.tags.list(),
     queryFn: async () => {
       const { tags } = await listTags()
-      return tags.map((tag) => ({
-        ...tag,
-        label: decryptHubField(tag.encryptedLabel, hubId, tag.id, 'encrypted_label', tag.name),
-        category: decryptHubField(tag.encryptedCategory, hubId, tag.id, 'encrypted_category', ''),
-      }))
+      return Promise.all(
+        tags.map(async (tag) => ({
+          ...tag,
+          label: await decryptHubField(
+            tag.encryptedLabel,
+            hubId,
+            tag.id,
+            'encrypted_label',
+            tag.name
+          ),
+          category: await decryptHubField(
+            tag.encryptedCategory,
+            hubId,
+            tag.id,
+            'encrypted_category',
+            ''
+          ),
+        }))
+      )
     },
     staleTime: 5 * 60 * 1000,
   })

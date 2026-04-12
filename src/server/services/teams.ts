@@ -23,13 +23,16 @@ export class TeamsService {
   ) {}
 
   async createTeam(input: {
-    /** Client-generated UUID for AAD binding. */
     id?: string
     hubId: string
     encryptedName: Ciphertext
     encryptedDescription?: Ciphertext | null
     createdBy: string
   }): Promise<TeamRow> {
+    // Client-provided id is required for AAD binding: the client seals the
+    // ciphertext with buildAad(label, id, fieldName) before POST. Accept it
+    // verbatim so decrypt on refetch matches. Legacy callers that omit id
+    // fall back to a server-generated UUID.
     const id = input.id ?? crypto.randomUUID()
     const now = new Date()
     const [row] = await this.db

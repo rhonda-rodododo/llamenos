@@ -29,10 +29,18 @@ export const shiftsListOptions = (hubId = 'global') =>
     queryKey: queryKeys.shifts.list(),
     queryFn: async () => {
       const { shifts } = await listShifts()
-      return shifts.map((shift) => ({
-        ...shift,
-        name: decryptHubField(shift.encryptedName, hubId, shift.id, 'encrypted_name', shift.name),
-      }))
+      return Promise.all(
+        shifts.map(async (shift) => ({
+          ...shift,
+          name: await decryptHubField(
+            shift.encryptedName,
+            hubId,
+            shift.id,
+            'encrypted_name',
+            shift.name
+          ),
+        }))
+      )
     },
   })
 

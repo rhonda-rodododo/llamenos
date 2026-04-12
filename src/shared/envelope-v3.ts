@@ -21,7 +21,7 @@ import { LABEL_REGISTRY } from './crypto-labels.js'
  *   `${label}:${recordId}:${fieldName}`
  * which binds the ciphertext to its row + column. Swapping encrypted blobs
  * across rows is rejected by AEAD. See `hpkeSeal`/`hpkeOpen` in
- * `src/shared/crypto-primitives.ts`.
+ * `src/shared/hpke-primitives.ts`.
  */
 export interface EnvelopeV3 {
   v: 3

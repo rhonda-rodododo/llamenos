@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { LABEL_HUB_FIELD, LABEL_MESSAGE, LABEL_NOTE_KEY } from './crypto-labels.js'
+import { LABEL_HUB_FIELD, LABEL_MESSAGE, LABEL_NOTE_KEY, labelToId } from './crypto-labels.js'
 import { createHpkeSuite } from './crypto-suite.js'
 import {
   HpkeLabelMismatchError,
@@ -74,6 +74,19 @@ describe('hpke-primitives', () => {
       const env = await hpkeSeal(te.encode('secret'), publicKey, LABEL_NOTE_KEY, aad)
       const tampered = { ...env, ct: `${env.ct.slice(0, -2)}AA` }
       await expect(hpkeOpen(tampered, privateKey, LABEL_NOTE_KEY, aad)).rejects.toThrow()
+    })
+
+    test('HPKE info binds key schedule to label (labelId bypass)', async () => {
+      // Seal under LABEL_NOTE_KEY, rewrite the envelope's labelId to point at
+      // LABEL_MESSAGE, then try to open expecting LABEL_MESSAGE. The wire-format
+      // labelId cross-check will pass (actualLabel === expectedLabel), but the
+      // HPKE key schedule was bound to LABEL_NOTE_KEY via `info`, so decap/open
+      // fails. This proves `info` is the third independent defense layer.
+      const { publicKey, privateKey } = await genRecipient()
+      const aad = buildAad(LABEL_NOTE_KEY, 'n', 'c')
+      const sealed = await hpkeSeal(te.encode('secret'), publicKey, LABEL_NOTE_KEY, aad)
+      const forged = { ...sealed, labelId: labelToId(LABEL_MESSAGE) }
+      await expect(hpkeOpen(forged, privateKey, LABEL_MESSAGE, aad)).rejects.toThrow()
     })
   })
 

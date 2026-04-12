@@ -30,6 +30,8 @@ const FallbackBodySchema = z.object({
 })
 
 const CreateShiftBodySchema = z.object({
+  // Client-generated UUID. Required when `encryptedName` is provided so the
+  // server stores the same id the client used as AAD `recordId`.
   id: z.string().uuid().optional(),
   name: z.string().optional(),
   startTime: z.string(),

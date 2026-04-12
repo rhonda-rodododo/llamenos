@@ -13,6 +13,7 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { type CustomFieldDefinition, updateCustomFields } from '@/lib/api'
 import { useConfig } from '@/lib/config'
+import { encryptHubField } from '@/lib/hub-field-crypto'
 import { queryKeys } from '@/lib/queries/keys'
 import { useCustomFields } from '@/lib/queries/settings'
 import { useToast } from '@/lib/toast'
@@ -39,13 +40,32 @@ export function CustomFieldsSection() {
     setTimeout(() => setShowSaved(false), 2000)
   }
 
+  async function encryptFields(list: CustomFieldDefinition[]): Promise<CustomFieldDefinition[]> {
+    return Promise.all(
+      list.map(async (f) => {
+        const encryptedFieldName = await encryptHubField(
+          f.name,
+          hubId,
+          f.id,
+          'encrypted_field_name'
+        )
+        const encryptedLabel = await encryptHubField(f.label, hubId, f.id, 'encrypted_label')
+        const encryptedOptions =
+          f.options && f.options.length > 0
+            ? await encryptHubField(JSON.stringify(f.options), hubId, f.id, 'encrypted_options')
+            : undefined
+        return { ...f, encryptedFieldName, encryptedLabel, encryptedOptions }
+      })
+    )
+  }
+
   async function handleReorder(index: number, direction: -1 | 1) {
     const next = [...fields]
     const swapIdx = index + direction
     ;[next[index], next[swapIdx]] = [next[swapIdx], next[index]]
     for (let i = 0; i < next.length; i++) next[i].order = i
     try {
-      await updateCustomFields(next)
+      await updateCustomFields(await encryptFields(next))
       void queryClient.invalidateQueries({ queryKey: queryKeys.settings.customFields() })
       flashSaved()
     } catch {
@@ -58,7 +78,7 @@ export function CustomFieldsSection() {
     const next = fields.filter((f) => f.id !== fieldId)
     for (let i = 0; i < next.length; i++) next[i].order = i
     try {
-      await updateCustomFields(next)
+      await updateCustomFields(await encryptFields(next))
       void queryClient.invalidateQueries({ queryKey: queryKeys.settings.customFields() })
       flashSaved()
     } catch {
@@ -91,7 +111,7 @@ export function CustomFieldsSection() {
         }
         next = [...fields, newField]
       }
-      await updateCustomFields(next)
+      await updateCustomFields(await encryptFields(next))
       void queryClient.invalidateQueries({ queryKey: queryKeys.settings.customFields() })
       setEditing(null)
       flashSaved()

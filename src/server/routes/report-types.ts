@@ -97,6 +97,7 @@ reportTypesRoutes.openapi(createRoute_, async (c) => {
   }
 
   const reportType = await services.reportTypes.createReportType(hubId, {
+    id: body.id,
     name: body.name?.trim() ?? '',
     encryptedName: body.encryptedName?.trim() as Ciphertext | undefined,
     description: body.description?.trim() || undefined,

@@ -104,6 +104,10 @@ export async function createRole(
     data.description ??
     null) as Ciphertext | null
 
+  // Client-provided id is required for AAD binding: the client seals the
+  // ciphertext with buildAad(label, id, fieldName) before POST. Accept it
+  // verbatim so decrypt on refetch matches. Legacy callers that omit id
+  // fall back to a server-generated UUID.
   const id = data.id ?? `role-${crypto.randomUUID()}`
   const [row] = await db
     .insert(roles)

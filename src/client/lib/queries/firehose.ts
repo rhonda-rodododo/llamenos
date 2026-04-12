@@ -35,16 +35,18 @@ export const firehoseConnectionsOptions = (hubId: string) =>
     queryKey: queryKeys.firehose.list(),
     queryFn: async (): Promise<FirehoseConnection[]> => {
       const { connections } = await listFirehoseConnections()
-      return connections.map((c) => ({
-        ...c,
-        displayName: decryptHubField(
-          c.encryptedDisplayName,
-          hubId,
-          c.id,
-          'encrypted_display_name',
-          c.displayName
-        ),
-      }))
+      return Promise.all(
+        connections.map(async (c) => ({
+          ...c,
+          displayName: await decryptHubField(
+            c.encryptedDisplayName,
+            hubId,
+            c.id,
+            'encrypted_display_name',
+            c.displayName
+          ),
+        }))
+      )
     },
     staleTime: 30_000,
   })

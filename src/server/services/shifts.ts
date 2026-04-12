@@ -44,6 +44,10 @@ export class ShiftService {
     if (!isValidTimeFormat(data.startTime) || !isValidTimeFormat(data.endTime)) {
       throw new AppError(400, 'Invalid time format — expected HH:MM (00:00–23:59)')
     }
+    // Client-provided id is required for AAD binding: the client seals the
+    // ciphertext with buildAad(label, id, fieldName) before POST. Accept it
+    // verbatim so decrypt on refetch matches. Legacy callers that omit id
+    // fall back to a server-generated UUID.
     const id = data.id ?? crypto.randomUUID()
     const hId = data.hubId ?? 'global'
     // Client provides hub-key encrypted name
@@ -146,6 +150,10 @@ export class ShiftService {
   }
 
   async createRingGroup(data: CreateRingGroupData): Promise<RingGroup> {
+    // Client-provided id is required for AAD binding: the client seals the
+    // ciphertext with buildAad(label, id, fieldName) before POST. Accept it
+    // verbatim so decrypt on refetch matches. Legacy callers that omit id
+    // fall back to a server-generated UUID.
     const id = data.id ?? crypto.randomUUID()
     const hId = data.hubId ?? 'global'
     // Client provides hub-key encrypted name

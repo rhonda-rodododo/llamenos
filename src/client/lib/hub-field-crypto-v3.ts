@@ -14,9 +14,11 @@
  * envelope is different, so v1 and v3 ciphertexts are not interchangeable;
  * migration 0053 wipes all v1 rows pre-prod.
  *
- * NOTE: This module is NOT wired to call sites in PR-A. Migration of
- * hub-field-crypto.ts call sites (routes, services, query selectors) is
- * deferred to PR-B along with items_key indirection.
+ * Wired call sites (PR-B): all hub-field consumers in `src/client/lib/queries/*.ts`
+ * (notes, blasts, firehose, hubs, reports, roles, settings, shifts, tags, teams)
+ * and `src/client/routes/shifts.tsx` go through `hubFieldEncryptV3` /
+ * `hubFieldDecryptV3` via the crypto-worker RPC. Items_key indirection lives in
+ * `src/shared/items-key.ts`.
  */
 
 import { hubFieldAad } from '@shared/lib/hub-field-aad'
@@ -110,4 +112,27 @@ export async function decryptHubFieldV3(
  */
 export async function generateHubKeyV3(): Promise<CryptoKey> {
   return crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt'])
+}
+
+/**
+ * Import a 32-byte raw hub key as a non-extractable AES-256-GCM CryptoKey
+ * handle. Used by `hub-key-cache.ts` when a hub key envelope is unwrapped
+ * and we want a CryptoKey to hand to `encryptHubFieldV3` / `decryptHubFieldV3`
+ * without exposing raw bytes again.
+ *
+ * The returned handle is non-extractable: once `loadHubKeysForUser` resolves,
+ * the only way to get raw bytes back out of the cache is via the legacy
+ * `getHubKeyForId()` path (which will be removed once every caller is on v3).
+ */
+export async function importHubKeyCryptoKey(raw: Uint8Array): Promise<CryptoKey> {
+  if (raw.length !== 32) {
+    throw new Error(`hub key must be 32 bytes, got ${raw.length}`)
+  }
+  return crypto.subtle.importKey(
+    'raw',
+    raw.buffer as ArrayBuffer,
+    { name: 'AES-GCM', length: 256 },
+    /* extractable */ false,
+    ['encrypt', 'decrypt']
+  )
 }
