@@ -2,8 +2,8 @@ import { integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 
 export const recoveryRequests = pgTable('recovery_requests', {
   id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull(),
-  initiatedByUserId: uuid('initiated_by_user_id').notNull(),
+  userId: text('user_id').notNull(),
+  initiatedByUserId: text('initiated_by_user_id').notNull(),
   recoveryType: text('recovery_type').notNull().default('admin_reset'),
   status: text('status').notNull().default('pending'),
   threshold: integer('threshold').notNull().default(2),

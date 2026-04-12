@@ -16,6 +16,7 @@
  *      HPKE-wraps new key to remaining devices, computes commitment hashes
  */
 
+import { createDebugLog } from '@/lib/debug-log'
 import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex } from '@noble/hashes/utils.js'
@@ -24,6 +25,8 @@ import { symmetricDecrypt, symmetricEncrypt } from '@shared/crypto-primitives'
 import type { Ciphertext } from '@shared/crypto-types'
 import type { EnvelopeV3 } from '@shared/envelope-v3'
 import { buildAad, hpkeOpen, hpkeSeal } from '@shared/hpke-primitives'
+
+const log = createDebugLog('llamenos:hub-key-manager')
 
 // ---- Random bytes helper ----
 
@@ -102,18 +105,44 @@ export async function wrapHubKeyForDevice(
 
 /**
  * HPKE-wrap a hub key for multiple devices in parallel.
+ *
+ * Uses Promise.allSettled so a single device with a corrupted public key
+ * cannot block wrapping for all other devices. Failed devices are logged
+ * and excluded from the result. Throws if ALL devices fail.
  */
 export async function wrapHubKeyForDevices(
   hubKey: Uint8Array,
   devices: Array<{ deviceId: string; encPubkey: CryptoKey }>,
   hubId: string
 ): Promise<Array<{ deviceId: string; envelope: EnvelopeV3 }>> {
-  return Promise.all(
+  const settled = await Promise.allSettled(
     devices.map(async (d) => ({
       deviceId: d.deviceId,
       envelope: await wrapHubKeyForDevice(hubKey, d.encPubkey, d.deviceId, hubId),
     }))
   )
+
+  const results: Array<{ deviceId: string; envelope: EnvelopeV3 }> = []
+  for (let i = 0; i < settled.length; i++) {
+    const outcome = settled[i]
+    if (outcome.status === 'fulfilled') {
+      results.push(outcome.value)
+    } else {
+      const deviceId = devices[i].deviceId
+      log(
+        'HPKE wrap failed for device %s in hub %s: %s',
+        deviceId,
+        hubId,
+        outcome.reason instanceof Error ? outcome.reason.message : String(outcome.reason)
+      )
+    }
+  }
+
+  if (results.length === 0 && devices.length > 0) {
+    throw new Error(`HPKE wrapping failed for all ${devices.length} devices in hub ${hubId}`)
+  }
+
+  return results
 }
 
 /**

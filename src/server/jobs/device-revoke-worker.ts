@@ -1,7 +1,7 @@
 /**
  * DeviceRevokeWorker — Background job processor for device revocation.
  *
- * When a device is revoked via a `device_revoke` sigchain entry, every hub
+ * When a device is revoked via a `tier3_device_remove` sigchain entry, every hub
  * the user belongs to must rotate its hub key within 30 seconds. This worker
  * orchestrates that process:
  *
