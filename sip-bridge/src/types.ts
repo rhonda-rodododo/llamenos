@@ -333,6 +333,15 @@ export interface ActiveCall {
   calledNumber: string
   startedAt: number
   language?: string
+  /**
+   * Tier 5 voice E2EE call mode.
+   * - `sframe`: entered via `[volunteers-sframe]` dialplan context
+   *   (`Stasis(llamenos,sframe)`) — Asterisk MUST NOT record this call.
+   * - `pstn`: regular carrier leg — normal recording + voicemail semantics.
+   *
+   * The sip-bridge enforces the recording ban via `SframeModeDispatcher`.
+   */
+  mode: 'sframe' | 'pstn'
   /** Bridge ID if this call is bridged */
   bridgeId?: string
   /** Volunteer channel IDs ringing for this call */
