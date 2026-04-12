@@ -24,7 +24,7 @@ describe('SAS emoji table', () => {
   test('every name is non-empty and lowercase', () => {
     for (const name of SAS_EMOJI_NAMES_EN) {
       expect(name.length).toBeGreaterThan(0)
-      expect(name).toBe(name.toLowerCase())
+      expect(name as string).toBe(name.toLowerCase())
     }
   })
 })

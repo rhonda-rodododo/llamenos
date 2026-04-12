@@ -79,6 +79,9 @@ function payloadIsAuthorizedFor(payload: AuditEntryPayload, role: string): boole
       return role === 'admin' || role === 'super_admin'
     case 'hub_create':
       return role === 'super_admin'
+    // Tier 6 device fingerprint verification (admin-only)
+    case 'device_fingerprint_verified':
+      return role === 'admin' || role === 'super_admin'
     // Tier 0 device lifecycle (legacy)
     case 'device_add':
     case 'device_revoke':

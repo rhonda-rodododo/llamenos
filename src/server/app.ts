@@ -25,6 +25,7 @@ import contactImportRoutes from './routes/contacts-import'
 import conversationsRoutes from './routes/conversations'
 import cspReportRoutes from './routes/csp-report'
 import devRoutes from './routes/dev'
+import deviceVerificationRoutes from './routes/device-verification'
 import filesRoutes from './routes/files'
 import firehoseRoutes from './routes/firehose'
 import gdprRoutes from './routes/gdpr'
@@ -304,6 +305,7 @@ hubScoped.route('/tags', tagsRoutes)
 hubScoped.route('/teams', teamsRoutes)
 hubScoped.route('/intakes', intakesRoutes)
 hubScoped.route('/firehose', firehoseRoutes)
+hubScoped.route('/', deviceVerificationRoutes)
 
 authenticated.route('/hubs/:hubId', hubScoped)
 
