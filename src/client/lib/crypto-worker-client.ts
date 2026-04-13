@@ -338,18 +338,18 @@ export class CryptoWorkerClient {
   // ---- Tier 1 HPKE sidecar ----
 
   /**
-   * Unlock the worker from a Tier 1 PIN-wrapped key store unlock result. Accepts raw nsec
+   * Unlock the worker from a key-store unlock result. Accepts raw nsec
    * bytes (consumed and zeroed inside the worker), the non-extractable HPKE
    * private CryptoKey, and the non-extractable hub AES-GCM CryptoKey.
    * Returns the derived x-only public key hex.
    */
-  async unlockFromKeyStoreV3(
+  async unlockWithHandles(
     nsecRaw: Uint8Array,
     hpkePrivateKey: CryptoKey,
     hubKey: CryptoKey
   ): Promise<string> {
     return (await this.call({
-      type: 'unlockFromKeyStoreV3',
+      type: 'unlockWithHandles',
       nsecRaw,
       hpkePrivateKey,
       hubKey,
@@ -396,36 +396,6 @@ export class CryptoWorkerClient {
       recordId,
       fieldName,
     })) as string
-  }
-
-  /**
-   * Hub-field AES-GCM encrypt using the held non-extractable hub key.
-   * AAD binds to (recordId, fieldName) via `hubFieldAad`.
-   */
-  async hubFieldEncryptV3(plaintext: string, recordId: string, fieldName: string): Promise<string> {
-    return (await this.call({
-      type: 'hubFieldEncryptV3',
-      plaintext,
-      recordId,
-      fieldName,
-    })) as string
-  }
-
-  /**
-   * Hub-field AES-GCM decrypt using the held non-extractable hub key.
-   * Returns null on any failure — invalid base64, wrong AAD, tag mismatch.
-   */
-  async hubFieldDecryptV3(
-    ciphertext: string,
-    recordId: string,
-    fieldName: string
-  ): Promise<string | null> {
-    return (await this.call({
-      type: 'hubFieldDecryptV3',
-      ciphertext,
-      recordId,
-      fieldName,
-    })) as string | null
   }
 
   // ---- Tier 2 root-KEK handlers ----
