@@ -3,6 +3,7 @@ import type {
   FreeSwitchConfig,
   PlivoConfig,
   SignalWireConfig,
+  TelnyxConfig,
   TwilioConfig,
   VonageConfig,
 } from '../../shared/schemas/providers'
@@ -31,7 +32,7 @@ export async function generateWebRtcToken(
     case 'asterisk':
       return generateAsteriskToken(config, identity)
     case 'telnyx':
-      throw new Error('Telnyx WebRTC not yet implemented')
+      return generateTelnyxToken(config, identity)
     case 'bandwidth':
       throw new Error('Bandwidth WebRTC not yet implemented')
     case 'freeswitch':
@@ -69,6 +70,8 @@ export function isWebRtcConfigured(config: TelephonyProviderConfig | null): bool
       return !!(config.applicationId && config.privateKey)
     case 'plivo':
       return !!(config.authId && config.authToken)
+    case 'telnyx':
+      return !!(config.webrtcEnabled && config.apiKey && config.sipConnectionId)
     case 'asterisk':
       return !!(config.ariUrl && config.bridgeCallbackUrl)
     case 'freeswitch':
@@ -207,6 +210,64 @@ async function generatePlivoToken(
   }
   const token = await signJwtHs256(header, payload, config.authToken)
   return { token, provider: 'plivo', ttl: 3600 }
+}
+
+// --- Telnyx WebRTC login token ---
+// Telnyx WebRTC uses an on-demand Telephony Credential bound to a SIP Connection.
+// We create a fresh credential per request and mint a short-lived login_token
+// (JWT, returned as plain text) which the @telnyx/webrtc SDK passes as
+// `new TelnyxRTC({ login_token })`. Credentials are server-managed on Telnyx's
+// side — the SIP user/password never leaves their infrastructure.
+
+async function generateTelnyxToken(
+  config: TelnyxConfig,
+  identity: string
+): Promise<{ token: string; provider: TelephonyProviderType; ttl: number }> {
+  if (!config.apiKey || !config.sipConnectionId) {
+    throw new Error('Missing Telnyx WebRTC config: apiKey, sipConnectionId')
+  }
+
+  const base =
+    ((config as Record<string, unknown>)._testBaseUrl as string | undefined) ??
+    'https://api.telnyx.com'
+  const auth = `Bearer ${config.apiKey}`
+
+  const createRes = await fetch(`${base}/v2/telephony_credentials`, {
+    method: 'POST',
+    headers: {
+      Authorization: auth,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({
+      connection_id: config.sipConnectionId,
+      name: `llamenos-${identity}-${Math.floor(Date.now() / 1000)}`,
+    }),
+    signal: AbortSignal.timeout(10_000),
+  })
+  if (!createRes.ok) {
+    throw new Error(`Telnyx create telephony_credential failed: HTTP ${createRes.status}`)
+  }
+  const createData = (await createRes.json()) as { data?: { id?: string } }
+  const credId = createData.data?.id
+  if (!credId) {
+    throw new Error('Telnyx create telephony_credential: response missing data.id')
+  }
+
+  const tokenRes = await fetch(`${base}/v2/telephony_credentials/${credId}/token`, {
+    method: 'POST',
+    headers: { Authorization: auth, Accept: 'text/plain' },
+    signal: AbortSignal.timeout(10_000),
+  })
+  if (!tokenRes.ok) {
+    throw new Error(`Telnyx telephony_credential token fetch failed: HTTP ${tokenRes.status}`)
+  }
+  const token = (await tokenRes.text()).trim()
+  if (!token) {
+    throw new Error('Telnyx telephony_credential token fetch returned empty body')
+  }
+
+  return { token, provider: 'telnyx', ttl: 3600 }
 }
 
 // --- Asterisk SIP/WebRTC token ---

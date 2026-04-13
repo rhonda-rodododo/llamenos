@@ -1,9 +1,10 @@
-import { describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import type {
   AsteriskConfig,
   PlivoConfig,
   SignalWireConfig,
   TelephonyProviderConfig,
+  TelnyxConfig,
   TwilioConfig,
   VonageConfig,
 } from '../../shared/schemas/providers'
@@ -197,18 +198,157 @@ describe('generateWebRtcToken — Vonage', () => {
   })
 })
 
-// ── generateWebRtcToken: unsupported providers ──
+// ── generateWebRtcToken: Telnyx ──
 
-describe('generateWebRtcToken — unsupported', () => {
-  test('throws for Telnyx (not yet implemented)', async () => {
-    const config = {
-      type: 'telnyx' as const,
-      phoneNumber: '+15550000000',
-      apiKey: 'telnyx-key',
+type FetchCall = { url: string; init?: RequestInit }
+
+/**
+ * Install a scoped fetch stub for the duration of a test.
+ * Returns the captured call list so assertions can inspect URLs + headers + bodies.
+ */
+function installFetchStub(
+  handler: (url: string, init?: RequestInit) => Response | Promise<Response>
+): { calls: FetchCall[]; restore: () => void } {
+  const calls: FetchCall[] = []
+  const original = globalThis.fetch
+  globalThis.fetch = ((input: unknown, init?: RequestInit) => {
+    const url = typeof input === 'string' ? input : (input as URL).toString()
+    calls.push({ url, init })
+    return Promise.resolve(handler(url, init))
+  }) as typeof fetch
+  return {
+    calls,
+    restore: () => {
+      globalThis.fetch = original
+    },
+  }
+}
+
+// `_testBaseUrl` is a convention used by the server-side Telnyx adapter (see
+// telnyx-capabilities.ts) to let tests redirect Telnyx API calls. It is read
+// via a Record<string, unknown> cast at runtime, so we only need to attach it
+// to the object — the TelnyxConfig type itself doesn't know about it.
+const telnyxConfig: TelnyxConfig = {
+  type: 'telnyx',
+  phoneNumber: '+15550000000',
+  apiKey: 'telnyx-api-key-test',
+  sipConnectionId: '1234567890',
+  webrtcEnabled: true,
+}
+;(telnyxConfig as unknown as Record<string, unknown>)._testBaseUrl = 'https://telnyx.test'
+
+describe('generateWebRtcToken — Telnyx', () => {
+  let stub: { calls: FetchCall[]; restore: () => void }
+
+  afterEach(() => {
+    stub?.restore()
+  })
+
+  test('creates telephony credential then mints login token', async () => {
+    stub = installFetchStub((url) => {
+      if (url === 'https://telnyx.test/v2/telephony_credentials') {
+        return new Response(JSON.stringify({ data: { id: 'cred-abc-123' } }), {
+          status: 201,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+      if (url === 'https://telnyx.test/v2/telephony_credentials/cred-abc-123/token') {
+        return new Response('eyJhbGciOi.telnyx.jwt-body\n', {
+          status: 200,
+          headers: { 'Content-Type': 'text/plain' },
+        })
+      }
+      return new Response('unexpected', { status: 500 })
+    })
+
+    const result = await generateWebRtcToken(telnyxConfig, identity)
+
+    expect(result.provider).toBe('telnyx')
+    expect(result.ttl).toBe(3600)
+    expect(result.token).toBe('eyJhbGciOi.telnyx.jwt-body')
+
+    expect(stub.calls).toHaveLength(2)
+    const [create, token] = stub.calls
+    expect(create!.url).toBe('https://telnyx.test/v2/telephony_credentials')
+    expect(create!.init?.method).toBe('POST')
+    const createAuth = new Headers(create!.init?.headers).get('Authorization')
+    expect(createAuth).toBe(`Bearer ${telnyxConfig.apiKey}`)
+    const body = JSON.parse(String(create!.init?.body)) as {
+      connection_id: string
+      name: string
     }
+    expect(body.connection_id).toBe('1234567890')
+    expect(body.name).toContain(identity)
+
+    expect(token!.url).toBe('https://telnyx.test/v2/telephony_credentials/cred-abc-123/token')
+    expect(token!.init?.method).toBe('POST')
+    const tokenAuth = new Headers(token!.init?.headers).get('Authorization')
+    expect(tokenAuth).toBe(`Bearer ${telnyxConfig.apiKey}`)
+  })
+
+  test('throws when apiKey is missing', async () => {
+    const config: TelnyxConfig = { ...telnyxConfig, apiKey: '' as string }
     await expect(generateWebRtcToken(config, identity)).rejects.toThrow(
-      'Telnyx WebRTC not yet implemented'
+      'Missing Telnyx WebRTC config'
     )
+  })
+
+  test('throws when sipConnectionId is missing', async () => {
+    const config: TelnyxConfig = { ...telnyxConfig, sipConnectionId: undefined }
+    await expect(generateWebRtcToken(config, identity)).rejects.toThrow(
+      'Missing Telnyx WebRTC config'
+    )
+  })
+
+  test('throws when create credential returns non-2xx', async () => {
+    stub = installFetchStub(() => new Response('unauthorized', { status: 401 }))
+    await expect(generateWebRtcToken(telnyxConfig, identity)).rejects.toThrow(
+      'Telnyx create telephony_credential failed: HTTP 401'
+    )
+  })
+
+  test('throws when create credential response has no id', async () => {
+    stub = installFetchStub(
+      () =>
+        new Response(JSON.stringify({ data: {} }), {
+          status: 201,
+          headers: { 'Content-Type': 'application/json' },
+        })
+    )
+    await expect(generateWebRtcToken(telnyxConfig, identity)).rejects.toThrow(
+      'response missing data.id'
+    )
+  })
+
+  test('throws when token endpoint returns non-2xx', async () => {
+    stub = installFetchStub((url) => {
+      if (url.endsWith('/telephony_credentials')) {
+        return new Response(JSON.stringify({ data: { id: 'cred-xyz' } }), {
+          status: 201,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+      return new Response('boom', { status: 500 })
+    })
+    await expect(generateWebRtcToken(telnyxConfig, identity)).rejects.toThrow(
+      'Telnyx telephony_credential token fetch failed: HTTP 500'
+    )
+  })
+
+  test('throws when token endpoint returns empty body', async () => {
+    stub = installFetchStub((url) => {
+      if (url.endsWith('/telephony_credentials')) {
+        return new Response(JSON.stringify({ data: { id: 'cred-xyz' } }), {
+          status: 201,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+      return new Response('   \n  ', {
+        status: 200,
+        headers: { 'Content-Type': 'text/plain' },
+      })
+    })
+    await expect(generateWebRtcToken(telnyxConfig, identity)).rejects.toThrow('returned empty body')
   })
 })
 
@@ -270,6 +410,24 @@ describe('isWebRtcConfigured', () => {
   test('returns false for Plivo with empty authId', () => {
     // Use type assertion since schema requires min(1) but runtime check uses !!
     const config = { ...plivoConfig, authId: '' } as unknown as TelephonyProviderConfig
+    expect(isWebRtcConfigured(config)).toBe(false)
+  })
+
+  // Telnyx
+  test('returns true for fully configured Telnyx', () => {
+    expect(isWebRtcConfigured(telnyxConfig)).toBe(true)
+  })
+
+  test('returns false for Telnyx missing webrtcEnabled', () => {
+    expect(isWebRtcConfigured({ ...telnyxConfig, webrtcEnabled: false })).toBe(false)
+  })
+
+  test('returns false for Telnyx missing sipConnectionId', () => {
+    expect(isWebRtcConfigured({ ...telnyxConfig, sipConnectionId: undefined })).toBe(false)
+  })
+
+  test('returns false for Telnyx with empty apiKey', () => {
+    const config = { ...telnyxConfig, apiKey: '' } as unknown as TelephonyProviderConfig
     expect(isWebRtcConfigured(config)).toBe(false)
   })
 
