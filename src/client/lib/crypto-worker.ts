@@ -15,7 +15,7 @@
  *   migrated — they carry over to Tier 2+.
  *
  *   Tier 1 added an HPKE sidecar for:
- *     - `hpkeSeal` / `hpkeOpen` — RFC 9180 seal/open against EnvelopeV3.
+ *     - `hpkeSeal` / `hpkeOpen` — RFC 9180 seal/open against HpkeEnvelope.
  *     - `hubFieldEncryptV3` / `hubFieldDecryptV3` — AES-GCM hub-key field crypto
  *       (wired to all hub-field call sites in PR-B).
  *     - `unlockFromKeyStoreV3` — accept non-extractable CryptoKey handles from
@@ -45,7 +45,7 @@ import {
   SAS_SALT,
 } from '@shared/crypto-labels'
 import { unbiasedSixDigitCode } from '@shared/crypto-primitives'
-import type { EnvelopeV3 } from '@shared/envelope-v3'
+import type { HpkeEnvelope } from '@shared/hpke-envelope'
 import { buildAad, hpkeOpen, hpkeSeal } from '@shared/hpke-primitives'
 import { decryptHubFieldV3, encryptHubFieldV3 } from './hub-field-crypto-v3.js'
 
@@ -110,7 +110,7 @@ type WorkerRequest =
   // ---- Tier 1 HPKE sidecar ----
   | {
       // HPKE single-shot seal. The main thread ships the recipient's HPKE
-      // public key bytes; the worker imports them and produces an EnvelopeV3.
+      // public key bytes; the worker imports them and produces an HpkeEnvelope.
       // Public-key operations do not need our secret, but we still require
       // the worker to be unlocked so an XSS attacker cannot invoke sealing
       // as a grinder primitive while the user is logged out.
@@ -128,7 +128,7 @@ type WorkerRequest =
       // mismatches — never falls back to ECIES.
       type: 'hpkeOpen'
       id: string
-      envelope: EnvelopeV3
+      envelope: HpkeEnvelope
       expectedLabel: CryptoLabel
       recordId: string
       fieldName: string
@@ -605,7 +605,7 @@ async function handleHpkeSeal(
   label: CryptoLabel,
   recordId: string,
   fieldName: string
-): Promise<EnvelopeV3> {
+): Promise<HpkeEnvelope> {
   if (!secretKey) throw new Error('Worker is locked')
   if (!checkRateLimit('encrypt')) {
     autoLock()
@@ -619,7 +619,7 @@ async function handleHpkeSeal(
 }
 
 async function handleHpkeOpen(
-  envelope: EnvelopeV3,
+  envelope: HpkeEnvelope,
   expectedLabel: CryptoLabel,
   recordId: string,
   fieldName: string

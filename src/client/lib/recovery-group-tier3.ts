@@ -12,13 +12,13 @@ import {
   LABEL_MASTER_RECOVERY_GROUP_WRAP,
   LABEL_PUK_RECOVERY_GROUP_WRAP,
 } from '@shared/crypto-labels'
-import type { EnvelopeV3 } from '@shared/envelope-v3'
+import type { HpkeEnvelope } from '@shared/hpke-envelope'
 import { buildAad, hpkeOpen, hpkeSeal } from '@shared/hpke-primitives'
 
 /** Both seeds HPKE-wrapped for the Recovery Group. */
 export interface RecoveryGroupWrappedSecrets {
-  masterSeedEnvelope: EnvelopeV3
-  pukSeedEnvelope: EnvelopeV3
+  masterSeedEnvelope: HpkeEnvelope
+  pukSeedEnvelope: HpkeEnvelope
 }
 
 /** Input for wrapping both seeds. */
@@ -31,8 +31,8 @@ export interface WrapSecretsInput {
 
 /** Input for unwrapping both seeds. */
 export interface UnwrapSecretsInput {
-  masterSeedEnvelope: EnvelopeV3
-  pukSeedEnvelope: EnvelopeV3
+  masterSeedEnvelope: HpkeEnvelope
+  pukSeedEnvelope: HpkeEnvelope
   recoveryGroupPrivateKey: CryptoKey
   userId: string
 }

@@ -7,7 +7,7 @@ import {
 } from '@shared/crypto-labels'
 import { hkdfDerive } from '@shared/crypto-primitives'
 import { createHpkeSuite } from '@shared/crypto-suite'
-import type { EnvelopeV3 } from '@shared/envelope-v3'
+import type { HpkeEnvelope } from '@shared/hpke-envelope'
 import { buildAad, hpkeOpen, hpkeSeal } from '@shared/hpke-primitives'
 
 /**
@@ -110,7 +110,7 @@ export class HpkeService {
     label: CryptoLabel,
     recordId: string,
     fieldName: string
-  ): Promise<EnvelopeV3> {
+  ): Promise<HpkeEnvelope> {
     const pk =
       recipientPublicKey instanceof Uint8Array
         ? await this.importRecipientPublicKey(recipientPublicKey)
@@ -123,7 +123,7 @@ export class HpkeService {
    * mismatch or AEAD failure — caller must not swallow errors or fall through.
    */
   async openForServer(
-    envelope: EnvelopeV3,
+    envelope: HpkeEnvelope,
     expectedLabel: CryptoLabel,
     recordId: string,
     fieldName: string
@@ -143,7 +143,7 @@ export class HpkeService {
    */
   async generateAndWrapHubKey(memberPubkeys: Uint8Array[]): Promise<{
     hubKey: Uint8Array
-    envelopes: Array<{ pubkeyHex: string; envelope: EnvelopeV3 }>
+    envelopes: Array<{ pubkeyHex: string; envelope: HpkeEnvelope }>
   }> {
     const hubKey = crypto.getRandomValues(new Uint8Array(32))
     const serverPubBytes = await this.getPublicKeyBytes()
@@ -174,7 +174,7 @@ export class HpkeService {
    * ensure this by construction — every hub has the server).
    */
   async unwrapHubKey(
-    envelopes: Array<{ pubkeyHex: string; envelope: EnvelopeV3 }>
+    envelopes: Array<{ pubkeyHex: string; envelope: HpkeEnvelope }>
   ): Promise<Uint8Array> {
     const serverHex = toHex(await this.getPublicKeyBytes())
     const mine = envelopes.find((e) => e.pubkeyHex === serverHex)
@@ -190,9 +190,9 @@ export class HpkeService {
    * a volunteer accepts an invite.
    */
   async wrapHubKeyForNewMember(
-    existingEnvelopes: Array<{ pubkeyHex: string; envelope: EnvelopeV3 }>,
+    existingEnvelopes: Array<{ pubkeyHex: string; envelope: HpkeEnvelope }>,
     newMemberPubkey: Uint8Array
-  ): Promise<{ pubkeyHex: string; envelope: EnvelopeV3 }> {
+  ): Promise<{ pubkeyHex: string; envelope: HpkeEnvelope }> {
     const hubKey = await this.unwrapHubKey(existingEnvelopes)
     const hex = toHex(newMemberPubkey)
     const envelope = await this.sealFor(

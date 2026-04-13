@@ -8,7 +8,7 @@
 
 import { bytesToHex } from '@noble/hashes/utils.js'
 import type { CryptoLabel } from '@shared/crypto-labels'
-import type { EnvelopeV3 } from '@shared/envelope-v3'
+import type { HpkeEnvelope } from '@shared/hpke-envelope'
 
 /** Error messages from the worker that indicate the key is no longer available. */
 const LOCKED_ERROR_PATTERNS = [
@@ -358,7 +358,7 @@ export class CryptoWorkerClient {
 
   /**
    * HPKE single-shot seal against a recipient's raw X25519 public key.
-   * Produces an EnvelopeV3 `{ v: 3, labelId, enc, ct }`. Never falls back to
+   * Produces an HpkeEnvelope `{ v: 3, labelId, enc, ct }`. Never falls back to
    * ECIES — callers that can tolerate either format must branch on label
    * themselves.
    */
@@ -368,7 +368,7 @@ export class CryptoWorkerClient {
     label: CryptoLabel,
     recordId: string,
     fieldName: string
-  ): Promise<EnvelopeV3> {
+  ): Promise<HpkeEnvelope> {
     return (await this.call({
       type: 'hpkeSeal',
       plaintext,
@@ -376,7 +376,7 @@ export class CryptoWorkerClient {
       label,
       recordId,
       fieldName,
-    })) as EnvelopeV3
+    })) as HpkeEnvelope
   }
 
   /**
@@ -384,7 +384,7 @@ export class CryptoWorkerClient {
    * Throws on version, label, or AAD mismatch — never falls back to ECIES.
    */
   async hpkeOpen(
-    envelope: EnvelopeV3,
+    envelope: HpkeEnvelope,
     expectedLabel: CryptoLabel,
     recordId: string,
     fieldName: string
