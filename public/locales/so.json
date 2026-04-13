@@ -1584,7 +1584,8 @@
       "analytics": "Analytics",
       "health": "Health",
       "platform": "Platform",
-      "recoveryGroup": "Recovery Group"
+      "recoveryGroup": "Recovery Group",
+      "devices": "Devices"
     }
   },
   "locationLookup": {
@@ -1760,5 +1761,18 @@
         "aad_mismatch": "Frame authentication failed."
       }
     }
+  },
+  "verifyFingerprint": {
+    "title": "Verify device fingerprint",
+    "instructions": "Call the device owner out of band. Ask them to read these 7 emojis in order. Click each one in the picker below as they read it.",
+    "clickPrompt": "Click the emojis in order:",
+    "mismatch": "Emoji sequence does not match. Please reset and try again.",
+    "confirm": "Verified",
+    "reset": "Reset"
+  },
+  "device": {
+    "verified": "Verified",
+    "unverified": "Unverified",
+    "verifyButton": "Verify"
   }
 }

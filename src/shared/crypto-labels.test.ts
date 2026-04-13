@@ -1,14 +1,18 @@
 import { describe, expect, test } from 'bun:test'
 import * as labels from '@shared/crypto-labels'
 import {
+  type CryptoLabel,
   LABEL_DEVICE_DISPLAY,
   LABEL_DEVICE_ENROLLMENT_SAS,
   LABEL_HUB_PTK_PREV_GEN,
+  LABEL_ITEMS_KEY_EXPORT,
   LABEL_MASTER_KEY_WRAP,
   LABEL_MASTER_RECOVERY_GROUP_WRAP,
   LABEL_MASTER_RECOVERY_HANDOFF,
   LABEL_MASTER_SELF_SIGNING,
   LABEL_MASTER_USER_SIGNING,
+  LABEL_MLS_PROVISION,
+  LABEL_NOTE_EPOCH_KEY,
   LABEL_PAPER_KEY_ENCRYPTION,
   LABEL_PAPER_KEY_SIGNING,
   LABEL_PUK_DH,
@@ -17,6 +21,8 @@ import {
   LABEL_PUK_SECRETBOX,
   LABEL_PUK_SIGN,
   LABEL_PUK_WRAP_TO_DEVICE,
+  LABEL_REGISTRY,
+  LABEL_SAS_V2,
   labelToId,
 } from '@shared/crypto-labels'
 
@@ -83,5 +89,30 @@ describe('Tier 3 labels', () => {
       labelToId(LABEL_HUB_PTK_PREV_GEN),
     ])
     expect(ids.size).toBe(16)
+  })
+})
+
+describe('Tier 6 crypto labels', () => {
+  test('LABEL_SAS_V2 exists and is distinct', () => {
+    expect(LABEL_SAS_V2 as string).toBe('llamenos:sas:v2')
+  })
+  test('LABEL_ITEMS_KEY_EXPORT exists', () => {
+    expect(LABEL_ITEMS_KEY_EXPORT as string).toBe('llamenos:items-key-export:v1')
+  })
+  test('LABEL_NOTE_EPOCH_KEY exists', () => {
+    expect(LABEL_NOTE_EPOCH_KEY as string).toBe('llamenos:note-epoch-key:v1')
+  })
+  test('LABEL_MLS_PROVISION exists', () => {
+    expect(LABEL_MLS_PROVISION as string).toBe('llamenos:mls-provision:v1')
+  })
+  test('all Tier 6 labels registered in LABEL_REGISTRY', () => {
+    for (const label of [
+      LABEL_SAS_V2,
+      LABEL_ITEMS_KEY_EXPORT,
+      LABEL_NOTE_EPOCH_KEY,
+      LABEL_MLS_PROVISION,
+    ]) {
+      expect(LABEL_REGISTRY).toContain(label)
+    }
   })
 })
