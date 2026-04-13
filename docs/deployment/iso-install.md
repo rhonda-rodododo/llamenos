@@ -103,15 +103,42 @@ Before choosing a VPS provider, read the [deployment tier analysis in
 THREAT_MODEL.md](../security/THREAT_MODEL.md#provider-jurisdiction-and-deployment-tiers).
 Not every provider is suitable — FDE only works against a subset of adversaries,
 and provider corporate jurisdiction matters at least as much as the datacenter
-location. In short:
+location.
 
-- **Do use:** Non-US providers — Hetzner (Germany), OVH (France/Canada), Scaleway
-  (France), 1984 Hosting (Iceland) only for stock images, or self-hosting on
-  owned hardware.
-- **Do NOT use for this threat model:** AWS, GCP, Azure, Vultr, Linode, DigitalOcean,
-  and Cloudflare paid products — all are US-subject regardless of datacenter
-  location (CLOUD Act reach) and stacking FDE on top of a US-subject host is a
-  false sense of security.
+The test is **strict**: a provider must have **zero US operations** — no US
+datacenters, no US subsidiary, no US office, no US employees. A foreign parent
+company with a US cloud subsidiary is still reachable through the US arm for
+data stored anywhere in its network.
+
+**Clean list** (single-jurisdiction, no US operations, verified 2026-04-12):
+
+- **Scaleway** (France) — EU-only datacenters, mature cloud product line, custom
+  image support. Best candidate for managed deployments.
+- **FlokiNET** (Iceland, Romania, Netherlands, Finland) — purpose-built for civil
+  society and whistleblower projects, no ID required, accepts crypto.
+- **1984 Hosting** (Iceland) — stock images only unless support attaches a
+  custom ISO; strong jurisdictional posture.
+- **Infomaniak** (Switzerland) — Swiss data protection law, more expensive.
+- **Exoscale** (Switzerland, with additional EU datacenters) — Swiss parent.
+- **Self-hosting** on operator-owned hardware — the highest-assurance option.
+
+**Disqualified** (as of 2026-04-12 — verify before assuming current status):
+
+- **US-headquartered:** AWS, GCP, Azure, Vultr, Linode (Akamai), DigitalOcean,
+  Cloudflare paid products, Backblaze.
+- **Foreign parent with US operations:** **Hetzner** (operates US cloud
+  datacenters in Ashburn VA since 2021 and Hillsboro OR since 2023), **OVHcloud**
+  (operates OVHcloud US LLC subsidiary with two US datacenters and ~200
+  employees). Both are disqualified despite non-US headquarters because their
+  US presence creates personal-jurisdiction hooks for US legal process.
+- **Chinese clouds:** Alibaba Cloud, Tencent Cloud, Huawei Cloud, Baidu Cloud.
+  China National Intelligence Law Art. 7 compels cooperation with PRC state
+  intelligence. Alibaba additionally operates Santa Clara CA datacenters,
+  creating dual jurisdictional exposure.
+
+Stacking FDE on top of a disqualified host is a false sense of security — a
+compelled hypervisor can capture the LUKS key from running VM memory. Pick a
+provider that passes the strict test, then use FDE on top for defense in depth.
 
 ## Uploading to your VPS provider
 
@@ -145,18 +172,25 @@ Hetzner Cloud is the recommended provider for the default threat model: German
 jurisdiction (outside US CLOUD Act reach), KVM with virtio disks, EU datacenters
 (Falkenstein, Nuremberg, Helsinki), and among the cheapest EU providers.
 
-There are **two equally valid paths** for installing the Llamenos FDE ISO on
-Hetzner Cloud. Pick based on whether you want a business-day wait for a cleaner
-UX, or a fully self-service flow that you can run immediately:
+There are **two equally valid paths** for installing the Llamenos FDE ISO on a
+clean-list provider. Pick based on whether you want a business-day wait for a
+cleaner UX, or a fully self-service flow that you can run immediately:
 
 | Path | Support ticket? | Time to first boot | UX |
 |------|-----------------|---------------------|-----|
 | **A. Support-ticket ISO attach** | Yes, usually within one business day | 1 day + ~10 minutes | Mount ISO in the web UI, boot, type LUKS passphrase in the noVNC console |
-| **B. Rescue-mode qemu install** | **No** | ~15 minutes total | Boot Hetzner rescue, run the installer inside `qemu-system-x86_64` against the real disk, type LUKS passphrase through a VNC tunnel |
+| **B. Rescue-mode qemu install** | **No** | ~15 minutes total | Boot provider's rescue system, run the installer inside `qemu-system-x86_64` against the real disk, type LUKS passphrase through a VNC tunnel |
 
 Both paths run the **same** FDE ISO against the **same** real disk and produce
 an identical installed system. Path B runs the installer in nested virtualization
-during install only — once installed, the Hetzner VM boots natively.
+during install only — once installed, the VM boots natively.
+
+The step-by-step instructions below were originally written against Hetzner
+Cloud's UI and rescue system; the workflow is the same on any clean-list provider
+with a similar feature set (Scaleway, 1984, FlokiNET). **Substitute panel
+navigation and rescue system details from your chosen provider's docs.** The
+qemu commands in Path B are generic and should work anywhere the rescue
+environment can install qemu and pass `/dev/sda` through to a guest.
 
 ### Path A: Support-ticket ISO attach
 
