@@ -12,12 +12,8 @@
 - **Files:** `deploy/docker/docker-compose.yml` (remove build for app/sip-bridge OR leave and override downstream), `deploy/docker/docker-compose.production.yml`, optional new `deploy/docker/docker-compose.from-registry.yml`, `deploy/ansible/roles/llamenos/` templates, `deploy/docker/first-run.sh`, docs in `docs/deploy/`.
 - **See:** PR #67 — Docker publish pipeline (reusable workflow, cosign, attestation, SBOM).
 
-## Follow-up: Type-brand hardening for session-capsule types (PR #50 review item #9)
-- **What:** `SessionCapsule`, `SyncMessage`, and the `exportSession`/`importSession` worker RPC types are a sea of untyped hex strings. Field-swap bugs (e.g. `encryptedNsec` ↔ `capsuleNonce`) typecheck today because both are `string`. The codebase already has `src/shared/crypto-types.ts` with a `Ciphertext` brand — the session-capsule module should follow the same pattern.
-- **Scope:** Introduce `HexString<N>`, `SessionToken`, `CapsuleNonceHex`, `EncryptedNsecHex`, `PubkeyHash16` brands. Add `parseSessionCapsule(raw: unknown)` inside `idbGet()` and `parseSyncMessage(data: unknown)` at both BroadcastChannel boundaries. Symmetrize worker RPC field names (`token` vs `tokenHex`). Consolidate cross-tab message types (lock + sync) in one module. Type `CryptoWorkerClient.call<R>` generically to eliminate per-method casts.
-- **Why follow-up, not in PR #50:** touches `crypto-types.ts`, `crypto-worker.ts`, `crypto-worker-client.ts`, `key-manager.ts`, and `session-capsule.ts` — the blast radius warrants its own spec/plan cycle. PR #50 already addresses all critical/high/medium findings; this is a medium-priority type-level hardening pass.
-- **Files:** `src/shared/crypto-types.ts`, `src/client/lib/session-capsule.ts`, `src/client/lib/crypto-worker.ts`, `src/client/lib/crypto-worker-client.ts`, `src/client/lib/key-manager.ts`
-- **See:** type-design-analyzer report in PR #50 review
+## ~~Follow-up: Type-brand hardening for session-capsule types (PR #50 review item #9)~~ — DONE (PR #96)
+- Shipped as PR #96 (branch `feat/session-capsule-type-brands`). Added length-tagged `HexString<N>` brands (`SessionToken`, `CapsuleNonceHex`, `EncryptedNsecHex`, `PubkeyHash16`), runtime `parseSessionCapsule` / `parseSyncMessage` / `parseLockMessage` validators at IDB + BroadcastChannel boundaries, symmetric `tokenHex` field in worker RPC, generic `CryptoWorkerClient.call<R>`, and new `@client/lib/cross-tab-messages` module consolidating both cross-tab protocols. 57 new passing tests; no regressions.
 
 ## High Priority (Pre-Launch)
 - [x] Set up Cloudflare Tunnel for local dev with telephony webhooks (`scripts/dev-tunnel.sh`)
