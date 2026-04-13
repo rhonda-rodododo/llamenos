@@ -8,11 +8,12 @@
  * Uses the same schnorr secp256k1 signing pattern as audit-chain-verifier.test.ts.
  */
 import { describe, expect, test } from 'bun:test'
+import { ed25519 } from '@noble/curves/ed25519.js'
 import { schnorr } from '@noble/curves/secp256k1.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { computeEntryHash } from '@shared/lib/audit-entry-hash'
 import type { AuditEntryPayload, SignedAuditEntry } from '@shared/schemas/audit-entries'
-import { UserSigchainError, verifyUserSigchain } from './user-sigchain-verifier'
+import { verifyUserSigchain } from './user-sigchain-verifier'
 
 // ---- fixtures ----
 
@@ -361,7 +362,7 @@ describe('verifyUserSigchain', () => {
     expect(result.verifiedCount).toBe(1)
   })
 
-  test('device_cross_sign accepted when signed by verified device', async () => {
+  test('device_cross_sign accepted when inner Ed25519 signature verifies under published master signing key', async () => {
     const b = createBuilder()
     appendEntry(b, DEVICE_A.priv, DEVICE_A.pub, buildUserInitPayload())
 
@@ -377,17 +378,159 @@ describe('verifyUserSigchain', () => {
       pukGeneration: 1,
     })
 
-    // Device A cross-signs device B
+    // Publish the user's master (self-)signing pubkey. The verifier uses this
+    // to validate the inner signature on subsequent device_cross_sign entries.
+    const masterSeed = new Uint8Array(32).fill(0x42)
+    const masterSigningPub = ed25519.getPublicKey(masterSeed)
+    appendEntry(b, DEVICE_A.priv, DEVICE_A.pub, {
+      type: 'user_master_signing_update',
+      userId: USER_ID,
+      newMasterSigningPubkey: bytesToHex(masterSigningPub),
+      signedByDeviceId: 'device-a',
+    })
+
+    // Produce a genuine Ed25519 signature over the target device's signing
+    // pubkey under the published master signing key.
+    const targetSigningPubkeyBytes = hexToBytes(DEVICE_B.pub)
+    const innerSig = ed25519.sign(targetSigningPubkeyBytes, masterSeed)
+
     appendEntry(b, DEVICE_A.priv, DEVICE_A.pub, {
       type: 'device_cross_sign',
       signerDeviceId: 'device-a',
       targetDeviceId: 'device-b',
       targetSigningPubkey: DEVICE_B.pub,
-      signature: 'ab'.repeat(64),
+      signature: bytesToHex(innerSig),
     })
 
     const result = await verifyUserSigchain(b.entries)
-    expect(result.verifiedCount).toBe(3)
+    expect(result.verifiedCount).toBe(4)
+    expect(result.masterSigningPubkey).toBe(bytesToHex(masterSigningPub))
+  })
+
+  // Gap 1 regression: outer entry is signed by a verified device, but the
+  // INNER Ed25519 payload signature is forged/tampered. Without the inner
+  // signature check, an attacker controlling any valid device could record
+  // arbitrary `device_cross_sign` claims.
+  test('rejects device_cross_sign with tampered inner signature', async () => {
+    const b = createBuilder()
+    appendEntry(b, DEVICE_A.priv, DEVICE_A.pub, buildUserInitPayload())
+
+    appendEntry(b, DEVICE_A.priv, DEVICE_A.pub, {
+      type: 'tier3_device_add',
+      userId: USER_ID,
+      newDeviceId: 'device-b',
+      newDeviceSigningPubkey: DEVICE_B.pub,
+      newDeviceEncryptionPubkey: 'dd'.repeat(32),
+      signedByDeviceId: 'device-a',
+      newDeviceDisplayName: 'Phone',
+      pukGeneration: 1,
+    })
+
+    // Publish the legitimate master signing pubkey.
+    const masterSeed = new Uint8Array(32).fill(0x11)
+    const masterSigningPub = ed25519.getPublicKey(masterSeed)
+    appendEntry(b, DEVICE_A.priv, DEVICE_A.pub, {
+      type: 'user_master_signing_update',
+      userId: USER_ID,
+      newMasterSigningPubkey: bytesToHex(masterSigningPub),
+      signedByDeviceId: 'device-a',
+    })
+
+    // Produce a real signature, then flip a byte in the middle.
+    const realSig = ed25519.sign(hexToBytes(DEVICE_B.pub), masterSeed)
+    const tamperedSig = new Uint8Array(realSig)
+    tamperedSig[10] = (tamperedSig[10] as number) ^ 0xff
+
+    appendEntry(b, DEVICE_A.priv, DEVICE_A.pub, {
+      type: 'device_cross_sign',
+      signerDeviceId: 'device-a',
+      targetDeviceId: 'device-b',
+      targetSigningPubkey: DEVICE_B.pub,
+      signature: bytesToHex(tamperedSig),
+    })
+
+    await expect(verifyUserSigchain(b.entries)).rejects.toMatchObject({
+      name: 'UserSigchainError',
+      code: 'cross_sign_inner_signature_invalid',
+    })
+  })
+
+  test('rejects device_cross_sign signed by key from a different master', async () => {
+    const b = createBuilder()
+    appendEntry(b, DEVICE_A.priv, DEVICE_A.pub, buildUserInitPayload())
+
+    appendEntry(b, DEVICE_A.priv, DEVICE_A.pub, {
+      type: 'tier3_device_add',
+      userId: USER_ID,
+      newDeviceId: 'device-b',
+      newDeviceSigningPubkey: DEVICE_B.pub,
+      newDeviceEncryptionPubkey: 'dd'.repeat(32),
+      signedByDeviceId: 'device-a',
+      newDeviceDisplayName: 'Phone',
+      pukGeneration: 1,
+    })
+
+    // Publish user's legitimate master signing pubkey.
+    const legitSeed = new Uint8Array(32).fill(0x22)
+    const legitPub = ed25519.getPublicKey(legitSeed)
+    appendEntry(b, DEVICE_A.priv, DEVICE_A.pub, {
+      type: 'user_master_signing_update',
+      userId: USER_ID,
+      newMasterSigningPubkey: bytesToHex(legitPub),
+      signedByDeviceId: 'device-a',
+    })
+
+    // Attacker signs with a different key — signature is valid Ed25519 but
+    // not under the published master key.
+    const attackerSeed = new Uint8Array(32).fill(0x99)
+    const attackerSig = ed25519.sign(hexToBytes(DEVICE_B.pub), attackerSeed)
+
+    appendEntry(b, DEVICE_A.priv, DEVICE_A.pub, {
+      type: 'device_cross_sign',
+      signerDeviceId: 'device-a',
+      targetDeviceId: 'device-b',
+      targetSigningPubkey: DEVICE_B.pub,
+      signature: bytesToHex(attackerSig),
+    })
+
+    await expect(verifyUserSigchain(b.entries)).rejects.toMatchObject({
+      name: 'UserSigchainError',
+      code: 'cross_sign_inner_signature_invalid',
+    })
+  })
+
+  test('rejects device_cross_sign before any user_master_signing_update', async () => {
+    const b = createBuilder()
+    appendEntry(b, DEVICE_A.priv, DEVICE_A.pub, buildUserInitPayload())
+
+    appendEntry(b, DEVICE_A.priv, DEVICE_A.pub, {
+      type: 'tier3_device_add',
+      userId: USER_ID,
+      newDeviceId: 'device-b',
+      newDeviceSigningPubkey: DEVICE_B.pub,
+      newDeviceEncryptionPubkey: 'dd'.repeat(32),
+      signedByDeviceId: 'device-a',
+      newDeviceDisplayName: 'Phone',
+      pukGeneration: 1,
+    })
+
+    // Device_cross_sign without a preceding user_master_signing_update — there
+    // is no published key to verify the inner signature against, so the
+    // verifier has nothing to anchor trust on and must reject.
+    const orphanSeed = new Uint8Array(32).fill(0x33)
+    const orphanSig = ed25519.sign(hexToBytes(DEVICE_B.pub), orphanSeed)
+    appendEntry(b, DEVICE_A.priv, DEVICE_A.pub, {
+      type: 'device_cross_sign',
+      signerDeviceId: 'device-a',
+      targetDeviceId: 'device-b',
+      targetSigningPubkey: DEVICE_B.pub,
+      signature: bytesToHex(orphanSig),
+    })
+
+    await expect(verifyUserSigchain(b.entries)).rejects.toMatchObject({
+      name: 'UserSigchainError',
+      code: 'cross_sign_missing_master_signing_key',
+    })
   })
 
   test('hub_ptk_rotate accepted with device commitments', async () => {

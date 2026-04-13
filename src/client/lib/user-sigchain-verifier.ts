@@ -19,6 +19,7 @@
  * Builds on the Tier 0 audit-chain-verifier pattern but scoped to a
  * single user's identity chain with device-set management.
  */
+import { ed25519 } from '@noble/curves/ed25519.js'
 import { schnorr } from '@noble/curves/secp256k1.js'
 import { hexToBytes } from '@noble/hashes/utils.js'
 import { computeEntryHash } from '@shared/lib/audit-entry-hash'
@@ -38,6 +39,8 @@ export type UserSigchainErrorCode =
   | 'signature_invalid'
   | 'schema_invalid'
   | 'hub_ptk_no_commitments'
+  | 'cross_sign_missing_master_signing_key'
+  | 'cross_sign_inner_signature_invalid'
 
 export class UserSigchainError extends Error {
   readonly name = 'UserSigchainError'
@@ -267,8 +270,40 @@ export async function verifyUserSigchain(
       }
 
       case 'device_cross_sign': {
-        // Verify the signer is a same-user device (already checked above via signerInSet)
-        // The cross-sign target should be in the verified set too
+        // Outer Schnorr check already passed (entry signed by a verified device).
+        // Now verify the INNER Ed25519 cross-signature: the user's self-signing
+        // key (tracked on state as `masterSigningPubkey`, published via
+        // `user_master_signing_update`) must have signed `targetSigningPubkey`.
+        //
+        // Without this, an attacker who compromises any one device can forge
+        // `device_cross_sign` entries claiming arbitrary keys belong to the
+        // user, because the outer signature only proves the device exists.
+        if (!masterSigningPubkey) {
+          throw new UserSigchainError('cross_sign_missing_master_signing_key', {
+            entryId: entry.id,
+            index: i,
+            reason: 'device_cross_sign requires a prior user_master_signing_update',
+          })
+        }
+
+        let innerOk = false
+        try {
+          innerOk = ed25519.verify(
+            hexToBytes(payload.signature),
+            hexToBytes(payload.targetSigningPubkey),
+            hexToBytes(masterSigningPubkey)
+          )
+        } catch {
+          innerOk = false
+        }
+
+        if (!innerOk) {
+          throw new UserSigchainError('cross_sign_inner_signature_invalid', {
+            entryId: entry.id,
+            index: i,
+            targetDeviceId: payload.targetDeviceId,
+          })
+        }
         break
       }
 
