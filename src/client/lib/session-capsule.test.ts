@@ -3,6 +3,12 @@
 // specific combinations of named + type imports from another module are
 // present in the same file. Using require() inside beforeAll avoids this.
 import { afterEach, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
+import {
+  asCapsuleNonce,
+  asEncryptedNsec,
+  asPubkeyHash16,
+  asSessionToken,
+} from '@shared/crypto-types'
 import { MockBroadcastChannel, MockBroadcastHub } from './__test-helpers__/mock-broadcast-channel'
 import {
   SESSION_TOKEN_KEY,
@@ -10,18 +16,28 @@ import {
   __setSyncChannelFactoryForTests,
   clearCapsule,
   loadCapsule,
+  parseSessionCapsule,
   storeCapsule,
   updateAutoLockExpiry,
 } from './session-capsule'
 import type { SessionCapsule } from './session-capsule'
 
-const PUBKEY_HASH = 'abcdef0123456789'
-const OTHER_HASH = '0123456789abcdef'
+const PUBKEY_HASH = asPubkeyHash16('abcdef0123456789')
+const OTHER_HASH = asPubkeyHash16('0123456789abcdef')
+
+const ENC_NSEC = asEncryptedNsec('deadbeef')
+const CAPSULE_NONCE = asCapsuleNonce('a'.repeat(48))
+
+const TOK_PRIMARY = asSessionToken('1'.repeat(64))
+const TOK_CROSS_TAB = asSessionToken('2'.repeat(64))
+const TOK_CORRECT = asSessionToken('3'.repeat(64))
+const TOK_WRONG = asSessionToken('4'.repeat(64))
+const TOK_TOO_LATE = asSessionToken('5'.repeat(64))
 
 function makeCapsule(overrides: Partial<SessionCapsule> = {}): SessionCapsule {
   return {
-    encryptedNsec: 'deadbeef',
-    capsuleNonce: 'cafef00d',
+    encryptedNsec: ENC_NSEC,
+    capsuleNonce: CAPSULE_NONCE,
     autoLockExpiresAt: Date.now() + 60_000,
     pubkeyHash: PUBKEY_HASH,
     ...overrides,
@@ -103,17 +119,17 @@ describe('session-capsule', () => {
 
   test('storeCapsule + loadCapsule roundtrip returns the stored pair', async () => {
     const capsule = makeCapsule()
-    await storeCapsule('tok-123', capsule)
+    await storeCapsule(TOK_PRIMARY, capsule)
 
     const loaded = await loadCapsule(PUBKEY_HASH)
     expect(loaded).not.toBeNull()
-    expect(loaded?.token).toBe('tok-123')
-    expect(loaded?.capsule.encryptedNsec).toBe('deadbeef')
-    expect(loaded?.capsule.capsuleNonce).toBe('cafef00d')
+    expect(loaded?.token as string).toBe(TOK_PRIMARY as string)
+    expect(loaded?.capsule.encryptedNsec as string).toBe(ENC_NSEC as string)
+    expect(loaded?.capsule.capsuleNonce as string).toBe(CAPSULE_NONCE as string)
   })
 
   test('loadCapsule returns null when sessionStorage has no token and no sibling responds', async () => {
-    await storeCapsule('tok-123', makeCapsule())
+    await storeCapsule(TOK_PRIMARY, makeCapsule())
     sessionStorage.removeItem(SESSION_TOKEN_KEY)
     // No sync factory installed → no siblings → sync request times out.
     __setSyncChannelFactoryForTests(() => null)
@@ -125,7 +141,7 @@ describe('session-capsule', () => {
   })
 
   test('loadCapsule preserves the IDB entry when sessionStorage has no token', async () => {
-    await storeCapsule('tok-123', makeCapsule())
+    await storeCapsule(TOK_PRIMARY, makeCapsule())
     sessionStorage.removeItem(SESSION_TOKEN_KEY)
     __setSyncChannelFactoryForTests(() => null)
 
@@ -136,11 +152,11 @@ describe('session-capsule', () => {
     // Put the token back — the IDB entry must still be there and the load
     // must now succeed. This asserts the old "orphan cleanup" deletion has
     // been removed so cross-tab sync can work.
-    sessionStorage.setItem(SESSION_TOKEN_KEY, 'tok-123')
+    sessionStorage.setItem(SESSION_TOKEN_KEY, TOK_PRIMARY)
     const second = await loadCapsule(PUBKEY_HASH)
     expect(second).not.toBeNull()
-    expect(second?.token).toBe('tok-123')
-    expect(second?.capsule.encryptedNsec).toBe('deadbeef')
+    expect(second?.token as string).toBe(TOK_PRIMARY as string)
+    expect(second?.capsule.encryptedNsec as string).toBe(ENC_NSEC as string)
 
     __setSyncChannelFactoryForTests(null)
   })
@@ -150,9 +166,9 @@ describe('session-capsule', () => {
     // We can't simulate two sessionStorages in a single test process, so we
     // model Tab A by installing a responder channel whose onmessage directly
     // replies with the stored token when the request's pubkeyHash matches.
-    await storeCapsule('tok-cross-tab', makeCapsule())
+    await storeCapsule(TOK_CROSS_TAB, makeCapsule())
     const tabATokenStore = sessionStorage.getItem(SESSION_TOKEN_KEY)
-    expect(tabATokenStore).toBe('tok-cross-tab')
+    expect(tabATokenStore).toBe(TOK_CROSS_TAB as string)
 
     const hub = new MockBroadcastHub()
 
@@ -162,12 +178,12 @@ describe('session-capsule', () => {
     tabAChannel.onmessage = (e) => {
       const msg = e.data as { type: string; nonce: string; pubkeyHash: string }
       if (msg.type !== 'request-token') return
-      if (msg.pubkeyHash !== PUBKEY_HASH) return
+      if (msg.pubkeyHash !== (PUBKEY_HASH as string)) return
       tabAChannel.postMessage({
         type: 'token-response',
         nonce: msg.nonce,
-        pubkeyHash: PUBKEY_HASH,
-        token: 'tok-cross-tab',
+        pubkeyHash: PUBKEY_HASH as string,
+        token: TOK_CROSS_TAB as string,
       })
     }
 
@@ -180,16 +196,16 @@ describe('session-capsule', () => {
 
     const loaded = await loadCapsule(PUBKEY_HASH)
     expect(loaded).not.toBeNull()
-    expect(loaded?.token).toBe('tok-cross-tab')
+    expect(loaded?.token as string).toBe(TOK_CROSS_TAB as string)
     // Tab B should have cached the token locally for subsequent reloads.
-    expect(sessionStorage.getItem(SESSION_TOKEN_KEY)).toBe('tok-cross-tab')
+    expect(sessionStorage.getItem(SESSION_TOKEN_KEY)).toBe(TOK_CROSS_TAB as string)
 
     tabAChannel.close()
     __setSyncChannelFactoryForTests(null)
   })
 
   test('loadCapsule times out when a sibling responds with a non-matching pubkeyHash', async () => {
-    await storeCapsule('tok-123', makeCapsule())
+    await storeCapsule(TOK_PRIMARY, makeCapsule())
     sessionStorage.removeItem(SESSION_TOKEN_KEY)
 
     const hub = new MockBroadcastHub()
@@ -203,8 +219,8 @@ describe('session-capsule', () => {
       rogueChannel.postMessage({
         type: 'token-response',
         nonce: msg.nonce,
-        pubkeyHash: OTHER_HASH,
-        token: 'wrong-token',
+        pubkeyHash: OTHER_HASH as string,
+        token: TOK_WRONG as string,
       })
     }
 
@@ -220,7 +236,7 @@ describe('session-capsule', () => {
   })
 
   test('loadCapsule ignores a sibling response with a stale nonce', async () => {
-    await storeCapsule('tok-123', makeCapsule())
+    await storeCapsule(TOK_PRIMARY, makeCapsule())
     sessionStorage.removeItem(SESSION_TOKEN_KEY)
 
     const hub = new MockBroadcastHub()
@@ -235,8 +251,8 @@ describe('session-capsule', () => {
       siblingChannel.postMessage({
         type: 'token-response',
         nonce: 'stale-nonce-from-a-previous-request',
-        pubkeyHash: PUBKEY_HASH,
-        token: 'tok-123',
+        pubkeyHash: PUBKEY_HASH as string,
+        token: TOK_PRIMARY as string,
       })
     }
 
@@ -252,7 +268,7 @@ describe('session-capsule', () => {
   })
 
   test('loadCapsule returns the first sibling response even when multiple reply', async () => {
-    await storeCapsule('tok-correct', makeCapsule())
+    await storeCapsule(TOK_CORRECT, makeCapsule())
     sessionStorage.removeItem(SESSION_TOKEN_KEY)
 
     const hub = new MockBroadcastHub()
@@ -267,8 +283,8 @@ describe('session-capsule', () => {
       fastSibling.postMessage({
         type: 'token-response',
         nonce: msg.nonce,
-        pubkeyHash: PUBKEY_HASH,
-        token: 'tok-correct',
+        pubkeyHash: PUBKEY_HASH as string,
+        token: TOK_CORRECT as string,
       })
     }
     const slowSibling = new MockBroadcastChannel(hub)
@@ -281,8 +297,8 @@ describe('session-capsule', () => {
         slowSibling.postMessage({
           type: 'token-response',
           nonce: msg.nonce,
-          pubkeyHash: PUBKEY_HASH,
-          token: 'tok-wrong-second-responder',
+          pubkeyHash: PUBKEY_HASH as string,
+          token: TOK_WRONG as string,
         })
       }, 5)
     }
@@ -293,13 +309,13 @@ describe('session-capsule', () => {
 
     const loaded = await loadCapsule(PUBKEY_HASH)
     expect(loaded).not.toBeNull()
-    expect(loaded?.token).toBe('tok-correct')
+    expect(loaded?.token as string).toBe(TOK_CORRECT as string)
 
     // Give the slow responder time to fire — we're asserting that a
     // late-arriving response does NOT overwrite the already-cached token
     // or throw inside the (already-removed) message handler.
     await new Promise((r) => setTimeout(r, 20))
-    expect(sessionStorage.getItem(SESSION_TOKEN_KEY)).toBe('tok-correct')
+    expect(sessionStorage.getItem(SESSION_TOKEN_KEY)).toBe(TOK_CORRECT as string)
 
     fastSibling.close()
     slowSibling.close()
@@ -307,7 +323,7 @@ describe('session-capsule', () => {
   })
 
   test('a sibling response arriving after timeout does not throw or resolve', async () => {
-    await storeCapsule('tok-123', makeCapsule())
+    await storeCapsule(TOK_PRIMARY, makeCapsule())
     sessionStorage.removeItem(SESSION_TOKEN_KEY)
 
     const hub = new MockBroadcastHub()
@@ -325,8 +341,8 @@ describe('session-capsule', () => {
           lateSibling.postMessage({
             type: 'token-response',
             nonce: msg.nonce,
-            pubkeyHash: PUBKEY_HASH,
-            token: 'tok-too-late',
+            pubkeyHash: PUBKEY_HASH as string,
+            token: TOK_TOO_LATE as string,
           })
         } catch {
           /* channel may have been closed by test teardown */
@@ -351,7 +367,7 @@ describe('session-capsule', () => {
   })
 
   test('loadCapsule returns null and clears when expiry is in the past', async () => {
-    await storeCapsule('tok-123', makeCapsule({ autoLockExpiresAt: Date.now() - 1000 }))
+    await storeCapsule(TOK_PRIMARY, makeCapsule({ autoLockExpiresAt: Date.now() - 1000 }))
 
     const loaded = await loadCapsule(PUBKEY_HASH)
     expect(loaded).toBeNull()
@@ -359,11 +375,25 @@ describe('session-capsule', () => {
   })
 
   test('loadCapsule returns null and clears when pubkeyHash does not match', async () => {
-    await storeCapsule('tok-123', makeCapsule({ pubkeyHash: OTHER_HASH }))
+    await storeCapsule(TOK_PRIMARY, makeCapsule({ pubkeyHash: OTHER_HASH }))
 
     const loaded = await loadCapsule(PUBKEY_HASH)
     expect(loaded).toBeNull()
     expect(sessionStorage.getItem(SESSION_TOKEN_KEY)).toBeNull()
+  })
+
+  test('loadCapsule drops a tampered sessionStorage token before asking siblings', async () => {
+    await storeCapsule(TOK_PRIMARY, makeCapsule())
+    // Overwrite with a non-hex value — trySessionToken must reject it.
+    sessionStorage.setItem(SESSION_TOKEN_KEY, 'not-a-real-hex-token')
+    __setSyncChannelFactoryForTests(() => null)
+
+    const loaded = await loadCapsule(PUBKEY_HASH)
+    expect(loaded).toBeNull()
+    // The tampered value must have been removed by loadCapsule's validation.
+    expect(sessionStorage.getItem(SESSION_TOKEN_KEY)).toBeNull()
+
+    __setSyncChannelFactoryForTests(null)
   })
 
   test('clearCapsule is idempotent — safe to call without any prior store', async () => {
@@ -376,7 +406,7 @@ describe('session-capsule', () => {
 
   test('updateAutoLockExpiry writes when debounce window has elapsed', async () => {
     const originalExpiry = Date.now() + 60_000
-    await storeCapsule('tok-123', makeCapsule({ autoLockExpiresAt: originalExpiry }))
+    await storeCapsule(TOK_PRIMARY, makeCapsule({ autoLockExpiresAt: originalExpiry }))
 
     // First call after reset — debounce allows the write
     const newExpiry = Date.now() + 120_000
@@ -388,7 +418,7 @@ describe('session-capsule', () => {
 
   test('updateAutoLockExpiry debounces a rapid second call', async () => {
     const originalExpiry = Date.now() + 60_000
-    await storeCapsule('tok-123', makeCapsule({ autoLockExpiresAt: originalExpiry }))
+    await storeCapsule(TOK_PRIMARY, makeCapsule({ autoLockExpiresAt: originalExpiry }))
 
     const firstUpdate = Date.now() + 120_000
     await updateAutoLockExpiry(firstUpdate)
@@ -399,5 +429,133 @@ describe('session-capsule', () => {
 
     const loaded = await loadCapsule(PUBKEY_HASH)
     expect(loaded?.capsule.autoLockExpiresAt).toBe(firstUpdate)
+  })
+})
+
+describe('parseSessionCapsule', () => {
+  test('accepts a well-formed capsule', () => {
+    const raw = {
+      encryptedNsec: 'deadbeef',
+      capsuleNonce: 'a'.repeat(48),
+      autoLockExpiresAt: Date.now() + 60_000,
+      pubkeyHash: 'abcdef0123456789',
+    }
+    const parsed = parseSessionCapsule(raw)
+    expect(parsed).not.toBeNull()
+    expect(parsed?.encryptedNsec as string).toBe('deadbeef')
+    expect(parsed?.capsuleNonce as string).toBe('a'.repeat(48))
+    expect(parsed?.pubkeyHash as string).toBe('abcdef0123456789')
+  })
+
+  test('rejects null / undefined / primitive', () => {
+    expect(parseSessionCapsule(null)).toBeNull()
+    expect(parseSessionCapsule(undefined)).toBeNull()
+    expect(parseSessionCapsule('capsule')).toBeNull()
+    expect(parseSessionCapsule(42)).toBeNull()
+  })
+
+  test('rejects empty encryptedNsec', () => {
+    expect(
+      parseSessionCapsule({
+        encryptedNsec: '',
+        capsuleNonce: 'a'.repeat(48),
+        autoLockExpiresAt: Date.now() + 60_000,
+        pubkeyHash: 'abcdef0123456789',
+      })
+    ).toBeNull()
+  })
+
+  test('rejects wrong-length capsuleNonce', () => {
+    expect(
+      parseSessionCapsule({
+        encryptedNsec: 'deadbeef',
+        capsuleNonce: 'a'.repeat(47),
+        autoLockExpiresAt: Date.now() + 60_000,
+        pubkeyHash: 'abcdef0123456789',
+      })
+    ).toBeNull()
+  })
+
+  test('rejects non-hex capsuleNonce', () => {
+    expect(
+      parseSessionCapsule({
+        encryptedNsec: 'deadbeef',
+        capsuleNonce: 'z'.repeat(48),
+        autoLockExpiresAt: Date.now() + 60_000,
+        pubkeyHash: 'abcdef0123456789',
+      })
+    ).toBeNull()
+  })
+
+  test('rejects wrong-length pubkeyHash', () => {
+    expect(
+      parseSessionCapsule({
+        encryptedNsec: 'deadbeef',
+        capsuleNonce: 'a'.repeat(48),
+        autoLockExpiresAt: Date.now() + 60_000,
+        pubkeyHash: 'abc',
+      })
+    ).toBeNull()
+  })
+
+  test('rejects non-number autoLockExpiresAt', () => {
+    expect(
+      parseSessionCapsule({
+        encryptedNsec: 'deadbeef',
+        capsuleNonce: 'a'.repeat(48),
+        autoLockExpiresAt: 'soon',
+        pubkeyHash: 'abcdef0123456789',
+      })
+    ).toBeNull()
+  })
+
+  test('rejects negative or zero autoLockExpiresAt', () => {
+    expect(
+      parseSessionCapsule({
+        encryptedNsec: 'deadbeef',
+        capsuleNonce: 'a'.repeat(48),
+        autoLockExpiresAt: 0,
+        pubkeyHash: 'abcdef0123456789',
+      })
+    ).toBeNull()
+    expect(
+      parseSessionCapsule({
+        encryptedNsec: 'deadbeef',
+        capsuleNonce: 'a'.repeat(48),
+        autoLockExpiresAt: -1,
+        pubkeyHash: 'abcdef0123456789',
+      })
+    ).toBeNull()
+  })
+
+  test('rejects non-finite autoLockExpiresAt', () => {
+    expect(
+      parseSessionCapsule({
+        encryptedNsec: 'deadbeef',
+        capsuleNonce: 'a'.repeat(48),
+        autoLockExpiresAt: Number.POSITIVE_INFINITY,
+        pubkeyHash: 'abcdef0123456789',
+      })
+    ).toBeNull()
+    expect(
+      parseSessionCapsule({
+        encryptedNsec: 'deadbeef',
+        capsuleNonce: 'a'.repeat(48),
+        autoLockExpiresAt: Number.NaN,
+        pubkeyHash: 'abcdef0123456789',
+      })
+    ).toBeNull()
+  })
+
+  test('rejects missing fields', () => {
+    expect(parseSessionCapsule({})).toBeNull()
+    expect(
+      parseSessionCapsule({
+        encryptedNsec: 'deadbeef',
+        capsuleNonce: 'a'.repeat(48),
+        autoLockExpiresAt: Date.now() + 60_000,
+        // pubkeyHash missing
+      })
+    ).toBeNull()
   })
 })
