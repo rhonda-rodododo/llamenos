@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.48.0] - 2026-04-13
+
+### Features
+
+- tier 6 PR #1 — fingerprint UX + vendored core-crypto (flag off) [rebased v3] (#102)
+
+### Miscellaneous
+
+- v0.48.0 [skip ci]
+
 ## [0.47.0] - 2026-04-13
 
 ### Features
