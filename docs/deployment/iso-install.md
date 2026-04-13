@@ -115,16 +115,52 @@ location. In short:
 
 ## Uploading to your VPS provider
 
-### Hetzner Cloud (recommended)
+## Hosting the ISO for your provider to fetch
+
+Most providers that support custom ISO installation take a URL rather than a
+direct upload. You need to host the built ISO somewhere public before you start.
+
+**ISO hosting threat model is not the same as app hosting threat model.** The
+ISO is built from public source, fully reproducible, and its SHA-256 is
+published alongside every release. A malicious host substituting a modified ISO
+is detectable by any operator who verifies the hash (and the whole point of
+reproducible builds is that you can rebuild from source and compare). This
+means ISO hosting does **not** need to inherit the non-US-subject rule from
+the app hosting deployment — US-subject S3 providers (Vultr, Backblaze B2, etc.)
+are acceptable for ISO distribution as long as the SHA-256 is published
+out-of-band via GitHub Releases.
+
+Llamenos's canonical ISO is published to each GitHub Release with its SHA-256.
+Self-hosters are encouraged to either download from the release page and verify,
+or to rebuild from source and compare (`scripts/verify-iso.sh`). Either path
+ensures the host cannot tamper with the ISO you install.
+
+For your own throwaway testing, any publicly reachable HTTPS URL works. Vultr
+Object Storage, Scaleway Object Storage, S3, or even a short-lived GitHub
+Release asset are all fine.
+
+## Hetzner Cloud (recommended)
 
 Hetzner Cloud is the recommended provider for the default threat model: German
 jurisdiction (outside US CLOUD Act reach), KVM with virtio disks, EU datacenters
-(Falkenstein, Nuremberg, Helsinki), cheap. The trade-off is that Hetzner custom
-ISO uploads are NOT self-service — you open a support ticket and they add your
-ISO to your account's library within a business day.
+(Falkenstein, Nuremberg, Helsinki), and among the cheapest EU providers.
 
-1. Build the ISO with `--disk /dev/sda` (Hetzner Cloud uses the traditional
-   device name despite being KVM):
+There are **two equally valid paths** for installing the Llamenos FDE ISO on
+Hetzner Cloud. Pick based on whether you want a business-day wait for a cleaner
+UX, or a fully self-service flow that you can run immediately:
+
+| Path | Support ticket? | Time to first boot | UX |
+|------|-----------------|---------------------|-----|
+| **A. Support-ticket ISO attach** | Yes, usually within one business day | 1 day + ~10 minutes | Mount ISO in the web UI, boot, type LUKS passphrase in the noVNC console |
+| **B. Rescue-mode qemu install** | **No** | ~15 minutes total | Boot Hetzner rescue, run the installer inside `qemu-system-x86_64` against the real disk, type LUKS passphrase through a VNC tunnel |
+
+Both paths run the **same** FDE ISO against the **same** real disk and produce
+an identical installed system. Path B runs the installer in nested virtualization
+during install only — once installed, the Hetzner VM boots natively.
+
+### Path A: Support-ticket ISO attach
+
+1. Build the ISO (default `--disk /dev/sda` is correct for Hetzner Cloud):
 
    ```bash
    bun run build:iso \
@@ -132,47 +168,167 @@ ISO to your account's library within a business day.
      --ssh-key ~/.ssh/id_ed25519.pub
    ```
 
-2. Host the ISO at a publicly accessible URL. Any non-US S3-compatible object
-   storage works (Hetzner Object Storage, Scaleway Object Storage, Infomaniak,
-   Exoscale). For a throwaway test, you can also use a GitHub release draft
-   temporarily.
+2. Host the ISO at a publicly accessible HTTPS URL (see *Hosting the ISO*
+   above).
 
-3. Open a Hetzner support ticket at <https://console.hetzner.cloud/> → Support,
-   with:
+3. Open a Hetzner support ticket at <https://console.hetzner.cloud/> → Support:
 
    - Subject: **Please add custom ISO to my account**
    - Body: the public HTTPS URL of your ISO, and its SHA-256 from
      `llamenos-debian13-dropbear.iso.sha256`
-   - They will verify the file and add it to your account's ISO library (usually
-     within a business day, Germany hours)
 
-4. Once the ISO appears in your account's ISO list: create a new Cloud server
-   in the Hetzner Console, **Cloud** → **Servers** → **Add Server**:
+   They verify the file and add it to your account's ISO library, usually
+   within a business day (Germany working hours).
+
+4. Once the ISO appears in your ISO list, create a Cloud server: **Cloud** →
+   **Servers** → **Add Server**:
 
    - Location: **Falkenstein**, **Nuremberg**, or **Helsinki** (EU)
-   - Image: any (will be replaced)
-   - Type: **CPX21** or larger (2 vCPU / 4 GB RAM is the minimum for Llamenos,
-     `cpx31` 4 vCPU / 8 GB RAM is comfortable)
+   - Image: any — will be replaced
+   - Type: `cpx21` (2 vCPU / 4 GB) minimum, `cpx31` (4 vCPU / 8 GB) recommended
    - SSH keys: add your public key
 
-5. After creation, go to the server detail page → **ISO Images** tab →
-   select your custom ISO → **Mount**.
+5. On the server detail page → **ISO Images** tab → select your ISO → **Mount**.
 
-6. Power-cycle the server (**Power** → **Reset**). It will boot from the
-   mounted ISO.
+6. **Power** → **Reset**. The VM boots from the mounted ISO.
 
-7. Open **Console** (noVNC) from the server detail page. The installer should
-   start automatically. Type your LUKS passphrase when prompted. Wait for
-   install to complete and reboot.
+7. Open the **Console** (noVNC). The installer runs automatically and prompts
+   for the LUKS passphrase. Type it; wait for install + auto-reboot.
 
-8. After install completes, **unmount the ISO** from the ISO Images tab so the
-   server boots from disk on future reboots.
+8. **Unmount the ISO** from the ISO Images tab so the server boots from disk on
+   future reboots.
 
-> **Rescue-mode alternative (no support ticket).** If you don't want to wait
-> for Hetzner support, you can boot the server into Hetzner's rescue system
-> and run the installer inside `qemu-system-x86_64` with host disk passthrough,
-> then reboot out of rescue. This is more error-prone and not formally
-> documented here yet — open a tracking issue before relying on it.
+9. Continue to [Subsequent boots — dropbear unlock](#subsequent-boots--dropbear-unlock-default) below.
+
+### Path B: Rescue-mode qemu install (no support ticket)
+
+This path uses Hetzner's built-in Rescue System (a minimal Debian live
+environment) to run the Llamenos installer inside `qemu-system-x86_64` with
+the VM's real disk passed through as the installer's target. Nested KVM is
+available on Hetzner Cloud, so installation speed is close to native.
+
+This is a well-established Hetzner community pattern for installing operating
+systems that don't fit Hetzner's standard image catalog (Proxmox, FreeBSD, ZFS
+root, etc.). The Llamenos case is the same: an installer ISO with a preseeded
+partitioner that does LUKS + LVM on `/dev/vda` (as seen by the installer inside
+qemu) and drops dropbear-initramfs into the resulting root.
+
+**Prerequisites on your laptop:**
+
+- An SSH client (any)
+- A VNC client — TigerVNC, RealVNC, Remmina, or any noVNC-capable browser
+
+**On Hetzner, create the VM:**
+
+1. **Cloud** → **Servers** → **Add Server**:
+   - Location: Falkenstein / Nuremberg / Helsinki (EU)
+   - Image: Debian 12 or 13 (any — it will be replaced)
+   - Type: `cpx21` or larger; Llamenos recommends `cpx31`
+   - SSH keys: add your laptop's public key
+   - Name: `llamenos-01` (or whatever)
+
+2. Once the server is provisioned, enable the Rescue System: server detail →
+   **Rescue** tab → **Enable Rescue & Power Cycle**. Hetzner will show you a
+   **one-time root password** for the rescue system — copy it. Rescue system
+   activation is valid for one boot and expires in 60 minutes if not used.
+
+3. SSH into the rescue system from your laptop, with a local port forward for
+   VNC:
+
+   ```bash
+   ssh -L 5901:127.0.0.1:5901 root@<server-ip>
+   # Paste the one-time rescue password
+   ```
+
+4. Inside the rescue system, download the ISO and install qemu:
+
+   ```bash
+   # Install qemu (rescue is a minimal Debian; qemu is not pre-installed)
+   apt-get update && apt-get install -y qemu-system-x86 qemu-utils
+
+   # Fetch the ISO from wherever you hosted it
+   wget -O /tmp/llamenos.iso \
+     https://<your-iso-host>/llamenos-debian13-dropbear.iso
+
+   # Verify SHA-256 against the published value
+   echo "<expected-sha256>  /tmp/llamenos.iso" | sha256sum -c -
+   ```
+
+5. Check the rescue system sees the real disk as `/dev/sda` (standard on
+   Hetzner Cloud):
+
+   ```bash
+   lsblk
+   # Expected: sda with a large size (40G+ depending on CPX tier)
+   ```
+
+6. Boot the installer inside qemu with the real disk passed through:
+
+   ```bash
+   qemu-system-x86_64 \
+     -enable-kvm \
+     -cpu host \
+     -m 4096 \
+     -smp 2 \
+     -drive file=/dev/sda,format=raw,if=virtio,cache=none \
+     -cdrom /tmp/llamenos.iso \
+     -boot d \
+     -netdev user,id=n0 \
+     -device virtio-net-pci,netdev=n0 \
+     -vnc 127.0.0.1:1 \
+     -daemonize
+   ```
+
+   Key flags:
+
+   - `-drive file=/dev/sda,format=raw,if=virtio` — passes the real disk
+     directly to the installer, which sees it as `/dev/vda`. The installer's
+     partitioner will do LUKS + LVM on this device, i.e., on your actual
+     Hetzner disk.
+   - `-vnc 127.0.0.1:1` — VNC on rescue port 5901, which your SSH tunnel
+     forwards to laptop localhost 5901.
+   - `-daemonize` — qemu runs in the background; the installer continues
+     running even if the SSH session has hiccups.
+
+7. Point your VNC client at **`localhost:5901`**. The Debian installer boot
+   menu should appear. Press **Enter** (or wait for the auto-boot) to start
+   the installer.
+
+8. The installer runs the Llamenos preseed automatically. When it prompts for
+   the **LUKS encryption passphrase**, type a strong one (30+ chars, 5+ random
+   words). Confirm. Wait ~5–10 minutes for the install to finish.
+
+9. When the installer says it is rebooting: inside the rescue system, kill the
+   qemu process instead of letting it reboot inside the nested VM:
+
+   ```bash
+   pkill qemu-system-x86_64
+   ```
+
+10. Disable the Rescue System and power-cycle: in the Hetzner Console, server
+    detail → **Power Off** → **Power On**. The VM boots from its real disk
+    (which now contains the installed Llamenos system with LUKS + dropbear).
+
+11. Continue to [Subsequent boots — dropbear unlock](#subsequent-boots--dropbear-unlock-default) below.
+
+**Troubleshooting Path B:**
+
+- **VNC shows a blank screen** — wait 30 seconds; the installer's kernel takes
+  a moment to boot. If it's still blank, kill qemu, re-run with `-serial
+  stdio` instead of `-vnc` and watch the boot log.
+- **qemu says `Could not access KVM kernel module: Permission denied`** — you
+  are not running as root, or nested KVM is disabled. Rescue is always root;
+  Hetzner Cloud supports nested KVM on all CPX tiers. If still failing, drop
+  `-enable-kvm` (installer will run slower but still work).
+- **Network doesn't work after first real boot** — the installed Debian's
+  `/etc/network/interfaces` expects `eth0` to get DHCP. If Hetzner exposes the
+  interface under a different name (`ens3`, `enp1s0`), boot rescue again and
+  rename the interface in `/etc/network/interfaces`. Systemd's predictable
+  naming should give the same name in qemu and native boot, but verify.
+- **Dropbear doesn't answer on port 2222 after reboot** — likely the same
+  network issue. Boot rescue, mount the installed LV, check
+  `/etc/network/interfaces` and the initramfs's
+  `/conf/conf.d/initramfs.conf`.
 
 ### OVHcloud / Scaleway (direct custom ISO upload)
 
