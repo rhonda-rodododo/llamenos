@@ -70,6 +70,8 @@ export const TelnyxConfigSchema = BaseProviderSchema.extend({
   type: z.literal('telnyx'),
   apiKey: z.string().min(1),
   texmlAppId: z.string().optional(),
+  sipConnectionId: z.string().optional(),
+  webrtcEnabled: z.boolean().optional(),
 })
 export type TelnyxConfig = z.infer<typeof TelnyxConfigSchema>
 
