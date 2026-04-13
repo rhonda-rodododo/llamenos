@@ -13,8 +13,8 @@ import {
 } from './crypto-labels'
 import {
   CryptoLabelMismatchError,
-  type EnvelopeV2,
-  decryptEnvelopeV2,
+  type Envelope,
+  decryptEnvelope,
   eciesUnwrapKey,
   eciesWrapKey,
   hkdfDerive,
@@ -176,9 +176,9 @@ describe('Envelope v2 + label mismatch', () => {
   const secretKey = new Uint8Array(32).fill(11)
   const pubkey = bytesToHex(secp256k1.getPublicKey(secretKey, true).slice(1))
 
-  test('decryptEnvelopeV2 succeeds with matching label', async () => {
+  test('decryptEnvelope succeeds with matching label', async () => {
     const raw = eciesWrapKey(new Uint8Array(32).fill(5), pubkey, LABEL_NOTE_KEY)
-    const env: EnvelopeV2 = {
+    const env: Envelope = {
       v: 2,
       labelId: labelToId(LABEL_NOTE_KEY),
       wrappedKey: raw.wrappedKey,
@@ -186,32 +186,32 @@ describe('Envelope v2 + label mismatch', () => {
     }
     const unwrap = (_ep: string, _wk: string, _label: CryptoLabel) =>
       Promise.resolve(new Uint8Array(32).fill(5))
-    const out = await decryptEnvelopeV2(env, unwrap, LABEL_NOTE_KEY)
+    const out = await decryptEnvelope(env, unwrap, LABEL_NOTE_KEY)
     expect(out.length).toBe(32)
   })
 
-  test('decryptEnvelopeV2 rejects wrong labelId', async () => {
-    const env: EnvelopeV2 = {
+  test('decryptEnvelope rejects wrong labelId', async () => {
+    const env: Envelope = {
       v: 2,
       labelId: labelToId(LABEL_MESSAGE), // wrong registry id
       wrappedKey: 'deadbeef' as Ciphertext,
       ephemeralPubkey: '00'.repeat(33),
     }
     const unwrap = () => Promise.resolve(new Uint8Array(0))
-    await expect(decryptEnvelopeV2(env, unwrap, LABEL_NOTE_KEY)).rejects.toBeInstanceOf(
+    await expect(decryptEnvelope(env, unwrap, LABEL_NOTE_KEY)).rejects.toBeInstanceOf(
       CryptoLabelMismatchError
     )
   })
 
-  test('decryptEnvelopeV2 rejects v !== 2', async () => {
+  test('decryptEnvelope rejects v !== 2', async () => {
     const env = {
       v: 1,
       labelId: 0,
       wrappedKey: 'ab' as Ciphertext,
       ephemeralPubkey: '',
-    } as unknown as EnvelopeV2
+    } as unknown as Envelope
     await expect(
-      decryptEnvelopeV2(env, () => Promise.resolve(new Uint8Array(0)), LABEL_NOTE_KEY)
+      decryptEnvelope(env, () => Promise.resolve(new Uint8Array(0)), LABEL_NOTE_KEY)
     ).rejects.toBeInstanceOf(CryptoLabelMismatchError)
   })
 })

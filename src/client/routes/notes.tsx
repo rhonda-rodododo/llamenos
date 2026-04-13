@@ -12,7 +12,7 @@ import { useCallHistory } from '@/lib/queries/calls'
 import { useCreateNote, useCustomFields, useNotes, useUpdateNote } from '@/lib/queries/notes'
 import { useUsers } from '@/lib/queries/users'
 import { useToast } from '@/lib/toast'
-import { encryptNoteV2 } from '@shared/crypto-envelopes'
+import { encryptNote } from '@shared/crypto-envelopes'
 import type { FileFieldValue, NotePayload } from '@shared/types'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
@@ -98,11 +98,9 @@ function NotesPage() {
       if (Object.keys(fields).length > 0) payload.fields = fields
       const authorPub = publicKey
       const adminPub = adminDecryptionPubkey || authorPub
-      const { encryptedContent, authorEnvelope, adminEnvelopes } = encryptNoteV2(
-        payload,
-        authorPub,
-        [adminPub]
-      )
+      const { encryptedContent, authorEnvelope, adminEnvelopes } = encryptNote(payload, authorPub, [
+        adminPub,
+      ])
       await updateNoteMutation.mutateAsync({
         id: noteId,
         data: { encryptedContent, authorEnvelope, adminEnvelopes },
@@ -124,11 +122,9 @@ function NotesPage() {
       if (Object.keys(fields).length > 0) payload.fields = fields
       const authorPub = publicKey
       const adminPub = adminDecryptionPubkey || authorPub
-      const { encryptedContent, authorEnvelope, adminEnvelopes } = encryptNoteV2(
-        payload,
-        authorPub,
-        [adminPub]
-      )
+      const { encryptedContent, authorEnvelope, adminEnvelopes } = encryptNote(payload, authorPub, [
+        adminPub,
+      ])
       await createNoteMutation.mutateAsync({
         callId: selectedCallId,
         encryptedContent,

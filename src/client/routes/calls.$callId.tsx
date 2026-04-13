@@ -13,7 +13,7 @@ import {
   linkToContact,
 } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
-import { decryptCallRecord, decryptNoteV2, decryptTranscription } from '@/lib/crypto-worker-helpers'
+import { decryptCallRecord, decryptNote, decryptTranscription } from '@/lib/crypto-worker-helpers'
 import { decryptObjectFields } from '@/lib/decrypt-fields'
 import * as keyManager from '@/lib/key-manager'
 import { useUsers } from '@/lib/queries/users'
@@ -100,7 +100,7 @@ function CallDetailPage() {
                 note.adminEnvelopes?.[0])
               : note.authorEnvelope
             if (envelope) {
-              payload = (await decryptNoteV2(note.encryptedContent, envelope)) || {
+              payload = (await decryptNote(note.encryptedContent, envelope)) || {
                 text: '[Decryption failed]',
               }
             } else {

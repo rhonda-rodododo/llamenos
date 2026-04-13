@@ -21,7 +21,7 @@ import {
   updateNote,
 } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
-import { decryptNoteV2, decryptTranscription } from '@/lib/crypto-worker-helpers'
+import { decryptNote, decryptTranscription } from '@/lib/crypto-worker-helpers'
 import { decryptHubField } from '@/lib/hub-field-crypto'
 import * as keyManager from '@/lib/key-manager'
 import type { NotePayload } from '@shared/types'
@@ -91,7 +91,7 @@ export const notesListOptions = (filters: NoteFilters | undefined, auth: NotesAu
             ? (note.adminEnvelopes?.find((e) => e.pubkey === myPubkey) ?? note.adminEnvelopes?.[0])
             : note.authorEnvelope
           if (envelope) {
-            payload = (await decryptNoteV2(note.encryptedContent, envelope)) || {
+            payload = (await decryptNote(note.encryptedContent, envelope)) || {
               text: '[Decryption failed]',
             }
           } else {
@@ -169,7 +169,7 @@ export const noteDetailOptions = (noteId: string, auth: NotesAuth) =>
             rawNote.adminEnvelopes?.[0])
           : rawNote.authorEnvelope
         if (envelope) {
-          payload = (await decryptNoteV2(rawNote.encryptedContent, envelope)) || {
+          payload = (await decryptNote(rawNote.encryptedContent, envelope)) || {
             text: '[Decryption failed]',
           }
         } else {

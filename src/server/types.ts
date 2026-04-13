@@ -246,7 +246,7 @@ export interface EncryptedNote {
   createdAt: string
   updatedAt: string
   ephemeralPubkey?: string // hex-encoded, present for server-encrypted transcriptions (ECIES)
-  // V2 per-note ECIES envelopes (forward secrecy)
+  // Per-note ECIES envelopes (forward secrecy)
   authorEnvelope?: KeyEnvelope
   adminEnvelopes?: RecipientEnvelope[]
   replyCount?: number // cached count of replies (Epic 123)

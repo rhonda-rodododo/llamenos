@@ -9,10 +9,6 @@
  * 3-factor mode: PIN + WebAuthn PRF output + IdP-bound value
  * 2-factor mode: PIN + IdP-bound value (no PRF)
  *
- * The on-disk JSON carries a frozen `version: 2` discriminator (and a
- * `llamenos-encrypted-key-v2` localStorage key) inherited from the pre-HPKE
- * migration — the TypeScript surface is version-agnostic.
- *
  * Decrypted keyPair is held in memory only — never written to storage unencrypted.
  */
 
@@ -23,7 +19,7 @@ import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { HMAC_KEYID_PREFIX, LABEL_NSEC_KEK_2F, LABEL_NSEC_KEK_3F } from '@shared/crypto-labels'
 
-const STORAGE_KEY = 'llamenos-encrypted-key-v2'
+const STORAGE_KEY = 'llamenos-encrypted-key'
 const PBKDF2_ITERATIONS = 600_000
 
 /**

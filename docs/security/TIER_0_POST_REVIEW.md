@@ -16,7 +16,7 @@ Tier 0 implementation (WS 0.1 + WS 0.3 + WS 0.4 from `TIER_SESSION_PROMPTS.md`) 
 
 **Where:** `src/shared/lib/hub-field-aad.ts` (new), plus `src/client/lib/hub-field-crypto.ts`, `src/client/lib/file-crypto.ts`.
 
-**Problem:** WS 0.1 Task 7 introduced `hubFieldAad(recordId, fieldName)` and wired it through the `encryptHubField`/`decryptHubField` helpers, but a few legacy call sites in `file-crypto.ts` (`decryptFileMetadata`, the `decryptEnvelopeV2` callbacks inside `decryptFile` and `rewrapFileKey`) still handed the crypto worker a literal `new Uint8Array(0)` as the AAD argument. The net effect was that the **AEAD was called with empty AAD**, which silently defeated the whole transplantation-resistance story: a ciphertext produced for one fileId could have been consumed under any other fileId without an authentication failure.
+**Problem:** WS 0.1 Task 7 introduced `hubFieldAad(recordId, fieldName)` and wired it through the `encryptHubField`/`decryptHubField` helpers, but a few legacy call sites in `file-crypto.ts` (`decryptFileMetadata`, the `decryptEnvelope` callbacks inside `decryptFile` and `rewrapFileKey`) still handed the crypto worker a literal `new Uint8Array(0)` as the AAD argument. The net effect was that the **AEAD was called with empty AAD**, which silently defeated the whole transplantation-resistance story: a ciphertext produced for one fileId could have been consumed under any other fileId without an authentication failure.
 
 The crypto worker RPC contract (`cryptoWorker.decrypt` / `cryptoWorker.encrypt`) accepts label-based ECIES unwrapping but does not forward a caller AAD into the inner AEAD today — hardening that end-to-end is a Tier 1 item (see AEAD_AUDIT §"Worker-boundary AAD propagation"). In Tier 0 the correct behavior is to **not pretend there is AAD** by passing an empty Uint8Array, because it is silently misleading to reviewers and to `git blame`.
 
@@ -136,7 +136,7 @@ Full details:
 
 A few review comments were deliberately **not** acted on in Tier 0 because they were either out of scope or already tracked elsewhere:
 
-- **Worker-boundary AAD propagation.** The crypto worker RPC (`cryptoWorker.decrypt` / `cryptoWorker.encrypt`) does not forward a caller-supplied AAD into the inner AEAD. Wrapping this end-to-end is a Tier 1 item tracked in `AEAD_AUDIT_2026-04-10.md` under the "Worker-boundary AAD propagation" heading. In the meantime `file-crypto.ts` uses `decryptEnvelopeV2` (which enforces the wire-format label) as defense in depth.
+- **Worker-boundary AAD propagation.** The crypto worker RPC (`cryptoWorker.decrypt` / `cryptoWorker.encrypt`) does not forward a caller-supplied AAD into the inner AEAD. Wrapping this end-to-end is a Tier 1 item tracked in `AEAD_AUDIT_2026-04-10.md` under the "Worker-boundary AAD propagation" heading. In the meantime `file-crypto.ts` uses `decryptEnvelope` (which enforces the wire-format label) as defense in depth.
 - **CSP-report XFF trust.** The endpoint trusts `X-Forwarded-For` with no allowlist. In the current Caddy-fronted deployment this is safe, but when the app is deployed behind an untrusted reverse proxy, the rate-limit table becomes sprayable again. Tracked as a Tier 2 hardening item.
 - **Non-error lint warnings.** 266 pre-existing biome warnings (a11y, `useExhaustiveDependencies`, `noArrayIndexKey` in enumerations of constant arrays, etc.) are unchanged on this branch. None are in Tier 0 crypto code.
 

@@ -1,7 +1,7 @@
 import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import { hkdf } from '@noble/hashes/hkdf.js'
 import { sha256 } from '@noble/hashes/sha2.js'
-import { LABEL_SAS_V2 } from '@shared/crypto-labels'
+import { LABEL_SAS_MLS } from '@shared/crypto-labels'
 import { SAS_EMOJI_NAMES_EN, SAS_EMOJI_TABLE } from './emoji-table'
 
 /**
@@ -37,7 +37,7 @@ function deriveSasIndices(devicePubkey: Uint8Array): number[] {
     sha256,
     devicePubkey,
     undefined,
-    utf8ToBytes(LABEL_SAS_V2),
+    utf8ToBytes(LABEL_SAS_MLS),
     6 // 48 bits; we use the first 42.
   )
   // Bit-unpack: read 48 bits as a bigint, then pull out 7 x 6-bit windows from the MSB.

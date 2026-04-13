@@ -60,7 +60,7 @@ export interface PukState {
  * The `labelId` byte is looked up against LABEL_REGISTRY; a receiver that
  * expected a different label will refuse to unwrap (CryptoLabelMismatchError).
  */
-export interface EnvelopeV2 {
+export interface Envelope {
   v: 2
   labelId: number
   wrappedKey: Ciphertext
@@ -336,23 +336,11 @@ export interface EncryptedFileMetadata {
 }
 
 /**
- * V2 ECIES-wrapped file encryption key for one recipient.
- * Extends EnvelopeV2 with a recipient pubkey tag for multi-recipient selection.
- * This is the canonical type for new file uploads (Task 8+).
+ * ECIES-wrapped file encryption key for one recipient.
+ * Extends Envelope with a recipient pubkey tag for multi-recipient selection.
  */
-export interface FileKeyEnvelopeV2 extends EnvelopeV2 {
+export interface FileKeyEnvelope extends Envelope {
   pubkey: string
-}
-
-/**
- * @deprecated Legacy ECIES-wrapped file key (pre-Task 8 wire format).
- * Used only for compatibility with old API responses until the server is upgraded.
- * New uploads produce FileKeyEnvelopeV2.
- */
-export interface FileKeyEnvelope {
-  pubkey: string
-  encryptedFileKey: Ciphertext
-  ephemeralPubkey: string
 }
 
 export interface EncryptedMetaItem {
@@ -390,20 +378,14 @@ export interface UploadInit {
   totalSize: number
   totalChunks: number
   conversationId: string
-  /**
-   * New uploads (Task 8+) send FileKeyEnvelopeV2 entries.
-   * Typed as FileKeyEnvelope[] for backward compat with server code that stores/reads
-   * the old shape; Task 9 will update both the server and this type to FileKeyEnvelopeV2[].
-   */
   recipientEnvelopes: FileKeyEnvelope[]
   encryptedMetadata: EncryptedMetaItem[]
   /** Optional context binding — can be provided at init time or later via PATCH /context. */
   contextType?: 'conversation' | 'note' | 'report' | 'custom_field' | 'voicemail'
   contextId?: string
   /**
-   * Client-generated UUID used as the AAD file identity during encryption (Task 8+).
+   * Client-generated UUID used as the AAD file identity during encryption.
    * Server uses this as the canonical fileId so that fileId-bound AAD round-trips on decrypt.
-   * Server-side acceptance is implemented in Task 9.
    */
   fileId?: string
 }

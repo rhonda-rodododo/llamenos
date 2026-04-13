@@ -12,7 +12,6 @@ import {
   buildRotatedBundle,
   clearBundleFromIdb,
   decodeBundle,
-  describeV2Migration,
   encodeBundle,
   loadBundleFromIdb,
   removeEnvelope,
@@ -181,20 +180,5 @@ describe('IDB persistence', () => {
     expect(ROOT_KEK_DB_NAME).toBe('llamenos-root-kek')
     expect(ROOT_KEK_STORE_NAME).toBe('bundles')
     expect(ROOT_KEK_ACTIVE_KEY).toBe('active')
-  })
-})
-
-describe('describeV2Migration', () => {
-  test('returns a descriptor when v2 blob is present', () => {
-    const d = describeV2Migration({ version: 2, prfUsed: true, idpIssuer: 'authentik' })
-    expect(d).toEqual({ needsMigration: true, prfAvailable: true, idpIssuer: 'authentik' })
-  })
-
-  test('returns null when no blob', () => {
-    expect(describeV2Migration(null)).toBeNull()
-  })
-
-  test('returns null when blob is not v2', () => {
-    expect(describeV2Migration({ version: 1 })).toBeNull()
   })
 })

@@ -7,17 +7,15 @@ import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import {
   decryptDraft,
-  decryptNote,
-  decryptNoteV2WithKey,
+  decryptNoteWithKey,
   encryptDraft,
   encryptExport,
   encryptMessage,
-  encryptNoteV2,
+  encryptNote,
 } from '@shared/crypto-envelopes'
 import {
   type CryptoLabel,
   HKDF_CONTEXT_EXPORT,
-  HKDF_CONTEXT_NOTES,
   HKDF_SALT,
   LABEL_CALL_META,
   LABEL_MESSAGE,
@@ -167,9 +165,9 @@ describe('eciesWrapKey / eciesUnwrapKeyWithSecret', () => {
   })
 })
 
-// ── A1: encryptNoteV2 / decryptNoteV2WithKey ──
+// ── A1: encryptNote / decryptNoteWithKey ──
 
-describe('encryptNoteV2 / decryptNoteV2WithKey', () => {
+describe('encryptNote / decryptNoteWithKey', () => {
   const samplePayload: NotePayload = {
     text: 'Caller reported unsafe conditions at home.',
     fields: { urgency: 'high', followUp: true },
@@ -179,8 +177,8 @@ describe('encryptNoteV2 / decryptNoteV2WithKey', () => {
     const author = generateKeyPair()
     const admin = generateKeyPair()
 
-    const encrypted = encryptNoteV2(samplePayload, author.publicKey, [admin.publicKey])
-    const decrypted = decryptNoteV2WithKey(
+    const encrypted = encryptNote(samplePayload, author.publicKey, [admin.publicKey])
+    const decrypted = decryptNoteWithKey(
       encrypted.encryptedContent,
       encrypted.authorEnvelope,
       author.secretKey
@@ -194,7 +192,7 @@ describe('encryptNoteV2 / decryptNoteV2WithKey', () => {
     const admin1 = generateKeyPair()
     const admin2 = generateKeyPair()
 
-    const encrypted = encryptNoteV2(samplePayload, author.publicKey, [
+    const encrypted = encryptNote(samplePayload, author.publicKey, [
       admin1.publicKey,
       admin2.publicKey,
     ])
@@ -204,8 +202,8 @@ describe('encryptNoteV2 / decryptNoteV2WithKey', () => {
     const env1 = encrypted.adminEnvelopes.find((e) => e.pubkey === admin1.publicKey)!
     const env2 = encrypted.adminEnvelopes.find((e) => e.pubkey === admin2.publicKey)!
 
-    const dec1 = decryptNoteV2WithKey(encrypted.encryptedContent, env1, admin1.secretKey)
-    const dec2 = decryptNoteV2WithKey(encrypted.encryptedContent, env2, admin2.secretKey)
+    const dec1 = decryptNoteWithKey(encrypted.encryptedContent, env1, admin1.secretKey)
+    const dec2 = decryptNoteWithKey(encrypted.encryptedContent, env2, admin2.secretKey)
 
     expect(dec1).toEqual(samplePayload)
     expect(dec2).toEqual(samplePayload)
@@ -215,8 +213,8 @@ describe('encryptNoteV2 / decryptNoteV2WithKey', () => {
     const author = generateKeyPair()
     const attacker = generateKeyPair()
 
-    const encrypted = encryptNoteV2(samplePayload, author.publicKey, [])
-    const result = decryptNoteV2WithKey(
+    const encrypted = encryptNote(samplePayload, author.publicKey, [])
+    const result = decryptNoteWithKey(
       encrypted.encryptedContent,
       encrypted.authorEnvelope,
       attacker.secretKey
@@ -228,8 +226,8 @@ describe('encryptNoteV2 / decryptNoteV2WithKey', () => {
   test('forward secrecy: two encryptions produce different encryptedContent', () => {
     const author = generateKeyPair()
 
-    const enc1 = encryptNoteV2(samplePayload, author.publicKey, [])
-    const enc2 = encryptNoteV2(samplePayload, author.publicKey, [])
+    const enc1 = encryptNote(samplePayload, author.publicKey, [])
+    const enc2 = encryptNote(samplePayload, author.publicKey, [])
 
     expect(enc1.encryptedContent).not.toBe(enc2.encryptedContent)
   })
@@ -237,7 +235,7 @@ describe('encryptNoteV2 / decryptNoteV2WithKey', () => {
   test('cross-label: unwrap authorEnvelope with LABEL_MESSAGE instead of LABEL_NOTE_KEY throws', () => {
     const author = generateKeyPair()
 
-    const encrypted = encryptNoteV2(samplePayload, author.publicKey, [])
+    const encrypted = encryptNote(samplePayload, author.publicKey, [])
 
     expect(() =>
       eciesUnwrapKeyWithSecret(encrypted.authorEnvelope, author.secretKey, LABEL_MESSAGE)
@@ -606,45 +604,5 @@ describe('encryptExport', () => {
     const cipher = xchacha20poly1305(key, nonce)
 
     expect(() => cipher.decrypt(ciphertext)).toThrow()
-  })
-})
-
-// ── A7: decryptNote legacy V1 ──
-
-describe('decryptNote (legacy V1)', () => {
-  const legacyText = 'Legacy V1 note content'
-
-  function encryptLegacyV1(text: string, secretKey: Uint8Array): string {
-    const salt = utf8ToBytes(HKDF_SALT)
-    const key = hkdf(sha256, secretKey, salt, utf8ToBytes(HKDF_CONTEXT_NOTES), 32)
-    const nonce = new Uint8Array(24)
-    crypto.getRandomValues(nonce)
-    const cipher = xchacha20poly1305(key, nonce)
-    const payload: NotePayload = { text }
-    const ciphertext = cipher.encrypt(utf8ToBytes(JSON.stringify(payload)))
-
-    const packed = new Uint8Array(nonce.length + ciphertext.length)
-    packed.set(nonce)
-    packed.set(ciphertext, nonce.length)
-    return bytesToHex(packed)
-  }
-
-  test('roundtrip: manually encrypt with HKDF-derived key → decryptNote recovers payload', () => {
-    const kp = generateKeyPair()
-
-    const encrypted = encryptLegacyV1(legacyText, kp.secretKey)
-    const decrypted = decryptNote(encrypted, kp.secretKey)
-
-    expect(decrypted).toEqual({ text: legacyText })
-  })
-
-  test('wrong key returns null', () => {
-    const kp = generateKeyPair()
-    const wrongKey = generateKeyPair()
-
-    const encrypted = encryptLegacyV1(legacyText, kp.secretKey)
-    const result = decryptNote(encrypted, wrongKey.secretKey)
-
-    expect(result).toBeNull()
   })
 })

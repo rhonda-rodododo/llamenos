@@ -62,7 +62,7 @@ export async function downloadFile(fileId: string): Promise<ArrayBuffer> {
 }
 
 export async function getFileEnvelopes(fileId: string) {
-  return request<{ envelopes: import('@shared/types').FileKeyEnvelopeV2[] }>(
+  return request<{ envelopes: import('@shared/types').FileKeyEnvelope[] }>(
     `/files/${fileId}/envelopes`
   )
 }
@@ -76,7 +76,7 @@ export async function getFileMetadata(fileId: string) {
 export async function shareFile(
   fileId: string,
   data: {
-    envelope: import('@shared/types').FileKeyEnvelopeV2
+    envelope: import('@shared/types').FileKeyEnvelope
     encryptedMetadata: EncryptedMetaItem
   }
 ) {

@@ -11,21 +11,17 @@ export const EncryptedFileMetadataSchema = z.object({
 export type EncryptedFileMetadata = z.infer<typeof EncryptedFileMetadataSchema>
 
 /**
- * V2 ECIES key envelope for a single file recipient.
- * Adds versioning (v=2), wire-format label identity (labelId), and renames
- * encryptedFileKey → wrappedKey to match the EnvelopeV2 interface.
+ * ECIES key envelope for a single file recipient.
+ * Wire-format envelope with version byte, labelId, wrapped per-file key, and recipient pubkey tag.
  */
-export const FileKeyEnvelopeV2Schema = z.object({
+export const FileKeyEnvelopeSchema = z.object({
   v: z.literal(2),
   labelId: z.number().int(),
   pubkey: z.string(),
   wrappedKey: z.string(),
   ephemeralPubkey: z.string(),
 })
-export type FileKeyEnvelope = z.infer<typeof FileKeyEnvelopeV2Schema>
-
-/** @deprecated Pre-Task 8 legacy schema — kept for reading old server responses during migration. */
-export const FileKeyEnvelopeSchema = FileKeyEnvelopeV2Schema
+export type FileKeyEnvelope = z.infer<typeof FileKeyEnvelopeSchema>
 
 export const EncryptedMetaItemSchema = z.object({
   pubkey: z.string(),
@@ -45,7 +41,7 @@ export const FileRecordSchema = z.object({
   conversationId: z.string().nullable(),
   messageId: z.string().optional(),
   uploadedBy: z.string(),
-  recipientEnvelopes: z.array(FileKeyEnvelopeV2Schema),
+  recipientEnvelopes: z.array(FileKeyEnvelopeSchema),
   encryptedMetadata: z.array(EncryptedMetaItemSchema),
   totalSize: z.number().int(),
   totalChunks: z.number().int(),
@@ -62,18 +58,14 @@ export const UploadInitSchema = z.object({
   totalSize: z.number().int(),
   totalChunks: z.number().int(),
   conversationId: z.string(),
-  /**
-   * New uploads (Task 8+) send FileKeyEnvelopeV2 entries.
-   * The schema accepts any object shape for forward compat; Task 9 will enforce V2 strictly.
-   */
-  recipientEnvelopes: z.array(z.object({}).passthrough()),
+  recipientEnvelopes: z.array(FileKeyEnvelopeSchema),
   encryptedMetadata: z.array(EncryptedMetaItemSchema),
   contextType: z.enum(['conversation', 'note', 'report', 'custom_field', 'voicemail']).optional(),
   contextId: z.string().optional(),
   /**
-   * Client-generated UUID for AAD binding (Task 8+).
+   * Client-generated UUID for AAD binding.
    * The server records this as the canonical fileId so that the fileId-bound AAD
-   * round-trips correctly on decrypt. Server-side acceptance is implemented in Task 9.
+   * round-trips correctly on decrypt.
    */
   fileId: z.string().uuid().optional(),
 })

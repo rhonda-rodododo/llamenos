@@ -22,7 +22,7 @@ import {
   LABEL_PUK_SIGN,
   LABEL_PUK_WRAP_TO_DEVICE,
   LABEL_REGISTRY,
-  LABEL_SAS_V2,
+  LABEL_SAS_MLS,
   labelToId,
 } from '@shared/crypto-labels'
 
@@ -93,8 +93,8 @@ describe('Tier 3 labels', () => {
 })
 
 describe('Tier 6 crypto labels', () => {
-  test('LABEL_SAS_V2 exists and is distinct', () => {
-    expect(LABEL_SAS_V2 as string).toBe('llamenos:sas:v2')
+  test('LABEL_SAS_MLS exists and is distinct', () => {
+    expect(LABEL_SAS_MLS as string).toBe('llamenos:sas:v2')
   })
   test('LABEL_ITEMS_KEY_EXPORT exists', () => {
     expect(LABEL_ITEMS_KEY_EXPORT as string).toBe('llamenos:items-key-export:v1')
@@ -107,7 +107,7 @@ describe('Tier 6 crypto labels', () => {
   })
   test('all Tier 6 labels registered in LABEL_REGISTRY', () => {
     for (const label of [
-      LABEL_SAS_V2,
+      LABEL_SAS_MLS,
       LABEL_ITEMS_KEY_EXPORT,
       LABEL_NOTE_EPOCH_KEY,
       LABEL_MLS_PROVISION,

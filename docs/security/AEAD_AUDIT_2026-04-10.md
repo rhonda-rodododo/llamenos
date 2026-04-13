@@ -25,7 +25,7 @@ Source files audited:
 
 #### Notes on columns outside the `ciphertext()` type but in the same schema
 
-The plan template originally listed `records.call_records.encrypted_content` with `LABEL_NOTE_KEY`. In the current schema that field is declared as `text('encrypted_content')` on both `call_records` and `note_envelopes`, **not** as a `ciphertext()` column. The note content is encrypted entirely client-side (E2EE, per-note forward secrecy; see `encryptNoteV2` / `decryptNoteV2` in `src/client/lib/crypto-worker-helpers.ts` and `src/client/lib/queries/notes.ts`). The server only stores the opaque ciphertext blob and never performs an AEAD operation on it, so it is not in scope for this audit. It is documented here only to record that the template entry has been intentionally removed after reality-checking the schema.
+The plan template originally listed `records.call_records.encrypted_content` with `LABEL_NOTE_KEY`. In the current schema that field is declared as `text('encrypted_content')` on both `call_records` and `note_envelopes`, **not** as a `ciphertext()` column. The note content is encrypted entirely client-side (E2EE, per-note forward secrecy; see `encryptNote` / `decryptNote` in `src/client/lib/crypto-worker-helpers.ts` and `src/client/lib/queries/notes.ts`). The server only stores the opaque ciphertext blob and never performs an AEAD operation on it, so it is not in scope for this audit. It is documented here only to record that the template entry has been intentionally removed after reality-checking the schema.
 
 #### Per-service write-path inventory for records/bans
 
@@ -350,8 +350,8 @@ Source files audited:
 - **Encrypt call site:** client-side `src/client/lib/file-crypto.ts#encryptFileForRecipients` line 140 → `symmetricEncrypt(plaintextBytes, fileKey, buildFileAad(fileId))` where `buildFileAad` at line 34 constructs AAD = `labelBytes || labelId (1 byte) || fileIdBytes`.
 - **Decrypt call site:** `src/client/lib/file-crypto.ts#decryptFileForRecipient` line 196 → rebuilds the same AAD and passes it to `symmetricDecrypt` at line 213. Wrong `fileId` ⇒ AEAD authentication failure throws.
 - **Label:** `LABEL_FILE_KEY`.
-- **AAD (actual):** `LABEL_FILE_KEY || labelId(LABEL_FILE_KEY) || fileId` — **per-file, binds the label name, the stable label id byte, AND the file UUID**. Encrypts a v2 file envelope (`EnvelopeV2`) stored alongside the ciphertext.
-- **Framing metadata covered:** `fileId` is in the AAD; `labelId` prevents cross-label substitution. Filename, content-type, and total size are stored in a separate `encrypted_metadata` envelope array (also v2) that is keyed per recipient.
+- **AAD (actual):** `LABEL_FILE_KEY || labelId(LABEL_FILE_KEY) || fileId` — **per-file, binds the label name, the stable label id byte, AND the file UUID**. Encrypts a file envelope (`Envelope`) stored alongside the ciphertext.
+- **Framing metadata covered:** `fileId` is in the AAD; `labelId` prevents cross-label substitution. Filename, content-type, and total size are stored in a separate `encrypted_metadata` envelope array (also per-recipient) that is keyed per recipient.
 - **Status:** **PASS.** Already fixed in Workstream 0.1 Task 8 (file-crypto v2 + fileId AAD). This is the architectural template Tier 1 will generalize to every other envelope path.
 
 ### GDPR user export

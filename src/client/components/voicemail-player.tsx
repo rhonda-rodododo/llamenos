@@ -2,10 +2,10 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { type EncryptedNote, downloadFile, getFileEnvelopes, listNotes } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
-import { decryptNoteV2 } from '@/lib/crypto-worker-helpers'
+import { decryptNote } from '@/lib/crypto-worker-helpers'
 import { decryptFile } from '@/lib/file-crypto'
 import * as keyManager from '@/lib/key-manager'
-import type { FileKeyEnvelopeV2 } from '@shared/types'
+import type { FileKeyEnvelope } from '@shared/types'
 import { AlertCircle, Loader2, Pause, Play, Voicemail } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -58,7 +58,7 @@ export function VoicemailPlayer({ fileId, callId, canListen }: VoicemailPlayerPr
           return
         }
 
-        // Voicemail notes use V2 per-note ECIES envelopes
+        // Voicemail notes use per-note ECIES envelopes
         const envelope = isAdmin
           ? (vmNote.adminEnvelopes?.find((e) => e.pubkey === publicKey) ??
             vmNote.adminEnvelopes?.[0])
@@ -66,7 +66,7 @@ export function VoicemailPlayer({ fileId, callId, canListen }: VoicemailPlayerPr
 
         let text: string | null = null
         if (envelope) {
-          const payload = await decryptNoteV2(vmNote.encryptedContent, envelope)
+          const payload = await decryptNote(vmNote.encryptedContent, envelope)
           text = payload?.text ?? null
         }
         setTranscript(text)
@@ -91,7 +91,7 @@ export function VoicemailPlayer({ fileId, callId, canListen }: VoicemailPlayerPr
       ])
 
       const myPubkey = publicKey ?? ''
-      const envelope: FileKeyEnvelopeV2 | undefined = isAdmin
+      const envelope: FileKeyEnvelope | undefined = isAdmin
         ? (envelopes.find((e) => e.pubkey === myPubkey) ?? envelopes[0])
         : envelopes.find((e) => e.pubkey === myPubkey)
 

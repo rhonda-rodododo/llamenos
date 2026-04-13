@@ -102,7 +102,7 @@ export const RootKekRotatePayloadSchema = z.object({
   userId: z.string().uuid(),
   oldRootKeyId: z.string().uuid().nullable(),
   newRootKeyId: z.string().uuid(),
-  reason: z.enum(['factor_added', 'factor_removed', 'scheduled', 'manual', 'migration_v2_v3']),
+  reason: z.enum(['factor_added', 'factor_removed', 'scheduled', 'manual']),
 })
 
 // --- Tier 6: device fingerprint verification (2026-04) ---

@@ -7,8 +7,8 @@
  *   - Stable names in the Llamenos locales.
  *
  * ORDER IS LOAD-BEARING. Changing the order changes every device's SAS.
- * If you must extend, append a new table (`SAS_EMOJI_TABLE_V2`) and a new
- * label (`LABEL_SAS_V3`); NEVER mutate this table.
+ * If you must extend, append a new table and a new crypto label — NEVER
+ * mutate this table.
  *
  * Each entry is addressed by a 6-bit index (0..63).
  */

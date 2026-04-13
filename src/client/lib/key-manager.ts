@@ -492,7 +492,6 @@ export async function importKey(
   const salt = crypto.getRandomValues(new Uint8Array(32))
   const kek = deriveKEK({ pin, idpValue, prfOutput, salt })
 
-  // Encrypt and store as v2 blob
   const blob = encryptNsec(nsecHex, kek, pubkey, !!prfOutput, idpIssuer, salt)
   storeEncryptedKey(blob)
 

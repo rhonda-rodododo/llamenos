@@ -29,7 +29,7 @@ export type CryptoLabel = string & { readonly [__CryptoLabelBrand]: never }
 
 // --- ECIES Key Wrapping ---
 
-/** Per-note symmetric key wrapping (V2 forward secrecy) */
+/** Per-note symmetric key wrapping (forward secrecy) */
 export const LABEL_NOTE_KEY = 'llamenos:note-key' as CryptoLabel
 
 /** Per-file symmetric key wrapping */
@@ -60,11 +60,8 @@ export const LABEL_SHIFT_SCHEDULE = 'llamenos:shift-schedule' as CryptoLabel
 
 // --- HKDF Derivation ---
 
-/** HKDF salt for legacy symmetric key derivation */
+/** HKDF salt for symmetric key derivation */
 export const HKDF_SALT = 'llamenos:hkdf-salt:v1'
-
-/** HKDF context: legacy V1 note encryption */
-export const HKDF_CONTEXT_NOTES = 'llamenos:notes'
 
 /** HKDF context: draft encryption */
 export const HKDF_CONTEXT_DRAFTS = 'llamenos:drafts'
@@ -341,7 +338,7 @@ export const LABEL_SFRAME_RATCHET = 'llamenos:sframe-ratchet:v1' as CryptoLabel
 // --- Tier 6 (MLS + PQ) ---
 
 /** 7-emoji SAS derivation from device Ed25519 pubkey (Tier 6 fingerprint verification) */
-export const LABEL_SAS_V2 = 'llamenos:sas:v2' as CryptoLabel
+export const LABEL_SAS_MLS = 'llamenos:sas:v2' as CryptoLabel
 
 /** MLS exporter-secret → per-user items_key derivation */
 export const LABEL_ITEMS_KEY_EXPORT = 'llamenos:items-key-export:v1' as CryptoLabel
@@ -401,7 +398,7 @@ export const LABEL_REGISTRY = [
   // Tier 5: SFrame Voice E2EE
   LABEL_SFRAME_CALL_SECRET,
   LABEL_SFRAME_RATCHET,
-  LABEL_SAS_V2,
+  LABEL_SAS_MLS,
   LABEL_ITEMS_KEY_EXPORT,
   LABEL_NOTE_EPOCH_KEY,
   LABEL_MLS_PROVISION,

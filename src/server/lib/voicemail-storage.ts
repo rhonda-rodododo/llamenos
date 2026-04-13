@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { LABEL_VOICEMAIL_WRAP } from '@shared/crypto-labels'
+import { LABEL_VOICEMAIL_WRAP, labelToId } from '@shared/crypto-labels'
+import type { Ciphertext } from '@shared/crypto-types'
 import type { FileKeyEnvelope } from '@shared/types'
 import type { CryptoService } from '../lib/crypto-service'
 import type { FilesService } from '../services/files'
@@ -63,10 +64,12 @@ export async function storeVoicemailAudio(
     LABEL_VOICEMAIL_WRAP
   )
 
-  // Map RecipientEnvelope (wrappedKey) → FileKeyEnvelope (encryptedFileKey)
+  const voicemailLabelId = labelToId(LABEL_VOICEMAIL_WRAP)
   const recipientEnvelopes: FileKeyEnvelope[] = envelopes.map((env) => ({
+    v: 2,
+    labelId: voicemailLabelId,
     pubkey: env.pubkey,
-    encryptedFileKey: env.wrappedKey,
+    wrappedKey: env.wrappedKey as Ciphertext,
     ephemeralPubkey: env.ephemeralPubkey,
   }))
 

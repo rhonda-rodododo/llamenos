@@ -208,35 +208,3 @@ export async function clearBundleFromIdb(): Promise<void> {
     db.close()
   }
 }
-
-// ---------------------------------------------------------------------------
-// v2 → root-KEK migration descriptor
-// ---------------------------------------------------------------------------
-
-/**
- * Describe the work the unlock screen must perform to migrate from a legacy
- * v2 blob to a root-KEK bundle. Actually *running* the migration requires
- * user input (PIN / recovery key / PRF unlock) and worker-side crypto, so
- * this module only produces the descriptor — the UI drives it and calls
- * `storeBundleInIdb()` on success.
- */
-export interface V2MigrationDescriptor {
-  needsMigration: true
-  prfAvailable: boolean
-  idpIssuer: string
-}
-
-export function describeV2Migration(
-  raw: {
-    version: number
-    prfUsed?: boolean
-    idpIssuer?: string
-  } | null
-): V2MigrationDescriptor | null {
-  if (!raw || raw.version !== 2) return null
-  return {
-    needsMigration: true,
-    prfAvailable: Boolean(raw.prfUsed),
-    idpIssuer: raw.idpIssuer ?? 'unknown',
-  }
-}

@@ -1,25 +1,18 @@
 /**
- * Lazy loader for @wireapp/core-crypto behind the MLS feature flag.
- * Disabled by default; controlled by `VITE_LLAMENOS_MLS_ENABLED`.
- * The loader exists so MLS integration has a clean entry point.
+ * Lazy loader for @wireapp/core-crypto. Exists as a clean entry point for
+ * the forthcoming MLS integration so call sites don't import the WASM
+ * module directly.
  */
-
-export function isMlsEnabled(): boolean {
-  if (typeof import.meta.env === 'undefined') return false
-  return import.meta.env.VITE_LLAMENOS_MLS_ENABLED === 'true'
-}
 
 let _coreCryptoModule: typeof import('@wireapp/core-crypto') | null = null
 
 /**
- * Lazy-load the core-crypto WASM module. Returns null when the MLS
- * feature flag is off.
+ * Lazy-load the core-crypto WASM module.
  *
- * @throws {Error} if the flag is on but the WASM module fails to load
- *   (network error, CSP violation, WASM compilation failure, etc.)
+ * @throws {Error} if the WASM module fails to load (network error, CSP
+ *   violation, WASM compilation failure, etc.)
  */
-export async function loadCoreCrypto(): Promise<typeof import('@wireapp/core-crypto') | null> {
-  if (!isMlsEnabled()) return null
+export async function loadCoreCrypto(): Promise<typeof import('@wireapp/core-crypto')> {
   if (_coreCryptoModule) return _coreCryptoModule
   try {
     _coreCryptoModule = await import('@wireapp/core-crypto')

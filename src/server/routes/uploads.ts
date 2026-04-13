@@ -1,4 +1,5 @@
 import { createRoute, z } from '@hono/zod-openapi'
+import { EncryptedMetaItemSchema, FileKeyEnvelopeSchema } from '../../shared/schemas/files'
 import type { UploadInit } from '../../shared/types'
 import { createRouter } from '../lib/openapi'
 import { checkPermission, requirePermission } from '../middleware/permission-guard'
@@ -30,8 +31,8 @@ const initUploadRoute = createRoute({
             totalSize: z.number(),
             totalChunks: z.number(),
             conversationId: z.string().optional(),
-            recipientEnvelopes: z.array(z.object({}).passthrough()).optional(),
-            encryptedMetadata: z.array(z.object({}).passthrough()).optional(),
+            recipientEnvelopes: z.array(FileKeyEnvelopeSchema).optional(),
+            encryptedMetadata: z.array(EncryptedMetaItemSchema).optional(),
             contextType: z.string().optional(),
             contextId: z.string().optional(),
           }),

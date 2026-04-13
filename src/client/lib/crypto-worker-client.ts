@@ -431,36 +431,6 @@ export class CryptoWorkerClient {
     })
   }
 
-  /**
-   * Hub-field AES-GCM encrypt using the held non-extractable hub key.
-   * AAD binds to (recordId, fieldName) via `hubFieldAad`.
-   */
-  async hubFieldEncryptV3(plaintext: string, recordId: string, fieldName: string): Promise<string> {
-    return this.call<string>({
-      type: 'hubFieldEncryptV3',
-      plaintext,
-      recordId,
-      fieldName,
-    })
-  }
-
-  /**
-   * Hub-field AES-GCM decrypt using the held non-extractable hub key.
-   * Returns null on any failure — invalid base64, wrong AAD, tag mismatch.
-   */
-  async hubFieldDecryptV3(
-    ciphertext: string,
-    recordId: string,
-    fieldName: string
-  ): Promise<string | null> {
-    return this.call<string | null>({
-      type: 'hubFieldDecryptV3',
-      ciphertext,
-      recordId,
-      fieldName,
-    })
-  }
-
   // ---- Tier 2 root-KEK handlers ----
 
   /**
