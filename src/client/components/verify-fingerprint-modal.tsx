@@ -7,7 +7,16 @@ import { useTranslation } from 'react-i18next'
 
 export interface VerifyFingerprintModalProps {
   open: boolean
+  /** The verifier's own device pubkey (the admin/user doing the verification). */
+  verifierDevicePubkey: Uint8Array
+  /** The pubkey of the device being verified. */
   targetDevicePubkey: Uint8Array
+  /**
+   * A fresh per-session nonce that both parties agree on out-of-band. Binding
+   * the SAS to this nonce prevents an attacker with knowledge of the two
+   * pubkeys (which are public) from pre-computing the SAS a victim will see.
+   */
+  sessionNonce: Uint8Array
   onVerify: () => Promise<void>
   onCancel: () => void
 }
@@ -15,12 +24,13 @@ export interface VerifyFingerprintModalProps {
 export function VerifyFingerprintModal(props: VerifyFingerprintModalProps) {
   const { t } = useTranslation()
   const correctEmoji = useMemo(
-    () => deriveSasEmoji(props.targetDevicePubkey),
-    [props.targetDevicePubkey]
+    () => deriveSasEmoji(props.verifierDevicePubkey, props.targetDevicePubkey, props.sessionNonce),
+    [props.verifierDevicePubkey, props.targetDevicePubkey, props.sessionNonce]
   )
   const correctNames = useMemo(
-    () => deriveSasNamesEn(props.targetDevicePubkey),
-    [props.targetDevicePubkey]
+    () =>
+      deriveSasNamesEn(props.verifierDevicePubkey, props.targetDevicePubkey, props.sessionNonce),
+    [props.verifierDevicePubkey, props.targetDevicePubkey, props.sessionNonce]
   )
   const [picked, setPicked] = useState<string[]>([])
   const [verifying, setVerifying] = useState(false)
