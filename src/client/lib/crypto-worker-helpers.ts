@@ -44,7 +44,7 @@ export async function eciesUnwrapKey(
  * Decrypt a V2 note using the appropriate envelope for the current user.
  * Secret key operations are delegated to the crypto worker.
  */
-export async function decryptNoteV2(
+export async function decryptNote(
   encryptedContent: string,
   envelope: KeyEnvelope
 ): Promise<NotePayload | null> {

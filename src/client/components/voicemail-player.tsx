@@ -2,7 +2,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { type EncryptedNote, downloadFile, getFileEnvelopes, listNotes } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
-import { decryptNoteV2 } from '@/lib/crypto-worker-helpers'
+import { decryptNote } from '@/lib/crypto-worker-helpers'
 import { decryptFile } from '@/lib/file-crypto'
 import * as keyManager from '@/lib/key-manager'
 import type { FileKeyEnvelopeV2 } from '@shared/types'
@@ -66,7 +66,7 @@ export function VoicemailPlayer({ fileId, callId, canListen }: VoicemailPlayerPr
 
         let text: string | null = null
         if (envelope) {
-          const payload = await decryptNoteV2(vmNote.encryptedContent, envelope)
+          const payload = await decryptNote(vmNote.encryptedContent, envelope)
           text = payload?.text ?? null
         }
         setTranscript(text)

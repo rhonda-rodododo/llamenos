@@ -42,8 +42,8 @@ declare global {
       size: () => number
     }
     __llamenos_test_crypto: {
-      encryptNoteV2: typeof import('@shared/crypto-envelopes').encryptNoteV2
-      decryptNoteV2: typeof import('./lib/crypto-worker-helpers').decryptNoteV2
+      encryptNote: typeof import('@shared/crypto-envelopes').encryptNote
+      decryptNote: typeof import('./lib/crypto-worker-helpers').decryptNote
       decryptMessage: typeof import('./lib/crypto-worker-helpers').decryptMessage
     }
   }
@@ -70,8 +70,8 @@ if (typeof window !== 'undefined') {
   Promise.all([import('@shared/crypto-envelopes'), import('./lib/crypto-worker-helpers')]).then(
     ([envelopes, helpers]) => {
       window.__llamenos_test_crypto = {
-        encryptNoteV2: envelopes.encryptNoteV2,
-        decryptNoteV2: helpers.decryptNoteV2,
+        encryptNote: envelopes.encryptNote,
+        decryptNote: helpers.decryptNote,
         decryptMessage: helpers.decryptMessage,
       }
     }

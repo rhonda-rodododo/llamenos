@@ -1,11 +1,8 @@
 /**
- * Higher-level envelope encryption helpers for notes, messages, blasts, and legacy data.
+ * Higher-level envelope encryption helpers for notes, messages, blasts, and drafts.
  *
  * These are pure (no DOM, no crypto worker) so they can run in server, worker, and test contexts.
  * All async/worker-delegating variants live in src/client/lib/crypto-worker-helpers.ts.
- *
- * Lift-and-shift from src/client/lib/crypto.ts — behavior is identical.
- * Tasks 4-9 will rewrite these to use EnvelopeV2 + AAD.
  */
 
 import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
@@ -14,7 +11,6 @@ import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import {
   HKDF_CONTEXT_DRAFTS,
   HKDF_CONTEXT_EXPORT,
-  HKDF_CONTEXT_NOTES,
   HKDF_SALT,
   LABEL_BLAST_CONTENT,
   LABEL_MESSAGE,
@@ -38,9 +34,9 @@ function randomBytes(n: number): Uint8Array {
   return buf
 }
 
-// --- Per-Note Ephemeral Key Encryption (V2 — forward secrecy) ---
+// --- Per-Note Ephemeral Key Encryption (forward secrecy) ---
 
-export interface EncryptedNoteV2 {
+export interface EncryptedNote {
   encryptedContent: Ciphertext // hex: nonce(24) + ciphertext
   authorEnvelope: KeyEnvelope // note key wrapped for the author
   adminEnvelopes: RecipientKeyEnvelope[] // note key wrapped for each admin (multi-admin)
@@ -52,11 +48,11 @@ export interface EncryptedNoteV2 {
  *
  * @param adminPubkeys - Array of admin decryption pubkeys (supports multi-admin)
  */
-export function encryptNoteV2(
+export function encryptNote(
   payload: NotePayload,
   authorPubkey: string,
   adminPubkeys: string[]
-): EncryptedNoteV2 {
+): EncryptedNote {
   const noteKey = randomBytes(32)
   const nonce = randomBytes(24)
   const jsonString = JSON.stringify(payload)
@@ -78,10 +74,10 @@ export function encryptNoteV2(
 }
 
 /**
- * Decrypt a V2 note with explicit secret key — for server-side and test usage
+ * Decrypt a note with explicit secret key — for server-side and test usage
  * where no crypto worker is available.
  */
-export function decryptNoteV2WithKey(
+export function decryptNoteWithKey(
   encryptedContent: string,
   envelope: KeyEnvelope,
   secretKey: Uint8Array
@@ -197,33 +193,6 @@ export function decryptBlastContentWithKey(
     const cipher = xchacha20poly1305(blastKey, nonce)
     const plaintext = cipher.decrypt(ciphertext)
     return JSON.parse(new TextDecoder().decode(plaintext)) as BlastContent
-  } catch {
-    return null
-  }
-}
-
-// --- Legacy V1 Decryption ---
-// V1 encrypt path removed (no forward secrecy). All new notes MUST use encryptNoteV2.
-
-/** Decrypt a legacy V1 note — kept for backward compatibility only. */
-export function decryptNote(packed: string, secretKey: Uint8Array): NotePayload | null {
-  try {
-    const key = hkdfDerive(secretKey, utf8ToBytes(HKDF_SALT), utf8ToBytes(HKDF_CONTEXT_NOTES), 32)
-    const data = hexToBytes(packed)
-    const nonce = data.slice(0, 24)
-    const ciphertext = data.slice(24)
-    const cipher = xchacha20poly1305(key, nonce)
-    const plaintext = cipher.decrypt(ciphertext)
-    const decoded = new TextDecoder().decode(plaintext)
-    try {
-      const parsed = JSON.parse(decoded)
-      if (parsed && typeof parsed === 'object' && typeof parsed.text === 'string') {
-        return parsed as NotePayload
-      }
-    } catch {
-      // Not JSON — legacy plain text note
-    }
-    return { text: decoded }
   } catch {
     return null
   }

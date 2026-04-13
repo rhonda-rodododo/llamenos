@@ -60,11 +60,8 @@ export const LABEL_SHIFT_SCHEDULE = 'llamenos:shift-schedule' as CryptoLabel
 
 // --- HKDF Derivation ---
 
-/** HKDF salt for legacy symmetric key derivation */
+/** HKDF salt for symmetric key derivation */
 export const HKDF_SALT = 'llamenos:hkdf-salt:v1'
-
-/** HKDF context: legacy V1 note encryption */
-export const HKDF_CONTEXT_NOTES = 'llamenos:notes'
 
 /** HKDF context: draft encryption */
 export const HKDF_CONTEXT_DRAFTS = 'llamenos:drafts'
