@@ -34,9 +34,9 @@ Tier 1 shipped as two logical units on a single branch:
 
 ### Modified modules
 - `src/client/lib/crypto-worker.ts` — **Additive** HPKE sidecar. New request types:
-  `unlockFromKeyStoreV3`, `hpkeSeal`, `hpkeOpen`, `hubFieldEncryptV3`, `hubFieldDecryptV3`,
-  `hpkePublicKeyRaw`. The existing ECIES/XChaCha20 surface is preserved for callers that have not
-  yet migrated.
+  `unlockWithHandles`, `hpkeSeal`, `hpkeOpen`, `hpkePublicKeyRaw`. Hub-field encryption uses
+  `encryptHubField` / `decryptHubField` in `src/client/lib/hub-field-crypto.ts`. The existing
+  ECIES/XChaCha20 surface is preserved for callers that have not yet migrated.
 - `src/client/lib/crypto-worker-client.ts` — Client-side RPC wrappers for the new handlers.
 - `src/shared/crypto-labels.ts` — Added `LABEL_SERVER_HPKE_KEY` + `LABEL_SERVER_HPKE_KEY_INFO`.
   These are domain labels used by `HpkeService`; they are intentionally **not** in `LABEL_REGISTRY`
