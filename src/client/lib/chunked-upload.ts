@@ -1,4 +1,4 @@
-import type { EncryptedMetaItem, FileKeyEnvelopeV2, UploadInit } from '@shared/types'
+import type { EncryptedMetaItem, FileKeyEnvelope, UploadInit } from '@shared/types'
 import { completeUpload, getUploadStatus, initUpload, uploadChunk } from './api'
 
 const DEFAULT_CHUNK_SIZE = 5 * 1024 * 1024 // 5MB
@@ -6,7 +6,7 @@ const DEFAULT_CHUNK_SIZE = 5 * 1024 * 1024 // 5MB
 export interface ChunkedUploadOptions {
   encryptedContent: Uint8Array
   conversationId: string
-  recipientEnvelopes: FileKeyEnvelopeV2[]
+  recipientEnvelopes: FileKeyEnvelope[]
   encryptedMetadata: EncryptedMetaItem[]
   /**
    * Client-generated UUID used as AAD binding in the file encryption (Task 8+).
@@ -34,7 +34,7 @@ export async function chunkedUpload(options: ChunkedUploadOptions): Promise<Uplo
 
   // Initialize upload — include client-generated fileId so server can use it as the canonical ID.
   // V2 envelopes are cast to the legacy FileKeyEnvelope type here; Task 9 will update
-  // the server to accept FileKeyEnvelopeV2 natively and remove the cast.
+  // the server to accept FileKeyEnvelope natively and remove the cast.
   const initData: UploadInit = {
     totalSize,
     totalChunks,

@@ -6,7 +6,7 @@
  * For pure/server-side usage, see @shared/crypto-envelopes and @shared/crypto-primitives.
  *
  * Lift-and-shift from src/client/lib/crypto.ts — behavior is identical.
- * Tasks 4-9 will rewrite these to use EnvelopeV2 + AAD.
+ * Tasks 4-9 will rewrite these to use Envelope + AAD.
  */
 
 import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'

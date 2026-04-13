@@ -9,7 +9,7 @@ import { generateSecretKey, getPublicKey, nip19 } from 'nostr-tools'
 import type { CryptoLabel } from './crypto-labels'
 import { idToLabel } from './crypto-labels'
 import type { Ciphertext } from './crypto-types'
-import type { EnvelopeV2 } from './types'
+import type { Envelope } from './types'
 
 /**
  * Symmetric encryption using XChaCha20-Poly1305 with mandatory AAD binding.
@@ -231,12 +231,12 @@ export function eciesUnwrapKeyWithSecret(
   return cipher.decrypt(ciphertext)
 }
 
-// --- EnvelopeV2: versioned ECIES envelope with wire-format label enforcement ---
+// --- Envelope: versioned ECIES envelope with wire-format label enforcement ---
 
-export type { EnvelopeV2 }
+export type { Envelope }
 
 /**
- * Thrown when an EnvelopeV2's embedded labelId does not match the expected
+ * Thrown when an Envelope's embedded labelId does not match the expected
  * CryptoLabel, or when the envelope version is not 2.
  * This enforces the "triple-redundant label defense": brand + HKDF + AEAD AAD + wire id.
  */
@@ -252,15 +252,15 @@ export class CryptoLabelMismatchError extends Error {
 }
 
 /**
- * Unwrap an EnvelopeV2 after verifying the embedded labelId matches expectedLabel.
+ * Unwrap an Envelope after verifying the embedded labelId matches expectedLabel.
  * Throws CryptoLabelMismatchError if the version is not 2 or the labelId is wrong.
  *
  * @param env            The versioned envelope to unwrap.
  * @param unwrapSecret   Caller-supplied unwrap function (crypto worker, server key, etc.)
  * @param expectedLabel  The CryptoLabel the caller expects this envelope to have been sealed with.
  */
-export async function decryptEnvelopeV2(
-  env: EnvelopeV2,
+export async function decryptEnvelope(
+  env: Envelope,
   unwrapSecret: (
     ephemeralPubkey: string,
     wrapped: Ciphertext,

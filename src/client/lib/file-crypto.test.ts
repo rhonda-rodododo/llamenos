@@ -11,7 +11,7 @@ import {
   symmetricDecrypt,
 } from '@shared/crypto-primitives'
 import type { Ciphertext } from '@shared/crypto-types'
-import type { EnvelopeV2 } from '@shared/types'
+import type { Envelope } from '@shared/types'
 import { encryptFile } from './file-crypto'
 
 // Test keypairs — deterministic across test runs via fixed seed
@@ -29,7 +29,7 @@ function mockFile(content: Uint8Array, name: string, type = 'application/octet-s
  */
 async function decryptFileWithSecret(
   encryptedContent: Uint8Array,
-  envelope: EnvelopeV2,
+  envelope: Envelope,
   fileId: string,
   sk: Uint8Array
 ): Promise<Uint8Array> {
@@ -171,10 +171,10 @@ describe('encryptFile', () => {
   })
 })
 
-// --- EnvelopeV2 + fileId-bound AAD tests ---
+// --- Envelope + fileId-bound AAD tests ---
 
 describe('file-crypto envelope v2', () => {
-  test('encrypt file produces EnvelopeV2 with correct v and labelId', async () => {
+  test('encrypt file produces Envelope with correct v and labelId', async () => {
     const content = new Uint8Array(1024)
     crypto.getRandomValues(content)
     const file = mockFile(content, 'random.bin')
@@ -250,7 +250,7 @@ describe('file-crypto envelope v2', () => {
     const { encryptedContent, recipientEnvelopes } = await encryptFile(file, fileId, [publicKeyHex])
 
     // Tamper with the labelId to simulate a cross-label attack
-    const tamperedEnvelope: EnvelopeV2 = {
+    const tamperedEnvelope: Envelope = {
       ...recipientEnvelopes[0],
       labelId: labelToId(LABEL_FILE_KEY) + 1, // wrong label
     }

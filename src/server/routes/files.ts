@@ -158,8 +158,10 @@ const shareFileRoute = createRoute({
         'application/json': {
           schema: z.object({
             envelope: z.object({
+              v: z.literal(2),
+              labelId: z.number().int(),
               pubkey: z.string(),
-              encryptedFileKey: z.string(),
+              wrappedKey: z.string(),
               ephemeralPubkey: z.string(),
             }),
             encryptedMetadata: z.object({
@@ -200,11 +202,7 @@ files.openapi(shareFileRoute, async (c) => {
 
   const body = c.req.valid('json')
 
-  if (
-    !body.envelope?.pubkey ||
-    !body.envelope?.encryptedFileKey ||
-    !body.envelope?.ephemeralPubkey
-  ) {
+  if (!body.envelope?.pubkey || !body.envelope?.wrappedKey || !body.envelope?.ephemeralPubkey) {
     return c.json({ error: 'Invalid envelope' }, 400)
   }
 

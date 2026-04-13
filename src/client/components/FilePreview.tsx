@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button'
 import { downloadFile, getFileEnvelopes, getFileMetadata } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { decryptFile, decryptFileMetadata } from '@/lib/file-crypto'
-import type { EncryptedFileMetadata, FileKeyEnvelopeV2 } from '@shared/types'
+import type { EncryptedFileMetadata, FileKeyEnvelope } from '@shared/types'
 import { AlertCircle, Download, FileIcon, ImageIcon, Loader2, Music, VideoIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -48,7 +48,7 @@ export function FilePreview({ fileId }: FilePreviewProps) {
 
         // Find our envelope
         const myPubkey = publicKey
-        let envelope: FileKeyEnvelopeV2 | undefined
+        let envelope: FileKeyEnvelope | undefined
         if (myPubkey) {
           envelope = envelopes.find((e) => e.pubkey === myPubkey)
         }

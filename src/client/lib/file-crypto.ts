@@ -10,14 +10,14 @@ import {
   labelToId,
 } from '@shared/crypto-labels'
 import {
-  decryptEnvelopeV2,
+  decryptEnvelope,
   eciesWrapKey,
   symmetricDecrypt,
   symmetricEncrypt,
 } from '@shared/crypto-primitives'
 import type { Ciphertext } from '@shared/crypto-types'
-import type { EnvelopeV2 } from '@shared/types'
-import type { EncryptedFileMetadata, EncryptedMetaItem, FileKeyEnvelopeV2 } from '@shared/types'
+import type { Envelope } from '@shared/types'
+import type { EncryptedFileMetadata, EncryptedMetaItem, FileKeyEnvelope } from '@shared/types'
 import { cryptoWorker } from './crypto-worker-client'
 
 function randomBytes(n: number): Uint8Array {
@@ -43,7 +43,7 @@ function buildFileAad(fileId: string): Uint8Array {
 
 /**
  * Unwrap a symmetric file key using the crypto worker (secret key never touches main thread).
- * @deprecated Use decryptFile with EnvelopeV2 instead.
+ * @deprecated Use decryptFile with Envelope instead.
  */
 export async function unwrapFileKey(
   encryptedFileKeyHex: string,
@@ -118,17 +118,17 @@ export async function decryptFileMetadata(
 export interface EncryptedFileUpload {
   /** Raw bytes of the encrypted content (nonce+ciphertext from symmetricEncrypt, decoded from hex). */
   encryptedContent: Uint8Array
-  /** Per-recipient V2 key envelopes with EnvelopeV2 semantics + pubkey tag. */
-  recipientEnvelopes: FileKeyEnvelopeV2[]
+  /** Per-recipient V2 key envelopes with Envelope semantics + pubkey tag. */
+  recipientEnvelopes: FileKeyEnvelope[]
   encryptedMetadata: EncryptedMetaItem[]
 }
 
 /**
- * Encrypt a file for multiple recipients (EnvelopeV2 + fileId-bound AAD).
+ * Encrypt a file for multiple recipients (Envelope + fileId-bound AAD).
  *
  * The file content is encrypted with XChaCha20-Poly1305 using an AAD that binds
  * the ciphertext to both LABEL_FILE_KEY and the fileId, preventing cross-file
- * ciphertext substitution attacks. Each recipient gets an EnvelopeV2 wrapping
+ * ciphertext substitution attacks. Each recipient gets an Envelope wrapping
  * the same file key via ECIES.
  *
  * The fileId must be a client-generated UUID (crypto.randomUUID()) on new uploads
@@ -163,9 +163,9 @@ export async function encryptFile(
   const encryptedHex = symmetricEncrypt(plaintextBytes, fileKey, aad)
   const encryptedContent = hexToBytes(encryptedHex)
 
-  // Wrap the file key for each recipient using EnvelopeV2 (ECIES + wire-format label)
+  // Wrap the file key for each recipient using Envelope (ECIES + wire-format label)
   const labelId = labelToId(LABEL_FILE_KEY)
-  const recipientEnvelopes: FileKeyEnvelopeV2[] = recipientPubkeys.map((pubkey) => {
+  const recipientEnvelopes: FileKeyEnvelope[] = recipientPubkeys.map((pubkey) => {
     const { wrappedKey, ephemeralPubkey } = eciesWrapKey(fileKey, pubkey, LABEL_FILE_KEY)
     return { v: 2, labelId, pubkey, wrappedKey, ephemeralPubkey }
   })
@@ -190,14 +190,14 @@ export async function encryptFile(
  */
 export async function decryptFile(
   encryptedContent: ArrayBuffer,
-  envelope: EnvelopeV2,
+  envelope: Envelope,
   fileId: string
 ): Promise<{ blob: Blob; checksum: string }> {
   // Build the same AAD used during encryption
   const aad = buildFileAad(fileId)
 
-  // Unwrap the file key via the crypto worker using decryptEnvelopeV2 (version + label checks)
-  const fileKey = await decryptEnvelopeV2(
+  // Unwrap the file key via the crypto worker using decryptEnvelope (version + label checks)
+  const fileKey = await decryptEnvelope(
     envelope,
     (ephemeralPubkey, wrappedKey, label) =>
       cryptoWorker.decrypt(ephemeralPubkey, wrappedKey, label as CryptoLabel).then(hexToBytes),
@@ -223,11 +223,11 @@ export async function decryptFile(
  * Admin decrypts the key via worker, then re-encrypts for the new pubkey.
  */
 export async function rewrapFileKey(
-  envelope: EnvelopeV2,
+  envelope: Envelope,
   newRecipientPubkeyHex: string
-): Promise<FileKeyEnvelopeV2> {
+): Promise<FileKeyEnvelope> {
   // Unwrap with version + label check via the crypto worker
-  const fileKey = await decryptEnvelopeV2(
+  const fileKey = await decryptEnvelope(
     envelope,
     (ephemeralPubkey, wrappedKey, label) =>
       cryptoWorker.decrypt(ephemeralPubkey, wrappedKey, label as CryptoLabel).then(hexToBytes),
