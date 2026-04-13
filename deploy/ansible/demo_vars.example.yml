@@ -41,14 +41,14 @@ deploy_group: deploy
 
 # ─── Application ─────────────────────────────────────────────────
 # Docker image for the Llamenos app
-# Use a specific tag in production (e.g., ghcr.io/llamenos/llamenos:0.20.0)
-llamenos_image: ghcr.io/llamenos/llamenos:latest
+# Use a specific tag in production (e.g., ghcr.io/rhonda-rodododo/llamenos-hotline:0.45.0)
+llamenos_image: ghcr.io/rhonda-rodododo/llamenos-hotline:latest
 
 # Tier 4 PR-A companion image: caddy:2-alpine with dist/client baked into
 # /srv/app and dist/crypto-sandbox into /srv/crypto. Built from
 # deploy/docker/Dockerfile target: static and published alongside the
 # main llamenos image. Pin to the matching tag in production.
-llamenos_static_image: ghcr.io/llamenos/llamenos-static:latest
+llamenos_static_image: ghcr.io/rhonda-rodododo/llamenos-hotline-static:latest
 
 # (legacy, no longer used by the caddy service since Tier 4 PR-A — kept
 # as a placeholder so inventories referencing it don't fail)
