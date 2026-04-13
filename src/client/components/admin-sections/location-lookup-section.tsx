@@ -4,7 +4,7 @@ import {
   SectionDescription,
   SectionField,
   SectionToggleField,
-} from '@/components/admin-shell/section-layout'
+} from '@/components/section-layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {

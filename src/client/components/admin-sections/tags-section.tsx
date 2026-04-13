@@ -1,5 +1,5 @@
-import { SectionBody, SectionDescription } from '@/components/admin-shell/section-layout'
 import { ConfirmDialog } from '@/components/confirm-dialog'
+import { SectionBody, SectionDescription } from '@/components/section-layout'
 import { TagBadge } from '@/components/tag-input'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'

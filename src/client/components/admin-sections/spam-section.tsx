@@ -1,10 +1,6 @@
 import { AdvancedReveal } from '@/components/admin-shell/advanced-reveal'
-import {
-  SectionBody,
-  SectionDescription,
-  SectionField,
-} from '@/components/admin-shell/section-layout'
 import { ConfirmDialog } from '@/components/confirm-dialog'
+import { SectionBody, SectionDescription, SectionField } from '@/components/section-layout'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'

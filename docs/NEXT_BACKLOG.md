@@ -422,4 +422,4 @@ These items were identified during brainstorming but deferred as follow-up effor
 
 ## Dedupe section-layout primitives (2026-04-05)
 
-- [ ] **Dedupe user-shell + admin-shell `section-layout.tsx`** — PR #43 and PR #44 landed parallel copies. Once both merge, move the primitives to `src/client/components/section-layout/` (or `section-ui/`), update imports in both admin-sections/* and user-sections/*, delete the duplicates. APIs are identical except user-shell's `SectionActions` has a `saveButtonTestId` prop for legacy E2E selectors — keep that in the shared copy.
+- [x] **Dedupe user-shell + admin-shell `section-layout.tsx`** — Done: moved primitives to `src/client/components/section-layout/`, with a `surface: 'admin' | 'user'` prop on `SectionBody`/`SectionDescription`/`SectionActions` to preserve each surface's distinct visual rhythm and testid prefix. `saveButtonTestId` legacy override retained. 19 unit tests cover both surfaces. Old duplicates deleted.

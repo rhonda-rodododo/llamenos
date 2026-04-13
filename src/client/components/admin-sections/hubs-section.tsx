@@ -1,5 +1,5 @@
-import { SectionBody, SectionDescription } from '@/components/admin-shell/section-layout'
 import { PhoneInput } from '@/components/phone-input'
+import { SectionBody, SectionDescription } from '@/components/section-layout'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'

@@ -1,9 +1,5 @@
-import {
-  SectionBody,
-  SectionDescription,
-  SectionToggleField,
-} from '@/components/admin-shell/section-layout'
 import { ConfirmDialog } from '@/components/confirm-dialog'
+import { SectionBody, SectionDescription, SectionToggleField } from '@/components/section-layout'
 import { Switch } from '@/components/ui/switch'
 import { getTranscriptionSettings, updateTranscriptionSettings } from '@/lib/api'
 import { queryKeys } from '@/lib/queries/keys'
