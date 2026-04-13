@@ -552,12 +552,34 @@ encrypted blob at all; entries are signed and hash-chained
 `src/client/lib/audit-chain-verifier.ts` for verify). The Tier 0 INFO rows are
 no longer applicable.
 
-**No fresh AEAD findings on this audit.** The one fresh issue surfaced by the
-post-overhaul stack audit
-(`docs/security/STACK_AUDIT_2026-04-12.md` finding F-1 — `rotateHubKeyClkr` no
-longer enforces the audit chain head gate) is unrelated to AEAD; it is a
-control-flow regression in the rotation trigger path. See the stack audit
-document for details.
+**Phase-2 parallel reviewer dispatch (2026-04-12 fan-out).** The six
+pr-review-toolkit reviewers and the independent superpowers second-opinion
+reviewer surfaced one AEAD-adjacent finding: **F-9 in
+`STACK_AUDIT_2026-04-12.md` — dormant AAD schema mismatch between the
+client-side hub-key wrap path (`hub-key-manager.ts:102,163` uses
+`buildAad(LABEL_HUB_KEY_WRAP, deviceId, hubId)`) and the server-side
+`HpkeService` (`hpke-service.ts:163,184,198,204` uses
+`buildAad(LABEL_HUB_KEY_WRAP, pubkeyHex, 'hub-key-wrap')`)**. These produce
+different AAD strings, so any attempt to wire `HpkeService` into a
+production route will immediately brick hub-key unwrap in both directions.
+No Bucket A/B/C reclassification — the hub-field columns themselves still
+use the single-source `hubFieldAad(recordId, fieldName)` helper correctly;
+F-9 is specifically about the `LABEL_HUB_KEY_WRAP` pathway, which predates
+the single-source helper. Recommendation: before `HpkeService` gets wired
+into any route, introduce a `hubKeyWrapAad(recipientId, hubId)` shared
+helper and delete both local formulas. Tracked in the stack audit; no
+separate AEAD action item needed.
+
+F-1 (the original fresh item from the phase-1 stack audit — `rotateHubKeyClkr`
+no longer enforces the audit chain head gate) is unchanged and is a
+control-flow regression in the rotation trigger path, not an AEAD
+invariant. See the stack audit document for details.
+
+**Other fresh stack-audit findings (F-8, F-10..F-19)** are not
+AEAD-adjacent — see `STACK_AUDIT_2026-04-12.md` for the full list. They
+span authorization (F-8 CRITICAL — `payloadIsAuthorizedFor` ignores
+signer-to-target binding), silent-failure orchestration (F-10..F-15),
+documentation drift (F-16..F-18), and CI hygiene (F-19).
 
 **Cross-reference:** `docs/security/STACK_AUDIT_2026-04-12.md` is the
 authoritative post-merge status for the entire 7-tier overhaul as of 2026-04-12.
