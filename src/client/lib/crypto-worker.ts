@@ -47,7 +47,7 @@ import {
 import { unbiasedSixDigitCode } from '@shared/crypto-primitives'
 import type { HpkeEnvelope } from '@shared/hpke-envelope'
 import { buildAad, hpkeOpen, hpkeSeal } from '@shared/hpke-primitives'
-import { decryptHubFieldV3, encryptHubFieldV3 } from './hub-field-crypto-v3.js'
+import { decryptHubFieldAead, encryptHubFieldAead } from './hub-field-crypto.js'
 
 // ---- Message protocol types ----
 
@@ -644,7 +644,7 @@ async function handleHubFieldEncryptV3(
     autoLock()
     throw new Error('Rate limit exceeded — worker auto-locked')
   }
-  return encryptHubFieldV3(plaintext, hubKey, recordId, fieldName)
+  return encryptHubFieldAead(plaintext, hubKey, recordId, fieldName)
 }
 
 async function handleHubFieldDecryptV3(
@@ -657,7 +657,7 @@ async function handleHubFieldDecryptV3(
     autoLock()
     throw new Error('Rate limit exceeded — worker auto-locked')
   }
-  return decryptHubFieldV3(ciphertext, hubKey, recordId, fieldName)
+  return decryptHubFieldAead(ciphertext, hubKey, recordId, fieldName)
 }
 
 // ---- Tier 2 root-KEK handlers ----

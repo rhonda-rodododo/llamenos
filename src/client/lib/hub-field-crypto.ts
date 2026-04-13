@@ -1,39 +1,142 @@
 /**
- * Hub Field Crypto — Tier 1 async wrappers.
+ * Hub Field Crypto.
  *
- * The public surface `encryptHubField(value, hubId, recordId, fieldName)` and
- * `decryptHubField(encrypted, hubId, recordId, fieldName, placeholder)` are
- * identical in shape to Tier 0 except both are now `async` and both route
- * through `hub-field-crypto-v3.ts` (WebCrypto AES-256-GCM on a non-extractable
- * `CryptoKey`). The raw 32-byte hub key never flows through the AEAD call —
- * only the `CryptoKey` handle from `hub-key-cache.ts`.
+ * Encrypts org-scoped field values (shift names, role names, report labels,
+ * team names, etc.) under the hub's shared AES-256-GCM `CryptoKey` held by
+ * `hub-key-cache`. The raw 32-byte hub key never flows through the AEAD
+ * call — only the non-extractable `CryptoKey` handle.
  *
- * Wire format is base64url `nonce12 || ct+tag16`, chosen by v3. Migration 0053
- * wiped every pre-existing hub-field ciphertext when Tier 1 PR-A landed, so
- * there is no mixed on-disk state: every row that is non-NULL today is a v3
- * base64url blob.
+ * Wire format (base64url): `nonce12 || ciphertext+tag16`. AAD is bound to
+ * `(recordId, fieldName)` via `hubFieldAad`, so a ciphertext cannot be
+ * transplanted between rows or columns without failing AES-GCM authentication.
  *
- * AAD binding: every ciphertext is bound to `(recordId, fieldName)` via
- * `hubFieldAad` — the same helper that drove the Tier 0 AAD. A ciphertext
- * cannot be transplanted between rows or columns without failing AES-GCM
- * authentication.
+ * The public wrappers `encryptHubField` / `decryptHubField` are `async` and
+ * take a `hubId` that resolves to a `CryptoKey` via `hub-key-cache`. Code
+ * that already holds the `CryptoKey` directly can call `encryptHubFieldAead`
+ * / `decryptHubFieldAead`.
  */
 
 import type { Ciphertext } from '@shared/crypto-types'
-import { decryptHubFieldV3, encryptHubFieldV3 } from './hub-field-crypto-v3'
+import { hubFieldAad } from '@shared/lib/hub-field-aad'
 import { getHubKeyCryptoKeyForId, getHubKeyForId } from './hub-key-cache'
 
+const NONCE_LEN = 12
+const TAG_LEN = 16
+
+function b64urlEncode(bytes: Uint8Array): string {
+  let bin = ''
+  for (const b of bytes) bin += String.fromCharCode(b)
+  return btoa(bin).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '')
+}
+
+function b64urlDecode(s: string): Uint8Array {
+  const pad = s.length % 4 === 0 ? '' : '='.repeat(4 - (s.length % 4))
+  const bin = atob(s.replaceAll('-', '+').replaceAll('_', '/') + pad)
+  const out = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i)
+  return out
+}
+
 /**
- * A "plaintext fallback" heuristic: during initial hub setup the server may
- * round-trip a plaintext value back to the client before the hub key has
- * been loaded. If that happens, surface the readable value instead of
- * dropping it on the floor. A v3 ciphertext is base64url — the probe is
- * length-based (nonce 12 + tag 16 ≈ 40 base64url chars minimum) plus an
- * alphabet check.
+ * A base64url "looks like ciphertext" heuristic used when the hub key is not
+ * yet loaded. Plaintext round-trips from the server during initial hub setup
+ * must not be dropped — only true ciphertexts should be replaced by a
+ * placeholder. A minimum length of 40 covers nonce (12) + tag (16) in base64url.
  */
-function looksLikeV3Ciphertext(s: string): boolean {
+function looksLikeCiphertext(s: string): boolean {
   if (s.length < 40) return false
   return /^[A-Za-z0-9_-]+$/.test(s)
+}
+
+/**
+ * Encrypt `value` with the given hub AES-GCM `CryptoKey`, binding AAD to
+ * `(recordId, fieldName)`.
+ */
+export async function encryptHubFieldAead(
+  value: string,
+  hubKey: CryptoKey,
+  recordId: string,
+  fieldName: string
+): Promise<string> {
+  const nonce = crypto.getRandomValues(new Uint8Array(NONCE_LEN))
+  const aad = hubFieldAad(recordId, fieldName)
+  const pt = new TextEncoder().encode(value)
+  const ct = new Uint8Array(
+    await crypto.subtle.encrypt(
+      {
+        name: 'AES-GCM',
+        iv: nonce.buffer as ArrayBuffer,
+        additionalData: aad.buffer as ArrayBuffer,
+        tagLength: TAG_LEN * 8,
+      },
+      hubKey,
+      pt.buffer as ArrayBuffer
+    )
+  )
+  const packed = new Uint8Array(NONCE_LEN + ct.length)
+  packed.set(nonce)
+  packed.set(ct, NONCE_LEN)
+  return b64urlEncode(packed)
+}
+
+/**
+ * Decrypt a hub-field ciphertext. Returns `null` on any failure (invalid
+ * base64, wrong AAD, tampered tag) so the caller can surface a placeholder.
+ */
+export async function decryptHubFieldAead(
+  encrypted: string,
+  hubKey: CryptoKey,
+  recordId: string,
+  fieldName: string
+): Promise<string | null> {
+  try {
+    const packed = b64urlDecode(encrypted)
+    if (packed.length < NONCE_LEN + TAG_LEN) return null
+    const nonce = new Uint8Array(packed.subarray(0, NONCE_LEN))
+    const ct = new Uint8Array(packed.subarray(NONCE_LEN))
+    const aad = hubFieldAad(recordId, fieldName)
+    const pt = await crypto.subtle.decrypt(
+      {
+        name: 'AES-GCM',
+        iv: nonce.buffer as ArrayBuffer,
+        additionalData: aad.buffer as ArrayBuffer,
+        tagLength: TAG_LEN * 8,
+      },
+      hubKey,
+      ct.buffer as ArrayBuffer
+    )
+    return new TextDecoder().decode(pt)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Generate a fresh non-extractable hub AES-GCM `CryptoKey`. The raw bytes
+ * are unreachable — hub keys are persisted by wrapping the handle via HPKE
+ * for each hub member (see `hub-key-manager`).
+ */
+export async function generateHubFieldCryptoKey(): Promise<CryptoKey> {
+  return crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt'])
+}
+
+/**
+ * Import a 32-byte raw hub key as a non-extractable AES-256-GCM `CryptoKey`
+ * handle. Used by `hub-key-cache.ts` when a hub key envelope is unwrapped
+ * and we want a CryptoKey to hand to `encryptHubFieldAead` / `decryptHubFieldAead`
+ * without exposing raw bytes again.
+ */
+export async function importHubKeyCryptoKey(raw: Uint8Array): Promise<CryptoKey> {
+  if (raw.length !== 32) {
+    throw new Error(`hub key must be 32 bytes, got ${raw.length}`)
+  }
+  return crypto.subtle.importKey(
+    'raw',
+    raw.buffer as ArrayBuffer,
+    { name: 'AES-GCM', length: 256 },
+    /* extractable */ false,
+    ['encrypt', 'decrypt']
+  )
 }
 
 /**
@@ -42,12 +145,6 @@ function looksLikeV3Ciphertext(s: string): boolean {
  * The AAD `(recordId, fieldName)` binds the ciphertext to the specific row
  * and column it belongs to — a ciphertext cannot be moved to another row or
  * column without failing authentication on decrypt.
- *
- * For UPDATE operations, `recordId` is the existing record's server-assigned
- * ID. For CREATE operations, prefer client-generated UUIDs so the ciphertext
- * is bound to the final row ID from the moment it is written. Callers that
- * cannot use client-generated IDs can pass `crypto.randomUUID()`; the server
- * fallback path (plaintext column) handles the rare read-before-rewrite edge.
  *
  * Returns the ciphertext, or `undefined` if the hub key is not yet loaded.
  * Callers must tolerate the `undefined` case — pass plaintext to the server
@@ -61,7 +158,7 @@ export async function encryptHubField(
 ): Promise<Ciphertext | undefined> {
   const hubKey = getHubKeyCryptoKeyForId(hubId)
   if (!hubKey) return undefined
-  return (await encryptHubFieldV3(value, hubKey, recordId, fieldName)) as Ciphertext
+  return (await encryptHubFieldAead(value, hubKey, recordId, fieldName)) as Ciphertext
 }
 
 /**
@@ -70,7 +167,7 @@ export async function encryptHubField(
  * Boundary adapter: accepts unbranded `string` from API responses and casts
  * to `Ciphertext` for the crypto layer. The AAD `(recordId, fieldName)` must
  * match what was used at encrypt time. If it doesn't, AES-GCM authentication
- * will fail and the placeholder is returned.
+ * fails and the placeholder is returned.
  */
 export async function decryptHubField(
   encrypted: string | null | undefined,
@@ -82,17 +179,17 @@ export async function decryptHubField(
   if (!encrypted) return placeholder
   const hubKey = getHubKeyCryptoKeyForId(hubId)
   if (!hubKey) {
-    return looksLikeV3Ciphertext(encrypted) ? placeholder : encrypted
+    return looksLikeCiphertext(encrypted) ? placeholder : encrypted
   }
-  const decrypted = await decryptHubFieldV3(encrypted, hubKey, recordId, fieldName)
+  const decrypted = await decryptHubFieldAead(encrypted, hubKey, recordId, fieldName)
   if (decrypted !== null) return decrypted
-  return looksLikeV3Ciphertext(encrypted) ? placeholder : encrypted
+  return looksLikeCiphertext(encrypted) ? placeholder : encrypted
 }
 
 /**
- * Legacy raw-bytes accessor kept for the Nostr event decryption path which
- * still needs the 32-byte hub key. Removed once the Nostr path also moves
- * to CryptoKey-only (tracked as a follow-up in `HPKE_MIGRATION_NOTES.md`).
+ * Raw-bytes accessor kept for the Nostr event decryption path which still
+ * needs the 32-byte hub key. Removed once the Nostr path also moves to
+ * CryptoKey-only (tracked in `HPKE_MIGRATION_NOTES.md`).
  */
 export function getHubKeyRawBytesForLegacyPath(hubId: string): Uint8Array | null {
   return getHubKeyForId(hubId)
