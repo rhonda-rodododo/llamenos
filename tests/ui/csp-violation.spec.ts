@@ -23,10 +23,12 @@ import { expect, request as pwRequest, test } from '@playwright/test'
 
 test.describe('API-host CSP', () => {
   test('API host responses carry the locked-down CSP with /api/csp-report endpoint', async () => {
-    // Don't use page.goto — the API host returns 404 for `/` and Playwright
-    // flags document 4xx as failures. Drive the request layer directly.
+    // Target an API path that unambiguously reaches the API layer regardless
+    // of whether the host is running in API-only production mode or the dev
+    // mode that also serves the SPA from `/`. Any `/api/*` path that doesn't
+    // match a real route returns a JSON 404 under both modes.
     const ctx = await pwRequest.newContext({ baseURL: 'http://localhost:3000' })
-    const response = await ctx.get('/')
+    const response = await ctx.get('/api/__csp_probe__')
     expect(response.status()).toBe(404)
 
     const headers = response.headers()

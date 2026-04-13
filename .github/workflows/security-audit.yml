@@ -48,10 +48,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@4bc047ad259df6fc24a6c9b0f9a0cb08cf17fbe5 # v2.0.2
         with:
           bun-version: ${{ env.BUN_VERSION }}
 
@@ -82,10 +82,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Scan Dockerfile.build with Trivy
-        uses: aquasecurity/trivy-action@v0.35.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
         with:
           scan-type: 'config'
           scan-ref: 'Dockerfile.build'
@@ -95,7 +95,7 @@ jobs:
           exit-code: '0'
 
       - name: Scan deploy/docker/Dockerfile with Trivy
-        uses: aquasecurity/trivy-action@v0.35.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
         with:
           scan-type: 'config'
           scan-ref: 'deploy/docker/Dockerfile'
@@ -105,7 +105,7 @@ jobs:
           exit-code: '0'
 
       - name: Scan Docker Compose files with Trivy
-        uses: aquasecurity/trivy-action@v0.35.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
         with:
           scan-type: 'config'
           scan-ref: 'deploy/docker'
@@ -115,21 +115,21 @@ jobs:
           exit-code: '0'
 
       - name: Upload Dockerfile.build scan results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@c10b8064de6f491fea524254123dbe5e09572f13 # v4.35.1
         if: always()
         with:
           sarif_file: 'dockerfile-build-results.sarif'
           category: 'dockerfile-build'
 
       - name: Upload deploy Dockerfile scan results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@c10b8064de6f491fea524254123dbe5e09572f13 # v4.35.1
         if: always()
         with:
           sarif_file: 'dockerfile-deploy-results.sarif'
           category: 'dockerfile-deploy'
 
       - name: Upload Docker Compose scan results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@c10b8064de6f491fea524254123dbe5e09572f13 # v4.35.1
         if: always()
         with:
           sarif_file: 'docker-compose-results.sarif'
@@ -158,13 +158,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
 
       - name: Build image for scanning
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
         with:
           context: .
           file: ${{ matrix.image.dockerfile }}
@@ -174,7 +174,7 @@ jobs:
           cache-from: type=gha
 
       - name: Scan image with Trivy
-        uses: aquasecurity/trivy-action@v0.35.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
         with:
           image-ref: 'llamenos-scan:latest'
           format: 'sarif'
@@ -183,14 +183,14 @@ jobs:
           exit-code: '0'
 
       - name: Upload image scan results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@c10b8064de6f491fea524254123dbe5e09572f13 # v4.35.1
         if: always()
         with:
           sarif_file: 'image-results.sarif'
           category: 'image-scan'
 
       - name: Scan image with Trivy (table output for review)
-        uses: aquasecurity/trivy-action@v0.35.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
         with:
           image-ref: 'llamenos-scan:latest'
           format: 'table'

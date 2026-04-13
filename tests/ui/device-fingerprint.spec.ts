@@ -13,10 +13,16 @@
  */
 
 import { expect, test } from '../fixtures/auth'
+import { gotoAdminPath } from '../helpers/admin-settings'
 
 test.describe('Device fingerprint verification UI', () => {
+  test.beforeEach(async ({ adminPage }) => {
+    // Admin sidebar only renders inside the admin shell; navigate there first
+    // via the in-page router so crypto-worker state is preserved.
+    await gotoAdminPath(adminPage, '/admin')
+  })
+
   test('devices section renders in admin nav', async ({ adminPage }) => {
-    // Navigate to admin settings → devices
     await adminPage.getByTestId('admin-sidebar-item-devices').click()
     await expect(adminPage.getByTestId('devices-section')).toBeVisible({ timeout: 10000 })
   })

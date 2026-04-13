@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { serveStatic } from '@hono/node-server/serve-static'
 import { OpenAPIHono } from '@hono/zod-openapi'
 import { Scalar } from '@scalar/hono-api-reference'
 import { Hono } from 'hono'
@@ -373,8 +376,62 @@ app.route('/telephony', telephonyRoutes)
 // Mount API under /api
 app.route('/api', api)
 
-// Tier 4 PR-A: this host is API-only — no SPA fallback. Any request outside
-// /api/* or /telephony/* returns JSON 404 (matches the API error envelope).
-app.notFound((c) => c.json({ error: 'Not Found' }, 404))
+// Tier 4 PR-A: in production, this host is API-only — no SPA fallback.
+// In development/test mode, serve the SPA from dist/client/ so Playwright
+// E2E tests and local dev work without a Caddy reverse proxy.
+if (process.env.ENVIRONMENT === 'development') {
+  const staticDir = path.resolve(process.cwd(), 'dist', 'client')
+
+  // CSP nonce injection. The dev CSP uses
+  // `script-src 'self' 'nonce-XXX' 'strict-dynamic'`, which makes browsers
+  // ignore `'self'` and only execute scripts that carry the matching nonce.
+  // The Vite build inserts `nonce="__CSP_NONCE__"` placeholders via
+  // cspNoncePlaceholderPlugin in vite.config.ts; we substitute the
+  // per-response nonce here. We also catch any <script> tag missing a
+  // nonce attribute (e.g. the vite-plugin-pwa register-sw script that is
+  // appended after the placeholder plugin runs) and inject one.
+  let indexTemplate: string | null = null
+  try {
+    indexTemplate = readFileSync(path.join(staticDir, 'index.html'), 'utf-8')
+  } catch {
+    // Built index.html not available — SPA fallback disabled.
+  }
+
+  if (indexTemplate) {
+    const tmpl = indexTemplate
+    // Serve `/` and `/index.html` via nonce injection BEFORE serveStatic
+    // gets a chance to return the raw template from disk. This matters
+    // because the service worker precaches `/index.html` into Cache Storage
+    // and serves it for every navigation via workbox's NavigationRoute — if
+    // that cached body still contains the literal `__CSP_NONCE__`
+    // placeholder, the browser enforces a fresh CSP nonce header against a
+    // stale body and blocks every script on reload.
+    const serveIndex = createMiddleware(async (c) => {
+      const nonce = c.get('cspNonce') ?? ''
+      const html = tmpl
+        .replaceAll('__CSP_NONCE__', nonce)
+        .replace(/<script(?![^>]*\snonce=)/g, `<script nonce="${nonce}"`)
+      return c.html(html)
+    })
+    app.get('/', serveIndex)
+    app.get('/index.html', serveIndex)
+
+    // Static assets (anything with an extension that exists on disk).
+    // `index` is disabled so directory requests fall through to the SPA
+    // fallback below instead of serving index.html raw.
+    app.use('*', serveStatic({ root: staticDir, index: '__no_index__' }))
+
+    // SPA fallback for client-side routes (/dashboard, /admin/*, …) that
+    // have no matching file on disk.
+    app.use('*', serveIndex)
+  } else {
+    // No built template — only serve static assets.
+    app.use('*', serveStatic({ root: staticDir, index: '__no_index__' }))
+  }
+} else {
+  // Production: API-only. Any request outside /api/* or /telephony/* returns
+  // JSON 404 (matches the API error envelope).
+  app.notFound((c) => c.json({ error: 'Not Found' }, 404))
+}
 
 export default app

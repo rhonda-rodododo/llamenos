@@ -19,10 +19,14 @@ name: CI
 
 on:
   pull_request:
+  push:
+    branches: [main]
 
-# Cancel in-progress PR runs when new commits are pushed
+# Cancel in-progress PR runs when new commits are pushed.
+# For push-to-main, include run_id so main runs never cancel each other and
+# the notify-main-failure hook always gets a chance to fire.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.ref }}-${{ github.event_name == 'push' && github.run_id || 'pr' }}
   cancel-in-progress: true
 
 env:
@@ -727,3 +731,69 @@ jobs:
           fi
 
           echo "All required checks passed!"
+
+  # ─── Main-branch failure notifier ──────────────────────────────
+  # Fires only on push to main when ci-status failed. Opens (or updates) a
+  # tracking issue so regressions on main are never silently swallowed.
+  # Scoped to push events so PR failures don't spam issues.
+  notify-main-failure:
+    needs: ci-status
+    if: failure() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update tracking issue
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMMIT_SHA: ${{ github.sha }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+          COMMIT_AUTHOR: ${{ github.event.head_commit.author.name }}
+        with:
+          script: |
+            const runUrl = process.env.RUN_URL
+            const sha = process.env.COMMIT_SHA
+            const shortSha = sha.slice(0, 7)
+            const rawMsg = process.env.COMMIT_MSG || ''
+            const subject = rawMsg.split('\n')[0].slice(0, 120)
+            const author = process.env.COMMIT_AUTHOR || 'unknown'
+
+            const title = 'CI broken on main'
+            const marker = '<!-- ci-main-failure-tracker -->'
+            const body = [
+              marker,
+              '## CI broken on main',
+              '',
+              `**Run:** ${runUrl}`,
+              `**Commit:** \`${shortSha}\` — ${subject}`,
+              `**Author:** ${author}`,
+              '',
+              'This issue is auto-opened by the `notify-main-failure` hook in `ci.yml`.',
+              'It will be updated on each subsequent failure and should be closed',
+              'manually once `main` is green again.',
+            ].join('\n')
+
+            const { data: existing } = await github.rest.search.issuesAndPullRequests({
+              q: `repo:${context.repo.owner}/${context.repo.repo} is:issue is:open in:body "${marker}"`,
+            })
+
+            if (existing.total_count > 0) {
+              const issue = existing.items[0]
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: `New failure on main: ${runUrl}\nCommit: \`${shortSha}\` — ${subject}`,
+              })
+              core.info(`Updated existing tracker issue #${issue.number}`)
+            } else {
+              const created = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['ci', 'bug', 'main-broken'],
+              })
+              core.info(`Opened new tracker issue #${created.data.number}`)
+            }

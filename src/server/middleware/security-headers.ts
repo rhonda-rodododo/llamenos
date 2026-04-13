@@ -1,5 +1,6 @@
 import { createMiddleware } from 'hono/factory'
 import type { AppEnv } from '../types'
+import { buildDevCsp } from './security-headers-dev'
 
 /**
  * Tier 4 PR-A: API-host CSP (production).
@@ -29,41 +30,6 @@ export function buildApiCsp(): string {
     'report-uri /api/csp-report',
     'report-to csp-endpoint',
   ].join('; ')
-}
-
-/**
- * SPA-friendly CSP for dev/test mode. Uses nonce-based script-src when
- * available (from csp-nonce middleware), with inline styles allowed for
- * Tailwind's JIT engine.
- */
-function buildDevCsp(host: string, nonce: string | undefined, relayWsOrigin: string): string {
-  const nonceDirective = nonce ? ` 'nonce-${nonce}' 'strict-dynamic'` : ''
-  const isHttps = host.startsWith('https')
-  const upgrade = isHttps ? ' upgrade-insecure-requests;' : ''
-  return [
-    "default-src 'self'",
-    `script-src 'self'${nonceDirective}`,
-    `style-src 'self' 'nonce-${nonce ?? ''}' 'unsafe-inline'`,
-    "style-src-attr 'unsafe-inline'",
-    "img-src 'self' data: blob:",
-    "font-src 'self'",
-    `connect-src 'self' wss://${host}${relayWsOrigin}`,
-    "media-src 'self' blob:",
-    "worker-src 'self' blob:",
-    "manifest-src 'self'",
-    "object-src 'none'",
-    "frame-src 'none'",
-    "frame-ancestors 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-    "require-trusted-types-for 'script'",
-    'trusted-types llamenos default',
-    'report-uri /api/csp-report',
-    'report-to csp-endpoint',
-    upgrade,
-  ]
-    .filter(Boolean)
-    .join('; ')
 }
 
 export const securityHeaders = createMiddleware<AppEnv>(async (c, next) => {
@@ -99,7 +65,15 @@ export const securityHeaders = createMiddleware<AppEnv>(async (c, next) => {
       ? 'Content-Security-Policy-Report-Only'
       : 'Content-Security-Policy'
 
-  if (isDev) {
+  // API and webhook paths always return JSON/empty responses and never serve
+  // HTML. Lock them down to `*-src 'none'` regardless of environment — this
+  // is defense in depth against MIME confusion (if a browser is tricked into
+  // rendering a JSON response as HTML) and ensures the CSP visible to clients
+  // matches what the API host would send in production.
+  const path = new URL(c.req.url).pathname
+  const isApiPath = path.startsWith('/api/') || path.startsWith('/telephony/')
+
+  if (isDev && !isApiPath) {
     const host = new URL(c.req.url).host
     // biome-ignore lint/suspicious/noExplicitAny: CSP nonce set by csp-nonce middleware
     const nonce = (c as any).get?.('cspNonce') as string | undefined

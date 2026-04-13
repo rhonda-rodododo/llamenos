@@ -1,5 +1,23 @@
-import { beforeEach, describe, expect, mock, test } from 'bun:test'
+import { afterAll, beforeEach, describe, expect, mock, test } from 'bun:test'
 import type { RootKekEnvelopeBundle } from '@shared/schemas/root-kek-envelope'
+// Eagerly import the real modules so mock.module factories below can spread
+// their exports and only override specific members. Without this, bun's
+// process-wide mock.module strips the named exports and breaks sibling test
+// files that run later in the enumeration order and rely on those exports
+// (e.g. crypto-worker-client.test.ts, panic-wipe.test.ts, recovery-phrase.test.ts).
+import * as realCryptoWorkerClientNS from './crypto-worker-client'
+import * as realOpaqueClientNS from './opaque-client'
+import * as realRecoveryPhraseNS from './recovery-phrase'
+import * as realWebauthnNS from './webauthn'
+
+// Snapshot to plain objects at import time. ES module namespaces are live
+// bindings — if we used the NS objects directly in the afterAll restore,
+// bun's mock.module replacement would have already mutated them to expose
+// the mocks. Plain snapshots freeze the real exports.
+const realCryptoWorkerClient = { ...realCryptoWorkerClientNS }
+const realOpaqueClient = { ...realOpaqueClientNS }
+const realRecoveryPhrase = { ...realRecoveryPhraseNS }
+const realWebauthn = { ...realWebauthnNS }
 
 // ---- Mocks ----
 
@@ -7,14 +25,21 @@ const mockRootKekUnwrap = mock(async () => {})
 const mockRootKekIsLoaded = mock(async () => true)
 
 mock.module('./crypto-worker-client', () => ({
+  ...realCryptoWorkerClient,
   cryptoWorker: {
     rootKekUnwrap: mockRootKekUnwrap,
     rootKekIsLoaded: mockRootKekIsLoaded,
+    // Stub methods that sibling tests (panic-wipe → wipeKey → lock → cryptoWorker.lock)
+    // may traverse under this mock. Kept minimal and no-op.
+    lock: mock(async () => {}),
+    unlock: mock(async () => null),
+    isUnlocked: mock(async () => false),
   },
 }))
 
 const mockUnlockPrf = mock(async () => new Uint8Array(32).fill(1))
 mock.module('./webauthn', () => ({
+  ...realWebauthn,
   unlockPrfFromCredential: mockUnlockPrf,
   PrfUnsupportedError: class PrfUnsupportedError extends Error {},
 }))
@@ -32,6 +57,7 @@ const mockOpaqueLoginFinish = mock(
   })
 )
 mock.module('./opaque-client', () => ({
+  ...realOpaqueClient,
   opaqueClient: {
     loginStart: mockOpaqueLoginStart,
     loginFinish: mockOpaqueLoginFinish,
@@ -53,8 +79,8 @@ const mockDeriveRecoveryPhrase = mock((_phrase: string, _salt: Uint8Array) =>
   new Uint8Array(32).fill(3)
 )
 mock.module('./recovery-phrase', () => ({
+  ...realRecoveryPhrase,
   deriveRecoveryPhraseKekBytes: mockDeriveRecoveryPhrase,
-  RecoveryPhraseError: class RecoveryPhraseError extends Error {},
 }))
 
 // ---- Bundle factories ----
@@ -87,6 +113,17 @@ mock.module('./root-kek-store', () => ({
 // ---- Tests ----
 
 describe('runUnlockFactor', () => {
+  // Restore the real modules after this file's tests finish so that later
+  // test files (e.g. recovery-phrase.test.ts, panic-wipe.test.ts) see the
+  // genuine exports instead of our mocks. bun's mock.module is process-global
+  // with no built-in undo — we emulate undo by re-mocking with the snapshot.
+  afterAll(() => {
+    mock.module('./crypto-worker-client', () => realCryptoWorkerClient)
+    mock.module('./webauthn', () => realWebauthn)
+    mock.module('./recovery-phrase', () => realRecoveryPhrase)
+    mock.module('./opaque-client', () => realOpaqueClient)
+  })
+
   beforeEach(() => {
     mockRootKekUnwrap.mockClear()
     mockUnlockPrf.mockClear()

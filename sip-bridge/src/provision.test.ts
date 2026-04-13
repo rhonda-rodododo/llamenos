@@ -112,13 +112,11 @@ describe('provisionEndpoint — Tier 5 SFrame', () => {
     expect(fields.allow).toBe('opus')
     expect(fields.disallow).toBe('all')
 
-    expect(fields.incoming_offer_codec_prefs).toBe('pending:prefer:pending:keep:all')
-    expect(fields.outgoing_offer_codec_prefs).toBe('pending:prefer:pending:keep:all')
-    expect(fields.incoming_answer_codec_prefs).toBe('intersect:prefer:pending:keep:all')
-    expect(fields.outgoing_answer_codec_prefs).toBe('intersect:prefer:pending:keep:all')
-
-    expect(fields.codec_prefs_incoming_offer_resolve).toBe('refuse')
-    expect(fields.codec_prefs_outgoing_offer_resolve).toBe('refuse')
+    const expectedPrefs = 'prefer: pending, operation: intersect, keep: all, transcode: prevent'
+    expect(fields.codec_prefs_incoming_offer).toBe(expectedPrefs)
+    expect(fields.codec_prefs_outgoing_offer).toBe(expectedPrefs)
+    expect(fields.codec_prefs_incoming_answer).toBe(expectedPrefs)
+    expect(fields.codec_prefs_outgoing_answer).toBe(expectedPrefs)
   })
 })
 

@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { Hono } from 'hono'
 import { buildApiCsp, securityHeaders } from './security-headers'
 
@@ -13,6 +13,23 @@ function makeApp() {
   app.get('/ok', (c) => c.json({ ok: true }))
   return app
 }
+
+// The middleware branches on process.env.ENVIRONMENT. Bun auto-loads .env
+// which sets ENVIRONMENT=development locally — CI does not. Pin it here so
+// the test is hermetic regardless of how the runner is invoked.
+let savedEnvironment: string | undefined
+beforeEach(() => {
+  savedEnvironment = process.env.ENVIRONMENT
+  process.env.ENVIRONMENT = 'development'
+})
+afterEach(() => {
+  if (savedEnvironment === undefined) {
+    // biome-ignore lint/performance/noDelete: real unset is required on Node.
+    delete process.env.ENVIRONMENT
+  } else {
+    process.env.ENVIRONMENT = savedEnvironment
+  }
+})
 
 describe('buildApiCsp (Tier 4 PR-A)', () => {
   test('script-src is none', () => {

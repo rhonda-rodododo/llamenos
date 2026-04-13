@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
 import type { CryptoLabel } from '@shared/crypto-labels'
+// Eagerly import the real module so the mock.module factory can spread its
+// named exports. Otherwise bun's process-wide mock.module strips them and
+// breaks sibling test files that import CryptoWorkerLockedError / CryptoWorkerClient.
+import * as realCryptoWorkerClient from './crypto-worker-client'
 import { CryptoWorkerLockedError } from './crypto-worker-client'
 
 // We need to mock the crypto-worker-client module and key-manager module
@@ -21,10 +25,13 @@ const mockLock = mock<() => Promise<void>>()
 let lockCallCount = 0
 
 mock.module('./crypto-worker-client', () => ({
+  ...realCryptoWorkerClient,
   cryptoWorker: {
     decryptEnvelopeField: mockDecryptEnvelopeField,
     isUnlocked: mockIsUnlocked,
     reinitialize: mockReinitialize,
+    // Stub for sibling tests whose wipeKey path traverses cryptoWorker.lock.
+    lock: mock(async () => {}),
   },
   CryptoWorkerLockedError,
   isWorkerLockedError: (err: unknown) => err instanceof CryptoWorkerLockedError,

@@ -9,6 +9,67 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.svg" />
     <link rel="stylesheet" href="/fonts/dm-sans/dm-sans.css" />
+    <script>
+      // Install Trusted Types policies BEFORE the module bundle loads. The
+      // CSP enforces `require-trusted-types-for 'script'`, and several modules
+      // construct Web Workers and a Service Worker at top-level (singletons in
+      // crypto-worker-client, transcription-manager, sframe-worker-client, plus
+      // vite-plugin-pwa registerSW). Without a `default` Trusted Types policy
+      // installed before those imports run, every Worker constructor throws
+      // and the SPA never mounts. Both `llamenos` and `default` are explicitly
+      // allowed by the CSP `trusted-types llamenos default` keyword list.
+      // Vite's csp-nonce-placeholder plugin injects nonce="__CSP_NONCE__" on
+      // every script tag including this one, and the dev SPA fallback
+      // substitutes the per-response nonce when serving index.html.
+      (function () {
+        if (typeof window === 'undefined' || !window.trustedTypes) return
+        // The `default` policy is the implicit fallback the browser applies to
+        // every Trusted Types sink that isn't otherwise wrapped. It must allow
+        // the legitimate cases that React, the router, charting libs, and our
+        // own bundle rely on: same-origin script URLs (Workers, SW, dynamic
+        // imports) and HTML strings produced by React's reconciler. createHTML
+        // passes through unchanged because the surrounding script-src CSP
+        // (`'self' 'nonce-XXX' 'strict-dynamic'`) already prevents an injected
+        // <script> tag from executing — Trusted Types here is defense in depth
+        // for *script* sinks, not a sanitizer.
+        var defaultRules = {
+          createHTML: function (input) {
+            return input
+          },
+          createScriptURL: function (input) {
+            var url = new URL(input, window.location.origin)
+            if (url.origin !== window.location.origin) {
+              throw new Error('Blocked cross-origin script URL: ' + input)
+            }
+            return input
+          },
+          createScript: function () {
+            throw new Error('Inline script creation is blocked by Trusted Types policy')
+          },
+        }
+        // The `llamenos` policy is the strict opt-in policy — callers that go
+        // through `trustedTypes.createPolicy('llamenos').createHTML(x)` are
+        // explicitly saying "I want my HTML rejected if I haven't sanitized it
+        // myself." No caller currently uses this; it exists for future use.
+        var strictRules = {
+          createHTML: function () {
+            throw new Error(
+              'HTML creation is blocked by the llamenos Trusted Types policy. ' +
+                'If a legitimate sink is ever needed, sanitize via DOMPurify ' +
+                'and add a named policy — do not relax this default.'
+            )
+          },
+          createScriptURL: defaultRules.createScriptURL,
+          createScript: defaultRules.createScript,
+        }
+        try {
+          window.trustedTypes.createPolicy('llamenos', strictRules)
+        } catch (_e) {}
+        try {
+          window.trustedTypes.createPolicy('default', defaultRules)
+        } catch (_e) {}
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>
