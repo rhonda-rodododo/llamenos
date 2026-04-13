@@ -32,7 +32,30 @@
  * - Panic wipe invokes clearCapsule(), which tolerates independent failures
  *   of the IDB delete and sessionStorage removal so partial cleanup in one
  *   store never blocks scorched-earth of the other.
+ *
+ * Type safety:
+ * - All hex fields use branded types from `@shared/crypto-types` so a
+ *   field-swap bug (e.g. capsuleNonce ↔ encryptedNsec) is a compile error.
+ * - `parseSessionCapsule` is the only way untrusted input becomes a
+ *   `SessionCapsule`. Raw IDB reads flow through it and return null on any
+ *   malformed or tampered payload.
  */
+import {
+  type CapsuleNonceHex,
+  type EncryptedNsecHex,
+  type PubkeyHash16,
+  type SessionToken,
+  tryCapsuleNonce,
+  tryEncryptedNsec,
+  tryPubkeyHash16,
+  trySessionToken,
+} from '@shared/crypto-types'
+import {
+  SYNC_CHANNEL_NAME,
+  type SyncRequestMessage,
+  type SyncResponseMessage,
+  parseSyncMessage,
+} from './cross-tab-messages'
 import { createDebugLog } from './debug-log'
 
 const log = createDebugLog('llamenos:session-capsule')
@@ -43,33 +66,53 @@ const ACTIVE_KEY = 'active'
 export const SESSION_TOKEN_KEY = 'llamenos-session-token'
 
 // Cross-tab token sync — see module docstring for protocol details.
-const SYNC_CHANNEL_NAME = 'llamenos-capsule-sync'
 const SYNC_TIMEOUT_MS = 500
-
-interface SyncRequestMessage {
-  type: 'request-token'
-  nonce: string
-  pubkeyHash: string
-}
-
-interface SyncResponseMessage {
-  type: 'token-response'
-  nonce: string
-  pubkeyHash: string
-  token: string
-}
-
-type SyncMessage = SyncRequestMessage | SyncResponseMessage
 
 export interface SessionCapsule {
   /** Worker-encrypted nsec (hex). Opaque to the main thread. */
-  encryptedNsec: string
+  encryptedNsec: EncryptedNsecHex
   /** XChaCha20 nonce used by the worker to encrypt the nsec (hex). */
-  capsuleNonce: string
+  capsuleNonce: CapsuleNonceHex
   /** Wall-clock expiry (ms since epoch). Capsule ignored past this time. */
   autoLockExpiresAt: number
   /** First 16 chars of SHA-256(pubkey) — identity check against the key blob. */
-  pubkeyHash: string
+  pubkeyHash: PubkeyHash16
+}
+
+/**
+ * Parse an untrusted IDB payload as a `SessionCapsule`. Returns null on any
+ * shape, type, or length mismatch. This is the ONLY way to construct a
+ * `SessionCapsule` from raw data — all other call sites already hold
+ * branded values.
+ */
+export function parseSessionCapsule(raw: unknown): SessionCapsule | null {
+  if (typeof raw !== 'object' || raw === null) return null
+  const obj = raw as Record<string, unknown>
+
+  const encryptedNsec = tryEncryptedNsec(obj.encryptedNsec)
+  if (encryptedNsec === null) return null
+
+  const capsuleNonce = tryCapsuleNonce(obj.capsuleNonce)
+  if (capsuleNonce === null) return null
+
+  const pubkeyHash = tryPubkeyHash16(obj.pubkeyHash)
+  if (pubkeyHash === null) return null
+
+  const autoLockExpiresAt = obj.autoLockExpiresAt
+  if (
+    typeof autoLockExpiresAt !== 'number' ||
+    !Number.isFinite(autoLockExpiresAt) ||
+    autoLockExpiresAt <= 0
+  ) {
+    return null
+  }
+
+  return {
+    encryptedNsec,
+    capsuleNonce,
+    autoLockExpiresAt,
+    pubkeyHash,
+  }
 }
 
 // ---- IDB helpers ----
@@ -105,12 +148,21 @@ async function idbPut(value: SessionCapsule): Promise<void> {
 async function idbGet(): Promise<SessionCapsule | null> {
   const db = await openDb()
   try {
-    return await new Promise<SessionCapsule | null>((resolve, reject) => {
+    const raw = await new Promise<unknown>((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readonly')
       const req = tx.objectStore(STORE_NAME).get(ACTIVE_KEY)
       req.onerror = () => reject(req.error ?? new Error('IDB get failed'))
-      req.onsuccess = () => resolve((req.result as SessionCapsule | undefined) ?? null)
+      req.onsuccess = () => resolve(req.result ?? null)
     })
+    if (raw === null || raw === undefined) return null
+    const parsed = parseSessionCapsule(raw)
+    if (parsed === null) {
+      // Tampered or pre-brand payload — do NOT propagate into the rest of
+      // the system. Log once (createDebugLog is dev-only) so devs notice
+      // while the tab falls back to the PIN unlock flow.
+      log('idbGet: parseSessionCapsule rejected payload')
+    }
+    return parsed
   } finally {
     db.close()
   }
@@ -172,9 +224,9 @@ function getSyncChannel(): BroadcastChannel | null {
   if (syncChannel) return syncChannel
   syncChannel = syncChannelFactory()
   if (syncChannel) {
-    syncChannel.onmessage = (e: MessageEvent<SyncMessage>) => {
-      const msg = e.data
-      if (!msg || msg.type !== 'request-token') return
+    syncChannel.onmessage = (e: MessageEvent<unknown>) => {
+      const msg = parseSyncMessage(e.data)
+      if (msg === null || msg.type !== 'request-token') return
       void respondToSyncRequest(msg)
     }
   }
@@ -186,13 +238,13 @@ function getSyncChannel(): BroadcastChannel | null {
  * hold a token whose capsule pubkeyHash matches the requested hash.
  */
 async function respondToSyncRequest(req: SyncRequestMessage): Promise<void> {
-  let token: string | null = null
+  let tokenRaw: string | null = null
   try {
-    token = sessionStorage.getItem(SESSION_TOKEN_KEY)
+    tokenRaw = sessionStorage.getItem(SESSION_TOKEN_KEY)
   } catch {
     /* sessionStorage unavailable */
   }
-  if (!token) return
+  if (!tokenRaw) return
 
   let capsule: SessionCapsule | null
   try {
@@ -204,6 +256,15 @@ async function respondToSyncRequest(req: SyncRequestMessage): Promise<void> {
     return
   }
   if (!capsule || capsule.pubkeyHash !== req.pubkeyHash) return
+
+  // `tokenRaw` is an opaque sessionStorage value — validate it as a
+  // SessionToken before reflecting it back to the sibling so we never
+  // post a malformed token even if sessionStorage was tampered with.
+  const token = trySessionToken(tokenRaw)
+  if (token === null) {
+    log('respondToSyncRequest: token in sessionStorage failed validation')
+    return
+  }
 
   const channel = getSyncChannel()
   if (!channel) return
@@ -226,7 +287,7 @@ async function respondToSyncRequest(req: SyncRequestMessage): Promise<void> {
  *
  * Safe to call when no siblings exist: it times out and resolves null.
  */
-async function requestTokenFromSiblings(pubkeyHash: string): Promise<string | null> {
+async function requestTokenFromSiblings(pubkeyHash: PubkeyHash16): Promise<SessionToken | null> {
   const channel = getSyncChannel()
   if (!channel) return null
 
@@ -235,9 +296,9 @@ async function requestTokenFromSiblings(pubkeyHash: string): Promise<string | nu
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random()}`
 
-  return new Promise<string | null>((resolve) => {
+  return new Promise<SessionToken | null>((resolve) => {
     let settled = false
-    const finish = (result: string | null) => {
+    const finish = (result: SessionToken | null) => {
       if (settled) return
       settled = true
       clearTimeout(timer)
@@ -245,9 +306,9 @@ async function requestTokenFromSiblings(pubkeyHash: string): Promise<string | nu
       resolve(result)
     }
 
-    const handler = (e: MessageEvent<SyncMessage>) => {
-      const msg = e.data
-      if (!msg || msg.type !== 'token-response') return
+    const handler = (e: MessageEvent<unknown>) => {
+      const msg = parseSyncMessage(e.data)
+      if (msg === null || msg.type !== 'token-response') return
       if (msg.nonce !== nonce || msg.pubkeyHash !== pubkeyHash) return
       finish(msg.token)
     }
@@ -292,7 +353,7 @@ if (typeof window !== 'undefined') {
  * Persist a capsule to IDB and the accompanying token to sessionStorage.
  * Overwrites any existing entries atomically from the caller's perspective.
  */
-export async function storeCapsule(token: string, capsule: SessionCapsule): Promise<void> {
+export async function storeCapsule(token: SessionToken, capsule: SessionCapsule): Promise<void> {
   try {
     await idbPut(capsule)
     sessionStorage.setItem(SESSION_TOKEN_KEY, token)
@@ -317,15 +378,27 @@ export async function storeCapsule(token: string, capsule: SessionCapsule): Prom
  * Returns null AND clears both IDB and sessionStorage if:
  * - autoLockExpiresAt is in the past
  * - pubkeyHash does not match the provided currentPubkeyHash
+ * - the sessionStorage token fails brand validation
  */
 export async function loadCapsule(
-  currentPubkeyHash: string
-): Promise<{ token: string; capsule: SessionCapsule } | null> {
-  let token: string | null = null
+  currentPubkeyHash: PubkeyHash16
+): Promise<{ token: SessionToken; capsule: SessionCapsule } | null> {
+  let tokenRaw: string | null = null
   try {
-    token = sessionStorage.getItem(SESSION_TOKEN_KEY)
+    tokenRaw = sessionStorage.getItem(SESSION_TOKEN_KEY)
   } catch {
     /* sessionStorage unavailable */
+  }
+
+  let token: SessionToken | null = tokenRaw === null ? null : trySessionToken(tokenRaw)
+  if (tokenRaw !== null && token === null) {
+    // Tampered sessionStorage — drop the bad value before asking siblings.
+    log('loadCapsule: sessionStorage token failed brand validation')
+    try {
+      sessionStorage.removeItem(SESSION_TOKEN_KEY)
+    } catch {
+      /* ignore */
+    }
   }
 
   if (!token) {
@@ -414,8 +487,8 @@ export async function updateAutoLockExpiry(expiresAt: number): Promise<void> {
   try {
     const capsule = await idbGet()
     if (!capsule) return
-    capsule.autoLockExpiresAt = expiresAt
-    await idbPut(capsule)
+    const updated: SessionCapsule = { ...capsule, autoLockExpiresAt: expiresAt }
+    await idbPut(updated)
   } catch (err) {
     if (!expiryWriteErrorReported) {
       expiryWriteErrorReported = true
