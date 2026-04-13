@@ -1,4 +1,5 @@
 import { AdvancedReveal } from '@/components/admin-shell/advanced-reveal'
+import { PhoneInput } from '@/components/phone-input'
 import {
   SectionActions,
   SectionBanner,
@@ -6,8 +7,7 @@ import {
   SectionDescription,
   SectionField,
   SectionToggleField,
-} from '@/components/admin-shell/section-layout'
-import { PhoneInput } from '@/components/phone-input'
+} from '@/components/section-layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {

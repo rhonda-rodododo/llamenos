@@ -1,6 +1,6 @@
 import { LockdownModal } from '@/components/LockdownModal'
+import { SectionBody, SectionDescription } from '@/components/section-layout'
 import { Button } from '@/components/ui/button'
-import { SectionBody, SectionDescription } from '@/components/user-shell/section-layout'
 import { useRevokeOtherSessions, useRevokeSession, useSessions } from '@/lib/queries/security'
 import { createFileRoute } from '@tanstack/react-router'
 import type { TFunction } from 'i18next'
@@ -33,8 +33,8 @@ function SessionsPage() {
   if (isLoading) return <div>{t('common.loading', 'Loading...')}</div>
   if (!sessions || sessions.length === 0) {
     return (
-      <SectionBody data-testid="sessions-page">
-        <SectionDescription>
+      <SectionBody surface="user" data-testid="sessions-page">
+        <SectionDescription surface="user">
           {t(
             'security.sessions.description',
             'Browsers and devices currently signed in to your account.'
@@ -58,8 +58,8 @@ function SessionsPage() {
   const hasOthers = sessions.some((s) => !s.isCurrent)
 
   return (
-    <SectionBody data-testid="sessions-page">
-      <SectionDescription>
+    <SectionBody surface="user" data-testid="sessions-page">
+      <SectionDescription surface="user">
         {t(
           'security.sessions.description',
           'Browsers and devices currently signed in to your account.'

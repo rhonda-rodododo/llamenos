@@ -1,8 +1,4 @@
-import {
-  SectionBody,
-  SectionDescription,
-  SectionField,
-} from '@/components/admin-shell/section-layout'
+import { SectionBody, SectionDescription, SectionField } from '@/components/section-layout'
 import { Input } from '@/components/ui/input'
 import {
   Select,

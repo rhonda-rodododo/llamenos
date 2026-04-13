@@ -1,11 +1,11 @@
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import {
   SectionActions,
   SectionBanner,
   SectionBody,
   SectionField,
-} from '@/components/user-shell/section-layout'
+} from '@/components/section-layout'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { authFacadeClient } from '@/lib/auth-facade-client'
 import { generateRecoveryKey } from '@/lib/backup'
 import { isUnlocked } from '@/lib/key-manager'
@@ -69,7 +69,7 @@ export function RecoveryRotateSection() {
       <h3 className="text-lg font-semibold mb-3">
         {t('security.recovery.title', 'Rotate recovery key')}
       </h3>
-      <SectionBody data-testid="recovery-rotate-form">
+      <SectionBody surface="user" data-testid="recovery-rotate-form">
         {newKey ? (
           <>
             <SectionBanner tone="warn">
@@ -102,6 +102,7 @@ export function RecoveryRotateSection() {
               </p>
             )}
             <SectionActions
+              surface="user"
               slug="recovery"
               saveButtonTestId="submit-rotate"
               onSave={submit}

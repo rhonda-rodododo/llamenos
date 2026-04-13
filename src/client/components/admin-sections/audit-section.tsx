@@ -1,8 +1,4 @@
-import {
-  SectionBody,
-  SectionDescription,
-  SectionField,
-} from '@/components/admin-shell/section-layout'
+import { SectionBody, SectionDescription, SectionField } from '@/components/section-layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useGlobalAuditLog } from '@/lib/queries/audit'

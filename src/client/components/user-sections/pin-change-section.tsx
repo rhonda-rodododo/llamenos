@@ -1,5 +1,5 @@
+import { SectionActions, SectionBody, SectionField } from '@/components/section-layout'
 import { Input } from '@/components/ui/input'
-import { SectionActions, SectionBody, SectionField } from '@/components/user-shell/section-layout'
 import { authFacadeClient } from '@/lib/auth-facade-client'
 import { isUnlocked } from '@/lib/key-manager'
 import { deriveKekProof, isValidPin, loadEncryptedKey, rewrapWithNewPin } from '@/lib/key-store'
@@ -63,7 +63,7 @@ export function PinChangeSection() {
   return (
     <div>
       <h3 className="text-lg font-semibold mb-3">{t('security.pin.title', 'Change PIN')}</h3>
-      <SectionBody data-testid="pin-change-form">
+      <SectionBody surface="user" data-testid="pin-change-form">
         <SectionField label={t('security.pin.current', 'Current PIN')} htmlFor="pin-current">
           <Input
             id="pin-current"
@@ -97,6 +97,7 @@ export function PinChangeSection() {
           </p>
         )}
         <SectionActions
+          surface="user"
           slug="pin"
           saveButtonTestId="submit-pin"
           onSave={submit}

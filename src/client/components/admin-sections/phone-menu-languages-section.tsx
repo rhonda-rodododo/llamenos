@@ -1,4 +1,4 @@
-import { SectionBody, SectionDescription } from '@/components/admin-shell/section-layout'
+import { SectionBody, SectionDescription } from '@/components/section-layout'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { updateIvrLanguages } from '@/lib/api'

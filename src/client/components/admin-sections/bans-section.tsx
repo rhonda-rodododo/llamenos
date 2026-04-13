@@ -1,9 +1,5 @@
-import {
-  SectionBody,
-  SectionDescription,
-  SectionField,
-} from '@/components/admin-shell/section-layout'
 import { isValidE164 } from '@/components/phone-input'
+import { SectionBody, SectionDescription, SectionField } from '@/components/section-layout'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,

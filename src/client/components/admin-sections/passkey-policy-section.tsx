@@ -3,7 +3,7 @@ import {
   SectionBody,
   SectionDescription,
   SectionField,
-} from '@/components/admin-shell/section-layout'
+} from '@/components/section-layout'
 import {
   Select,
   SelectContent,

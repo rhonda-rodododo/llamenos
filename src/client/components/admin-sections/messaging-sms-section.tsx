@@ -1,8 +1,4 @@
-import {
-  SectionBanner,
-  SectionBody,
-  SectionDescription,
-} from '@/components/admin-shell/section-layout'
+import { SectionBanner, SectionBody, SectionDescription } from '@/components/section-layout'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'

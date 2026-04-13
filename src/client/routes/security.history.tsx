@@ -1,5 +1,5 @@
+import { SectionBody, SectionDescription } from '@/components/section-layout'
 import { Button } from '@/components/ui/button'
-import { SectionBody, SectionDescription } from '@/components/user-shell/section-layout'
 import { useAuthEvents, useExportAuthEvents, useReportSuspicious } from '@/lib/queries/auth-events'
 import { createFileRoute } from '@tanstack/react-router'
 import type { TFunction } from 'i18next'
@@ -44,9 +44,9 @@ function HistoryPage() {
   }
 
   return (
-    <SectionBody data-testid="history-page">
+    <SectionBody surface="user" data-testid="history-page">
       <div className="flex justify-between items-start gap-4">
-        <SectionDescription>
+        <SectionDescription surface="user">
           {t(
             'security.history.description',
             'Security events on your account from the last 90 days.'
