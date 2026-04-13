@@ -1,4 +1,5 @@
 import { z } from '@hono/zod-openapi'
+import { RootKekEnvelopeBundleSchema } from './root-kek-envelope'
 
 // ---------------------------------------------------------------------------
 // Enroll a Recovery Group for a hub (admin only)
@@ -81,7 +82,13 @@ export const EmergencyOverrideSchema = z.object({
 
 export const RecoveryCompleteSchema = z.object({
   sessionId: z.string().uuid(),
-  newBundle: z.unknown(),
+  /**
+   * The recovering user's freshly minted root-KEK envelope bundle. Must be a
+   * valid v3 bundle with at least two distinct factor envelopes so that
+   * completing recovery never leaves the account bricked behind a single
+   * factor.
+   */
+  newBundle: RootKekEnvelopeBundleSchema,
   emergencyOverride: EmergencyOverrideSchema.optional(),
 })
 export type RecoveryCompleteInput = z.infer<typeof RecoveryCompleteSchema>

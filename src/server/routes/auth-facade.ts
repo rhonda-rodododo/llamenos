@@ -466,8 +466,13 @@ authFacade.use('/signal-contact/*', jwtAuth)
 authFacade.use('/security-prefs', jwtAuth)
 authFacade.use('/kek-proof', jwtAuth)
 authFacade.use('/kek-proof/*', jwtAuth)
-// Recovery group: /enroll, /contribute-share, /user-envelope require auth;
-// /initiate and /complete do not (recovering user has no credentials)
+// Recovery group:
+//   /enroll, /contribute-share, /user-envelope — require auth at mount level
+//
+//   GET  /:hubId         — requires auth (group config leak); enforced inside recovery-group router
+//   GET  /session/:id    — requires auth (session status leak); enforced inside recovery-group router
+//   POST /initiate       — no auth (recovering user has no credentials), per-IP rate limited inside router
+//   POST /complete       — no auth (recovering user has no credentials)
 authFacade.use('/recovery-group/enroll', jwtAuth)
 authFacade.use('/recovery-group/contribute-share', jwtAuth)
 authFacade.use('/recovery-group/user-envelope', jwtAuth)
