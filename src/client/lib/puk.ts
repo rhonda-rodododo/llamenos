@@ -23,7 +23,7 @@ import {
   LABEL_PUK_WRAP_TO_DEVICE,
 } from '@shared/crypto-labels'
 import { createHpkeSuite } from '@shared/crypto-suite'
-import type { EnvelopeV3 } from '@shared/envelope-v3'
+import type { HpkeEnvelope } from '@shared/hpke-envelope'
 import { buildAad, hpkeOpen, hpkeSeal } from '@shared/hpke-primitives'
 import type { DeviceKeypair } from '@shared/types'
 
@@ -37,7 +37,7 @@ export interface PukSubkeys {
 
 export interface PukEnvelope {
   deviceId: string
-  envelope: EnvelopeV3
+  envelope: HpkeEnvelope
 }
 
 export interface InitialPukResult {
@@ -198,7 +198,7 @@ async function sealSeedToDevice(
   seed: Uint8Array,
   deviceEncPub: Uint8Array,
   deviceId: string
-): Promise<EnvelopeV3> {
+): Promise<HpkeEnvelope> {
   const suite = createHpkeSuite()
   const recipientKey = await suite.kem.deserializePublicKey(deviceEncPub)
   const aad = buildAad(LABEL_PUK_WRAP_TO_DEVICE, deviceId, 'puk-seed')
@@ -213,7 +213,7 @@ async function sealSeedToDevice(
  * CryptoKey handle.
  */
 export async function openPukEnvelope(
-  envelope: EnvelopeV3,
+  envelope: HpkeEnvelope,
   rawX25519PrivateKey: Uint8Array,
   deviceId: string
 ): Promise<Uint8Array> {

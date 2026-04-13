@@ -512,3 +512,75 @@ Six review agents were dispatched in parallel across the full Tier 1 diff (PR #7
 
 **Deferred to Tier 2+:** tracked in `~/tier-carry-forward/tier-2-notes.md`. Headlines: full ECIES sidecar removal from `crypto-worker.ts`, `hub-key-manager.ts` HPKE rewrite (wiring `HpkeService` as the first non-test consumer), `file-crypto.ts` migration, `provisioning.ts` migration, `key-store-v2.ts` deletion, multi-factor KEK on `key-store-v3`, per-record AAD for envelope-encrypted PII columns, server note/file envelope migration.
 
+### 2026-04-12 post-merge status
+
+After Tier 1 → Tier 5 all merged to `main` (and the post-merge cleanup commits
+`b7b70671..e81b8bdd` renamed `EnvelopeV3` → `HpkeEnvelope`, consolidated
+`hub-field-crypto-v3` → `hub-field-crypto`, and dropped the `key-store-v2` /
+`key-store-v3` aliases), this audit's FIX rows fall into three buckets:
+
+**Bucket A — Resolved by the hub-field HPKE migration (Tier 1 PR-A + PR-B).**
+Every hub-field column listed in the per-schema tables above is now sealed with
+HPKE on the new path (`hpkeSeal` / `hpkeOpen` from `src/shared/hpke-primitives.ts`)
+with AAD bound via `hubFieldAad(recordId, fieldName)`. The five-layer defense
+stack (envelope shape → version 3 check → labelId cross-check → HPKE info-binding
+on the key schedule → AEAD AAD) replaces the old label-only AAD discipline.
+Specifically resolved: `roles.encrypted_*`, `teams.encrypted_*`, `report_types.encrypted_*`,
+`shifts.encrypted_*` (+ ring groups), `tags.encrypted_*`, `firehose.encrypted_*`,
+`custom_field_definitions.encrypted_*`. The post-implementation review caught one
+class of bug — the client/server id mismatch on creates — and the fix
+(client pre-generates the UUID and threads it through the create mutation) is
+now documented in `CLAUDE.md` as a first-class development rule.
+
+**Bucket B — Still pending: envelope-encrypted PII columns.** The `contacts`,
+`user_signal_contacts`, `conversations`, `call_records`, and `bans` schemas
+still encrypt their `encrypted_foo` + `fooEnvelopes` pairs through the legacy
+ECIES sidecar (`crypto-worker.ts`, `cryptoWorker.envelopeEncryptField`) with
+label-only AAD. The HPKE primitive is available; the API surface for plumbing
+record-bound AAD through the decrypt helpers is in place
+(`decryptFieldWithRecovery` accepts `aadOverride`); the schema migration would
+break the wire format. Still pre-production, so still acceptable; tracked in
+`HPKE_MIGRATION_NOTES.md` as the immediate next migration slice. Status:
+unchanged from the Tier 1 PR-B section above. CI grep guardrails (`TIER1_LEGACY_ALLOW`)
+still allow these specific call sites.
+
+**Bucket C — Resolved by the audit log rewrite.** `audit_log.encrypted_event`
+and `audit_log.encrypted_details` were INFO rows pointing forward to Workstream 0.2
+— that workstream is now done. The `audit_log` table no longer holds an
+encrypted blob at all; entries are signed and hash-chained
+(`src/server/services/audit-log-service.ts` for write,
+`src/client/lib/audit-chain-verifier.ts` for verify). The Tier 0 INFO rows are
+no longer applicable.
+
+**Phase-2 parallel reviewer dispatch (2026-04-12 fan-out).** The six
+pr-review-toolkit reviewers and the independent superpowers second-opinion
+reviewer surfaced one AEAD-adjacent finding: **F-9 in
+`STACK_AUDIT_2026-04-12.md` — dormant AAD schema mismatch between the
+client-side hub-key wrap path (`hub-key-manager.ts:102,163` uses
+`buildAad(LABEL_HUB_KEY_WRAP, deviceId, hubId)`) and the server-side
+`HpkeService` (`hpke-service.ts:163,184,198,204` uses
+`buildAad(LABEL_HUB_KEY_WRAP, pubkeyHex, 'hub-key-wrap')`)**. These produce
+different AAD strings, so any attempt to wire `HpkeService` into a
+production route will immediately brick hub-key unwrap in both directions.
+No Bucket A/B/C reclassification — the hub-field columns themselves still
+use the single-source `hubFieldAad(recordId, fieldName)` helper correctly;
+F-9 is specifically about the `LABEL_HUB_KEY_WRAP` pathway, which predates
+the single-source helper. Recommendation: before `HpkeService` gets wired
+into any route, introduce a `hubKeyWrapAad(recipientId, hubId)` shared
+helper and delete both local formulas. Tracked in the stack audit; no
+separate AEAD action item needed.
+
+F-1 (the original fresh item from the phase-1 stack audit — `rotateHubKeyClkr`
+no longer enforces the audit chain head gate) is unchanged and is a
+control-flow regression in the rotation trigger path, not an AEAD
+invariant. See the stack audit document for details.
+
+**Other fresh stack-audit findings (F-8, F-10..F-19)** are not
+AEAD-adjacent — see `STACK_AUDIT_2026-04-12.md` for the full list. They
+span authorization (F-8 CRITICAL — `payloadIsAuthorizedFor` ignores
+signer-to-target binding), silent-failure orchestration (F-10..F-15),
+documentation drift (F-16..F-18), and CI hygiene (F-19).
+
+**Cross-reference:** `docs/security/STACK_AUDIT_2026-04-12.md` is the
+authoritative post-merge status for the entire 7-tier overhaul as of 2026-04-12.
+

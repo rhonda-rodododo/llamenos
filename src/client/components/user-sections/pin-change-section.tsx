@@ -2,12 +2,7 @@ import { Input } from '@/components/ui/input'
 import { SectionActions, SectionBody, SectionField } from '@/components/user-shell/section-layout'
 import { authFacadeClient } from '@/lib/auth-facade-client'
 import { isUnlocked } from '@/lib/key-manager'
-import {
-  deriveKekProof,
-  isValidPin,
-  loadEncryptedKeyV2,
-  rewrapWithNewPin,
-} from '@/lib/key-store-v2'
+import { deriveKekProof, isValidPin, loadEncryptedKey, rewrapWithNewPin } from '@/lib/key-store'
 import { useChangePin } from '@/lib/queries/security-actions'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -37,7 +32,7 @@ export function PinChangeSection() {
       setError(t('security.pin.locked', 'Account is locked; unlock first'))
       return
     }
-    const blob = loadEncryptedKeyV2()
+    const blob = loadEncryptedKey()
     if (!blob) {
       setError(t('security.pin.locked', 'Account is locked; unlock first'))
       return

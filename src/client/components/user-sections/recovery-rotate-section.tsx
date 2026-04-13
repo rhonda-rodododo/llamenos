@@ -9,7 +9,7 @@ import {
 import { authFacadeClient } from '@/lib/auth-facade-client'
 import { generateRecoveryKey } from '@/lib/backup'
 import { isUnlocked } from '@/lib/key-manager'
-import { deriveKekProof, loadEncryptedKeyV2, rewrapWithNewRecoveryKey } from '@/lib/key-store-v2'
+import { deriveKekProof, loadEncryptedKey, rewrapWithNewRecoveryKey } from '@/lib/key-store'
 import { useRotateRecovery } from '@/lib/queries/security-actions'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -28,7 +28,7 @@ export function RecoveryRotateSection() {
       setError(t('security.recovery.locked', 'Unlock first'))
       return
     }
-    const blob = loadEncryptedKeyV2()
+    const blob = loadEncryptedKey()
     if (!blob) {
       setError(t('security.recovery.locked', 'Unlock first'))
       return

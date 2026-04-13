@@ -8,7 +8,7 @@
 
 import { bytesToHex } from '@noble/hashes/utils.js'
 import type { CryptoLabel } from '@shared/crypto-labels'
-import type { EnvelopeV3 } from '@shared/envelope-v3'
+import type { HpkeEnvelope } from '@shared/hpke-envelope'
 
 /** Error messages from the worker that indicate the key is no longer available. */
 const LOCKED_ERROR_PATTERNS = [
@@ -338,18 +338,18 @@ export class CryptoWorkerClient {
   // ---- Tier 1 HPKE sidecar ----
 
   /**
-   * Unlock the worker from a key-store-v3 unlock result. Accepts raw nsec
+   * Unlock the worker from a key-store unlock result. Accepts raw nsec
    * bytes (consumed and zeroed inside the worker), the non-extractable HPKE
    * private CryptoKey, and the non-extractable hub AES-GCM CryptoKey.
    * Returns the derived x-only public key hex.
    */
-  async unlockFromKeyStoreV3(
+  async unlockWithHandles(
     nsecRaw: Uint8Array,
     hpkePrivateKey: CryptoKey,
     hubKey: CryptoKey
   ): Promise<string> {
     return (await this.call({
-      type: 'unlockFromKeyStoreV3',
+      type: 'unlockWithHandles',
       nsecRaw,
       hpkePrivateKey,
       hubKey,
@@ -358,7 +358,7 @@ export class CryptoWorkerClient {
 
   /**
    * HPKE single-shot seal against a recipient's raw X25519 public key.
-   * Produces an EnvelopeV3 `{ v: 3, labelId, enc, ct }`. Never falls back to
+   * Produces an HpkeEnvelope `{ v: 3, labelId, enc, ct }`. Never falls back to
    * ECIES — callers that can tolerate either format must branch on label
    * themselves.
    */
@@ -368,7 +368,7 @@ export class CryptoWorkerClient {
     label: CryptoLabel,
     recordId: string,
     fieldName: string
-  ): Promise<EnvelopeV3> {
+  ): Promise<HpkeEnvelope> {
     return (await this.call({
       type: 'hpkeSeal',
       plaintext,
@@ -376,7 +376,7 @@ export class CryptoWorkerClient {
       label,
       recordId,
       fieldName,
-    })) as EnvelopeV3
+    })) as HpkeEnvelope
   }
 
   /**
@@ -384,7 +384,7 @@ export class CryptoWorkerClient {
    * Throws on version, label, or AAD mismatch — never falls back to ECIES.
    */
   async hpkeOpen(
-    envelope: EnvelopeV3,
+    envelope: HpkeEnvelope,
     expectedLabel: CryptoLabel,
     recordId: string,
     fieldName: string
@@ -396,36 +396,6 @@ export class CryptoWorkerClient {
       recordId,
       fieldName,
     })) as string
-  }
-
-  /**
-   * Hub-field AES-GCM encrypt using the held non-extractable hub key.
-   * AAD binds to (recordId, fieldName) via `hubFieldAad`.
-   */
-  async hubFieldEncryptV3(plaintext: string, recordId: string, fieldName: string): Promise<string> {
-    return (await this.call({
-      type: 'hubFieldEncryptV3',
-      plaintext,
-      recordId,
-      fieldName,
-    })) as string
-  }
-
-  /**
-   * Hub-field AES-GCM decrypt using the held non-extractable hub key.
-   * Returns null on any failure — invalid base64, wrong AAD, tag mismatch.
-   */
-  async hubFieldDecryptV3(
-    ciphertext: string,
-    recordId: string,
-    fieldName: string
-  ): Promise<string | null> {
-    return (await this.call({
-      type: 'hubFieldDecryptV3',
-      ciphertext,
-      recordId,
-      fieldName,
-    })) as string | null
   }
 
   // ---- Tier 2 root-KEK handlers ----

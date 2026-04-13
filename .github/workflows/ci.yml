@@ -633,7 +633,7 @@ jobs:
 
       - name: Tier 1 — no NEW callers of legacy ECIES/XChaCha20 primitives
         env:
-          TIER1_LEGACY_ALLOW: '^(src/client/lib/(crypto-worker|crypto-worker-client|crypto-worker-helpers|crypto-service|backup|file-crypto|provisioning|key-store-v2|hub-key-manager)\.ts|src/shared/(crypto-envelopes|crypto-primitives|crypto-labels)\.ts|src/server/(idp/authentik-adapter|routes/dev|lib/(crypto-service|agent-identity|hub-event-crypto)|jobs/blast-processor)\.ts)$'
+          TIER1_LEGACY_ALLOW: '^(src/client/lib/(crypto-worker|crypto-worker-client|crypto-worker-helpers|crypto-service|backup|file-crypto|provisioning|key-store|hub-key-manager)\.ts|src/shared/(crypto-envelopes|crypto-primitives|crypto-labels)\.ts|src/server/(idp/authentik-adapter|routes/dev|lib/(crypto-service|agent-identity|hub-event-crypto)|jobs/blast-processor)\.ts)$'
         run: |
           # Tier 1 PR-A introduced HPKE/AES-GCM as the going-forward crypto
           # path. The legacy ECIES + XChaCha20-Poly1305 surface in
@@ -658,7 +658,7 @@ jobs:
 
       - name: Tier 1 — HPKE opener never falls back to ECIES
         run: |
-          # Flag catch blocks near hpkeOpen / decryptEnvelopeV3 calls that
+          # Flag catch blocks near hpkeOpen / decryptHpkeEnvelope calls that
           # silently retry with a legacy symmetric path — that would be a
           # downgrade primitive. Only crypto-worker.ts (dual-era) is allowed.
           if grep -rPn 'catch[^{]*\{[^}]*(decryptEnvelopeField|symmetricDecrypt)' \

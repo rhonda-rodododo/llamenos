@@ -1,9 +1,9 @@
 import { type CryptoLabel, idToLabel, labelToId } from './crypto-labels.js'
 import { createHpkeSuite } from './crypto-suite.js'
-import { type EnvelopeV3, EnvelopeV3Schema } from './envelope-v3.js'
+import { type HpkeEnvelope, HpkeEnvelopeSchema } from './hpke-envelope.js'
 
 /**
- * Thrown when an EnvelopeV3's embedded labelId does not match the caller's
+ * Thrown when an HpkeEnvelope's embedded labelId does not match the caller's
  * expected CryptoLabel, or when the envelope version is not 3.
  *
  * This is the "belt" of the belt-and-suspenders label defense: even if an
@@ -50,7 +50,7 @@ function b64decode(s: string): Uint8Array {
 }
 
 /**
- * HPKE single-shot seal. Produces an EnvelopeV3 bound to (label, AAD).
+ * HPKE single-shot seal. Produces an HpkeEnvelope bound to (label, AAD).
  *
  * Uses the `@hpke/core` base-mode HPKE (no PSK, no authenticated mode): the
  * sender is anonymous and the recipient authenticates via their private key.
@@ -66,7 +66,7 @@ export async function hpkeSeal(
   recipientPublicKey: CryptoKey,
   label: CryptoLabel,
   aad: Uint8Array
-): Promise<EnvelopeV3> {
+): Promise<HpkeEnvelope> {
   const suite = createHpkeSuite()
   const sender = await suite.createSenderContext({
     recipientPublicKey,
@@ -94,13 +94,13 @@ export async function hpkeSeal(
  *
  * Any failure throws; callers must not fall through to legacy paths.
  *
- * @param envelope             EnvelopeV3 (already parsed into the interface).
+ * @param envelope             HpkeEnvelope (already parsed into the interface).
  * @param recipientPrivateKey  Recipient's HPKE private key (CryptoKey).
  * @param expectedLabel        The CryptoLabel the caller expects this envelope to carry.
  * @param aad                  Additional authenticated data (must match what was passed to seal).
  */
 export async function hpkeOpen(
-  envelope: EnvelopeV3,
+  envelope: HpkeEnvelope,
   recipientPrivateKey: CryptoKey,
   expectedLabel: CryptoLabel,
   aad: Uint8Array
@@ -126,15 +126,15 @@ export async function hpkeOpen(
 /**
  * Higher-level decrypt that also validates the envelope shape. Use this at
  * trust boundaries where `envelope` arrives as `unknown` (worker messages,
- * API responses). For already-typed `EnvelopeV3` values inside the app, use
+ * API responses). For already-typed `HpkeEnvelope` values inside the app, use
  * `hpkeOpen` directly to skip the redundant parse.
  */
-export async function decryptEnvelopeV3(
+export async function decryptHpkeEnvelope(
   envelope: unknown,
   recipientPrivateKey: CryptoKey,
   expectedLabel: CryptoLabel,
   aad: Uint8Array
 ): Promise<Uint8Array> {
-  const parsed = EnvelopeV3Schema.parse(envelope)
+  const parsed = HpkeEnvelopeSchema.parse(envelope)
   return hpkeOpen(parsed, recipientPrivateKey, expectedLabel, aad)
 }

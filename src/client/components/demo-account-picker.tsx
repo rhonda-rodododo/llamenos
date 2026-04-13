@@ -56,7 +56,7 @@ export function DemoAccountPicker() {
       const nsecHex = bytesToHex(kp.secretKey)
 
       // 1. Import key with demo PIN — encrypts nsec with multi-factor KEK, loads into worker
-      const { syntheticIdpValue } = await import('@/lib/key-store-v2')
+      const { syntheticIdpValue } = await import('@/lib/key-store')
       await keyManager.importKey(
         nsecHex,
         DEMO_PIN,

@@ -1,6 +1,6 @@
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { LABEL_SFRAME_CALL_SECRET, labelToId } from '@shared/crypto-labels.js'
-import type { EnvelopeV3 } from '@shared/envelope-v3.js'
+import type { HpkeEnvelope } from '@shared/hpke-envelope.js'
 import type { SFrameKeyEvent } from '@shared/schemas/nostr-events.js'
 
 /**
@@ -19,10 +19,10 @@ import type { SFrameKeyEvent } from '@shared/schemas/nostr-events.js'
 export type HpkeSealFn = (
   plaintext: Uint8Array,
   recipientPublicKey: CryptoKey
-) => Promise<EnvelopeV3>
+) => Promise<HpkeEnvelope>
 
 export type HpkeOpenFn = (
-  envelope: EnvelopeV3,
+  envelope: HpkeEnvelope,
   recipientPrivateKey: CryptoKey
 ) => Promise<Uint8Array>
 
@@ -64,7 +64,7 @@ function b64urlEncode(bytes: Uint8Array): string {
  * Each recipient's HPKE seal produces its own `enc` (encapsulated sender key)
  * alongside a unique ciphertext. We serialize both fields as lowercase hex to
  * satisfy the `SFrameKeyEventPayloadSchema` regex — the underlying
- * `EnvelopeV3` wire format is base64url, so we decode then re-encode as hex.
+ * `HpkeEnvelope` wire format is base64url, so we decode then re-encode as hex.
  */
 export async function buildKeyEvent(inputs: BuildKeyEventInputs): Promise<SFrameKeyEvent> {
   if (inputs.callSecret.byteLength !== 32) {
@@ -107,7 +107,7 @@ export interface ParseKeyEventInputs {
  * Extract and decrypt the local device's HPKE envelope from an SFrame key
  * event. Throws if this device is not in the recipients list.
  *
- * The reconstructed `EnvelopeV3.labelId` is stamped with
+ * The reconstructed `HpkeEnvelope.labelId` is stamped with
  * `labelToId(LABEL_SFRAME_CALL_SECRET)` so that the real `hpkeOpen` label
  * cross-check (see `src/shared/hpke-primitives.ts`) passes. Test stubs that
  * ignore labelId still work because they never inspect the field.
@@ -116,7 +116,7 @@ export async function parseKeyEvent(inputs: ParseKeyEventInputs): Promise<Uint8A
   const entry = inputs.event.recipients.find((r) => r.deviceId === inputs.localDeviceId)
   if (!entry) throw new Error('not a recipient of this sframe key event')
 
-  const envelope: EnvelopeV3 = {
+  const envelope: HpkeEnvelope = {
     v: 3,
     labelId: labelToId(LABEL_SFRAME_CALL_SECRET),
     enc: b64urlEncode(hexToBytes(entry.hpkeEnc)),

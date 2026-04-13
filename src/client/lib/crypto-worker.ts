@@ -11,15 +11,13 @@
  *   This worker is in a dual-era state. The legacy ECIES/XChaCha20 surface
  *   is still here because the remaining call sites that depend on it
  *   (file-crypto, hub-key-manager, signal-contact, device provisioning,
- *   key-store-v2 KEK rotation, notes/files envelope paths) have not yet been
+ *   key-store KEK rotation, notes/files envelope paths) have not yet been
  *   migrated — they carry over to Tier 2+.
  *
  *   Tier 1 added an HPKE sidecar for:
- *     - `hpkeSeal` / `hpkeOpen` — RFC 9180 seal/open against EnvelopeV3.
- *     - `hubFieldEncryptV3` / `hubFieldDecryptV3` — AES-GCM hub-key field crypto
- *       (wired to all hub-field call sites in PR-B).
- *     - `unlockFromKeyStoreV3` — accept non-extractable CryptoKey handles from
- *       key-store-v3 in addition to the legacy raw-nsec unlock path.
+ *     - `hpkeSeal` / `hpkeOpen` — RFC 9180 seal/open against HpkeEnvelope.
+ *     - `unlockWithHandles` — accept non-extractable CryptoKey handles (HPKE
+ *       private key + hub AES-GCM key) alongside the raw-nsec unlock path.
  *
  *   Rules while the sidecar coexists:
  *     - Never add a NEW caller that uses the ECIES surface; use HPKE.
@@ -45,9 +43,8 @@ import {
   SAS_SALT,
 } from '@shared/crypto-labels'
 import { unbiasedSixDigitCode } from '@shared/crypto-primitives'
-import type { EnvelopeV3 } from '@shared/envelope-v3'
+import type { HpkeEnvelope } from '@shared/hpke-envelope'
 import { buildAad, hpkeOpen, hpkeSeal } from '@shared/hpke-primitives'
-import { decryptHubFieldV3, encryptHubFieldV3 } from './hub-field-crypto-v3.js'
 
 // ---- Message protocol types ----
 
@@ -110,7 +107,7 @@ type WorkerRequest =
   // ---- Tier 1 HPKE sidecar ----
   | {
       // HPKE single-shot seal. The main thread ships the recipient's HPKE
-      // public key bytes; the worker imports them and produces an EnvelopeV3.
+      // public key bytes; the worker imports them and produces an HpkeEnvelope.
       // Public-key operations do not need our secret, but we still require
       // the worker to be unlocked so an XSS attacker cannot invoke sealing
       // as a grinder primitive while the user is logged out.
@@ -128,35 +125,18 @@ type WorkerRequest =
       // mismatches — never falls back to ECIES.
       type: 'hpkeOpen'
       id: string
-      envelope: EnvelopeV3
+      envelope: HpkeEnvelope
       expectedLabel: CryptoLabel
       recordId: string
       fieldName: string
     }
   | {
-      // Hub-field AES-GCM encrypt using the held non-extractable hub key.
-      type: 'hubFieldEncryptV3'
-      id: string
-      plaintext: string
-      recordId: string
-      fieldName: string
-    }
-  | {
-      // Hub-field AES-GCM decrypt using the held non-extractable hub key.
-      // Returns null on any failure so callers don't mask real errors as data.
-      type: 'hubFieldDecryptV3'
-      id: string
-      ciphertext: string
-      recordId: string
-      fieldName: string
-    }
-  | {
-      // Unlock from key-store-v3. The main thread runs KeyStoreV3.unlock(pin)
-      // which returns non-extractable CryptoKey handles; we transfer those
-      // handles into the worker via structured clone. The nsec still arrives
+      // Unlock from a key store that returns non-extractable CryptoKey
+      // handles (HPKE private key + hub AES-GCM key) plus the raw nsec. The
+      // handles are transferred via structured clone. The nsec still arrives
       // as raw bytes because no current runtime offers a non-extractable
       // wrapKey path for X25519 schnorr/secp256k1 — see native-curves-check.
-      type: 'unlockFromKeyStoreV3'
+      type: 'unlockWithHandles'
       id: string
       nsecRaw: Uint8Array
       hpkePrivateKey: CryptoKey
@@ -209,7 +189,7 @@ type WorkerResponse = WorkerSuccessResponse | WorkerErrorResponse
 let secretKey: Uint8Array | null = null
 let publicKeyHex: string | null = null
 
-// Tier 1 HPKE handles. Populated by `unlockFromKeyStoreV3` and cleared on
+// Tier 1 HPKE handles. Populated by `unlockWithHandles` and cleared on
 // `lock()`. These are non-extractable CryptoKey objects when the runtime
 // supports native X25519 wrapKey; otherwise the private key is an @hpke/*
 // key object wrapping a raw-byte view (see `native-curves-check.ts`).
@@ -454,7 +434,7 @@ function handleReEncrypt(newKekHex: string): { nonce: string; ciphertext: string
   const newKek = hexToBytes(newKekHex)
   const nonce = randomBytes(24)
   const cipher = xchacha20poly1305(newKek, nonce)
-  // Encrypt the nsec as hex string (same format as encryptNsec in key-store-v2)
+  // Encrypt the nsec as hex string (same format as encryptNsec in key-store)
   // so that handleUnlock can decode it consistently
   const nsecHexBytes = new TextEncoder().encode(bytesToHex(secretKey))
   const ciphertext = cipher.encrypt(nsecHexBytes)
@@ -572,22 +552,18 @@ function handleImportSession(
 // ---- Tier 1 HPKE sidecar handlers ----
 
 /**
- * Unlock the worker from a key-store-v3 unlock result. The main thread runs
- * `KeyStoreV3.unlock(pin)` and transfers the non-extractable CryptoKey
- * handles (hub key, HPKE private key) plus the raw nsec bytes here.
+ * Unlock the worker from a key-store unlock result. The main thread runs
+ * its unlock flow and transfers the non-extractable CryptoKey handles
+ * (hub key, HPKE private key) plus the raw nsec bytes here.
  *
- * This sits alongside `handleUnlock` (legacy kek/nonce path) — callers
- * migrate at their own pace while Tier 1 rolls out. Both paths populate
- * `secretKey` + `publicKeyHex` identically so `signAuditEntry` and
- * `sign` keep working without caring which path was used.
+ * This sits alongside `handleUnlock` (kek/nonce path) — callers migrate at
+ * their own pace while Tier 1 rolls out. Both paths populate `secretKey` +
+ * `publicKeyHex` identically so `signAuditEntry` and `sign` keep working
+ * without caring which path was used.
  */
-function handleUnlockFromKeyStoreV3(
-  nsecRaw: Uint8Array,
-  hpkePriv: CryptoKey,
-  hub: CryptoKey
-): string {
+function handleUnlockWithHandles(nsecRaw: Uint8Array, hpkePriv: CryptoKey, hub: CryptoKey): string {
   if (nsecRaw.byteLength !== 32) {
-    throw new Error(`key-store-v3 nsec must be 32 bytes, got ${nsecRaw.byteLength}`)
+    throw new Error(`unlockWithHandles nsec must be 32 bytes, got ${nsecRaw.byteLength}`)
   }
   secretKey = new Uint8Array(nsecRaw)
   nsecRaw.fill(0)
@@ -605,7 +581,7 @@ async function handleHpkeSeal(
   label: CryptoLabel,
   recordId: string,
   fieldName: string
-): Promise<EnvelopeV3> {
+): Promise<HpkeEnvelope> {
   if (!secretKey) throw new Error('Worker is locked')
   if (!checkRateLimit('encrypt')) {
     autoLock()
@@ -619,7 +595,7 @@ async function handleHpkeSeal(
 }
 
 async function handleHpkeOpen(
-  envelope: EnvelopeV3,
+  envelope: HpkeEnvelope,
   expectedLabel: CryptoLabel,
   recordId: string,
   fieldName: string
@@ -632,32 +608,6 @@ async function handleHpkeOpen(
   const aad = buildAad(expectedLabel, recordId, fieldName)
   const pt = await hpkeOpen(envelope, hpkePrivateKey, expectedLabel, aad)
   return new TextDecoder().decode(pt)
-}
-
-async function handleHubFieldEncryptV3(
-  plaintext: string,
-  recordId: string,
-  fieldName: string
-): Promise<string> {
-  if (!hubKey) throw new Error('Worker is locked (hub key not loaded)')
-  if (!checkRateLimit('encrypt')) {
-    autoLock()
-    throw new Error('Rate limit exceeded — worker auto-locked')
-  }
-  return encryptHubFieldV3(plaintext, hubKey, recordId, fieldName)
-}
-
-async function handleHubFieldDecryptV3(
-  ciphertext: string,
-  recordId: string,
-  fieldName: string
-): Promise<string | null> {
-  if (!hubKey) throw new Error('Worker is locked (hub key not loaded)')
-  if (!checkRateLimit('decrypt')) {
-    autoLock()
-    throw new Error('Rate limit exceeded — worker auto-locked')
-  }
-  return decryptHubFieldV3(ciphertext, hubKey, recordId, fieldName)
 }
 
 // ---- Tier 2 root-KEK handlers ----
@@ -794,8 +744,8 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       case 'unlock':
         result = handleUnlock(req.kekHex, req.nonceHex, req.ciphertextHex)
         break
-      case 'unlockFromKeyStoreV3':
-        result = handleUnlockFromKeyStoreV3(req.nsecRaw, req.hpkePrivateKey, req.hubKey)
+      case 'unlockWithHandles':
+        result = handleUnlockWithHandles(req.nsecRaw, req.hpkePrivateKey, req.hubKey)
         break
       case 'hpkeSeal':
         result = await handleHpkeSeal(
@@ -808,12 +758,6 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
         break
       case 'hpkeOpen':
         result = await handleHpkeOpen(req.envelope, req.expectedLabel, req.recordId, req.fieldName)
-        break
-      case 'hubFieldEncryptV3':
-        result = await handleHubFieldEncryptV3(req.plaintext, req.recordId, req.fieldName)
-        break
-      case 'hubFieldDecryptV3':
-        result = await handleHubFieldDecryptV3(req.ciphertext, req.recordId, req.fieldName)
         break
       case 'hpkePublicKeyRaw':
         result = await handleHpkePublicKeyRaw()
@@ -957,16 +901,11 @@ export function _test_clearSecretKey(): void {
 /** @internal Test only — direct access to handleSignAuditEntry for unit testing. */
 export { handleSignAuditEntry as _test_handleSignAuditEntry }
 
-/** @internal Test only — direct access to the unlockFromKeyStoreV3 handler. */
-export { handleUnlockFromKeyStoreV3 as _test_handleUnlockFromKeyStoreV3 }
+/** @internal Test only — direct access to the unlockWithHandles handler. */
+export { handleUnlockWithHandles as _test_handleUnlockWithHandles }
 
 /** @internal Test only — direct access to HPKE sidecar handlers. */
-export {
-  handleHpkeSeal as _test_handleHpkeSeal,
-  handleHpkeOpen as _test_handleHpkeOpen,
-  handleHubFieldEncryptV3 as _test_handleHubFieldEncryptV3,
-  handleHubFieldDecryptV3 as _test_handleHubFieldDecryptV3,
-}
+export { handleHpkeSeal as _test_handleHpkeSeal, handleHpkeOpen as _test_handleHpkeOpen }
 
 /** @internal Test only — clear Tier 1 HPKE state between tests. */
 export function _test_clearHpkeState(): void {

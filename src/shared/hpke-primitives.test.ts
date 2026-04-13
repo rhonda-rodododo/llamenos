@@ -4,7 +4,7 @@ import { createHpkeSuite } from './crypto-suite.js'
 import {
   HpkeLabelMismatchError,
   buildAad,
-  decryptEnvelopeV3,
+  decryptHpkeEnvelope,
   hpkeOpen,
   hpkeSeal,
 } from './hpke-primitives.js'
@@ -90,12 +90,12 @@ describe('hpke-primitives', () => {
     })
   })
 
-  describe('decryptEnvelopeV3', () => {
+  describe('decryptHpkeEnvelope', () => {
     test('parses unknown and dispatches to hpkeOpen', async () => {
       const { publicKey, privateKey } = await genRecipient()
       const aad = buildAad(LABEL_NOTE_KEY, 'r', 'f')
       const env = await hpkeSeal(te.encode('hello'), publicKey, LABEL_NOTE_KEY, aad)
-      const pt = await decryptEnvelopeV3(
+      const pt = await decryptHpkeEnvelope(
         JSON.parse(JSON.stringify(env)),
         privateKey,
         LABEL_NOTE_KEY,
@@ -107,7 +107,7 @@ describe('hpke-primitives', () => {
     test('rejects malformed envelope shape', async () => {
       const { privateKey } = await genRecipient()
       await expect(
-        decryptEnvelopeV3(
+        decryptHpkeEnvelope(
           { v: 2, labelId: 0, wrappedKey: 'x', ephemeralPubkey: 'y' },
           privateKey,
           LABEL_NOTE_KEY,
@@ -119,7 +119,7 @@ describe('hpke-primitives', () => {
     test('rejects envelope version that is not 3', async () => {
       const { privateKey } = await genRecipient()
       await expect(
-        decryptEnvelopeV3(
+        decryptHpkeEnvelope(
           { v: 3, labelId: 0, enc: '', ct: '' },
           privateKey,
           LABEL_NOTE_KEY,

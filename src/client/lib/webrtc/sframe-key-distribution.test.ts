@@ -1,19 +1,19 @@
 import { describe, expect, test } from 'bun:test'
 import { LABEL_SFRAME_CALL_SECRET, labelToId } from '@shared/crypto-labels.js'
-import type { EnvelopeV3 } from '@shared/envelope-v3.js'
+import type { HpkeEnvelope } from '@shared/hpke-envelope.js'
 import { buildKeyEvent, parseKeyEvent } from './sframe-key-distribution.js'
 
 const fakeKey = {} as CryptoKey // pure test stub, never actually used
 
 // Identity-like stub: returns an envelope whose ct is the plaintext.
-const stubSeal = async (plaintext: Uint8Array): Promise<EnvelopeV3> => ({
+const stubSeal = async (plaintext: Uint8Array): Promise<HpkeEnvelope> => ({
   v: 3,
   labelId: labelToId(LABEL_SFRAME_CALL_SECRET),
   enc: 'AAECAw', // base64url of [0,1,2,3]
   ct: Buffer.from(plaintext).toString('base64url'),
 })
 
-const stubOpen = async (envelope: EnvelopeV3): Promise<Uint8Array> => {
+const stubOpen = async (envelope: HpkeEnvelope): Promise<Uint8Array> => {
   return new Uint8Array(Buffer.from(envelope.ct, 'base64url'))
 }
 
