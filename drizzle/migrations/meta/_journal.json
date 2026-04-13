@@ -421,6 +421,13 @@
       "when": 1776124800000,
       "tag": "0058_call_settings_voice_e2ee_policy",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1776211200000,
+      "tag": "0059_tier2_recovery_group",
+      "breakpoints": true
     }
   ]
 }
