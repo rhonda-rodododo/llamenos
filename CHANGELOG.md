@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.47.0] - 2026-04-13
+
+### Features
+
+- session-capsule type brands + cross-tab message parsers [rebased] (#101)
+
+### Miscellaneous
+
+- v0.47.0 [skip ci]
+
 ## [0.46.0] - 2026-04-13
 
 ### Bug Fixes
@@ -12,14 +22,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - single-hop redirect from /admin (#100)
 - resolve duplicate drizzle migration index 0056 (#99)
 
+### Documentation
+
+- strike items already shipped (#97)
+
 ### Features
 
 - Tier 3 PR-B (cross-signing) + PR-C (CLKR + device-revoke) (#87)
 - Tier 5 — voice E2EE via SFrame (#89)
+- Telnyx WebRTC login token generator (#98)
+- use GHCR images in production compose (#95)
 
 ### Miscellaneous
 
 - v0.46.0 [skip ci]
+
+### Refactoring
+
+- dedupe section-layout primitives into shared module (#93)
 
 ## [0.45.0] - 2026-04-12
 
