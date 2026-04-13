@@ -658,7 +658,7 @@ jobs:
 
       - name: Tier 1 — HPKE opener never falls back to ECIES
         run: |
-          # Flag catch blocks near hpkeOpen / decryptEnvelopeV3 calls that
+          # Flag catch blocks near hpkeOpen / decryptHpkeEnvelope calls that
           # silently retry with a legacy symmetric path — that would be a
           # downgrade primitive. Only crypto-worker.ts (dual-era) is allowed.
           if grep -rPn 'catch[^{]*\{[^}]*(decryptEnvelopeField|symmetricDecrypt)' \
