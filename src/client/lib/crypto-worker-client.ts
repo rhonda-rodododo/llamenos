@@ -8,6 +8,14 @@
 
 import { bytesToHex } from '@noble/hashes/utils.js'
 import type { CryptoLabel } from '@shared/crypto-labels'
+import {
+  type CapsuleNonceHex,
+  type EncryptedNsecHex,
+  type SessionToken,
+  asCapsuleNonce,
+  asEncryptedNsec,
+  asSessionToken,
+} from '@shared/crypto-types'
 import type { HpkeEnvelope } from '@shared/hpke-envelope'
 
 /** Error messages from the worker that indicate the key is no longer available. */
@@ -63,10 +71,10 @@ interface ProvisionNsecResult {
   sas: string
 }
 
-interface ExportSessionResult {
-  token: string
-  encryptedNsecHex: string
-  capsuleNonceHex: string
+export interface ExportSessionResult {
+  tokenHex: SessionToken
+  encryptedNsecHex: EncryptedNsecHex
+  capsuleNonceHex: CapsuleNonceHex
 }
 
 interface PendingRequest {
@@ -120,16 +128,27 @@ export class CryptoWorkerClient {
     return String(++this.idCounter)
   }
 
-  private call(message: Record<string, unknown>): Promise<unknown> {
+  /**
+   * Send a request to the worker and await its reply. The generic `R` lets
+   * call sites bind the expected result shape once at the invocation — eg
+   * `await this.call<string>({...})` — instead of a trailing `as T` cast on
+   * the returned promise, which was easy to forget and unsafe to compare to
+   * the actual runtime shape.
+   */
+  private call<R = unknown>(message: Record<string, unknown>): Promise<R> {
     const id = this.nextId()
-    return new Promise<unknown>((resolve, reject) => {
+    return new Promise<R>((resolve, reject) => {
       const timeoutId = setTimeout(() => {
         if (this.pending.has(id)) {
           this.pending.delete(id)
           reject(new Error('Crypto worker request timed out'))
         }
       }, 30_000)
-      this.pending.set(id, { resolve, reject, timeoutId })
+      this.pending.set(id, {
+        resolve: resolve as (value: unknown) => void,
+        reject,
+        timeoutId,
+      })
       this.worker.postMessage({ ...message, id })
     })
   }
@@ -139,12 +158,12 @@ export class CryptoWorkerClient {
    * Returns the derived x-only public key hex.
    */
   async unlock(kekHex: string, nonceHex: string, ciphertextHex: string): Promise<string> {
-    return (await this.call({
+    return this.call<string>({
       type: 'unlock',
       kekHex,
       nonceHex,
       ciphertextHex,
-    })) as string
+    })
   }
 
   /**
@@ -159,7 +178,7 @@ export class CryptoWorkerClient {
    * Rate limited in the worker — exceeding triggers auto-lock.
    */
   async sign(messageHex: string): Promise<string> {
-    return (await this.call({ type: 'sign', messageHex })) as string
+    return this.call<string>({ type: 'sign', messageHex })
   }
 
   /**
@@ -175,12 +194,12 @@ export class CryptoWorkerClient {
     wrappedKeyHex: string,
     label: CryptoLabel
   ): Promise<string> {
-    return (await this.call({
+    return this.call<string>({
       type: 'decrypt',
       ephemeralPubkeyHex,
       wrappedKeyHex,
       label,
-    })) as string
+    })
   }
 
   /**
@@ -195,14 +214,14 @@ export class CryptoWorkerClient {
     label: CryptoLabel,
     aad: Uint8Array
   ): Promise<string> {
-    return (await this.call({
+    return this.call<string>({
       type: 'decryptEnvelopeField',
       encryptedHex,
       ephemeralPubkeyHex,
       wrappedKeyHex,
       label,
       aad: bytesToHex(aad),
-    })) as string
+    })
   }
 
   /**
@@ -214,26 +233,26 @@ export class CryptoWorkerClient {
     recipientPubkeyHex: string,
     label: CryptoLabel
   ): Promise<EncryptResult> {
-    return (await this.call({
+    return this.call<EncryptResult>({
       type: 'encrypt',
       plaintextHex,
       recipientPubkeyHex,
       label,
-    })) as EncryptResult
+    })
   }
 
   /**
    * Get the x-only public key hex, or null if locked.
    */
   async getPublicKey(): Promise<string | null> {
-    return (await this.call({ type: 'getPublicKey' })) as string | null
+    return this.call<string | null>({ type: 'getPublicKey' })
   }
 
   /**
    * Check if the worker is currently unlocked.
    */
   async isUnlocked(): Promise<boolean> {
-    return (await this.call({ type: 'isUnlocked' })) as boolean
+    return this.call<boolean>({ type: 'isUnlocked' })
   }
 
   /**
@@ -241,7 +260,7 @@ export class CryptoWorkerClient {
    * Used for idp_value rotation without exposing nsec to the main thread.
    */
   async reEncrypt(newKekHex: string): Promise<ReEncryptResult> {
-    return (await this.call({ type: 'reEncrypt', newKekHex })) as ReEncryptResult
+    return this.call<ReEncryptResult>({ type: 'reEncrypt', newKekHex })
   }
 
   /**
@@ -250,10 +269,10 @@ export class CryptoWorkerClient {
    * Returns the encrypted payload plus our public key for the recipient to verify.
    */
   async provisionNsec(recipientEphemeralPubkeyHex: string): Promise<ProvisionNsecResult> {
-    return (await this.call({
+    return this.call<ProvisionNsecResult>({
       type: 'provisionNsec',
       recipientEphemeralPubkeyHex,
-    })) as ProvisionNsecResult
+    })
   }
 
   /**
@@ -263,7 +282,21 @@ export class CryptoWorkerClient {
    * importSession() to restore the worker without a PBKDF2 round.
    */
   async exportSession(): Promise<ExportSessionResult> {
-    return (await this.call({ type: 'exportSession' })) as ExportSessionResult
+    // The worker returns plain strings; validate and brand them here so the
+    // rest of the main thread can only see `SessionToken` / `EncryptedNsecHex`
+    // / `CapsuleNonceHex`. `asHex` throws on any length or charset drift,
+    // which surfaces a worker-contract bug loudly instead of silently
+    // corrupting IDB.
+    const raw = await this.call<{
+      tokenHex: string
+      encryptedNsecHex: string
+      capsuleNonceHex: string
+    }>({ type: 'exportSession' })
+    return {
+      tokenHex: asSessionToken(raw.tokenHex),
+      encryptedNsecHex: asEncryptedNsec(raw.encryptedNsecHex),
+      capsuleNonceHex: asCapsuleNonce(raw.capsuleNonceHex),
+    }
   }
 
   /**
@@ -272,16 +305,16 @@ export class CryptoWorkerClient {
    * worker holds the nsec and returns the derived x-only public key hex.
    */
   async importSession(
-    tokenHex: string,
-    encryptedNsecHex: string,
-    capsuleNonceHex: string
+    tokenHex: SessionToken,
+    encryptedNsecHex: EncryptedNsecHex,
+    capsuleNonceHex: CapsuleNonceHex
   ): Promise<string> {
-    return (await this.call({
+    return this.call<string>({
       type: 'importSession',
       tokenHex,
       encryptedNsecHex,
       capsuleNonceHex,
-    })) as string
+    })
   }
 
   /**
@@ -302,20 +335,20 @@ export class CryptoWorkerClient {
       wrappedKeyHex: string
     }>
   }> {
-    return (await this.call({
-      type: 'envelopeEncryptField',
-      plaintext,
-      recipientPubkeysHex,
-      label,
-      aad: bytesToHex(aad),
-    })) as {
+    return this.call<{
       encryptedHex: string
       envelopes: Array<{
         recipientPubkey: string
         ephemeralPubkeyHex: string
         wrappedKeyHex: string
       }>
-    }
+    }>({
+      type: 'envelopeEncryptField',
+      plaintext,
+      recipientPubkeysHex,
+      label,
+      aad: bytesToHex(aad),
+    })
   }
 
   /**
@@ -324,7 +357,7 @@ export class CryptoWorkerClient {
    * exceeding the limit triggers auto-lock.
    */
   async signAuditEntry(entryHashHex: string): Promise<string> {
-    return (await this.call({ type: 'signAuditEntry', entryHashHex })) as string
+    return this.call<string>({ type: 'signAuditEntry', entryHashHex })
   }
 
   /**
@@ -332,7 +365,7 @@ export class CryptoWorkerClient {
    * Returns the hex-encoded MAC.
    */
   async computeHmac(input: string, secretHex: string): Promise<string> {
-    return (await this.call({ type: 'computeHmac', input, secretHex })) as string
+    return this.call<string>({ type: 'computeHmac', input, secretHex })
   }
 
   // ---- Tier 1 HPKE sidecar ----
@@ -348,12 +381,12 @@ export class CryptoWorkerClient {
     hpkePrivateKey: CryptoKey,
     hubKey: CryptoKey
   ): Promise<string> {
-    return (await this.call({
+    return this.call<string>({
       type: 'unlockWithHandles',
       nsecRaw,
       hpkePrivateKey,
       hubKey,
-    })) as string
+    })
   }
 
   /**
@@ -369,14 +402,14 @@ export class CryptoWorkerClient {
     recordId: string,
     fieldName: string
   ): Promise<HpkeEnvelope> {
-    return (await this.call({
+    return this.call<HpkeEnvelope>({
       type: 'hpkeSeal',
       plaintext,
       recipientPublicKeyRaw,
       label,
       recordId,
       fieldName,
-    })) as HpkeEnvelope
+    })
   }
 
   /**
@@ -389,14 +422,45 @@ export class CryptoWorkerClient {
     recordId: string,
     fieldName: string
   ): Promise<string> {
-    return (await this.call({
+    return this.call<string>({
       type: 'hpkeOpen',
       envelope,
       expectedLabel,
       recordId,
       fieldName,
-    })) as string
+    })
   }
+
+  /**
+   * Hub-field AES-GCM encrypt using the held non-extractable hub key.
+   * AAD binds to (recordId, fieldName) via `hubFieldAad`.
+   */
+  async hubFieldEncryptV3(plaintext: string, recordId: string, fieldName: string): Promise<string> {
+    return this.call<string>({
+      type: 'hubFieldEncryptV3',
+      plaintext,
+      recordId,
+      fieldName,
+    })
+  }
+
+  /**
+   * Hub-field AES-GCM decrypt using the held non-extractable hub key.
+   * Returns null on any failure — invalid base64, wrong AAD, tag mismatch.
+   */
+  async hubFieldDecryptV3(
+    ciphertext: string,
+    recordId: string,
+    fieldName: string
+  ): Promise<string | null> {
+    return this.call<string | null>({
+      type: 'hubFieldDecryptV3',
+      ciphertext,
+      recordId,
+      fieldName,
+    })
+  }
+
 
   // ---- Tier 2 root-KEK handlers ----
 
@@ -421,11 +485,11 @@ export class CryptoWorkerClient {
    * this call returns. The worker zeros its own internal copy.
    */
   async rootKekWrap(factorBytesHex: string, hkdfSaltHex: string): Promise<string> {
-    return (await this.call({
+    return this.call<string>({
       type: 'rootKekWrap',
       factorBytesHex,
       hkdfSaltHex,
-    })) as string
+    })
   }
 
   /**
@@ -455,7 +519,7 @@ export class CryptoWorkerClient {
 
   /** Return true if a root KEK is currently loaded in the worker. */
   async rootKekIsLoaded(): Promise<boolean> {
-    return (await this.call({ type: 'rootKekIsLoaded' })) as boolean
+    return this.call<boolean>({ type: 'rootKekIsLoaded' })
   }
 
   /**
