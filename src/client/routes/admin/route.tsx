@@ -20,23 +20,32 @@ export const Route = createFileRoute('/admin')({
  *
  * Using a useEffect-scheduled imperative navigate avoids the loop
  * entirely: the navigate call fires once per mount, from a committed
- * render, so the router never sees duplicate queued redirects. The
- * reload-based tests are unaffected because the redirect still fires
- * on the very next microtask after auth state resolves.
+ * render, so the router never sees duplicate queued redirects.
+ *
+ * Redirect target depends on auth state: unauthenticated users go
+ * straight to `/login` instead of bouncing through `/` first. The
+ * previous single-target redirect forced a double-hop (`/admin` →
+ * `/` → RootLayout useEffect → `/login`) that compounded the CI-load
+ * delay beyond the 60s ceiling the auth-guards E2E suite allows.
  */
 function AdminRoute() {
   const auth = useAuth()
   const navigate = useNavigate()
-  const notAdmin = !auth.isLoading && !auth.isAdmin && !auth.roles.includes('role-super-admin')
+  const isSuperAdmin = auth.roles.includes('role-super-admin')
+  const allowed = auth.isAdmin || isSuperAdmin
 
   useEffect(() => {
-    if (notAdmin) {
+    if (auth.isLoading) return
+    if (!auth.isAuthenticated) {
+      void navigate({ to: '/login' })
+    } else if (!allowed) {
       void navigate({ to: '/' })
     }
-  }, [notAdmin, navigate])
+  }, [auth.isLoading, auth.isAuthenticated, allowed, navigate])
 
   if (auth.isLoading) return null
-  if (notAdmin) return null
+  if (!auth.isAuthenticated) return null
+  if (!allowed) return null
 
   return <Outlet />
 }
