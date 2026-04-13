@@ -279,9 +279,9 @@ All items below have a design spec and implementation plan in `docs/superpowers/
 - [x] **Geocoding Location Fields** (`2026-03-22-geocoding-location-fields-plan.md`) — GeocodingAdapter interface, OpenCage + Geoapify implementations, LocationField component with autocomplete/GPS, admin settings, i18n, E2E tests.
 - [x] **Hub Admin Zero-Trust Visibility** (`2026-03-22-hub-admin-zero-trust-visibility-plan.md`) — Complete. allowSuperAdminAccess field exposed in Hub type/schema, IdentityService getSuperAdminPubkeys/isSuperAdmin, PATCH /hubs/:hubId/settings with self-grant 403 protection, GET /hubs/:hubId/key-envelope, admin UI toggle with confirmation dialogs and access badges, i18n for 13 locales, 4 E2E tests.
 - [ ] **E2E Test Coverage Expansion** (`2026-03-22-e2e-test-coverage-expansion.md`) — Contacts page, hub membership management, WebAuthn passkeys, blast sending, voicemail webhooks.
-- [ ] **Unit & Integration Tests** (`2026-03-22-unit-integration-tests.md`) — bun:test suite for crypto labels, custom fields, rate limiter, audit chain, WebAuthn counter, hub key envelopes. Files exist in src/server/__tests__/ (import paths fixed), needs DB integration tests verified against live Postgres.
-- [ ] **File Service & Blob Storage** (`2026-03-22-file-service-blob-storage.md`) — Replace R2 with Drizzle file_records table + MinIO BlobStorage, FilesService class.
-- [ ] **Watchtower Auto-Updates** (`2026-03-22-watchtower-production-updates.md`) — Watchtower sidecar in docker-compose.production.yml, label-based opt-in, GHCR auth, Ansible template.
+- [x] **Unit & Integration Tests** (`2026-03-22-unit-integration-tests.md`) — Complete: colocated `.test.ts` pattern adopted instead of `tests/unit/`. Coverage confirmed via `src/shared/crypto-labels.test.ts`, `src/server/services/records.integration.test.ts` (audit chain), `src/server/services/identity.integration.test.ts` (WebAuthn + counter monotonicity), `src/server/services/settings-rate-limiter.integration.test.ts`, `src/server/services/settings-hub-keys.integration.test.ts`, `src/client/lib/audit-chain-verifier.test.ts`. WebAuthn counter monotonicity is enforced via atomic conditional UPDATE in `identity.ts:560` — the security gap the plan called out has already been fixed.
+- [x] **File Service & Blob Storage** (`2026-03-22-file-service-blob-storage.md`) — Complete: `FilesService` exists at `src/server/services/files.ts`, `file_records` table defined in `src/server/db/schema/conversations.ts`, storage abstraction via `StorageManager`, voicemail pipeline at `src/server/lib/voicemail-storage.ts` uses the service.
+- [x] **Watchtower Auto-Updates** (`2026-03-22-watchtower-production-updates.md`) — Complete: Watchtower service + labels in `docker-compose.production.yml`, Ansible Jinja2 template, `demo_vars.example.yml`, `.env.example`, and `PRODUCTION_CHECKLIST.md` all wired up.
 
 ### Provider Auto-Registration Refactor (2026-03-23) — COMPLETE
 
@@ -406,10 +406,12 @@ admin-flow (18), blast-sending (8), notes-crud (7), smoke (4), theme (7), health
 ### Incomplete Adapter Completion
 **Spec:** `docs/superpowers/specs/2026-04-02-adapter-completion.md` | **Plan:** `docs/superpowers/plans/2026-04-02-adapter-completion.md`
 
-- [ ] **Telnyx telephony adapter** — Full TelephonyAdapter (23 methods) with TeXML format. ~600 lines.
-- [ ] **Telnyx SMS adapter** — MessagingAdapter with JSON webhooks. ~200 lines.
-- [ ] **SignalWire WebRTC tokens** — Copy Twilio JWT logic, adapt config. ~30 lines.
-- [ ] **Vonage webhook verification** — Implement Application API query with RS256 JWT. ~50 lines.
+- [x] **Telnyx telephony adapter** — Complete: `src/server/telephony/telnyx.ts` implements all 23 TelephonyAdapter methods (TeXML IVR, Call Control API, webhook verification, recording API). Tests: `telnyx.test.ts`, `telnyx-api.test.ts`.
+- [x] **Telnyx SMS adapter** — Complete: `src/server/messaging/sms/telnyx.ts` implements `MessagingAdapter` with Telnyx JSON webhook parsing, wired into factory at `src/server/messaging/sms/factory.ts:87-92`. Tests: `telnyx.test.ts`.
+- [x] **SignalWire WebRTC tokens** — Complete: `generateSignalWireToken()` in `src/server/telephony/webrtc-tokens.ts` with HS256 JWT + Voice grant (Twilio-compatible), `isWebRtcConfigured()` guard on `webrtcEnabled` + `apiKeySid` + `apiKeySecret` + `twimlAppSid`.
+- [x] **Vonage webhook verification** — Complete: `VonageAdapter.verifyWebhookConfig()` in `src/server/telephony/vonage.ts:631` queries `GET /v2/applications/{id}` with RS256 JWT minted via `signApplicationJwt()`, compares `capabilities.voice.webhooks.answer_url` against expected base URL.
+- [ ] **Telnyx WebRTC token generation** — `src/server/telephony/webrtc-tokens.ts:34` still throws. Needs `sipConnectionId` added to `TelnyxConfigSchema`, `generateTelnyxToken()` that mints Telephony Credentials via Telnyx API, and `isWebRtcConfigured()` case for telnyx.
+- [ ] **Bandwidth WebRTC token generation** — `src/server/telephony/webrtc-tokens.ts:36` still throws. Bandwidth schema already has `webrtcEnabled`; needs Bandwidth Voice SDK JWT mint.
 
 ## Deferred from User Security & Device Management (2026-04-04)
 Spec: `docs/superpowers/specs/2026-04-04-user-security-device-management-design.md` (pending)
