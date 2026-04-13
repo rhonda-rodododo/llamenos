@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import type { SFramePeerConnectionHook } from '../sframe-hook-types'
 import { VonageWebRTCAdapter } from './vonage'
 
 describe('VonageWebRTCAdapter', () => {
@@ -76,5 +77,13 @@ describe('VonageWebRTCAdapter', () => {
     expect(() => adapter.destroy()).not.toThrow()
     // After destroy, off on cleared handlers should not throw
     expect(() => adapter.off('connected', handler)).not.toThrow()
+  })
+
+  test('accepts an sframeHook constructor option and retains it', () => {
+    const hook: SFramePeerConnectionHook = (_pc, _ctx) => {}
+    const adapter = new VonageWebRTCAdapter({ sframeHook: hook })
+    expect(adapter).toBeInstanceOf(VonageWebRTCAdapter)
+    expect(() => new VonageWebRTCAdapter()).not.toThrow()
+    expect(() => new VonageWebRTCAdapter({})).not.toThrow()
   })
 })

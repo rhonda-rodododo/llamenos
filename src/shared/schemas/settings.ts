@@ -117,6 +117,8 @@ export const CallSettingsSchema = z.object({
   voicemailMode: z.enum(['auto', 'always', 'never']).default('auto'),
   voicemailRetentionDays: z.number().int().positive().nullable().optional(),
   callRecordingMaxBytes: z.number().int().positive().optional(),
+  // Tier 5 — hub policy for voice call SFrame E2EE.
+  voiceCallE2eePolicy: z.enum(['required', 'preferred', 'off']).default('preferred'),
 })
 export type CallSettings = z.infer<typeof CallSettingsSchema>
 

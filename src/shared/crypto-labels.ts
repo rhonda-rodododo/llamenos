@@ -327,6 +327,17 @@ export const LABEL_PAPER_KEY_ENCRYPTION = 'llamenos:paper-key:encryption:v1' as 
 /** AAD for wrapping old hub PTK under new hub PTK in CLKR chain */
 export const LABEL_HUB_PTK_PREV_GEN = 'llamenos:hub-ptk:prev-gen:v1' as CryptoLabel
 
+// --- SFrame Voice E2EE (Tier 5) ---
+
+/** HPKE-wrapped SFrame call secret — distributed per-call via Nostr to peer devices */
+export const LABEL_SFRAME_CALL_SECRET = 'llamenos:sframe-call-secret:v1' as CryptoLabel
+
+/** HKDF info for per-sender SFrame base key derivation from call secret */
+export const LABEL_SFRAME_BASE_KEY = 'llamenos:sframe-base-key:v1' as CryptoLabel
+
+/** HKDF salt for forward-secret ratchet on device join */
+export const LABEL_SFRAME_RATCHET = 'llamenos:sframe-ratchet:v1' as CryptoLabel
+
 // --- Label Registry ---
 // The index of each label is its stable on-wire `labelId` byte.
 // ORDER IS A WIRE FORMAT — never reorder, only append.
@@ -373,6 +384,9 @@ export const LABEL_REGISTRY = [
   LABEL_PAPER_KEY_SIGNING,
   LABEL_PAPER_KEY_ENCRYPTION,
   LABEL_HUB_PTK_PREV_GEN,
+  // Tier 5: SFrame Voice E2EE
+  LABEL_SFRAME_CALL_SECRET,
+  LABEL_SFRAME_RATCHET,
 ] as const satisfies readonly CryptoLabel[]
 
 export function labelToId(label: CryptoLabel): number {

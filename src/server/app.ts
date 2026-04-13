@@ -73,6 +73,18 @@ const app = new Hono<AppEnv>()
 // auto-attaches { reqId, traceId } (plus userId/hubId once layered by auth/hub).
 app.use('*', logContextMiddleware)
 
+// CSP nonce must run before securityHeaders so the header middleware can
+// read `c.get('cspNonce')` when building the CSP directive.
+app.use('*', cspNonce)
+
+// Security headers must be registered BEFORE `app.route('/api', api)` and
+// `app.route('/telephony', ...)` — Hono middleware is positional and
+// `app.use('*', ...)` does not apply retroactively to routes mounted earlier.
+// This middleware sets response headers via `await next()` then header-set,
+// so it works in the pre-routes position and attaches CSP/HSTS/COOP/COEP/etc
+// to every /api/* and /telephony/* response.
+app.use('*', securityHeaders)
+
 app.onError(errorHandler)
 
 // --- API routes: CORS on all /api/* ---
@@ -312,7 +324,6 @@ const KNOWN_API_PREFIXES = new Set([
   'messaging',
   'notifications',
   'ivr-audio',
-  'opaque',
   // Authenticated routes
   'users',
   'analytics',
@@ -338,6 +349,7 @@ const KNOWN_API_PREFIXES = new Set([
   'gdpr',
   'geocoding',
   'firehose',
+  'opaque',
 ])
 api.use('*', async (c, next) => {
   // Extract first path segment after /api/
@@ -359,8 +371,8 @@ app.route('/telephony', telephonyRoutes)
 // Mount API under /api
 app.route('/api', api)
 
-// CSP nonce must be set before security headers build the CSP string
-app.use('*', cspNonce)
-app.use('*', securityHeaders)
+// Tier 4 PR-A: this host is API-only — no SPA fallback. Any request outside
+// /api/* or /telephony/* returns JSON 404 (matches the API error envelope).
+app.notFound((c) => c.json({ error: 'Not Found' }, 404))
 
 export default app

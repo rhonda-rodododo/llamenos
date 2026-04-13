@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import type { SFramePeerConnectionHook } from '../sframe-hook-types'
 import { SipWebRTCAdapter } from './sip'
 
 describe('SipWebRTCAdapter', () => {
@@ -56,5 +57,15 @@ describe('SipWebRTCAdapter', () => {
   test('accept is a no-op when no active session', async () => {
     const adapter = new SipWebRTCAdapter()
     await expect(adapter.accept('test-call')).resolves.toBeUndefined()
+  })
+
+  test('accepts an sframeHook constructor option and retains it', () => {
+    const hook: SFramePeerConnectionHook = (_pc, _ctx) => {}
+    const adapter = new SipWebRTCAdapter({ sframeHook: hook })
+    // Constructor accepts the hook at type-check + runtime level
+    expect(adapter).toBeInstanceOf(SipWebRTCAdapter)
+    // No-arg construction still works
+    expect(() => new SipWebRTCAdapter()).not.toThrow()
+    expect(() => new SipWebRTCAdapter({})).not.toThrow()
   })
 })

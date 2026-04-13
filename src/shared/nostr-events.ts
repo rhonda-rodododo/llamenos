@@ -48,6 +48,14 @@ export const KIND_PRESENCE_UPDATE = 20000
 /** Call answer/hangup signals — real-time coordination */
 export const KIND_CALL_SIGNAL = 20001
 
+/** SFrame key distribution — HPKE-wrapped per-device call secret.
+ * NOTE: 20002 was previously used here but collides with BUNDLE_ATTEST_KIND
+ * from gossip-version.ts. Moved to 20004 to avoid kind collision. */
+export const KIND_SFRAME_KEY = 20004
+
+/** DTLS fingerprint binding — signed by initiator, verifies SRTP keying attestation */
+export const KIND_DTLS_BINDING = 20005
+
 // --- NIP-42 Auth (standard) ---
 
 /** NIP-42 authentication event kind */

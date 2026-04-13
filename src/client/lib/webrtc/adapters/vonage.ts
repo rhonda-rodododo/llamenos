@@ -7,9 +7,13 @@
  */
 
 import { createDebugLog } from '../../debug-log'
+import type { SFrameCapableAdapterOptions, SFramePeerConnectionHook } from '../sframe-hook-types'
 import type { WebRTCAdapter, WebRtcEvent, WebRtcEventHandler } from '../types'
 
 const log = createDebugLog('llamenos:webrtc:vonage')
+
+/** Constructor options for {@link VonageWebRTCAdapter}. */
+export type VonageWebRTCAdapterOptions = SFrameCapableAdapterOptions
 
 // Minimal types from @vonage/client-sdk
 interface VonageClientInstance {
@@ -27,6 +31,37 @@ export class VonageWebRTCAdapter implements WebRTCAdapter {
   #activeCallId: string | null = null
   #muted = false
   #handlers: Map<WebRtcEvent, Set<WebRtcEventHandler<WebRtcEvent>>> = new Map()
+  readonly #sframeHook: SFramePeerConnectionHook | undefined
+
+  constructor(options: VonageWebRTCAdapterOptions = {}) {
+    this.#sframeHook = options.sframeHook
+  }
+
+  /**
+   * Install SFrame transforms on a Vonage RTCPeerConnection. The Vonage
+   * Client SDK heavily abstracts the pc and does not currently expose it
+   * through a stable surface — this helper is the insertion point where a
+   * future wiring pass will hand the real pc reference to the caller-provided
+   * hook. Until then, calling this with a valid pc just runs the hook and
+   * surfaces errors through the adapter's event bus.
+   *
+   * TODO(tier-5): locate the Vonage SDK accessor for the underlying
+   * RTCPeerConnection and call `installHook` from the same callback that
+   * creates it (likely inside a callInvite or callConnecting handler).
+   */
+  #installHook(pc: RTCPeerConnection, callId: string): void {
+    const hook = this.#sframeHook
+    if (!hook) return
+    void Promise.resolve(hook(pc, { callId, direction: 'inbound' })).catch((err) => {
+      this.#emit('error', err instanceof Error ? err : new Error(String(err)))
+      try {
+        pc.close()
+      } catch {
+        /* best-effort */
+      }
+      this.disconnect()
+    })
+  }
 
   // ---------------------------------------------------------------------------
   // Event bus

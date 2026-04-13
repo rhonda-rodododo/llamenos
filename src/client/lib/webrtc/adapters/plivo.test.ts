@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import type { SFramePeerConnectionHook } from '../sframe-hook-types'
 import { PlivoWebRTCAdapter } from './plivo'
 
 describe('PlivoWebRTCAdapter', () => {
@@ -76,5 +77,13 @@ describe('PlivoWebRTCAdapter', () => {
     expect(() => adapter.on('incoming', handler2)).not.toThrow()
     expect(() => adapter.off('incoming', handler1)).not.toThrow()
     expect(() => adapter.off('incoming', handler2)).not.toThrow()
+  })
+
+  test('accepts an sframeHook constructor option and retains it', () => {
+    const hook: SFramePeerConnectionHook = (_pc, _ctx) => {}
+    const adapter = new PlivoWebRTCAdapter({ sframeHook: hook })
+    expect(adapter).toBeInstanceOf(PlivoWebRTCAdapter)
+    expect(() => new PlivoWebRTCAdapter()).not.toThrow()
+    expect(() => new PlivoWebRTCAdapter({})).not.toThrow()
   })
 })

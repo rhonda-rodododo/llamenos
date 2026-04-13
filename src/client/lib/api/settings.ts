@@ -45,6 +45,13 @@ export interface CallSettings {
   voicemailMode: 'auto' | 'always' | 'never'
   voicemailRetentionDays: number | null
   callRecordingMaxBytes: number
+  /**
+   * Tier 5 — hub-level policy for WebRTC voice call SFrame E2EE.
+   * - `required`  — refuse calls that cannot negotiate SFrame
+   * - `preferred` — (default) show active-consent modal on fallback
+   * - `off`       — never attempt SFrame (plaintext SRTP only)
+   */
+  voiceCallE2eePolicy: 'required' | 'preferred' | 'off'
 }
 
 export interface WebAuthnSettings {

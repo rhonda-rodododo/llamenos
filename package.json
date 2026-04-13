@@ -1,10 +1,6 @@
 {
   "name": "llamenos",
-
-
-
   "version": "0.45.0",
-
   "private": true,
   "license": "AGPL-3.0-or-later",
   "type": "module",
@@ -12,7 +8,9 @@
   "scripts": {
     "dev": "vite",
     "dev:all": "concurrently -n vite,server,bridge -c cyan,green,magenta \"bun run dev\" \"bun run dev:server\" \"bun run dev:bridge\"",
-    "build": "vite build && scripts/verify-no-console.sh dist/client",
+    "build": "bun run build:main && bun run build:crypto-sandbox",
+    "build:main": "vite build && scripts/verify-no-console.sh dist/client",
+    "build:crypto-sandbox": "vite build -c crypto-sandbox/vite.config.ts",
     "verify:no-console": "scripts/verify-no-console.sh dist/client",
     "preview": "vite preview",
     "deploy": "bun run deploy:site",

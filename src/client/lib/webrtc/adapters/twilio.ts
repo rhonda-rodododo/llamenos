@@ -7,9 +7,13 @@
  */
 
 import { createDebugLog } from '../../debug-log'
+import type { SFrameCapableAdapterOptions, SFramePeerConnectionHook } from '../sframe-hook-types'
 import type { WebRTCAdapter, WebRtcEvent, WebRtcEventHandler } from '../types'
 
 const log = createDebugLog('llamenos:webrtc:twilio')
+
+/** Constructor options for {@link TwilioWebRTCAdapter}. */
+export type TwilioWebRTCAdapterOptions = SFrameCapableAdapterOptions
 
 // Minimal types we need from @twilio/voice-sdk
 interface TwilioDevice {
@@ -36,6 +40,43 @@ export class TwilioWebRTCAdapter implements WebRTCAdapter {
   #device: TwilioDevice | null = null
   #activeConnection: TwilioConnection | null = null
   #handlers: Map<WebRtcEvent, Set<WebRtcEventHandler<WebRtcEvent>>> = new Map()
+  readonly #sframeHook: SFramePeerConnectionHook | undefined
+
+  constructor(options: TwilioWebRTCAdapterOptions = {}) {
+    this.#sframeHook = options.sframeHook
+  }
+
+  /**
+   * Best-effort extraction of the underlying `RTCPeerConnection` from a Twilio
+   * Voice SDK Call. The SDK exposes it at `call.mediaHandler.version.pc` in
+   * current releases, but the field is internal/undocumented — guarded against
+   * shape changes.
+   */
+  #pcFromConnection(conn: TwilioConnection): RTCPeerConnection | null {
+    const holder = conn as unknown as {
+      mediaHandler?: { version?: { pc?: RTCPeerConnection } }
+    }
+    return holder.mediaHandler?.version?.pc ?? null
+  }
+
+  /**
+   * Invoke the SFrame hook against a pc for the given Twilio call. Failures
+   * surface as 'error' events and disconnect the call.
+   */
+  #installHook(pc: RTCPeerConnection, callSid: string): void {
+    const hook = this.#sframeHook
+    if (!hook) return
+    void Promise.resolve(hook(pc, { callId: callSid, direction: 'inbound' })).catch((err) => {
+      this.#emit('error', err instanceof Error ? err : new Error(String(err)))
+      try {
+        pc.close()
+      } catch {
+        /* best-effort */
+      }
+      this.#activeConnection?.disconnect()
+      this.#activeConnection = null
+    })
+  }
 
   // ---------------------------------------------------------------------------
   // Event bus
@@ -98,7 +139,15 @@ export class TwilioWebRTCAdapter implements WebRTCAdapter {
       log('Incoming call', callSid)
       this.#activeConnection = conn
 
+      // SFrame hook installation point. The underlying pc usually does not
+      // exist until accept() runs and the media handler is created, so we try
+      // at incoming-time first (no-op if pc is null) and again on 'accept'.
+      const earlyPc = this.#pcFromConnection(conn)
+      if (earlyPc) this.#installHook(earlyPc, callSid)
+
       conn.on('accept', () => {
+        const pc = this.#pcFromConnection(conn)
+        if (pc) this.#installHook(pc, callSid)
         this.#emit('connected')
       })
 

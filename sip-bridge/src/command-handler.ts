@@ -1,4 +1,5 @@
 import type { AriClient } from './clients/ari-client'
+import { type CallMode, SframeModeDispatcher, parseStasisArgs } from './sframe-mode-dispatcher'
 import type {
   ActiveCall,
   AnyAriEvent,
@@ -50,6 +51,9 @@ export class CommandHandler {
 
   /** Map of volunteer channel ID → parent call SID (for ringing coordination) */
   private ringingMap = new Map<string, string>()
+
+  /** Tier 5 voice E2EE recording guard */
+  private readonly sframeDispatcher = new SframeModeDispatcher()
 
   /** Configured hotline number (for the To field) */
   private hotlineNumber = ''
@@ -126,7 +130,8 @@ export class CommandHandler {
 
     // Check if this is a volunteer outbound leg (originated by us for ringing)
     if (args[0] === 'dialed') {
-      // This is an outbound call to a volunteer — they answered
+      // This is an outbound call to a volunteer — they answered.
+      // Mode is inherited from the parent caller when the bridge is assembled.
       const parentCallSid = args[1]
       const pubkey = args[2]
       if (parentCallSid && pubkey) {
@@ -135,7 +140,12 @@ export class CommandHandler {
       return
     }
 
-    // Incoming call — answer the channel and notify the Worker
+    // Incoming call — parse the Stasis args into a CallMode. The dialplan
+    // passes `sframe` from the [volunteers-sframe] context; PSTN trunk
+    // contexts pass no args, which defaults to mode='pstn'.
+    const callMode = parseStasisArgs(args)
+
+    // Answer the channel and notify the Worker
     await this.ari.answerChannel(channel.id)
 
     const call: ActiveCall = {
@@ -143,6 +153,7 @@ export class CommandHandler {
       callerNumber: channel.caller.number || 'unknown',
       calledNumber: channel.connected.number || this.hotlineNumber,
       startedAt: Date.now(),
+      mode: callMode.mode,
       ringingChannels: [],
       dtmfBuffer: '',
     }
@@ -608,6 +619,24 @@ export class CommandHandler {
 
     // Start recording if requested
     if (cmd.record) {
+      // Tier 5 voice E2EE guard — bridge recording inherits the caller's
+      // call mode. SFrame calls MUST NOT be recorded on the Asterisk side;
+      // throwing here aborts the recording attempt without tearing down the
+      // bridge, keeping the volunteer-to-volunteer leg up.
+      // If the caller's ActiveCall is not tracked (shouldn't happen for a
+      // just-bridged call), default to mode='sframe' (fail-closed) so an
+      // untracked SFrame call is never accidentally recorded.
+      const guardMode: CallMode = { mode: callerCall?.mode ?? 'sframe' }
+      try {
+        this.sframeDispatcher.assertRecordingAllowed(guardMode)
+      } catch (err) {
+        // Tier 5 SFrame call — skip bridge recording. The dispatcher throws
+        // to signal the ban; the bridge itself must stay up for the
+        // volunteer-to-volunteer leg.
+        console.warn('[handler] Skipping bridge recording (Tier 5 SFrame):', err)
+        return
+      }
+
       const recordingName = `call-${callerChannelId}-${Date.now()}`
       try {
         await this.ari.recordBridge(bridge.id, {
@@ -637,6 +666,21 @@ export class CommandHandler {
   /** Record a channel */
   private async execRecord(cmd: BridgeCommand & { action: 'record' }): Promise<void> {
     console.log(`[handler] Recording channel=${cmd.channelId} name=${cmd.name}`)
+
+    // Tier 5 voice E2EE guard — look up the owning call's mode and refuse
+    // to record if this is an SFrame call. If no call state exists yet
+    // (e.g. pre-answer voicemail prompt), default to mode='pstn' so the
+    // existing voicemail flow keeps working for PSTN callers.
+    const callForGuard = this.calls.get(cmd.channelId)
+    const guardMode: CallMode = { mode: callForGuard?.mode ?? 'pstn' }
+    try {
+      this.sframeDispatcher.assertRecordingAllowed(guardMode)
+    } catch (err) {
+      // Tier 5 SFrame call — skip channel recording. The dispatcher throws
+      // to signal the ban; callers observe the absence of a recording.
+      console.warn('[handler] Skipping channel recording (Tier 5 SFrame):', err)
+      return
+    }
 
     if (cmd.beep) {
       try {
