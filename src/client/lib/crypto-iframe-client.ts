@@ -5,8 +5,20 @@
 //     `ready` and unblocks the SPA shell.
 //   - Every outgoing RPC carries a crypto.randomUUID() id so responses can
 //     be correlated independently of ordering.
-//   - Every incoming message is origin-checked against VITE_CRYPTO_ORIGIN
-//     before it is parsed. Responses from any other origin are dropped.
+//   - Every outgoing RPC carries a 32-byte per-request nonce. The nonce is
+//     stored in `this.pending` under the request id and NEVER leaves the
+//     parent's closure. The iframe echoes the nonce on its response; any
+//     response whose nonce does not match the stored outstanding-request
+//     value is dropped. This is the "Option A" defense adopted in Tier 5
+//     (see docs/security/TIER_4_POST_REVIEW.md §C-3 and
+//     docs/security/TIER_5_POST_REVIEW.md) that lets us accept the
+//     `ev.origin === "null"` that the opaque-origin iframe delivers while
+//     still rejecting same-origin forged responses from an attacker who
+//     can post into the parent window.
+//   - Incoming messages are accepted when `ev.origin` equals either the
+//     configured crypto origin (for test harnesses and same-origin dev) OR
+//     the literal string `"null"` (for the production sandboxed iframe).
+//     Other origins are dropped before any parsing.
 //   - Plaintext that flows back through a `decrypt*` RPC is NEVER logged.
 //     The `handleMessage` hot path has no console statements.
 //   - Timeouts are enforced per-call (default 30s) and clean up pending state.
@@ -35,6 +47,12 @@ type PendingCall = {
   resolve: (v: unknown) => void
   reject: (e: Error) => void
   timeoutId: ReturnType<typeof setTimeout>
+  /**
+   * Per-request 32-byte nonce (lowercase hex). Held only in this Map inside
+   * the client's closure; the iframe echoes it on every response so we can
+   * distinguish a legitimate sandbox reply from a same-origin forgery.
+   */
+  nonceHex: string
 }
 
 /**
@@ -45,6 +63,18 @@ export interface IframeHost {
   contentWindow: {
     postMessage: (data: unknown, targetOrigin: string) => void
   } | null
+}
+
+/**
+ * Generate a 32-byte random nonce as lowercase hex (64 chars). Uses the
+ * global Web Crypto RNG — available in all supported browsers.
+ */
+function generateRequestNonceHex(): string {
+  const bytes = new Uint8Array(32)
+  crypto.getRandomValues(bytes)
+  let out = ''
+  for (const b of bytes) out += b.toString(16).padStart(2, '0')
+  return out
 }
 
 export interface CryptoIframeClientConfig {
@@ -77,10 +107,26 @@ export class CryptoIframeClient {
   private readonly bootTimeoutMs: number
   private listenerAttached = false
   private readonly handleIncoming = (ev: MessageEvent): void => {
-    // Mandatory origin check — FIRST thing. We reject any message whose
-    // ev.origin does not exactly equal the configured crypto origin, which
-    // blocks both cross-frame spoofing and same-frame self-postMessage forgery.
-    if (ev.origin !== this.cryptoOrigin) return
+    // Mandatory origin check — FIRST thing. We accept exactly two origins:
+    //
+    //   1. The configured crypto origin. Used by test harnesses and the
+    //      same-origin dev layout where the iframe is served from a real
+    //      origin.
+    //   2. The literal string `"null"`. In production the iframe is mounted
+    //      with `sandbox="allow-scripts"` (no `allow-same-origin`), giving
+    //      it an opaque origin that browsers serialize as `"null"` on the
+    //      parent's `MessageEvent.origin`. Without this branch the parent
+    //      would drop every legitimate sandbox message — the very bug
+    //      documented in docs/security/TIER_4_POST_REVIEW.md §C-3.
+    //
+    // Same-origin attackers who can post into the parent window also land
+    // here with `ev.origin === parent's own origin`, so origin-string
+    // matching alone is not sufficient on its own. The per-request nonce
+    // verification below is the second line of defense — the attacker
+    // cannot produce a matching nonce because it never leaves this
+    // client's closure. See docs/security/TIER_5_POST_REVIEW.md for the
+    // Option A decision rationale.
+    if (ev.origin !== this.cryptoOrigin && ev.origin !== 'null') return
 
     // Handle the 'ready' broadcast without going through the response schema.
     const maybeReady = ev.data as { kind?: string; protocol?: number }
@@ -96,6 +142,15 @@ export class CryptoIframeClient {
 
     const pending = this.pending.get(parsed.data.id)
     if (!pending) return
+
+    // Nonce gate: the response MUST echo the nonce we stored when we
+    // enqueued the pending call. This is the second half of the Option A
+    // defense; a same-origin attacker cannot forge it because the nonce
+    // is held only in `this.pending` inside this closure. Drop silently
+    // on mismatch — do NOT resolve or reject the pending call, since a
+    // legitimate response may still arrive.
+    if (parsed.data.nonceHex !== pending.nonceHex) return
+
     this.pending.delete(parsed.data.id)
     clearTimeout(pending.timeoutId)
 
@@ -174,6 +229,12 @@ export class CryptoIframeClient {
    * Low-level RPC send. Public API wrappers (isUnlocked/decryptEnvelope/…)
    * build a typed request and route through this method. The return type
    * is `unknown`; callers assert the shape by op.
+   *
+   * The caller MUST have already populated `req.nonceHex` via
+   * `generateRequestNonceHex()`. We re-use it as the verification value
+   * stored under the pending-call entry. This keeps request construction
+   * colocated at call sites and makes the nonce invariant visible at
+   * every public-API wrapper below.
    */
   private async call(req: CryptoRpcRequest): Promise<unknown> {
     await this.ready
@@ -182,32 +243,56 @@ export class CryptoIframeClient {
       throw new Error('CryptoIframeClient: iframe contentWindow is unavailable')
     }
     const id = req.id
+    const nonceHex = req.nonceHex
     return new Promise<unknown>((resolve, reject) => {
       const timeoutId = setTimeout(() => {
         if (this.pending.delete(id)) {
           reject(new Error(`Crypto iframe RPC '${req.op}' timed out`))
         }
       }, this.callTimeoutMs)
-      this.pending.set(id, { resolve, reject, timeoutId })
-      // Target origin must be the exact crypto origin — never '*'.
-      contentWindow.postMessage(req, this.cryptoOrigin)
+      this.pending.set(id, { resolve, reject, timeoutId, nonceHex })
+      // Target origin MUST be `'*'`. The iframe is mounted with
+      // `sandbox="allow-scripts"` (no `allow-same-origin`) and therefore
+      // has an opaque origin. Browsers reject postMessages whose
+      // targetOrigin is a real origin string when the target window has
+      // an opaque origin, so using the exact crypto origin here silently
+      // drops every outgoing message — the original Tier 4 bug. The
+      // per-request nonce in `req.nonceHex` is the defense that lets us
+      // safely use `'*'`: any interceptor who snoops the outgoing
+      // message sees the nonce, but cannot inject a matching response
+      // into the parent window without already being able to post into
+      // the parent, AND the iframe itself trusts a signed/origin-checked
+      // parent — see docs/security/TIER_5_POST_REVIEW.md.
+      contentWindow.postMessage(req, '*')
     })
   }
 
   // ─── Public API (subset — more wired when call sites migrate) ───
 
   async isUnlocked(): Promise<boolean> {
-    const result = await this.call({ op: 'isUnlocked', id: crypto.randomUUID() })
+    const result = await this.call({
+      op: 'isUnlocked',
+      id: crypto.randomUUID(),
+      nonceHex: generateRequestNonceHex(),
+    })
     return result === true
   }
 
   async getPublicKey(): Promise<string | null> {
-    const result = await this.call({ op: 'getPublicKey', id: crypto.randomUUID() })
+    const result = await this.call({
+      op: 'getPublicKey',
+      id: crypto.randomUUID(),
+      nonceHex: generateRequestNonceHex(),
+    })
     return typeof result === 'string' ? result : null
   }
 
   async lock(): Promise<void> {
-    await this.call({ op: 'lock', id: crypto.randomUUID() })
+    await this.call({
+      op: 'lock',
+      id: crypto.randomUUID(),
+      nonceHex: generateRequestNonceHex(),
+    })
   }
 
   /** Test-only synchronous teardown so each test starts clean. */
