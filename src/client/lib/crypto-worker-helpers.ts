@@ -4,9 +4,6 @@
  *
  * These functions require a browser context (Web Worker + cryptoWorker singleton).
  * For pure/server-side usage, see @shared/crypto-envelopes and @shared/crypto-primitives.
- *
- * Lift-and-shift from src/client/lib/crypto.ts — behavior is identical.
- * Tasks 4-9 will rewrite these to use Envelope + AAD.
  */
 
 import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
@@ -41,7 +38,7 @@ export async function eciesUnwrapKey(
 }
 
 /**
- * Decrypt a V2 note using the appropriate envelope for the current user.
+ * Decrypt a note using the appropriate envelope for the current user.
  * Secret key operations are delegated to the crypto worker.
  */
 export async function decryptNote(

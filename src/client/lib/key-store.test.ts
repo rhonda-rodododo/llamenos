@@ -236,13 +236,13 @@ describe('storeEncryptedKey / loadEncryptedKey', () => {
   })
 
   test('loadEncryptedKey returns null for non-JSON data', () => {
-    localStorage.setItem('llamenos-encrypted-key-v2', 'not-json')
+    localStorage.setItem('llamenos-encrypted-key', 'not-json')
     expect(loadEncryptedKey()).toBeNull()
   })
 
   test('loadEncryptedKey returns null for wrong version', () => {
     localStorage.setItem(
-      'llamenos-encrypted-key-v2',
+      'llamenos-encrypted-key',
       JSON.stringify({ version: 1, salt: 'aa', nonce: 'bb', ciphertext: 'cc' })
     )
     expect(loadEncryptedKey()).toBeNull()

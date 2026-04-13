@@ -35,7 +35,7 @@ export async function uploadEncryptedFile(
   // Deduplicate pubkeys (uploader may already be an admin)
   const allPubkeys = Array.from(new Set([uploaderPubkey, ...adminPubkeys]))
 
-  // Generate a client-side fileId for AAD binding (Task 8+).
+  // Generate a client-side fileId for AAD binding.
   // This ID is sent to the server which stores it as the canonical fileId,
   // ensuring the fileId-bound AAD can round-trip on decrypt.
   const fileId = crypto.randomUUID()

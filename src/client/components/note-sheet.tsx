@@ -124,7 +124,7 @@ export function NoteSheet() {
       if (fieldValues.length > 0) {
         payload.fields = Object.fromEntries(fieldValues)
       }
-      // V2 per-note ephemeral key encryption (forward secrecy)
+      // Per-note ephemeral key encryption (forward secrecy)
       const authorPub = publicKey
       const adminPub = adminDecryptionPubkey || authorPub // fallback to self if admin decryption pubkey not available
       const { encryptedContent, authorEnvelope, adminEnvelopes } = encryptNote(payload, authorPub, [

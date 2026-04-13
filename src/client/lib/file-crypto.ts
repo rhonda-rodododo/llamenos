@@ -118,7 +118,7 @@ export async function decryptFileMetadata(
 export interface EncryptedFileUpload {
   /** Raw bytes of the encrypted content (nonce+ciphertext from symmetricEncrypt, decoded from hex). */
   encryptedContent: Uint8Array
-  /** Per-recipient V2 key envelopes with Envelope semantics + pubkey tag. */
+  /** Per-recipient key envelopes with pubkey tag. */
   recipientEnvelopes: FileKeyEnvelope[]
   encryptedMetadata: EncryptedMetaItem[]
 }
@@ -182,7 +182,7 @@ export async function encryptFile(
 }
 
 /**
- * Decrypt a file given the encrypted content, a V2 key envelope, and the fileId.
+ * Decrypt a file given the encrypted content, a key envelope, and the fileId.
  *
  * The fileId is required to reconstruct the AAD that was used during encryption —
  * passing the wrong fileId causes an AEAD authentication failure (throws).
@@ -219,7 +219,7 @@ export async function decryptFile(
 }
 
 /**
- * Re-wrap a file's symmetric key for a new recipient (V2 format).
+ * Re-wrap a file's symmetric key for a new recipient.
  * Admin decrypts the key via worker, then re-encrypts for the new pubkey.
  */
 export async function rewrapFileKey(
@@ -234,7 +234,7 @@ export async function rewrapFileKey(
     LABEL_FILE_KEY
   )
 
-  // Re-encrypt for new recipient (V2 envelope)
+  // Re-encrypt for new recipient
   const { wrappedKey, ephemeralPubkey } = eciesWrapKey(
     fileKey,
     newRecipientPubkeyHex,

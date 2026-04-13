@@ -67,9 +67,9 @@ export const UploadInitSchema = z.object({
   contextType: z.enum(['conversation', 'note', 'report', 'custom_field', 'voicemail']).optional(),
   contextId: z.string().optional(),
   /**
-   * Client-generated UUID for AAD binding (Task 8+).
+   * Client-generated UUID for AAD binding.
    * The server records this as the canonical fileId so that the fileId-bound AAD
-   * round-trips correctly on decrypt. Server-side acceptance is implemented in Task 9.
+   * round-trips correctly on decrypt.
    */
   fileId: z.string().uuid().optional(),
 })

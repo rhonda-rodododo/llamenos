@@ -338,7 +338,7 @@ function hexToBytes(hex: string): Uint8Array {
   return bytes
 }
 
-// ---- Generation walk (Task 9) ----
+// ---- Generation walk ----
 
 export interface GenerationWalkParams {
   currentSeed: Uint8Array

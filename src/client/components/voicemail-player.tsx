@@ -58,7 +58,7 @@ export function VoicemailPlayer({ fileId, callId, canListen }: VoicemailPlayerPr
           return
         }
 
-        // Voicemail notes use V2 per-note ECIES envelopes
+        // Voicemail notes use per-note ECIES envelopes
         const envelope = isAdmin
           ? (vmNote.adminEnvelopes?.find((e) => e.pubkey === publicKey) ??
             vmNote.adminEnvelopes?.[0])

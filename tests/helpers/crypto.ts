@@ -44,7 +44,7 @@ export async function preloadEncryptedKey(page: Page, nsec: string, pin: string)
   }
 
   await page.evaluate(({ key, value }) => localStorage.setItem(key, value), {
-    key: 'llamenos-encrypted-key-v2',
+    key: 'llamenos-encrypted-key',
     value: JSON.stringify(data),
   })
 }
