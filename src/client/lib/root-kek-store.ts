@@ -16,12 +16,12 @@
  * It deliberately does NOT:
  *   - Call SubtleCrypto directly (that happens in the worker).
  *   - Know about the crypto-worker RPC protocol.
- *   - Touch nsec or legacy key-store-v2 state — those are independent.
+ *   - Touch nsec or legacy key-store state — those are independent.
  *
- * Naming note: the Tier 1 file `key-store-v3.ts` handles PIN-wrapped
- * identity + hub keys and is a separate concern. Tier 2's "root KEK" is a
- * higher layer that wraps whatever the account-level secrets turn out to be
- * once the migration settles.
+ * Naming note: the Tier 1 `key-store` handles PIN-wrapped identity + hub
+ * keys and is a separate concern. Tier 2's "root KEK" is a higher layer
+ * that wraps whatever the account-level secrets turn out to be once the
+ * migration settles.
  */
 
 import {

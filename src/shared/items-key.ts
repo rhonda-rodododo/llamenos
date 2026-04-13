@@ -28,7 +28,7 @@ import { utf8ToBytes } from '@noble/hashes/utils.js'
  * Derive an items_key for the given master secret + generation.
  *
  * The master secret is a 32-byte per-user random value held inside the crypto
- * worker (see `key-store-v3.ts`). Generation is a monotonically-increasing
+ * worker. Generation is a monotonically-increasing
  * integer; bumping it rotates the items_key without touching any artifact
  * ciphertext.
  *
