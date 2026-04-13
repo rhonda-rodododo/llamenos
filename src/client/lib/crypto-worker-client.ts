@@ -461,7 +461,6 @@ export class CryptoWorkerClient {
     })
   }
 
-
   // ---- Tier 2 root-KEK handlers ----
 
   /**
