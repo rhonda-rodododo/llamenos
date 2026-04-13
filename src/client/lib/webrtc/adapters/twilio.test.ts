@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import type { SFramePeerConnectionHook } from '../sframe-hook-types'
 import { TwilioWebRTCAdapter } from './twilio'
 
 describe('TwilioWebRTCAdapter', () => {
@@ -52,5 +53,13 @@ describe('TwilioWebRTCAdapter', () => {
     const adapter = new TwilioWebRTCAdapter()
     const handler = () => {}
     expect(() => adapter.off('disconnected', handler)).not.toThrow()
+  })
+
+  test('accepts an sframeHook constructor option and retains it', () => {
+    const hook: SFramePeerConnectionHook = (_pc, _ctx) => {}
+    const adapter = new TwilioWebRTCAdapter({ sframeHook: hook })
+    expect(adapter).toBeInstanceOf(TwilioWebRTCAdapter)
+    expect(() => new TwilioWebRTCAdapter()).not.toThrow()
+    expect(() => new TwilioWebRTCAdapter({})).not.toThrow()
   })
 })

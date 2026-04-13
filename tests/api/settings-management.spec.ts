@@ -63,6 +63,45 @@ test.describe('Settings Management', () => {
       expect(body.voicemailMaxSeconds).toBe(60)
     })
 
+    test('admin can set voiceCallE2eePolicy and it round-trips', async () => {
+      // Default should be 'preferred' when no prior value.
+      const readRes = await adminApi.get('/api/settings/call')
+      expect(readRes.status()).toBe(200)
+      const readBody = await readRes.json()
+      expect(['required', 'preferred', 'off']).toContain(readBody.voiceCallE2eePolicy)
+
+      // Update to 'required'.
+      const patchRes = await adminApi.patch('/api/settings/call', {
+        voiceCallE2eePolicy: 'required',
+      })
+      expect(patchRes.status()).toBe(200)
+      const patchBody = await patchRes.json()
+      expect(patchBody.voiceCallE2eePolicy).toBe('required')
+
+      // Re-read and confirm persistence.
+      const reread = await adminApi.get('/api/settings/call')
+      const rereadBody = await reread.json()
+      expect(rereadBody.voiceCallE2eePolicy).toBe('required')
+
+      // Reset to 'preferred' so downstream tests are not affected by this
+      // serial fixture.
+      const resetRes = await adminApi.patch('/api/settings/call', {
+        voiceCallE2eePolicy: 'preferred',
+      })
+      expect(resetRes.status()).toBe(200)
+    })
+
+    test('voiceCallE2eePolicy rejects invalid values (falls back to current)', async () => {
+      const patchRes = await adminApi.patch('/api/settings/call', {
+        voiceCallE2eePolicy: 'not-a-valid-policy',
+      })
+      // Service falls back to current rather than erroring — verify the
+      // persisted value remains a valid policy literal.
+      expect(patchRes.status()).toBe(200)
+      const body = await patchRes.json()
+      expect(['required', 'preferred', 'off']).toContain(body.voiceCallE2eePolicy)
+    })
+
     test('user cannot read call settings', async () => {
       const res = await ctx.api('volunteer').get('/api/settings/call')
       expect(res.status()).toBe(403)

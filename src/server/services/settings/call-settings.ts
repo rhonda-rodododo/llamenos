@@ -25,6 +25,8 @@ export async function getCallSettings(db: Database, hubId?: string): Promise<Cal
     voicemailMode: (row?.voicemailMode as 'auto' | 'always' | 'never') ?? 'auto',
     voicemailRetentionDays: row?.voicemailRetentionDays ?? null,
     callRecordingMaxBytes: row?.callRecordingMaxBytes ?? 20971520,
+    voiceCallE2eePolicy:
+      (row?.voiceCallE2eePolicy as 'required' | 'preferred' | 'off') ?? 'preferred',
   }
 }
 
@@ -38,6 +40,7 @@ export async function updateCallSettings(
   const clamp = (v: number) => Math.max(30, Math.min(300, v))
   const clampBytes = (v: number) => Math.max(102400, Math.min(52428800, v)) // 100KB–50MB
   const validVoicemailModes = ['auto', 'always', 'never'] as const
+  const validE2eePolicies = ['required', 'preferred', 'off'] as const
   const updated: CallSettings = {
     queueTimeoutSeconds:
       data.queueTimeoutSeconds !== undefined
@@ -63,6 +66,10 @@ export async function updateCallSettings(
       data.callRecordingMaxBytes !== undefined
         ? clampBytes(data.callRecordingMaxBytes)
         : current.callRecordingMaxBytes,
+    voiceCallE2eePolicy:
+      data.voiceCallE2eePolicy !== undefined && validE2eePolicies.includes(data.voiceCallE2eePolicy)
+        ? data.voiceCallE2eePolicy
+        : current.voiceCallE2eePolicy,
   }
   await db
     .insert(callSettings)

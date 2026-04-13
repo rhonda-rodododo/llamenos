@@ -1,5 +1,5 @@
 import { HMAC_PHONE_PREFIX } from '@shared/crypto-labels'
-import { KIND_CALL_VOICEMAIL } from '@shared/nostr-events'
+import { KIND_CALL_SIGNAL, KIND_CALL_VOICEMAIL } from '@shared/nostr-events'
 import { Hono } from 'hono'
 import {
   DEFAULT_LANGUAGE,
@@ -161,6 +161,20 @@ telephony.post('/incoming', async (c) => {
   if (banned) {
     return telephonyResponse(adapter.rejectCall())
   }
+
+  // Announce PSTN call mode for Tier 5 SFrame-aware clients
+  publishNostrEvent(
+    env,
+    KIND_CALL_SIGNAL,
+    {
+      type: 'call:mode',
+      callId: callSid,
+      mode: 'pstn',
+      reason: 'caller_on_pstn_trunk',
+      hubId: hubId ?? 'global',
+    },
+    hubId
+  )
 
   const enabledLanguages = await services.settings.getIvrLanguages(hubId)
 

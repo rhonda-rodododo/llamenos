@@ -12,9 +12,13 @@
  */
 
 import { createDebugLog } from '../../debug-log'
+import type { SFrameCapableAdapterOptions, SFramePeerConnectionHook } from '../sframe-hook-types'
 import type { WebRTCAdapter, WebRtcEvent, WebRtcEventHandler } from '../types'
 
 const log = createDebugLog('llamenos:webrtc:plivo')
+
+/** Constructor options for {@link PlivoWebRTCAdapter}. */
+export type PlivoWebRTCAdapterOptions = SFrameCapableAdapterOptions
 
 // Minimal types from plivo-browser-sdk
 interface PlivoClient {
@@ -37,6 +41,37 @@ export class PlivoWebRTCAdapter implements WebRTCAdapter {
   #activeCallUUID: string | null = null
   #muted = false
   #handlers: Map<WebRtcEvent, Set<WebRtcEventHandler<WebRtcEvent>>> = new Map()
+  readonly #sframeHook: SFramePeerConnectionHook | undefined
+
+  constructor(options: PlivoWebRTCAdapterOptions = {}) {
+    this.#sframeHook = options.sframeHook
+  }
+
+  /**
+   * Install SFrame transforms on a Plivo RTCPeerConnection. The
+   * plivo-browser-sdk does not expose the underlying pc through a stable
+   * public surface — this helper is the insertion point where a future
+   * wiring pass will pipe the real pc reference into the caller-provided
+   * hook. Until then, calling this with a valid pc runs the hook and
+   * surfaces failures through the adapter's event bus.
+   *
+   * TODO(tier-5): locate the Plivo SDK accessor for the underlying
+   * RTCPeerConnection (likely on the internal session object) and call
+   * `installHook` from the same callback that creates it.
+   */
+  #installHook(pc: RTCPeerConnection, callUUID: string): void {
+    const hook = this.#sframeHook
+    if (!hook) return
+    void Promise.resolve(hook(pc, { callId: callUUID, direction: 'inbound' })).catch((err) => {
+      this.#emit('error', err instanceof Error ? err : new Error(String(err)))
+      try {
+        pc.close()
+      } catch {
+        /* best-effort */
+      }
+      this.disconnect()
+    })
+  }
 
   // ---------------------------------------------------------------------------
   // Event bus

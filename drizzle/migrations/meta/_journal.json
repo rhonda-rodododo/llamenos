@@ -414,6 +414,13 @@
       "when": 1776038400000,
       "tag": "0057_tier3_recovery_service",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1776124800000,
+      "tag": "0058_call_settings_voice_e2ee_policy",
+      "breakpoints": true
     }
   ]
 }
