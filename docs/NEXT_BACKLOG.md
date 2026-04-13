@@ -313,7 +313,7 @@ admin-flow (18), blast-sending (8), notes-crud (7), smoke (4), theme (7), health
 - [ ] **roles.spec.ts** — 6/28 tests fail: serial chain cascade (role update fails after create; reporter/custom role hub context 400 vs 403)
 - [ ] **Hub-scoped API calls from non-hub-member volunteers** return 400 (hub context required) instead of 403 (permission denied) — tests accept both
 - [ ] **conversations.spec.ts** — setup wizard flow is fragile; mostly smoke tests; needs real message send/receive tests when providers are configured
-- [ ] **hub-access-control.spec.ts** — 1/4 tests fail (missing data-testid="hub-access-toggle")
+- [x] **hub-access-control.spec.ts** — Verified 2026-04-12: all 3 tests pass. `data-testid="hub-access-toggle"` already on the `Switch` at `src/client/components/admin-sections/hubs-edit-dialog.tsx:246`. The branch that renders the toggle only fires for non-super-admins; super admins get a read-only `Badge`, so the test's `.not.toBeVisible()` assertion on the toggle is correct and passes.
 
 ## App Bugs Found During Test Restructuring (2026-03-24)
 
