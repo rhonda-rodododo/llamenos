@@ -1,13 +1,17 @@
 /**
  * Multi-factor encrypted key storage using PBKDF2 + HKDF + XChaCha20-Poly1305.
  *
- * Key derivation (v2):
+ * Key derivation:
  *   PIN → PBKDF2-SHA256 (600k iterations, 32-byte salt) → 32-byte pin-derived
  *   [pin-derived ‖ prfOutput? ‖ idpValue] → HKDF-SHA256 (info = 3F or 2F label) → 32-byte KEK
  *   KEK → XChaCha20-Poly1305 encrypts nsec bytes → stored in localStorage as JSON.
  *
  * 3-factor mode: PIN + WebAuthn PRF output + IdP-bound value
  * 2-factor mode: PIN + IdP-bound value (no PRF)
+ *
+ * The on-disk JSON carries a frozen `version: 2` discriminator (and a
+ * `llamenos-encrypted-key-v2` localStorage key) inherited from the pre-HPKE
+ * migration — the TypeScript surface is version-agnostic.
  *
  * Decrypted keyPair is held in memory only — never written to storage unencrypted.
  */
@@ -56,7 +60,7 @@ export interface KEKFactors {
   salt: Uint8Array
 }
 
-export interface EncryptedKeyDataV2 {
+export interface EncryptedKeyData {
   version: 2
   kdf: 'pbkdf2-sha256'
   cipher: 'xchacha20-poly1305'
@@ -99,7 +103,7 @@ export function deriveKEK(factors: KEKFactors): Uint8Array {
 }
 
 /**
- * Encrypt an nsec hex string with a KEK. Returns a v2 encrypted blob.
+ * Encrypt an nsec hex string with a KEK. Returns an encrypted blob.
  * Caller must derive the KEK separately via deriveKEK().
  */
 export function encryptNsec(
@@ -109,7 +113,7 @@ export function encryptNsec(
   prfUsed: boolean,
   idpIssuer: string,
   salt: Uint8Array
-): EncryptedKeyDataV2 {
+): EncryptedKeyData {
   const nonce = new Uint8Array(24)
   crypto.getRandomValues(nonce)
   const cipher = xchacha20poly1305(kek, nonce)
@@ -136,10 +140,10 @@ export function encryptNsec(
 }
 
 /**
- * Decrypt a v2 encrypted blob using a KEK. Returns nsec hex string or null on failure.
+ * Decrypt an encrypted blob using a KEK. Returns nsec hex string or null on failure.
  * Caller must derive the KEK separately via deriveKEK().
  */
-export function decryptNsec(data: EncryptedKeyDataV2, kek: Uint8Array): string | null {
+export function decryptNsec(data: EncryptedKeyData, kek: Uint8Array): string | null {
   try {
     const nonce = hexToBytes(data.nonce)
     const ciphertext = hexToBytes(data.ciphertext)
@@ -152,16 +156,16 @@ export function decryptNsec(data: EncryptedKeyDataV2, kek: Uint8Array): string |
 }
 
 /**
- * Persist a v2 encrypted blob to localStorage.
+ * Persist an encrypted blob to localStorage.
  */
-export function storeEncryptedKeyV2(data: EncryptedKeyDataV2): void {
+export function storeEncryptedKey(data: EncryptedKeyData): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
 }
 
 /**
- * Load a v2 encrypted blob from localStorage. Returns null if absent or wrong version.
+ * Load an encrypted blob from localStorage. Returns null if absent or wrong version.
  */
-export function loadEncryptedKeyV2(): EncryptedKeyDataV2 | null {
+export function loadEncryptedKey(): EncryptedKeyData | null {
   const raw = localStorage.getItem(STORAGE_KEY)
   if (!raw) return null
   try {
@@ -184,23 +188,23 @@ export function loadEncryptedKeyV2(): EncryptedKeyDataV2 | null {
     ) {
       return null
     }
-    return parsed as EncryptedKeyDataV2
+    return parsed as EncryptedKeyData
   } catch {
     return null
   }
 }
 
 /**
- * Check if a v2 encrypted key exists in localStorage.
+ * Check if an encrypted key exists in localStorage.
  */
-export function hasStoredKeyV2(): boolean {
-  return loadEncryptedKeyV2() !== null
+export function hasStoredKey(): boolean {
+  return loadEncryptedKey() !== null
 }
 
 /**
- * Clear the v2 encrypted key from localStorage.
+ * Clear the encrypted key from localStorage.
  */
-export function clearStoredKeyV2(): void {
+export function clearStoredKey(): void {
   try {
     localStorage.removeItem(STORAGE_KEY)
   } catch {
@@ -236,13 +240,13 @@ export interface RewrapFactors {
 /**
  * Re-wrap the stored nsec under a new KEK derived with a new PIN.
  * Caller must have already unlocked the key with the current PIN (worker holds nsec).
- * Returns the new EncryptedKeyDataV2 as a JSON string, ready to send to the server.
+ * Returns the new EncryptedKeyData as a JSON string, ready to send to the server.
  * Also persists the new blob to localStorage.
  */
 export async function rewrapWithNewPin(
   newPin: string,
   factors: RewrapFactors,
-  currentBlob: EncryptedKeyDataV2
+  currentBlob: EncryptedKeyData
 ): Promise<string> {
   const { cryptoWorker } = await import('./crypto-worker-client')
   const newSalt = new Uint8Array(32)
@@ -254,13 +258,13 @@ export async function rewrapWithNewPin(
     salt: newSalt,
   })
   const reEncrypted = await cryptoWorker.reEncrypt(bytesToHex(newKek))
-  const newBlob: EncryptedKeyDataV2 = {
+  const newBlob: EncryptedKeyData = {
     ...currentBlob,
     salt: bytesToHex(newSalt),
     nonce: reEncrypted.nonce,
     ciphertext: reEncrypted.ciphertext,
   }
-  storeEncryptedKeyV2(newBlob)
+  storeEncryptedKey(newBlob)
   return JSON.stringify(newBlob)
 }
 
@@ -270,12 +274,12 @@ export async function rewrapWithNewPin(
  * Note: current implementation uses PIN + IdP value as the primary factors; the recovery
  * key is stored separately via createBackup(). This helper re-derives the main blob
  * using the new PIN context while recording that a new recovery key has been generated.
- * Returns the new EncryptedKeyDataV2 as a JSON string.
+ * Returns the new EncryptedKeyData as a JSON string.
  */
 export async function rewrapWithNewRecoveryKey(
   pin: string,
   factors: RewrapFactors,
-  currentBlob: EncryptedKeyDataV2
+  currentBlob: EncryptedKeyData
 ): Promise<string> {
   // For the primary blob, the factors are the same (PIN + IdP + optional PRF).
   // The recovery key is used only for the separate backup file. Rotating rewraps
@@ -291,12 +295,12 @@ export async function rewrapWithNewRecoveryKey(
     salt: newSalt,
   })
   const reEncrypted = await cryptoWorker.reEncrypt(bytesToHex(newKek))
-  const newBlob: EncryptedKeyDataV2 = {
+  const newBlob: EncryptedKeyData = {
     ...currentBlob,
     salt: bytesToHex(newSalt),
     nonce: reEncrypted.nonce,
     ciphertext: reEncrypted.ciphertext,
   }
-  storeEncryptedKeyV2(newBlob)
+  storeEncryptedKey(newBlob)
   return JSON.stringify(newBlob)
 }

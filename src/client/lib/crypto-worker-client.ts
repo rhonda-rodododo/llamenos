@@ -338,7 +338,7 @@ export class CryptoWorkerClient {
   // ---- Tier 1 HPKE sidecar ----
 
   /**
-   * Unlock the worker from a key-store-v3 unlock result. Accepts raw nsec
+   * Unlock the worker from a Tier 1 PIN-wrapped key store unlock result. Accepts raw nsec
    * bytes (consumed and zeroed inside the worker), the non-extractable HPKE
    * private CryptoKey, and the non-extractable hub AES-GCM CryptoKey.
    * Returns the derived x-only public key hex.

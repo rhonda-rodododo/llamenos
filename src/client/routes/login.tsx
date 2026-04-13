@@ -262,7 +262,7 @@ function LoginPage() {
         const recoveredPubkey = kp?.publicKey ?? ''
         // Recovery flow: user already exists in IdP, but we don't have a JWT yet.
         // Use synthetic value — auto-rotation to real IdP value happens on first unlock.
-        const { syntheticIdpValue } = await import('@/lib/key-store-v2')
+        const { syntheticIdpValue } = await import('@/lib/key-store')
         await keyManager.importKey(
           recoveredNsec,
           pin,

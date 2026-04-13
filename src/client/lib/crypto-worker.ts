@@ -11,7 +11,7 @@
  *   This worker is in a dual-era state. The legacy ECIES/XChaCha20 surface
  *   is still here because the remaining call sites that depend on it
  *   (file-crypto, hub-key-manager, signal-contact, device provisioning,
- *   key-store-v2 KEK rotation, notes/files envelope paths) have not yet been
+ *   key-store KEK rotation, notes/files envelope paths) have not yet been
  *   migrated — they carry over to Tier 2+.
  *
  *   Tier 1 added an HPKE sidecar for:
@@ -19,7 +19,7 @@
  *     - `hubFieldEncryptV3` / `hubFieldDecryptV3` — AES-GCM hub-key field crypto
  *       (wired to all hub-field call sites in PR-B).
  *     - `unlockFromKeyStoreV3` — accept non-extractable CryptoKey handles from
- *       key-store-v3 in addition to the legacy raw-nsec unlock path.
+ *       the PIN-wrapped Tier 1 sidecar in addition to the legacy raw-nsec path.
  *
  *   Rules while the sidecar coexists:
  *     - Never add a NEW caller that uses the ECIES surface; use HPKE.
@@ -151,8 +151,8 @@ type WorkerRequest =
       fieldName: string
     }
   | {
-      // Unlock from key-store-v3. The main thread runs KeyStoreV3.unlock(pin)
-      // which returns non-extractable CryptoKey handles; we transfer those
+      // Unlock from the Tier 1 PIN-wrapped key store. The main thread unwraps
+      // the PIN-bound blob which returns non-extractable CryptoKey handles; we transfer those
       // handles into the worker via structured clone. The nsec still arrives
       // as raw bytes because no current runtime offers a non-extractable
       // wrapKey path for X25519 schnorr/secp256k1 — see native-curves-check.
@@ -454,7 +454,7 @@ function handleReEncrypt(newKekHex: string): { nonce: string; ciphertext: string
   const newKek = hexToBytes(newKekHex)
   const nonce = randomBytes(24)
   const cipher = xchacha20poly1305(newKek, nonce)
-  // Encrypt the nsec as hex string (same format as encryptNsec in key-store-v2)
+  // Encrypt the nsec as hex string (same format as encryptNsec in key-store)
   // so that handleUnlock can decode it consistently
   const nsecHexBytes = new TextEncoder().encode(bytesToHex(secretKey))
   const ciphertext = cipher.encrypt(nsecHexBytes)
@@ -572,9 +572,9 @@ function handleImportSession(
 // ---- Tier 1 HPKE sidecar handlers ----
 
 /**
- * Unlock the worker from a key-store-v3 unlock result. The main thread runs
- * `KeyStoreV3.unlock(pin)` and transfers the non-extractable CryptoKey
- * handles (hub key, HPKE private key) plus the raw nsec bytes here.
+ * Unlock the worker from a Tier 1 PIN-wrapped key store unlock result. The
+ * main thread unwraps the PIN-bound blob and transfers the non-extractable
+ * CryptoKey handles (hub key, HPKE private key) plus the raw nsec bytes here.
  *
  * This sits alongside `handleUnlock` (legacy kek/nonce path) — callers
  * migrate at their own pace while Tier 1 rolls out. Both paths populate
@@ -587,7 +587,7 @@ function handleUnlockFromKeyStoreV3(
   hub: CryptoKey
 ): string {
   if (nsecRaw.byteLength !== 32) {
-    throw new Error(`key-store-v3 nsec must be 32 bytes, got ${nsecRaw.byteLength}`)
+    throw new Error(`Tier 1 nsec must be 32 bytes, got ${nsecRaw.byteLength}`)
   }
   secretKey = new Uint8Array(nsecRaw)
   nsecRaw.fill(0)

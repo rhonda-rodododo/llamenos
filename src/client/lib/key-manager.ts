@@ -16,19 +16,18 @@ import { type UserInfo, authFacadeClient } from './auth-facade-client'
 import { cryptoWorker } from './crypto-worker-client'
 import { createDebugLog } from './debug-log'
 import {
-  type EncryptedKeyDataV2,
+  type EncryptedKeyData,
   type KEKFactors,
   SYNTHETIC_ISSUERS,
   type SyntheticIssuer,
   isValidPin as _isValidPin,
-  clearStoredKeyV2,
+  clearStoredKey,
   deriveKEK,
   encryptNsec,
-  hasStoredKeyV2,
-  loadEncryptedKeyV2,
-  storeEncryptedKeyV2,
+  loadEncryptedKey,
+  storeEncryptedKey,
   syntheticIdpValue,
-} from './key-store-v2'
+} from './key-store'
 import { clearCapsule, loadCapsule, storeCapsule, updateAutoLockExpiry } from './session-capsule'
 
 // ---- Cross-tab lock propagation ----
@@ -202,7 +201,7 @@ if (typeof document !== 'undefined') {
 
 async function handleRotation(
   pin: string,
-  currentBlob: EncryptedKeyDataV2,
+  currentBlob: EncryptedKeyData,
   userInfo: UserInfo,
   prfOutput?: Uint8Array
 ): Promise<void> {
@@ -215,13 +214,13 @@ async function handleRotation(
   })
   // Ask worker to re-encrypt without exposing nsec to the main thread
   const reEncrypted = await cryptoWorker.reEncrypt(bytesToHex(newKek))
-  const newBlob: EncryptedKeyDataV2 = {
+  const newBlob: EncryptedKeyData = {
     ...currentBlob,
     salt: bytesToHex(newSalt),
     nonce: reEncrypted.nonce,
     ciphertext: reEncrypted.ciphertext,
   }
-  storeEncryptedKeyV2(newBlob)
+  storeEncryptedKey(newBlob)
   // Re-export the capsule with the new blob's pubkeyHash — the Worker now
   // holds a re-encrypted-at-rest nsec but the nsec bytes are unchanged, so
   // the exported capsule just needs to match the new blob's pubkeyHash.
@@ -249,7 +248,7 @@ async function handleRotation(
  */
 async function rotateSyntheticToReal(
   pin: string,
-  currentBlob: EncryptedKeyDataV2,
+  currentBlob: EncryptedKeyData,
   prfOutput?: Uint8Array
 ): Promise<void> {
   // Phase 1: resolve the real IdP value. A failure here is expected
@@ -277,14 +276,14 @@ async function rotateSyntheticToReal(
     })
     // Re-encrypt without exposing nsec to the main thread
     const reEncrypted = await cryptoWorker.reEncrypt(bytesToHex(newKek))
-    const newBlob: EncryptedKeyDataV2 = {
+    const newBlob: EncryptedKeyData = {
       ...currentBlob,
       salt: bytesToHex(newSalt),
       nonce: reEncrypted.nonce,
       ciphertext: reEncrypted.ciphertext,
       idpIssuer: realUserInfo.pubkey,
     }
-    storeEncryptedKeyV2(newBlob)
+    storeEncryptedKey(newBlob)
     // Re-export the capsule with the new blob's pubkeyHash — the Worker now
     // holds a re-encrypted-at-rest nsec but the nsec bytes are unchanged, so
     // the exported capsule just needs to match the new blob's pubkeyHash.
@@ -315,7 +314,7 @@ async function rotateSyntheticToReal(
  * should fall through to the PIN entry flow on false.
  */
 export async function trySessionRestore(): Promise<boolean> {
-  const blob = loadEncryptedKeyV2()
+  const blob = loadEncryptedKey()
   if (!blob) return false
 
   const loaded = await loadCapsule(blob.pubkeyHash)
@@ -349,7 +348,7 @@ export async function trySessionRestore(): Promise<boolean> {
  * Returns the hex pubkey on success, null on wrong PIN / missing factors.
  */
 export async function unlock(pin: string): Promise<string | null> {
-  const blob = loadEncryptedKeyV2()
+  const blob = loadEncryptedKey()
   if (!blob) return null
 
   // 1. Determine if blob was encrypted with a synthetic IdP value
@@ -490,7 +489,7 @@ export async function importKey(
 
   // Encrypt and store as v2 blob
   const blob = encryptNsec(nsecHex, kek, pubkey, !!prfOutput, idpIssuer, salt)
-  storeEncryptedKeyV2(blob)
+  storeEncryptedKey(blob)
 
   // Load into worker
   const workerPubkey = await cryptoWorker.unlock(bytesToHex(kek), blob.nonce, blob.ciphertext)
@@ -516,12 +515,7 @@ export async function getPublicKeyHex(): Promise<string | null> {
   return cryptoWorker.getPublicKey()
 }
 
-/**
- * Check if there's an encrypted key in local storage (v2 format).
- */
-export function hasStoredKey(): boolean {
-  return hasStoredKeyV2()
-}
+export { hasStoredKey } from './key-store'
 
 /**
  * Register a callback for lock events.
@@ -545,7 +539,7 @@ export function onUnlock(cb: () => void): () => void {
  */
 export async function wipeKey(): Promise<void> {
   await lock()
-  clearStoredKeyV2()
+  clearStoredKey()
 }
 
 /**
@@ -573,7 +567,7 @@ export class KeyLockedError extends Error {
   }
 }
 
-/** Validate a PIN format (6-8 digits). Re-exported from key-store-v2. */
+/** Validate a PIN format (6-8 digits). Re-exported from key-store. */
 export function isValidPin(pin: string): boolean {
   return _isValidPin(pin)
 }
