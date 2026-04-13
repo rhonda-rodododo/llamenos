@@ -21,4 +21,4 @@ llamenos_crypto_domain: "crypto.{{ domain }}"
 # Companion image built from deploy/docker/Dockerfile with target: static.
 # Bakes dist/client into /srv/app and dist/crypto-sandbox into /srv/crypto
 # on top of caddy:2-alpine. Published alongside the main llamenos image.
-llamenos_static_image: "ghcr.io/llamenos/llamenos-static:latest"
+llamenos_static_image: "ghcr.io/rhonda-rodododo/llamenos-hotline-static:latest"

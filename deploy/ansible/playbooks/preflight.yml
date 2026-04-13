@@ -88,7 +88,7 @@
           - llamenos_image | length > 0
         fail_msg: >
           REQUIRED: 'llamenos_image' must be set to the Docker image for the Llamenos app.
-          Example: llamenos_image: ghcr.io/llamenos/llamenos:0.20.0
+          Example: llamenos_image: ghcr.io/rhonda-rodododo/llamenos-hotline:0.45.0
         success_msg: "llamenos_image: {{ llamenos_image }}"
 
     - name: Assert admin_pubkey is a valid 64-character hex string

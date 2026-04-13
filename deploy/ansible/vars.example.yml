@@ -49,8 +49,8 @@ deploy_group: deploy
 
 # ─── Application ─────────────────────────────────────────────────
 # REQUIRED: Docker image for the Llamenos app
-# Use a specific tag in production (e.g., ghcr.io/llamenos/llamenos:0.20.0)
-llamenos_image: ghcr.io/llamenos/llamenos:latest
+# Use a specific tag in production (e.g., ghcr.io/rhonda-rodododo/llamenos-hotline:0.45.0)
+llamenos_image: ghcr.io/rhonda-rodododo/llamenos-hotline:latest
 
 # OPTIONAL: Docker image for Caddy reverse proxy
 caddy_image: caddy:2.9-alpine

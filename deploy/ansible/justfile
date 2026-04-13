@@ -89,7 +89,7 @@ reset-demo *ARGS:
 # Roll back demo to a specific image tag (e.g.: just rollback-demo v1.2.3)
 rollback-demo version *ARGS:
     ansible-playbook playbooks/deploy-demo.yml --ask-vault-pass \
-        --extra-vars "llamenos_image=ghcr.io/llamenos/llamenos:{{version}}" \
+        --extra-vars "llamenos_image=ghcr.io/rhonda-rodododo/llamenos-hotline:{{version}}" \
         {{ARGS}}
 
 # Run an encrypted backup of the demo instance
