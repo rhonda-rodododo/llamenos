@@ -173,7 +173,7 @@ describe('encryptFile', () => {
 
 // --- Envelope + fileId-bound AAD tests ---
 
-describe('file-crypto envelope v2', () => {
+describe('file-crypto envelope', () => {
   test('encrypt file produces Envelope with correct v and labelId', async () => {
     const content = new Uint8Array(1024)
     crypto.getRandomValues(content)
@@ -242,7 +242,7 @@ describe('file-crypto envelope v2', () => {
     ).rejects.toBeInstanceOf(Error)
   })
 
-  test('envelope v2 labelId check rejects wrong label', async () => {
+  test('envelope labelId check rejects wrong label', async () => {
     const content = new Uint8Array([5, 6, 7])
     const file = mockFile(content, 'label-check.bin')
     const fileId = crypto.randomUUID()
@@ -261,6 +261,6 @@ describe('file-crypto envelope v2', () => {
   })
 })
 
-// decryptFile, decryptFileMetadata, unwrapFileKey, and rewrapFileKey
+// decryptFile, decryptFileMetadata, and rewrapFileKey
 // require the crypto Web Worker (unavailable in bun:test).
 // Covered by API integration tests that run against a real server.

@@ -53,7 +53,7 @@ type WorkerRequest =
   | { type: 'lock'; id: string }
   | { type: 'sign'; id: string; messageHex: string }
   | {
-      // Legacy ECIES key unwrap (envelope v2 path). Domain separation comes
+      // Legacy ECIES key unwrap (label-id envelope path). Domain separation comes
       // from `label` (used to derive the symmetric wrapping key). The inner
       // AEAD uses empty AAD — do NOT add an `aad` field here unless
       // `eciesWrap`/`eciesUnwrap` actually plumb it through, otherwise

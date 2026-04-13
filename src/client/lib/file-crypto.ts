@@ -42,22 +42,6 @@ function buildFileAad(fileId: string): Uint8Array {
 }
 
 /**
- * Unwrap a symmetric file key using the crypto worker (secret key never touches main thread).
- * @deprecated Use decryptFile with Envelope instead.
- */
-export async function unwrapFileKey(
-  encryptedFileKeyHex: string,
-  ephemeralPubkeyHex: string
-): Promise<Uint8Array> {
-  const resultHex = await cryptoWorker.decrypt(
-    ephemeralPubkeyHex,
-    encryptedFileKeyHex,
-    LABEL_FILE_KEY
-  )
-  return hexToBytes(resultHex)
-}
-
-/**
  * Encrypt a file's metadata for a recipient (ECIES with LABEL_FILE_METADATA domain separation).
  * Unlike key wrapping, this encrypts arbitrary-length data, so it uses raw ECDH+XChaCha20.
  */
