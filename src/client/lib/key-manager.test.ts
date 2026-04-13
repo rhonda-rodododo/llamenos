@@ -14,12 +14,18 @@
  */
 import { beforeAll, beforeEach, describe, expect, mock, test } from 'bun:test'
 import { MockBroadcastChannel, MockBroadcastHub } from './__test-helpers__/mock-broadcast-channel'
+// Eagerly import the real module so the mock.module factory can spread its
+// named exports. bun's process-wide mock.module would otherwise strip them
+// and break sibling test files that import CryptoWorkerLockedError /
+// isWorkerLockedError / CryptoWorkerClient from this specifier.
+import * as realCryptoWorkerClient from './crypto-worker-client'
 
 // Stub cryptoWorker before key-manager imports it — key-manager calls
 // cryptoWorker.lock() inside lock(), and there is no real Web Worker in
 // the Bun test runtime.
 const cryptoWorkerLockMock = mock(async () => {})
 mock.module('./crypto-worker-client', () => ({
+  ...realCryptoWorkerClient,
   cryptoWorker: {
     lock: cryptoWorkerLockMock,
     unlock: mock(async () => null),

@@ -1,5 +1,6 @@
 import { createMiddleware } from 'hono/factory'
 import type { AppEnv } from '../types'
+import { buildDevCsp } from './security-headers-dev'
 
 /**
  * Tier 4 PR-A: API-host CSP (production).
@@ -29,41 +30,6 @@ export function buildApiCsp(): string {
     'report-uri /api/csp-report',
     'report-to csp-endpoint',
   ].join('; ')
-}
-
-/**
- * SPA-friendly CSP for dev/test mode. Uses nonce-based script-src when
- * available (from csp-nonce middleware), with inline styles allowed for
- * Tailwind's JIT engine.
- */
-function buildDevCsp(host: string, nonce: string | undefined, relayWsOrigin: string): string {
-  const nonceDirective = nonce ? ` 'nonce-${nonce}' 'strict-dynamic'` : ''
-  const isHttps = host.startsWith('https')
-  const upgrade = isHttps ? ' upgrade-insecure-requests;' : ''
-  return [
-    "default-src 'self'",
-    `script-src 'self'${nonceDirective}`,
-    `style-src 'self' 'nonce-${nonce ?? ''}' 'unsafe-inline'`,
-    "style-src-attr 'unsafe-inline'",
-    "img-src 'self' data: blob:",
-    "font-src 'self'",
-    `connect-src 'self' wss://${host}${relayWsOrigin}`,
-    "media-src 'self' blob:",
-    "worker-src 'self' blob:",
-    "manifest-src 'self'",
-    "object-src 'none'",
-    "frame-src 'none'",
-    "frame-ancestors 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-    "require-trusted-types-for 'script'",
-    'trusted-types llamenos default',
-    'report-uri /api/csp-report',
-    'report-to csp-endpoint',
-    upgrade,
-  ]
-    .filter(Boolean)
-    .join('; ')
 }
 
 export const securityHeaders = createMiddleware<AppEnv>(async (c, next) => {
