@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { OpenAPIHono } from '@hono/zod-openapi'
@@ -378,12 +379,37 @@ app.route('/api', api)
 // Tier 4 PR-A: in production, this host is API-only — no SPA fallback.
 // In development/test mode, serve the SPA from dist/client/ so Playwright
 // E2E tests and local dev work without a Caddy reverse proxy.
-// (Restored from 7e9e6600; accidentally deleted in #85 during a big merge.)
 if (process.env.ENVIRONMENT === 'development') {
   const staticDir = path.resolve(process.cwd(), 'dist', 'client')
-  app.use('*', serveStatic({ root: staticDir }))
-  // SPA fallback — serve index.html for all unmatched routes
-  app.use('*', serveStatic({ root: staticDir, path: '/index.html' }))
+  // Disable directory-index resolution so / and other SPA routes fall through
+  // to the nonce-injecting handler below. Static assets (anything with an
+  // extension that exists on disk) are still served.
+  app.use('*', serveStatic({ root: staticDir, index: '__no_index__' }))
+
+  // SPA fallback with CSP nonce injection. The dev CSP uses
+  // `script-src 'self' 'nonce-XXX' 'strict-dynamic'`, which makes browsers
+  // ignore `'self'` and only execute scripts that carry the matching nonce.
+  // The Vite build inserts `nonce="__CSP_NONCE__"` placeholders via
+  // cspNoncePlaceholderPlugin in vite.config.ts; we substitute the
+  // per-response nonce here. We also catch any <script> tag missing a
+  // nonce attribute (e.g. the vite-plugin-pwa register-sw script that is
+  // appended after the placeholder plugin runs) and inject one.
+  let indexTemplate: string | null = null
+  try {
+    indexTemplate = readFileSync(path.join(staticDir, 'index.html'), 'utf-8')
+  } catch {
+    // Built index.html not available — SPA fallback disabled.
+  }
+  if (indexTemplate) {
+    const tmpl = indexTemplate
+    app.use('*', async (c) => {
+      const nonce = c.get('cspNonce') ?? ''
+      const html = tmpl
+        .replaceAll('__CSP_NONCE__', nonce)
+        .replace(/<script(?![^>]*\snonce=)/g, `<script nonce="${nonce}"`)
+      return c.html(html)
+    })
+  }
 } else {
   // Production: API-only. Any request outside /api/* or /telephony/* returns
   // JSON 404 (matches the API error envelope).

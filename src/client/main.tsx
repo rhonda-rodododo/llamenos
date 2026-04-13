@@ -1,6 +1,11 @@
-import { installTrustedTypesPolicy } from '@/lib/trusted-types-policy'
-
-installTrustedTypesPolicy()
+// The Trusted Types `llamenos` and `default` policies are installed by the
+// inline <script> in index.html, BEFORE this module bundle starts loading.
+// That ordering is required because top-level singletons in this dependency
+// graph (crypto-worker-client, transcription-manager, sframe-worker-client,
+// vite-plugin-pwa registerSW) construct Workers and a Service Worker as soon
+// as their modules are evaluated, and the CSP enforces
+// `require-trusted-types-for 'script'`. See index.html and
+// src/client/lib/trusted-types-policy.ts for the policy rules.
 
 // Tier 4 PR-B — kick off the crypto-sandbox iframe boot in parallel with
 // SPA render. Non-blocking: when VITE_CRYPTO_ORIGIN is unset (local dev,

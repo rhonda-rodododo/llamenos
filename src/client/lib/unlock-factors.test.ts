@@ -6,6 +6,7 @@ import type { RootKekEnvelopeBundle } from '@shared/schemas/root-kek-envelope'
 // files that run later in the enumeration order and rely on those exports
 // (e.g. crypto-worker-client.test.ts, panic-wipe.test.ts, recovery-phrase.test.ts).
 import * as realCryptoWorkerClientNS from './crypto-worker-client'
+import * as realOpaqueClientNS from './opaque-client'
 import * as realRecoveryPhraseNS from './recovery-phrase'
 import * as realWebauthnNS from './webauthn'
 
@@ -14,6 +15,7 @@ import * as realWebauthnNS from './webauthn'
 // bun's mock.module replacement would have already mutated them to expose
 // the mocks. Plain snapshots freeze the real exports.
 const realCryptoWorkerClient = { ...realCryptoWorkerClientNS }
+const realOpaqueClient = { ...realOpaqueClientNS }
 const realRecoveryPhrase = { ...realRecoveryPhraseNS }
 const realWebauthn = { ...realWebauthnNS }
 
@@ -55,6 +57,7 @@ const mockOpaqueLoginFinish = mock(
   })
 )
 mock.module('./opaque-client', () => ({
+  ...realOpaqueClient,
   opaqueClient: {
     loginStart: mockOpaqueLoginStart,
     loginFinish: mockOpaqueLoginFinish,
@@ -118,6 +121,7 @@ describe('runUnlockFactor', () => {
     mock.module('./crypto-worker-client', () => realCryptoWorkerClient)
     mock.module('./webauthn', () => realWebauthn)
     mock.module('./recovery-phrase', () => realRecoveryPhrase)
+    mock.module('./opaque-client', () => realOpaqueClient)
   })
 
   beforeEach(() => {

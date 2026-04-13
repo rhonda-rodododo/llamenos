@@ -539,7 +539,6 @@ export class RecordsService {
     details?: Record<string, unknown>
   ): Promise<AuditLogEntry> {
     const hId = hubId ?? 'global'
-    const now = new Date()
 
     // Encrypt event and details with server-key (done outside transaction to minimize hold time)
     const encryptedEvent = this.crypto.serverEncrypt(event, LABEL_AUDIT_EVENT)
@@ -559,6 +558,15 @@ export class RecordsService {
       // Acquire a transaction-scoped advisory lock keyed on hubId. Concurrent
       // addAuditEntry calls for the same hub will wait here until the lock is released.
       await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${hId}))`)
+
+      // Capture the timestamp via clock_timestamp() AFTER acquiring the advisory lock,
+      // so that two concurrent inserts (Promise.all) get strictly monotonic timestamps.
+      // JS `new Date()` has only millisecond resolution and races on fast event loops —
+      // postgres clock_timestamp() has microsecond resolution and is captured serially
+      // because the lock has already serialized us. This makes ORDER BY createdAt
+      // a stable read order for hash-chain verification.
+      const tsRow = await tx.execute(sql`SELECT clock_timestamp() AS now`)
+      const now = new Date((tsRow as Array<{ now: string | Date }>)[0].now as string | Date)
 
       // Get last entry hash for chain (within transaction for consistency)
       const lastRows = await tx
