@@ -521,7 +521,7 @@ function handleProvisionNsec(recipientEphemeralPubkeyHex: string): {
  * lock() or wipeKey() must be called to clear both.
  */
 function handleExportSession(): {
-  token: string
+  tokenHex: string
   encryptedNsecHex: string
   capsuleNonceHex: string
 } {
@@ -537,7 +537,7 @@ function handleExportSession(): {
   plaintext.fill(0)
 
   return {
-    token: bytesToHex(token),
+    tokenHex: bytesToHex(token),
     encryptedNsecHex: bytesToHex(ciphertext),
     capsuleNonceHex: bytesToHex(nonce),
   }
