@@ -58,11 +58,7 @@ export const UploadInitSchema = z.object({
   totalSize: z.number().int(),
   totalChunks: z.number().int(),
   conversationId: z.string(),
-  /**
-   * Recipient envelopes carrying the wrapped per-file key.
-   * Validated with passthrough here so HPKE migrations don't require in-place schema edits.
-   */
-  recipientEnvelopes: z.array(z.object({}).passthrough()),
+  recipientEnvelopes: z.array(FileKeyEnvelopeSchema),
   encryptedMetadata: z.array(EncryptedMetaItemSchema),
   contextType: z.enum(['conversation', 'note', 'report', 'custom_field', 'voicemail']).optional(),
   contextId: z.string().optional(),

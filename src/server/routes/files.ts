@@ -1,4 +1,5 @@
 import { createRoute, z } from '@hono/zod-openapi'
+import { EncryptedMetaItemSchema, FileKeyEnvelopeSchema } from '../../shared/schemas/files'
 import type { EncryptedMetaItem, FileKeyEnvelope } from '../../shared/types'
 import { createRouter } from '../lib/openapi'
 import { checkPermission, requirePermission } from '../middleware/permission-guard'
@@ -63,7 +64,7 @@ const getEnvelopesRoute = createRoute({
   responses: {
     200: {
       description: 'File key envelopes',
-      content: { 'application/json': { schema: z.array(z.object({}).passthrough()) } },
+      content: { 'application/json': { schema: z.array(FileKeyEnvelopeSchema) } },
     },
     403: {
       description: 'Forbidden',
@@ -109,7 +110,7 @@ const getMetadataRoute = createRoute({
   responses: {
     200: {
       description: 'Encrypted file metadata',
-      content: { 'application/json': { schema: z.array(z.object({}).passthrough()) } },
+      content: { 'application/json': { schema: z.array(EncryptedMetaItemSchema) } },
     },
     403: {
       description: 'Forbidden',
@@ -157,17 +158,8 @@ const shareFileRoute = createRoute({
       content: {
         'application/json': {
           schema: z.object({
-            envelope: z.object({
-              v: z.literal(2),
-              labelId: z.number().int(),
-              pubkey: z.string(),
-              wrappedKey: z.string(),
-              ephemeralPubkey: z.string(),
-            }),
-            encryptedMetadata: z.object({
-              pubkey: z.string(),
-              encryptedContent: z.string(),
-            }),
+            envelope: FileKeyEnvelopeSchema,
+            encryptedMetadata: EncryptedMetaItemSchema,
           }),
         },
       },
@@ -201,14 +193,6 @@ files.openapi(shareFileRoute, async (c) => {
   const services = c.get('services')
 
   const body = c.req.valid('json')
-
-  if (!body.envelope?.pubkey || !body.envelope?.wrappedKey || !body.envelope?.ephemeralPubkey) {
-    return c.json({ error: 'Invalid envelope' }, 400)
-  }
-
-  if (!body.encryptedMetadata?.pubkey || !body.encryptedMetadata?.encryptedContent) {
-    return c.json({ error: 'Invalid encryptedMetadata' }, 400)
-  }
 
   const record = await services.files.getFileRecord(fileId)
   if (!record) {
