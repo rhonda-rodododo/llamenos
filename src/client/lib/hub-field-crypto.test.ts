@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'bun:test'
-import { decryptHubField, encryptHubField } from './hub-field-crypto'
+import {
+  decryptHubField,
+  decryptHubFieldAead,
+  encryptHubField,
+  encryptHubFieldAead,
+  generateHubFieldCryptoKey,
+} from './hub-field-crypto'
 import { clearHubKeyCache, setHubKeyForTest } from './hub-key-cache'
 
 // Ensure the module-level hub key cache is empty so the "no key" branch runs.
@@ -14,7 +20,7 @@ function randomHubKey(): Uint8Array {
 }
 
 describe('decryptHubField ciphertext detection (no hub key)', () => {
-  test('v3-shaped base64url ciphertext → returns placeholder', async () => {
+  test('ciphertext-shaped base64url → returns placeholder', async () => {
     clearHubKeyCache()
     const looksCipher = `${'A'.repeat(40)}`
     const result = await decryptHubField(
@@ -39,9 +45,9 @@ describe('decryptHubField ciphertext detection (no hub key)', () => {
     expect(result).toBe('Hub Admin')
   })
 
-  test('short v3-alphabet string → treated as plaintext', async () => {
+  test('short base64url-alphabet string → treated as plaintext', async () => {
     clearHubKeyCache()
-    const short = 'deadbeef' // 8 chars, below v3 min length
+    const short = 'deadbeef' // 8 chars, below ciphertext min length
     const result = await decryptHubField(short, HUB_ID, 'row-1', 'encrypted_name', 'PLACEHOLDER')
     expect(result).toBe(short)
   })
@@ -75,7 +81,7 @@ describe('decryptHubField ciphertext detection (no hub key)', () => {
   })
 })
 
-describe('hub-field AAD binding (v3 AES-GCM)', () => {
+describe('hub-field AAD binding (high-level wrapper)', () => {
   test('encrypt+decrypt round-trip', async () => {
     clearHubKeyCache()
     await setHubKeyForTest(HUB_ID, randomHubKey())
@@ -117,5 +123,61 @@ describe('hub-field AAD binding (v3 AES-GCM)', () => {
     clearHubKeyCache()
     const ct = await encryptHubField('value', 'no-such-hub', 'row-1', 'encrypted_name')
     expect(ct).toBeUndefined()
+  })
+})
+
+describe('hub-field AEAD primitive', () => {
+  test('generateHubFieldCryptoKey returns a non-extractable AES-GCM key', async () => {
+    const k = await generateHubFieldCryptoKey()
+    expect(k.algorithm.name).toBe('AES-GCM')
+    expect(k.extractable).toBe(false)
+    expect(k.usages).toContain('encrypt')
+    expect(k.usages).toContain('decrypt')
+  })
+
+  test('encrypt/decrypt round trip', async () => {
+    const k = await generateHubFieldCryptoKey()
+    const ct = await encryptHubFieldAead('Hello Shift', k, 'shift-1', 'name')
+    const pt = await decryptHubFieldAead(ct, k, 'shift-1', 'name')
+    expect(pt).toBe('Hello Shift')
+  })
+
+  test('wrong recordId fails (row swap rejected)', async () => {
+    const k = await generateHubFieldCryptoKey()
+    const ct = await encryptHubFieldAead('Value', k, 'row-A', 'name')
+    const pt = await decryptHubFieldAead(ct, k, 'row-B', 'name')
+    expect(pt).toBeNull()
+  })
+
+  test('wrong fieldName fails (column swap rejected)', async () => {
+    const k = await generateHubFieldCryptoKey()
+    const ct = await encryptHubFieldAead('Value', k, 'row-A', 'name')
+    const pt = await decryptHubFieldAead(ct, k, 'row-A', 'description')
+    expect(pt).toBeNull()
+  })
+
+  test('wrong key fails', async () => {
+    const k1 = await generateHubFieldCryptoKey()
+    const k2 = await generateHubFieldCryptoKey()
+    const ct = await encryptHubFieldAead('Value', k1, 'r', 'f')
+    const pt = await decryptHubFieldAead(ct, k2, 'r', 'f')
+    expect(pt).toBeNull()
+  })
+
+  test('tampered ciphertext fails', async () => {
+    const k = await generateHubFieldCryptoKey()
+    const ct = await encryptHubFieldAead('Value', k, 'r', 'f')
+    const tampered = `${ct.slice(0, -2)}AA`
+    const pt = await decryptHubFieldAead(tampered, k, 'r', 'f')
+    expect(pt).toBeNull()
+  })
+
+  test('nonce is random — two ciphertexts for the same input differ', async () => {
+    const k = await generateHubFieldCryptoKey()
+    const a = await encryptHubFieldAead('same', k, 'r', 'f')
+    const b = await encryptHubFieldAead('same', k, 'r', 'f')
+    expect(a).not.toBe(b)
+    expect(await decryptHubFieldAead(a, k, 'r', 'f')).toBe('same')
+    expect(await decryptHubFieldAead(b, k, 'r', 'f')).toBe('same')
   })
 })

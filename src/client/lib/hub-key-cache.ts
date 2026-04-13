@@ -6,14 +6,14 @@
  * envelopes. After login, call `loadHubKeysForUser()` to populate the cache.
  *
  * The cache holds two representations per hub:
- *   - raw 32-byte `Uint8Array` — needed by Nostr event decryption and any
+ *   - raw 32-byte `Uint8Array` — needed by Nostr event decryption and the
  *     legacy XChaCha20 path still in the tree (scheduled for removal)
- *   - non-extractable AES-256-GCM `CryptoKey` — the Tier 1 hub-field path
- *     (`hub-field-crypto-v3.ts`) operates on this handle. Raw bytes never
- *     flow through the worker boundary for the v3 path.
+ *   - non-extractable AES-256-GCM `CryptoKey` — the canonical hub-field
+ *     path (`hub-field-crypto.ts`) operates on this handle. Raw bytes never
+ *     flow through the worker boundary for the AEAD path.
  *
  * Both representations are populated atomically by `loadHubKeysForUser` so
- * there is no window where the v1 path sees a key the v3 path does not.
+ * there is no window where the legacy path sees a key the AEAD path does not.
  *
  * The cache is module-level (not React state) so it survives component
  * re-renders and can be accessed from the RelayManager callback.
@@ -23,7 +23,7 @@ import { LABEL_HUB_KEY_WRAP } from '@shared/crypto-labels'
 import type { KeyEnvelope } from '@shared/crypto-primitives'
 import { getMyHubKeyEnvelope } from './api'
 import { eciesUnwrapKey } from './crypto-worker-helpers'
-import { importHubKeyCryptoKey } from './hub-field-crypto-v3'
+import { importHubKeyCryptoKey } from './hub-field-crypto'
 
 interface CachedHubKey {
   raw: Uint8Array

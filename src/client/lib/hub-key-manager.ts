@@ -23,7 +23,7 @@ import { bytesToHex } from '@noble/hashes/utils.js'
 import { LABEL_HUB_KEY_WRAP, LABEL_HUB_PTK_PREV_GEN } from '@shared/crypto-labels'
 import { symmetricDecrypt, symmetricEncrypt } from '@shared/crypto-primitives'
 import type { Ciphertext } from '@shared/crypto-types'
-import type { EnvelopeV3 } from '@shared/envelope-v3'
+import type { HpkeEnvelope } from '@shared/hpke-envelope'
 import { buildAad, hpkeOpen, hpkeSeal } from '@shared/hpke-primitives'
 
 const log = createDebugLog('llamenos:hub-key-manager')
@@ -98,7 +98,7 @@ export async function wrapHubKeyForDevice(
   deviceEncPubkey: CryptoKey,
   deviceId: string,
   hubId: string
-): Promise<EnvelopeV3> {
+): Promise<HpkeEnvelope> {
   const aad = buildAad(LABEL_HUB_KEY_WRAP, deviceId, hubId)
   return hpkeSeal(hubKey, deviceEncPubkey, LABEL_HUB_KEY_WRAP, aad)
 }
@@ -114,7 +114,7 @@ export async function wrapHubKeyForDevices(
   hubKey: Uint8Array,
   devices: Array<{ deviceId: string; encPubkey: CryptoKey }>,
   hubId: string
-): Promise<Array<{ deviceId: string; envelope: EnvelopeV3 }>> {
+): Promise<Array<{ deviceId: string; envelope: HpkeEnvelope }>> {
   const settled = await Promise.allSettled(
     devices.map(async (d) => ({
       deviceId: d.deviceId,
@@ -122,7 +122,7 @@ export async function wrapHubKeyForDevices(
     }))
   )
 
-  const results: Array<{ deviceId: string; envelope: EnvelopeV3 }> = []
+  const results: Array<{ deviceId: string; envelope: HpkeEnvelope }> = []
   for (let i = 0; i < settled.length; i++) {
     const outcome = settled[i]
     if (outcome.status === 'fulfilled') {
@@ -148,14 +148,14 @@ export async function wrapHubKeyForDevices(
 /**
  * Unwrap a hub key from an HPKE envelope using a device's private key.
  *
- * @param envelope         The EnvelopeV3 received from the server
+ * @param envelope         The HpkeEnvelope received from the server
  * @param devicePrivateKey Device's X25519 private key (CryptoKey from HPKE KEM)
  * @param deviceId         The device identifier (must match what was used during wrapping)
  * @param hubId            Hub UUID (must match what was used during wrapping)
  * @returns                The 32-byte hub key
  */
 export async function unwrapHubKeyForDevice(
-  envelope: EnvelopeV3,
+  envelope: HpkeEnvelope,
   devicePrivateKey: CryptoKey,
   deviceId: string,
   hubId: string
@@ -297,7 +297,7 @@ export interface HubKeyRotationResult {
   newHubKey: Uint8Array
   newGeneration: number
   oldGenWrappedUnderNew: string // hex
-  deviceEnvelopes: Array<{ deviceId: string; envelope: EnvelopeV3 }>
+  deviceEnvelopes: Array<{ deviceId: string; envelope: HpkeEnvelope }>
   deviceCommitments: Array<{ deviceId: string; commitmentHash: string }>
 }
 
