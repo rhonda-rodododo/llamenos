@@ -12,7 +12,9 @@
  */
 
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
+import { asPubkeyHash16 } from '@shared/crypto-types'
 import { type UserInfo, authFacadeClient } from './auth-facade-client'
+import { LOCK_CHANNEL_NAME, type LockMessage, parseLockMessage } from './cross-tab-messages'
 import { cryptoWorker } from './crypto-worker-client'
 import { createDebugLog } from './debug-log'
 import {
@@ -34,7 +36,9 @@ import { clearCapsule, loadCapsule, storeCapsule, updateAutoLockExpiry } from '.
 // ---- Cross-tab lock propagation ----
 // Tabs share IDB but each has its own Worker closure. When one tab locks,
 // we broadcast to sibling tabs so they lock their own Worker state too.
-const LOCK_CHANNEL_NAME = 'llamenos-lock'
+// LOCK_CHANNEL_NAME and the parseLockMessage validator live in
+// `./cross-tab-messages` so every BroadcastChannel protocol in the client
+// goes through the same shape check at the receive boundary.
 let lockChannel: BroadcastChannel | null = null
 let suppressBroadcast = false
 
@@ -82,8 +86,9 @@ function getLockChannel(): BroadcastChannel | null {
   if (lockChannel) return lockChannel
   lockChannel = lockChannelFactory()
   if (lockChannel) {
-    lockChannel.onmessage = (e: MessageEvent<{ type: string }>) => {
-      if (e.data?.type !== 'lock') return
+    lockChannel.onmessage = (e: MessageEvent<unknown>) => {
+      const msg: LockMessage | null = parseLockMessage(e.data)
+      if (msg === null) return
       // Sibling tab locked — lock this one too, but do NOT re-broadcast
       // (otherwise we'd loop forever).
       suppressBroadcast = true
@@ -227,11 +232,11 @@ async function handleRotation(
   // the exported capsule just needs to match the new blob's pubkeyHash.
   try {
     const session = await cryptoWorker.exportSession()
-    await storeCapsule(session.token, {
+    await storeCapsule(session.tokenHex, {
       encryptedNsec: session.encryptedNsecHex,
       capsuleNonce: session.capsuleNonceHex,
       autoLockExpiresAt: Date.now() + getAutoLock(),
-      pubkeyHash: newBlob.pubkeyHash,
+      pubkeyHash: asPubkeyHash16(newBlob.pubkeyHash),
     })
   } catch (err) {
     // Capsule refresh failure is unexpected (the worker just re-encrypted
@@ -290,11 +295,11 @@ async function rotateSyntheticToReal(
     // the exported capsule just needs to match the new blob's pubkeyHash.
     try {
       const session = await cryptoWorker.exportSession()
-      await storeCapsule(session.token, {
+      await storeCapsule(session.tokenHex, {
         encryptedNsec: session.encryptedNsecHex,
         capsuleNonce: session.capsuleNonceHex,
         autoLockExpiresAt: Date.now() + getAutoLock(),
-        pubkeyHash: newBlob.pubkeyHash,
+        pubkeyHash: asPubkeyHash16(newBlob.pubkeyHash),
       })
     } catch (err) {
       log('post-rotation capsule export failed', { err })
@@ -318,7 +323,7 @@ export async function trySessionRestore(): Promise<boolean> {
   const blob = loadEncryptedKeyV2()
   if (!blob) return false
 
-  const loaded = await loadCapsule(blob.pubkeyHash)
+  const loaded = await loadCapsule(asPubkeyHash16(blob.pubkeyHash))
   if (!loaded) return false
 
   try {
@@ -415,11 +420,11 @@ export async function unlock(pin: string): Promise<string | null> {
       // should succeed (the worker was just unlocked).
       try {
         const session = await cryptoWorker.exportSession()
-        await storeCapsule(session.token, {
+        await storeCapsule(session.tokenHex, {
           encryptedNsec: session.encryptedNsecHex,
           capsuleNonce: session.capsuleNonceHex,
           autoLockExpiresAt: Date.now() + getAutoLock(),
-          pubkeyHash: blob.pubkeyHash,
+          pubkeyHash: asPubkeyHash16(blob.pubkeyHash),
         })
       } catch (err) {
         log('session capsule export failed', { err })
