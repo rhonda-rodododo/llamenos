@@ -2,7 +2,8 @@ import { z } from 'zod/v4'
 import { LABEL_REGISTRY } from './crypto-labels.js'
 
 /**
- * Tier 1 HPKE envelope. Replaces EnvelopeV2's ECIES wire format.
+ * HPKE envelope — the single on-the-wire envelope format used for
+ * per-recipient asymmetric encryption.
  *
  * Wire shape (JSON):
  *   {
@@ -11,6 +12,10 @@ import { LABEL_REGISTRY } from './crypto-labels.js'
  *     enc: <base64url HPKE encapsulated key>,
  *     ct:  <base64url HPKE ciphertext (includes AEAD tag)>
  *   }
+ *
+ * `v: 3` is the wire version carried over from the migration away from the
+ * legacy ECIES wire format — the `3` is frozen and lives here as a literal.
+ * The TypeScript surface is version-agnostic (`HpkeEnvelope`).
  *
  * `labelId` is cross-checked at open time against the expected label the
  * caller asserts — a recipient who expected a different domain will refuse
@@ -23,7 +28,7 @@ import { LABEL_REGISTRY } from './crypto-labels.js'
  * across rows is rejected by AEAD. See `hpkeSeal`/`hpkeOpen` in
  * `src/shared/hpke-primitives.ts`.
  */
-export interface EnvelopeV3 {
+export interface HpkeEnvelope {
   v: 3
   labelId: number
   enc: string
@@ -37,20 +42,20 @@ export interface EnvelopeV3 {
  */
 const MAX_LABEL_ID = LABEL_REGISTRY.length - 1
 
-export const EnvelopeV3Schema = z.object({
+export const HpkeEnvelopeSchema = z.object({
   v: z.literal(3),
   labelId: z.number().int().min(0).max(MAX_LABEL_ID),
   enc: z.string().min(1),
   ct: z.string().min(1),
-}) satisfies z.ZodType<EnvelopeV3>
+}) satisfies z.ZodType<HpkeEnvelope>
 
-export type EnvelopeV3Input = z.input<typeof EnvelopeV3Schema>
+export type HpkeEnvelopeInput = z.input<typeof HpkeEnvelopeSchema>
 
 /**
- * Type guard — accepts anything that already parses as a valid V3 envelope.
+ * Type guard — accepts anything that already parses as a valid envelope.
  * Useful at the worker boundary where untrusted `unknown` crosses into
  * typed code.
  */
-export function isEnvelopeV3(value: unknown): value is EnvelopeV3 {
-  return EnvelopeV3Schema.safeParse(value).success
+export function isHpkeEnvelope(value: unknown): value is HpkeEnvelope {
+  return HpkeEnvelopeSchema.safeParse(value).success
 }
