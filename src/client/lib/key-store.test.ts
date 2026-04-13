@@ -1,19 +1,19 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import {
-  type EncryptedKeyDataV2,
+  type EncryptedKeyData,
   type KEKFactors,
   SYNTHETIC_ISSUERS,
-  clearStoredKeyV2,
+  clearStoredKey,
   decryptNsec,
   deriveKEK,
   encryptNsec,
-  hasStoredKeyV2,
+  hasStoredKey,
   isValidPin,
-  loadEncryptedKeyV2,
-  storeEncryptedKeyV2,
+  loadEncryptedKey,
+  storeEncryptedKey,
   syntheticIdpValue,
-} from './key-store-v2'
+} from './key-store'
 
 // Mock localStorage for Bun (no browser)
 const store = new Map<string, string>()
@@ -137,7 +137,7 @@ describe('deriveKEK', () => {
 // ---------------------------------------------------------------------------
 
 describe('encryptNsec', () => {
-  test('produces a valid EncryptedKeyDataV2 blob', () => {
+  test('produces a valid EncryptedKeyData blob', () => {
     const salt = makeSalt()
     const idpValue = makeIdpValue()
     const kek = deriveKEK({ pin: '123456', idpValue, salt })
@@ -208,18 +208,18 @@ describe('encryptNsec', () => {
 })
 
 // ---------------------------------------------------------------------------
-// storeEncryptedKeyV2 + loadEncryptedKeyV2 — localStorage round-trip
+// storeEncryptedKey + loadEncryptedKey — localStorage round-trip
 // ---------------------------------------------------------------------------
 
-describe('storeEncryptedKeyV2 / loadEncryptedKeyV2', () => {
+describe('storeEncryptedKey / loadEncryptedKey', () => {
   test('round-trip: store then load returns same blob', () => {
     const salt = makeSalt()
     const idpValue = makeIdpValue()
     const kek = deriveKEK({ pin: '123456', idpValue, salt })
     const blob = encryptNsec(TEST_NSEC_HEX, kek, TEST_PUBKEY, false, 'test-issuer', salt)
 
-    storeEncryptedKeyV2(blob)
-    const loaded = loadEncryptedKeyV2()
+    storeEncryptedKey(blob)
+    const loaded = loadEncryptedKey()
 
     expect(loaded).not.toBeNull()
     expect(loaded!.version).toBe(2)
@@ -231,47 +231,47 @@ describe('storeEncryptedKeyV2 / loadEncryptedKeyV2', () => {
     expect(loaded!.idpIssuer).toBe(blob.idpIssuer)
   })
 
-  test('loadEncryptedKeyV2 returns null when nothing stored', () => {
-    expect(loadEncryptedKeyV2()).toBeNull()
+  test('loadEncryptedKey returns null when nothing stored', () => {
+    expect(loadEncryptedKey()).toBeNull()
   })
 
-  test('loadEncryptedKeyV2 returns null for non-JSON data', () => {
+  test('loadEncryptedKey returns null for non-JSON data', () => {
     localStorage.setItem('llamenos-encrypted-key-v2', 'not-json')
-    expect(loadEncryptedKeyV2()).toBeNull()
+    expect(loadEncryptedKey()).toBeNull()
   })
 
-  test('loadEncryptedKeyV2 returns null for wrong version', () => {
+  test('loadEncryptedKey returns null for wrong version', () => {
     localStorage.setItem(
       'llamenos-encrypted-key-v2',
       JSON.stringify({ version: 1, salt: 'aa', nonce: 'bb', ciphertext: 'cc' })
     )
-    expect(loadEncryptedKeyV2()).toBeNull()
+    expect(loadEncryptedKey()).toBeNull()
   })
 
-  test('hasStoredKeyV2 returns false when empty', () => {
-    expect(hasStoredKeyV2()).toBe(false)
+  test('hasStoredKey returns false when empty', () => {
+    expect(hasStoredKey()).toBe(false)
   })
 
-  test('hasStoredKeyV2 returns true after store', () => {
+  test('hasStoredKey returns true after store', () => {
     const salt = makeSalt()
     const idpValue = makeIdpValue()
     const kek = deriveKEK({ pin: '123456', idpValue, salt })
     const blob = encryptNsec(TEST_NSEC_HEX, kek, TEST_PUBKEY, false, 'test', salt)
-    storeEncryptedKeyV2(blob)
-    expect(hasStoredKeyV2()).toBe(true)
+    storeEncryptedKey(blob)
+    expect(hasStoredKey()).toBe(true)
   })
 
-  test('clearStoredKeyV2 removes the key', () => {
+  test('clearStoredKey removes the key', () => {
     const salt = makeSalt()
     const idpValue = makeIdpValue()
     const kek = deriveKEK({ pin: '123456', idpValue, salt })
     const blob = encryptNsec(TEST_NSEC_HEX, kek, TEST_PUBKEY, false, 'test', salt)
-    storeEncryptedKeyV2(blob)
-    expect(hasStoredKeyV2()).toBe(true)
+    storeEncryptedKey(blob)
+    expect(hasStoredKey()).toBe(true)
 
-    clearStoredKeyV2()
-    expect(hasStoredKeyV2()).toBe(false)
-    expect(loadEncryptedKeyV2()).toBeNull()
+    clearStoredKey()
+    expect(hasStoredKey()).toBe(false)
+    expect(loadEncryptedKey()).toBeNull()
   })
 
   test('full round-trip: store, load, decrypt recovers nsec', () => {
@@ -280,8 +280,8 @@ describe('storeEncryptedKeyV2 / loadEncryptedKeyV2', () => {
     const kek = deriveKEK({ pin: '123456', idpValue, salt })
     const blob = encryptNsec(TEST_NSEC_HEX, kek, TEST_PUBKEY, false, 'test', salt)
 
-    storeEncryptedKeyV2(blob)
-    const loaded = loadEncryptedKeyV2()!
+    storeEncryptedKey(blob)
+    const loaded = loadEncryptedKey()!
     const recovered = decryptNsec(loaded, kek)
 
     expect(recovered).toBe(TEST_NSEC_HEX)

@@ -193,7 +193,7 @@ function OnboardingPage() {
 
       // Import key via key manager (encrypts with PIN and real IdP nsecSecret)
       // Falls back to synthetic device-link value if IdP enrollment failed during redeem
-      const { syntheticIdpValue } = await import('@/lib/key-store-v2')
+      const { syntheticIdpValue } = await import('@/lib/key-store')
       const idpValue = idpNsecSecret ?? syntheticIdpValue('device-link')
       const issuer = idpNsecSecret ? window.location.origin : 'device-link'
       await keyManager.importKey(nsecHex, confirmedPin, pubkey, idpValue, undefined, issuer)
