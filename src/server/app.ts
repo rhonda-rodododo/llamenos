@@ -381,12 +381,8 @@ app.route('/api', api)
 // E2E tests and local dev work without a Caddy reverse proxy.
 if (process.env.ENVIRONMENT === 'development') {
   const staticDir = path.resolve(process.cwd(), 'dist', 'client')
-  // Disable directory-index resolution so / and other SPA routes fall through
-  // to the nonce-injecting handler below. Static assets (anything with an
-  // extension that exists on disk) are still served.
-  app.use('*', serveStatic({ root: staticDir, index: '__no_index__' }))
 
-  // SPA fallback with CSP nonce injection. The dev CSP uses
+  // CSP nonce injection. The dev CSP uses
   // `script-src 'self' 'nonce-XXX' 'strict-dynamic'`, which makes browsers
   // ignore `'self'` and only execute scripts that carry the matching nonce.
   // The Vite build inserts `nonce="__CSP_NONCE__"` placeholders via
@@ -400,15 +396,37 @@ if (process.env.ENVIRONMENT === 'development') {
   } catch {
     // Built index.html not available — SPA fallback disabled.
   }
+
   if (indexTemplate) {
     const tmpl = indexTemplate
-    app.use('*', async (c) => {
+    // Serve `/` and `/index.html` via nonce injection BEFORE serveStatic
+    // gets a chance to return the raw template from disk. This matters
+    // because the service worker precaches `/index.html` into Cache Storage
+    // and serves it for every navigation via workbox's NavigationRoute — if
+    // that cached body still contains the literal `__CSP_NONCE__`
+    // placeholder, the browser enforces a fresh CSP nonce header against a
+    // stale body and blocks every script on reload.
+    const serveIndex = createMiddleware(async (c) => {
       const nonce = c.get('cspNonce') ?? ''
       const html = tmpl
         .replaceAll('__CSP_NONCE__', nonce)
         .replace(/<script(?![^>]*\snonce=)/g, `<script nonce="${nonce}"`)
       return c.html(html)
     })
+    app.get('/', serveIndex)
+    app.get('/index.html', serveIndex)
+
+    // Static assets (anything with an extension that exists on disk).
+    // `index` is disabled so directory requests fall through to the SPA
+    // fallback below instead of serving index.html raw.
+    app.use('*', serveStatic({ root: staticDir, index: '__no_index__' }))
+
+    // SPA fallback for client-side routes (/dashboard, /admin/*, …) that
+    // have no matching file on disk.
+    app.use('*', serveIndex)
+  } else {
+    // No built template — only serve static assets.
+    app.use('*', serveStatic({ root: staticDir, index: '__no_index__' }))
   }
 } else {
   // Production: API-only. Any request outside /api/* or /telephony/* returns

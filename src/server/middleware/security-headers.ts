@@ -65,7 +65,15 @@ export const securityHeaders = createMiddleware<AppEnv>(async (c, next) => {
       ? 'Content-Security-Policy-Report-Only'
       : 'Content-Security-Policy'
 
-  if (isDev) {
+  // API and webhook paths always return JSON/empty responses and never serve
+  // HTML. Lock them down to `*-src 'none'` regardless of environment — this
+  // is defense in depth against MIME confusion (if a browser is tricked into
+  // rendering a JSON response as HTML) and ensures the CSP visible to clients
+  // matches what the API host would send in production.
+  const path = new URL(c.req.url).pathname
+  const isApiPath = path.startsWith('/api/') || path.startsWith('/telephony/')
+
+  if (isDev && !isApiPath) {
     const host = new URL(c.req.url).host
     // biome-ignore lint/suspicious/noExplicitAny: CSP nonce set by csp-nonce middleware
     const nonce = (c as any).get?.('cspNonce') as string | undefined
