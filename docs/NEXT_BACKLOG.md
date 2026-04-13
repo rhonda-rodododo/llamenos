@@ -347,7 +347,7 @@ admin-flow (18), blast-sending (8), notes-crud (7), smoke (4), theme (7), health
 ## Data Layer — Future Work
 
 - [x] **React Query for fetch + decrypt** — Completed in react-query refactor PR #28.
-- [ ] **Eliminate remaining decryptHubField calls** — 53 usages of `decryptHubField` still in 10+ component files (shifts, blasts, hubs, contacts, etc.). Each should be moved to the respective React Query `queryFn` following the decrypt-in-queryFn pattern established in roles.ts. Also remove `hub-field-crypto.ts` once all callsites are migrated.
+- [x] **Eliminate remaining decryptHubField calls** — Verified 2026-04-12: all `decryptHubField()` call sites now live in `src/client/lib/queries/*.ts` (teams, tags, settings, shifts, notes, blasts, roles, reports, hubs, firehose) — the target decrypt-in-queryFn pattern. Zero component-level callers remain. The 2 mentions in `tag-input.tsx` and `platform-roles-section.tsx` are comments referencing the function, not calls. `hub-field-crypto.ts` stays as the implementation the queries import.
 
 ## Comprehensive Audit (2026-04-02)
 
