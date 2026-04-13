@@ -75,7 +75,7 @@ const payloadFixtures: Array<{ name: string; payload: AuditEntryPayload }> = [
       userId: UUID,
       oldRootKeyId: null,
       newRootKeyId: UUID,
-      reason: 'migration_v2_v3',
+      reason: 'manual',
     },
   },
   // Tier 3: sigchain payload variants
