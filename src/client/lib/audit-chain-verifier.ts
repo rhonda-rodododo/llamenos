@@ -35,7 +35,6 @@ export type ChainVerificationErrorCode =
   | 'signature_invalid'
   | 'signer_not_trusted'
   | 'schema_invalid'
-  | 'empty_chain'
   | 'rotation_trigger_not_at_head'
   | 'invalid_rotation_trigger_type'
 
@@ -149,11 +148,18 @@ export interface VerifyAuditChainOptions {
   cacheStore?: ChainCacheStore
 }
 
+/**
+ * Walk and verify a hub's signed audit chain. Returns the verified head
+ * entry, or `null` if the hub has no signed entries yet (fresh hubs and
+ * tests where no admin action has emitted a signed entry). An empty chain
+ * is a valid initial state, not tampering — callers that need to enforce
+ * non-empty (e.g. key-rotation gates) should check for null explicitly.
+ */
 export async function verifyAuditChain(
   hubId: string,
   trustAnchorDevicePubkeys: Set<string>,
   opts: VerifyAuditChainOptions = {}
-): Promise<SignedAuditEntry> {
+): Promise<SignedAuditEntry | null> {
   const fetcher = opts.fetchEntriesSince ?? defaultFetchEntriesSince
   const cache = opts.cacheStore ?? idbChainCacheStore
 

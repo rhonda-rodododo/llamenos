@@ -344,7 +344,7 @@ function ActorDisplay({ pubkey, nameMap }: { pubkey: string; nameMap: Map<string
 
 type ChainBannerStatus =
   | { kind: 'verifying' }
-  | { kind: 'verified'; head: { createdAt: string; entryHash: string } }
+  | { kind: 'verified'; head: { createdAt: string; entryHash: string } | null }
   | { kind: 'tampered'; error: { code: string; details: Record<string, unknown> } }
   | { kind: 'error'; error: Error }
 
@@ -364,7 +364,7 @@ function ChainIntegrityBanner({ status }: { status: ChainBannerStatus }) {
     )
   }
   if (status.kind === 'verified') {
-    const when = new Date(status.head.createdAt).toLocaleString()
+    const when = status.head ? new Date(status.head.createdAt).toLocaleString() : null
     return (
       <div
         data-testid="audit-chain-status-verified"
@@ -372,10 +372,14 @@ function ChainIntegrityBanner({ status }: { status: ChainBannerStatus }) {
       >
         <ShieldCheck className="h-3.5 w-3.5" />
         <span>
-          {t('auditLog.chain.verified', {
-            defaultValue: 'Chain verified — last entry {{when}}',
-            when,
-          })}
+          {when
+            ? t('auditLog.chain.verified', {
+                defaultValue: 'Chain verified — last entry {{when}}',
+                when,
+              })
+            : t('auditLog.chain.verifiedEmpty', {
+                defaultValue: 'Chain verified — no entries yet',
+              })}
         </span>
       </div>
     )

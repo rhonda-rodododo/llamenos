@@ -126,7 +126,7 @@ export function deriveAuditTrustAnchorPubkeys(
 }
 
 export type ChainIntegrityStatus =
-  | { state: 'verified'; head: SignedAuditEntry }
+  | { state: 'verified'; head: SignedAuditEntry | null }
   | { state: 'tampered'; error: ChainVerificationError }
 
 /**
