@@ -19,7 +19,7 @@ function randomHubKey(): Uint8Array {
   return b
 }
 
-describe('decryptHubField ciphertext detection (no hub key)', () => {
+describe('decryptHubField — no hub key loaded', () => {
   test('ciphertext-shaped base64url → returns placeholder', async () => {
     clearHubKeyCache()
     const looksCipher = `${'A'.repeat(40)}`
@@ -33,7 +33,7 @@ describe('decryptHubField ciphertext detection (no hub key)', () => {
     expect(result).toBe('PLACEHOLDER')
   })
 
-  test('plaintext "Hub Admin" → returns input (not ciphertext-shaped)', async () => {
+  test('server plaintext "Hub Admin" → returns placeholder, never leaks server value (H1)', async () => {
     clearHubKeyCache()
     const result = await decryptHubField(
       'Hub Admin',
@@ -42,21 +42,21 @@ describe('decryptHubField ciphertext detection (no hub key)', () => {
       'encrypted_name',
       'PLACEHOLDER'
     )
-    expect(result).toBe('Hub Admin')
+    expect(result).toBe('PLACEHOLDER')
   })
 
-  test('short base64url-alphabet string → treated as plaintext', async () => {
+  test('short base64url-alphabet string → returns placeholder, never leaks server value (H1)', async () => {
     clearHubKeyCache()
-    const short = 'deadbeef' // 8 chars, below ciphertext min length
+    const short = 'deadbeef'
     const result = await decryptHubField(short, HUB_ID, 'row-1', 'encrypted_name', 'PLACEHOLDER')
-    expect(result).toBe(short)
+    expect(result).toBe('PLACEHOLDER')
   })
 
-  test('non-alphabet string → treated as plaintext', async () => {
+  test('non-alphabet string → returns placeholder, never leaks server value (H1)', async () => {
     clearHubKeyCache()
     const bogus = `hello world ${'!'.repeat(40)}`
     const result = await decryptHubField(bogus, HUB_ID, 'row-1', 'encrypted_name', 'PLACEHOLDER')
-    expect(result).toBe(bogus)
+    expect(result).toBe('PLACEHOLDER')
   })
 
   test('null → returns placeholder', async () => {
@@ -116,6 +116,20 @@ describe('hub-field AAD binding (high-level wrapper)', () => {
     expect(ct).toBeDefined()
     clearHubKeyCache()
     const pt = await decryptHubField(ct!, 'hub-with-key', 'row-1', 'encrypted_name', '[locked]')
+    expect(pt).toBe('[locked]')
+  })
+
+  test('AEAD failure with hub key present → returns placeholder, never raw input (H1)', async () => {
+    clearHubKeyCache()
+    await setHubKeyForTest(HUB_ID, randomHubKey())
+    const notRealCiphertext = 'This is server plaintext that should never leak'
+    const pt = await decryptHubField(
+      notRealCiphertext,
+      HUB_ID,
+      'row-1',
+      'encrypted_name',
+      '[locked]'
+    )
     expect(pt).toBe('[locked]')
   })
 

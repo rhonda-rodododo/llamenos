@@ -38,17 +38,6 @@ function b64urlDecode(s: string): Uint8Array {
 }
 
 /**
- * A base64url "looks like ciphertext" heuristic used when the hub key is not
- * yet loaded. Plaintext round-trips from the server during initial hub setup
- * must not be dropped — only true ciphertexts should be replaced by a
- * placeholder. A minimum length of 40 covers nonce (12) + tag (16) in base64url.
- */
-function looksLikeCiphertext(s: string): boolean {
-  if (s.length < 40) return false
-  return /^[A-Za-z0-9_-]+$/.test(s)
-}
-
-/**
  * Encrypt `value` with the given hub AES-GCM `CryptoKey`, binding AAD to
  * `(recordId, fieldName)`.
  */
@@ -162,12 +151,9 @@ export async function encryptHubField(
 }
 
 /**
- * Decrypt a hub-encrypted field.
- *
- * Boundary adapter: accepts unbranded `string` from API responses and casts
- * to `Ciphertext` for the crypto layer. The AAD `(recordId, fieldName)` must
- * match what was used at encrypt time. If it doesn't, AES-GCM authentication
- * fails and the placeholder is returned.
+ * Decrypt a hub-encrypted field. Returns `placeholder` on ANY failure — missing
+ * hub key, AEAD auth failure, or null/empty input. Never returns the raw server
+ * value; callers must not pass server-sourced plaintext as `placeholder`.
  */
 export async function decryptHubField(
   encrypted: string | null | undefined,
@@ -178,12 +164,9 @@ export async function decryptHubField(
 ): Promise<string> {
   if (!encrypted) return placeholder
   const hubKey = getHubKeyCryptoKeyForId(hubId)
-  if (!hubKey) {
-    return looksLikeCiphertext(encrypted) ? placeholder : encrypted
-  }
+  if (!hubKey) return placeholder
   const decrypted = await decryptHubFieldAead(encrypted, hubKey, recordId, fieldName)
-  if (decrypted !== null) return decrypted
-  return looksLikeCiphertext(encrypted) ? placeholder : encrypted
+  return decrypted ?? placeholder
 }
 
 /**
