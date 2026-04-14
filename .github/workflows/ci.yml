@@ -294,11 +294,36 @@ jobs:
           BRIDGE_SECRET: ci-bridge-secret
 
       - name: Wait for Authentik
+        env:
+          BOOTSTRAP_TOKEN: ci-bootstrap-token
         run: |
+          # /-/health/ready/ returns 200 as soon as the web server is up,
+          # but Authentik's bootstrap process (provisioning the bootstrap
+          # token, default flows, etc) runs separately and may not be done.
+          # Step 1: wait for the web server to be ready.
           for i in $(seq 1 60); do
             curl -sf http://localhost:9100/-/health/ready/ && break
             sleep 5
           done
+          # Step 2: wait for the bootstrap token to actually authorize an
+          # API call. The server's connectivity check uses GET /api/v3/core/users/
+          # so we poll the same endpoint here. 200 means the token is provisioned;
+          # 403 means bootstrap isn't done yet — retry.
+          for i in $(seq 1 60); do
+            STATUS=$(curl -s -o /dev/null -w '%{http_code}' \
+              -H "Authorization: Bearer $BOOTSTRAP_TOKEN" \
+              "http://localhost:9100/api/v3/core/users/?page_size=1")
+            if [ "$STATUS" = "200" ]; then
+              echo "Authentik bootstrap token authorized after ${i} retries"
+              break
+            fi
+            echo "Authentik bootstrap not ready (HTTP $STATUS), retrying..."
+            sleep 5
+          done
+          # Final assert — fail loudly if the token still doesn't work
+          curl -sf -H "Authorization: Bearer $BOOTSTRAP_TOKEN" \
+            "http://localhost:9100/api/v3/core/users/?page_size=1" >/dev/null \
+            || { echo "::error::Authentik bootstrap token never became valid"; exit 1; }
 
       - name: Wait for Signal bridge
         run: |
@@ -412,11 +437,36 @@ jobs:
           BRIDGE_SECRET: ci-bridge-secret
 
       - name: Wait for Authentik
+        env:
+          BOOTSTRAP_TOKEN: ci-bootstrap-token
         run: |
+          # /-/health/ready/ returns 200 as soon as the web server is up,
+          # but Authentik's bootstrap process (provisioning the bootstrap
+          # token, default flows, etc) runs separately and may not be done.
+          # Step 1: wait for the web server to be ready.
           for i in $(seq 1 60); do
             curl -sf http://localhost:9100/-/health/ready/ && break
             sleep 5
           done
+          # Step 2: wait for the bootstrap token to actually authorize an
+          # API call. The server's connectivity check uses GET /api/v3/core/users/
+          # so we poll the same endpoint here. 200 means the token is provisioned;
+          # 403 means bootstrap isn't done yet — retry.
+          for i in $(seq 1 60); do
+            STATUS=$(curl -s -o /dev/null -w '%{http_code}' \
+              -H "Authorization: Bearer $BOOTSTRAP_TOKEN" \
+              "http://localhost:9100/api/v3/core/users/?page_size=1")
+            if [ "$STATUS" = "200" ]; then
+              echo "Authentik bootstrap token authorized after ${i} retries"
+              break
+            fi
+            echo "Authentik bootstrap not ready (HTTP $STATUS), retrying..."
+            sleep 5
+          done
+          # Final assert — fail loudly if the token still doesn't work
+          curl -sf -H "Authorization: Bearer $BOOTSTRAP_TOKEN" \
+            "http://localhost:9100/api/v3/core/users/?page_size=1" >/dev/null \
+            || { echo "::error::Authentik bootstrap token never became valid"; exit 1; }
 
       - name: Wait for Signal bridge
         run: |
