@@ -5,11 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.48.7] - 2026-04-14
+
+### Bug Fixes
+
+- wait for Authentik bootstrap token, not just web health (#125)
+
+### Miscellaneous
+
+- v0.48.7 [skip ci]
+
 ## [0.48.6] - 2026-04-14
 
 ### Bug Fixes
 
 - P1 — OPAQUE cache cap + route error handling (#115)
+- P1 — worker degraded notification + adapter fail-closed (#117)
+- rescue Tier 4 deep-review fixes — CORP, jwtAuth scope, RPC exhaustiveness (#119)
+- P1 — missing FK constraints on hub_ptk_generations / hub_key_envelopes (#121)
+- P1 — recovery group routes → OpenAPIHono (#122)
+- P1 — crypto worker boundary AAD propagation (#124)
+
+### Documentation
+
+- FDE ISO operator guide + threat model overhaul (#118)
+- P1 — whitepaper Current vs Target accuracy rewrite (#123)
+
+### Features
+
+- wire release verifier into SPA boot (#111)
 
 ### Miscellaneous
 
