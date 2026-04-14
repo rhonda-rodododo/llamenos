@@ -66,7 +66,9 @@ function installOpaqueServerStubs() {
     state: 'opaque-state',
     message: 'ok-credential-response',
   })) as typeof opaqueServer.startLogin
-  opaqueServer.finishLogin = (async () => 'ok-session-key') as typeof opaqueServer.finishLogin
+  opaqueServer.finishLogin = (async () => ({
+    sessionKey: new Uint8Array(64),
+  })) as typeof opaqueServer.finishLogin
 }
 
 function restoreOpaqueServer() {
