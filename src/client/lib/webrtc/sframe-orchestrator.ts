@@ -43,10 +43,7 @@
  * See the PR body's "Deferred items" section for the persistence work.
  */
 
-import { LABEL_SFRAME_CALL_SECRET } from '@shared/crypto-labels.js'
 import { createHpkeSuite } from '@shared/crypto-suite.js'
-import type { HpkeEnvelope } from '@shared/hpke-envelope.js'
-import { buildAad, hpkeOpen, hpkeSeal } from '@shared/hpke-primitives.js'
 import { KIND_DTLS_BINDING, KIND_SFRAME_KEY } from '@shared/nostr-events.js'
 import type { DtlsBindingEvent, SFrameKeyEvent } from '@shared/schemas/nostr-events.js'
 import { createDebugLog } from '../debug-log.js'
@@ -60,8 +57,6 @@ import {
 } from './dtls-fingerprint.js'
 import {
   type BuildKeyEventInputs,
-  type HpkeOpenFn,
-  type HpkeSealFn,
   buildKeyEvent,
   parseKeyEvent,
 } from './sframe-key-distribution.js'
@@ -70,29 +65,6 @@ import { assertKeyIdContiguous, freshSecretOnLeave, ratchetOnJoin } from './sfra
 import type { SFrameWorkerClient } from './sframe-worker-client.js'
 
 const log = createDebugLog('llamenos:sframe:orchestrator')
-
-/** Canonical AAD for the SFrame call-secret wrap, bound to a specific callId. */
-function sframeAad(sframeCallId: string): Uint8Array {
-  return buildAad(LABEL_SFRAME_CALL_SECRET, sframeCallId, 'sframe-secret')
-}
-
-/**
- * Curry a call-scoped seal fn that binds the HPKE label and AAD so the
- * key-distribution module doesn't have to know either. This is the place
- * the spec calls out: "the curry is the place to enforce those bindings".
- */
-function curriedSeal(sframeCallId: string): HpkeSealFn {
-  const aad = sframeAad(sframeCallId)
-  return (plaintext, recipientPublicKey) =>
-    hpkeSeal(plaintext, recipientPublicKey, LABEL_SFRAME_CALL_SECRET, aad)
-}
-
-/** Matching call-scoped open fn for the inbound relay path. */
-function curriedOpen(sframeCallId: string): HpkeOpenFn {
-  const aad = sframeAad(sframeCallId)
-  return (envelope, recipientPrivateKey) =>
-    hpkeOpen(envelope, recipientPrivateKey, LABEL_SFRAME_CALL_SECRET, aad)
-}
 
 /**
  * External dependencies the orchestrator needs from the React tree. These are
@@ -220,7 +192,6 @@ async function tryParseInbound(
       event,
       localDeviceId: state.initiatorPubkeyHex,
       privateKey: state.hpkeKeypair.privateKey,
-      hpkeOpen: curriedOpen(state.sframeCallId),
     })
   } catch (err) {
     log('parseKeyEvent failed for call %s: %s', state.sframeCallId, (err as Error).message)
@@ -385,7 +356,6 @@ export function createSFrameOrchestrator(ctx: StartCallCtx): SFrameOrchestrator 
       recipients,
       senderIds: [initiatorPubkeyHex],
       reason: 'initial',
-      hpkeSeal: curriedSeal(sframeCallId),
     }
     const keyEvent = await buildKeyEvent(eventInputs)
 
@@ -396,7 +366,6 @@ export function createSFrameOrchestrator(ctx: StartCallCtx): SFrameOrchestrator 
       event: keyEvent,
       localDeviceId: initiatorPubkeyHex,
       privateKey: hpkeKeypair.privateKey,
-      hpkeOpen: curriedOpen(sframeCallId),
     })
     if (roundTripped.byteLength !== 32) {
       throw new Error(`sframe loopback secret malformed: ${roundTripped.byteLength} bytes`)
@@ -517,7 +486,6 @@ export function createSFrameOrchestrator(ctx: StartCallCtx): SFrameOrchestrator 
       recipients,
       senderIds: [state.initiatorPubkeyHex],
       reason,
-      hpkeSeal: curriedSeal(state.sframeCallId),
     })
     // Install locally as the new sender key, then publish.
     const baseKey = nextSecret.slice().buffer as ArrayBuffer
