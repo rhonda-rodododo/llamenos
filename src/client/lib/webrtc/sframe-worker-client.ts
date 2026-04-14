@@ -40,6 +40,7 @@ export interface SFrameTransformOptions {
 interface Pending {
   resolve: (v: unknown) => void
   reject: (e: Error) => void
+  timer?: ReturnType<typeof setTimeout>
 }
 
 // Distribute `Omit` across every branch of a discriminated union so that
@@ -47,12 +48,16 @@ interface Pending {
 type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never
 type SFrameRequestBody = DistributiveOmit<SFrameWorkerRequest, 'id'>
 
+const DEFAULT_RPC_TIMEOUT_MS = 5_000
+
 export class SFrameWorkerClient {
   private worker: Worker
   private pending = new Map<string, Pending>()
   private idCounter = 0
+  private readonly rpcTimeoutMs: number
 
-  constructor(worker?: Worker) {
+  constructor(worker?: Worker, rpcTimeoutMs: number = DEFAULT_RPC_TIMEOUT_MS) {
+    this.rpcTimeoutMs = rpcTimeoutMs
     if (worker) {
       this.worker = worker
     } else {
@@ -70,6 +75,7 @@ export class SFrameWorkerClient {
     const p = this.pending.get(resp.id)
     if (!p) return
     this.pending.delete(resp.id)
+    if (p.timer) clearTimeout(p.timer)
     if (resp.type === 'error') {
       p.reject(new SFrameWorkerError(resp.error, resp.code))
     } else {
@@ -79,7 +85,10 @@ export class SFrameWorkerClient {
 
   private handleError(ev: ErrorEvent): void {
     const err = new Error(`SFrame worker error: ${ev.message}`)
-    for (const [, p] of this.pending) p.reject(err)
+    for (const [, p] of this.pending) {
+      if (p.timer) clearTimeout(p.timer)
+      p.reject(err)
+    }
     this.pending.clear()
   }
 
@@ -91,7 +100,16 @@ export class SFrameWorkerClient {
   private call(req: SFrameRequestBody): Promise<unknown> {
     const id = this.nextId()
     return new Promise<unknown>((resolve, reject) => {
-      this.pending.set(id, { resolve, reject })
+      const entry: Pending = { resolve, reject }
+      this.pending.set(id, entry)
+      entry.timer = setTimeout(() => {
+        const current = this.pending.get(id)
+        if (!current) return
+        this.pending.delete(id)
+        current.reject(
+          new SFrameWorkerError('worker did not respond within timeout', 'worker_not_ready')
+        )
+      }, this.rpcTimeoutMs)
       this.worker.postMessage({ ...req, id } as SFrameWorkerRequest)
     })
   }
