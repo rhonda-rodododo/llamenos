@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.48.3] - 2026-04-14
+
+### Bug Fixes
+
+- Tier 6 SAS derivation binds both parties + nonce (#106)
+
+### Documentation
+
+- post-overhaul gaps audit for 2026-04-13 session (#105)
+
+### Miscellaneous
+
+- v0.48.3 [skip ci]
+
 ## [0.48.2] - 2026-04-13
 
 ### Miscellaneous
