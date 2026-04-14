@@ -1,4 +1,5 @@
 import { z } from '@hono/zod-openapi'
+import { Tier3DeviceAddPayloadSchema, Tier3DeviceRemovePayloadSchema } from './sigchain'
 
 const hexPubkey = z.string().regex(/^[0-9a-f]{64}$/)
 
@@ -25,7 +26,13 @@ export const FinalizeEnrollmentRequestSchema = z.object({
   signedEntry: z.object({
     id: z.string().uuid(),
     hubId: z.string().uuid(),
-    payload: z.record(z.string(), z.unknown()),
+    /**
+     * The sigchain entry payload. For finalize-enrollment this MUST be a
+     * `tier3_device_add` payload — the discriminated literal is enforced at
+     * the API boundary so a client can't smuggle a different entry type
+     * through this endpoint.
+     */
+    payload: Tier3DeviceAddPayloadSchema,
     prevEntryHash: z.string().nullable(),
     entryHash: z.string(),
     signerDeviceId: z.string(),
@@ -75,7 +82,13 @@ export const RevokeDeviceRequestSchema = z.object({
   signedEntry: z.object({
     id: z.string().uuid(),
     hubId: z.string().uuid(),
-    payload: z.record(z.string(), z.unknown()),
+    /**
+     * The sigchain entry payload. For revoke-device this MUST be a
+     * `tier3_device_remove` payload — the discriminated literal is enforced
+     * at the API boundary so a client can't smuggle a different entry type
+     * through this endpoint.
+     */
+    payload: Tier3DeviceRemovePayloadSchema,
     prevEntryHash: z.string().nullable(),
     entryHash: z.string(),
     signerDeviceId: z.string(),
