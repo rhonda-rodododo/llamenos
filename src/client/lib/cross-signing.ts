@@ -10,6 +10,7 @@
  *
  * The master seed is wrapped under the PUK SecretBox key (AES-GCM + AAD).
  */
+import { ed25519 } from '@noble/curves/ed25519.js'
 import { hmac } from '@noble/hashes/hmac.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex } from '@noble/hashes/utils.js'
@@ -115,9 +116,34 @@ export interface MasterKeyResult {
   masterPubkey: Uint8Array
   selfSigningPubkey: Uint8Array
   userSigningPubkey: Uint8Array
+  /**
+   * Raw 32-byte master seed. REQUIRED to establish the master→self-signing
+   * derivation binding used by `verifyTransitiveTrust`. Callers MUST zero
+   * this buffer (`masterSeed.fill(0)`) as soon as they are done with it —
+   * the seed is the highest-value secret in the identity tree.
+   */
+  masterSeed: Uint8Array
   masterSeedWrappedUnderPuk: string // hex
   selfSigningPrivate: CryptoKey
   userSigningPrivate: CryptoKey
+}
+
+/**
+ * Re-derive the self-signing Ed25519 pubkey from a master seed using the
+ * same HMAC-SHA256 derivation as `deriveMasterSubkeys`. This is the
+ * verifier-side counterpart that establishes the master→self-signing
+ * derivation binding without needing SubtleCrypto PKCS8 imports.
+ *
+ * Zeroes the intermediate derived seed before returning.
+ */
+export function deriveSelfSigningPubFromMasterSeed(masterSeed: Uint8Array): Uint8Array {
+  const enc = new TextEncoder()
+  const selfSigningSeed = hmac(sha256, masterSeed, enc.encode(LABEL_MASTER_SELF_SIGNING))
+  try {
+    return ed25519.getPublicKey(selfSigningSeed)
+  } finally {
+    selfSigningSeed.fill(0)
+  }
 }
 
 // ---- Master key creation (Task 27) ----
@@ -160,22 +186,21 @@ export async function createMasterKey({
 }): Promise<MasterKeyResult> {
   const masterSeed = crypto.getRandomValues(new Uint8Array(32))
 
-  try {
-    const { masterPub, selfSigning, userSigning } = await deriveMasterSubkeys(masterSeed)
+  const { masterPub, selfSigning, userSigning } = await deriveMasterSubkeys(masterSeed)
 
-    // Wrap master seed under PUK SecretBox
-    const wrapped = await aesGcmEncrypt(masterSeed, pukSecretBoxKey, LABEL_MASTER_KEY_WRAP)
+  // Wrap master seed under PUK SecretBox
+  const wrapped = await aesGcmEncrypt(masterSeed, pukSecretBoxKey, LABEL_MASTER_KEY_WRAP)
 
-    return {
-      masterPubkey: masterPub.publicKeyRaw,
-      selfSigningPubkey: selfSigning.publicKeyRaw,
-      userSigningPubkey: userSigning.publicKeyRaw,
-      masterSeedWrappedUnderPuk: bytesToHex(wrapped),
-      selfSigningPrivate: selfSigning.privateKey,
-      userSigningPrivate: userSigning.privateKey,
-    }
-  } finally {
-    masterSeed.fill(0)
+  // Hand the seed back to the caller so it can participate in derivation-
+  // binding verification (see `verifyTransitiveTrust`). Caller MUST zero.
+  return {
+    masterPubkey: masterPub.publicKeyRaw,
+    selfSigningPubkey: selfSigning.publicKeyRaw,
+    userSigningPubkey: userSigning.publicKeyRaw,
+    masterSeed,
+    masterSeedWrappedUnderPuk: bytesToHex(wrapped),
+    selfSigningPrivate: selfSigning.privateKey,
+    userSigningPrivate: userSigning.privateKey,
   }
 }
 
@@ -192,22 +217,21 @@ export async function deriveMasterFromWrapped({
   const packed = hexToBytes(wrapped)
   const masterSeed = await aesGcmDecrypt(packed, pukSecretBoxKey, LABEL_MASTER_KEY_WRAP)
 
-  try {
-    const { masterPub, selfSigning, userSigning } = await deriveMasterSubkeys(masterSeed)
+  const { masterPub, selfSigning, userSigning } = await deriveMasterSubkeys(masterSeed)
 
-    // Re-wrap (same plaintext, fresh IV)
-    const reWrapped = await aesGcmEncrypt(masterSeed, pukSecretBoxKey, LABEL_MASTER_KEY_WRAP)
+  // Re-wrap (same plaintext, fresh IV)
+  const reWrapped = await aesGcmEncrypt(masterSeed, pukSecretBoxKey, LABEL_MASTER_KEY_WRAP)
 
-    return {
-      masterPubkey: masterPub.publicKeyRaw,
-      selfSigningPubkey: selfSigning.publicKeyRaw,
-      userSigningPubkey: userSigning.publicKeyRaw,
-      masterSeedWrappedUnderPuk: bytesToHex(reWrapped),
-      selfSigningPrivate: selfSigning.privateKey,
-      userSigningPrivate: userSigning.privateKey,
-    }
-  } finally {
-    masterSeed.fill(0)
+  // Hand the seed back to the caller (see note on MasterKeyResult.masterSeed).
+  // Caller MUST zero when finished.
+  return {
+    masterPubkey: masterPub.publicKeyRaw,
+    selfSigningPubkey: selfSigning.publicKeyRaw,
+    userSigningPubkey: userSigning.publicKeyRaw,
+    masterSeed,
+    masterSeedWrappedUnderPuk: bytesToHex(reWrapped),
+    selfSigningPrivate: selfSigning.privateKey,
+    userSigningPrivate: userSigning.privateKey,
   }
 }
 
@@ -301,21 +325,43 @@ export async function verifyCrossSignature({
 }
 
 /**
+ * Constant-time byte equality. Avoids early-exit timing leaks when comparing
+ * derived key material.
+ */
+function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false
+  let diff = 0
+  for (let i = 0; i < a.length; i++) {
+    diff |= (a[i] as number) ^ (b[i] as number)
+  }
+  return diff === 0
+}
+
+/**
  * Verify transitive trust: user A cross-signed user B's master key,
  * and user B's self-signing key signed device D's pubkey.
  *
- * Two-step verification:
- * 1. Trusting user's user-signing key validly signed the candidate's master pubkey
- * 2. Candidate's self-signing key validly signed the candidate's device pubkey
+ * Three-step verification:
+ * 1. The candidate's self-signing pubkey is actually HMAC-derived from the
+ *    candidate's master seed (derivation binding). Without this check, an
+ *    attacker could pair a legitimate cross-signature over user B's master
+ *    pubkey with an unrelated self-signing pubkey they control, and the
+ *    verifier would happily accept arbitrary device claims.
+ * 2. Trusting user's user-signing key validly signed the candidate's master
+ *    pubkey (web-of-trust link).
+ * 3. Candidate's self-signing key validly signed the candidate's device pubkey
+ *    (device claim).
  *
- * Both the master pubkey (for cross-sign binding) and the self-signing pubkey
- * (for device signature verification) are required because the self-signing key
- * is HMAC-derived from the master seed and cannot be recovered from the master
- * pubkey alone.
+ * The derivation binding is enforced by taking the candidate's raw master
+ * seed and re-running `deriveSelfSigningPubFromMasterSeed`. The result MUST
+ * match `candidateSelfSigningPub` byte-for-byte; we also verify the seed is
+ * consistent with `candidateMasterPub` to prevent an attacker from passing a
+ * seed unrelated to the one that was cross-signed.
  */
 export async function verifyTransitiveTrust({
   trustingUserSigningPub,
   crossSignature,
+  candidateMasterSeed,
   candidateMasterPub,
   selfSignSignature,
   candidateDevicePub,
@@ -323,12 +369,28 @@ export async function verifyTransitiveTrust({
 }: {
   trustingUserSigningPub: Uint8Array
   crossSignature: string // hex — trusting user's user-signing sig over candidate master pub
+  candidateMasterSeed: Uint8Array // raw 32-byte master seed for derivation binding
   candidateMasterPub: Uint8Array
   selfSignSignature: string // hex — candidate's self-signing sig over device pub
   candidateDevicePub: Uint8Array
   candidateSelfSigningPub: Uint8Array
 }): Promise<boolean> {
-  // 1. Verify trusting user cross-signed candidate's master pubkey
+  // 1a. Verify the supplied seed actually produces the claimed master pubkey.
+  //     Without this, an attacker could pass an arbitrary seed whose derived
+  //     self-signing pubkey happens to match `candidateSelfSigningPub`.
+  const seedDerivedMasterPub = ed25519.getPublicKey(candidateMasterSeed)
+  if (!constantTimeEqual(seedDerivedMasterPub, candidateMasterPub)) {
+    return false
+  }
+
+  // 1b. Re-run the HMAC derivation from the candidate's master seed and
+  //     confirm the claimed self-signing pubkey matches byte-for-byte.
+  const derivedSelfSigningPub = deriveSelfSigningPubFromMasterSeed(candidateMasterSeed)
+  if (!constantTimeEqual(derivedSelfSigningPub, candidateSelfSigningPub)) {
+    return false
+  }
+
+  // 2. Verify trusting user cross-signed candidate's master pubkey
   const crossValid = await verifyCrossSignature({
     signature: crossSignature,
     signerPublicKey: trustingUserSigningPub,
@@ -336,7 +398,7 @@ export async function verifyTransitiveTrust({
   })
   if (!crossValid) return false
 
-  // 2. Verify candidate's self-signing key signed the device pubkey
+  // 3. Verify candidate's self-signing key signed the device pubkey
   const selfSignValid = await verifyCrossSignature({
     signature: selfSignSignature,
     signerPublicKey: candidateSelfSigningPub,

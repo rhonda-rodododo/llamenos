@@ -6,6 +6,7 @@ import {
   crossSignOtherUser,
   crossSignOwnDevice,
   deriveMasterFromWrapped,
+  deriveSelfSigningPubFromMasterSeed,
   verifyCrossSignature,
   verifyTransitiveTrust,
 } from './cross-signing'
@@ -226,6 +227,7 @@ describe('cross-signing', () => {
       const valid = await verifyTransitiveTrust({
         trustingUserSigningPub: userA.userSigningPubkey,
         crossSignature: crossSign.signature,
+        candidateMasterSeed: userB.masterSeed,
         candidateMasterPub: userB.masterPubkey,
         selfSignSignature: selfSign.signature,
         candidateDevicePub: deviceD.publicKeyRaw,
@@ -263,6 +265,7 @@ describe('cross-signing', () => {
       const valid = await verifyTransitiveTrust({
         trustingUserSigningPub: userA.userSigningPubkey,
         crossSignature: tamperedCrossSig,
+        candidateMasterSeed: userB.masterSeed,
         candidateMasterPub: userB.masterPubkey,
         selfSignSignature: selfSign.signature,
         candidateDevicePub: deviceD.publicKeyRaw,
@@ -300,12 +303,109 @@ describe('cross-signing', () => {
       const valid = await verifyTransitiveTrust({
         trustingUserSigningPub: userA.userSigningPubkey,
         crossSignature: crossSign.signature,
+        candidateMasterSeed: userB.masterSeed,
         candidateMasterPub: userB.masterPubkey,
         selfSignSignature: tamperedSelfSig,
         candidateDevicePub: deviceD.publicKeyRaw,
         candidateSelfSigningPub: userB.selfSigningPubkey,
       })
       expect(valid).toBe(false)
+    })
+
+    // Gap 2 regression: an attacker substitutes a self-signing pubkey from a
+    // DIFFERENT master. Even if both component signatures are cryptographically
+    // valid, the derivation binding must fail because the substituted key was
+    // not HMAC-derived from userB's master seed.
+    test('fails when candidateSelfSigningPub is from a different master', async () => {
+      const sbKey = await makeSecretBoxKey()
+      const userA = await createMasterKey({ pukSecretBoxKey: sbKey })
+      const userB = await createMasterKey({ pukSecretBoxKey: sbKey })
+      const attacker = await createMasterKey({ pukSecretBoxKey: sbKey })
+      const deviceD = await makeEd25519Keypair()
+
+      // Legitimate cross-sign: A signs B's master pubkey.
+      const crossSign = await crossSignOtherUser({
+        targetMasterPubkey: userB.masterPubkey,
+        userSigningPrivate: userA.userSigningPrivate,
+        signerUserId: '11111111-1111-1111-1111-111111111111',
+        targetUserId: '22222222-2222-2222-2222-222222222222',
+      })
+
+      // Attacker uses their OWN self-signing key to sign device D.
+      // (Signature itself is valid under attacker's self-signing pubkey.)
+      const attackerSelfSign = await crossSignOwnDevice({
+        deviceSigningPubkey: deviceD.publicKeyRaw,
+        selfSigningPrivate: attacker.selfSigningPrivate,
+        signerDeviceId: 'evil-1',
+        targetDeviceId: 'evil-2',
+      })
+
+      const valid = await verifyTransitiveTrust({
+        trustingUserSigningPub: userA.userSigningPubkey,
+        crossSignature: crossSign.signature,
+        // Claimed seed/master are still userB's — cross-sign is valid for them.
+        candidateMasterSeed: userB.masterSeed,
+        candidateMasterPub: userB.masterPubkey,
+        // Attacker substitutes their own self-signing pubkey + signature.
+        selfSignSignature: attackerSelfSign.signature,
+        candidateDevicePub: deviceD.publicKeyRaw,
+        candidateSelfSigningPub: attacker.selfSigningPubkey,
+      })
+      // Derivation binding must reject — attacker.selfSigningPubkey is NOT
+      // HMAC-derived from userB.masterSeed.
+      expect(valid).toBe(false)
+    })
+
+    test('fails when candidateMasterSeed is unrelated to candidateMasterPub', async () => {
+      const sbKey = await makeSecretBoxKey()
+      const userA = await createMasterKey({ pukSecretBoxKey: sbKey })
+      const userB = await createMasterKey({ pukSecretBoxKey: sbKey })
+      const unrelated = await createMasterKey({ pukSecretBoxKey: sbKey })
+      const deviceD = await makeEd25519Keypair()
+
+      const crossSign = await crossSignOtherUser({
+        targetMasterPubkey: userB.masterPubkey,
+        userSigningPrivate: userA.userSigningPrivate,
+        signerUserId: '11111111-1111-1111-1111-111111111111',
+        targetUserId: '22222222-2222-2222-2222-222222222222',
+      })
+      const selfSign = await crossSignOwnDevice({
+        deviceSigningPubkey: deviceD.publicKeyRaw,
+        selfSigningPrivate: userB.selfSigningPrivate,
+        signerDeviceId: 'b-1',
+        targetDeviceId: 'b-2',
+      })
+
+      // Attacker swaps in an unrelated seed that would pass HMAC-derivation
+      // consistency internally but whose derived master pub does NOT match.
+      const valid = await verifyTransitiveTrust({
+        trustingUserSigningPub: userA.userSigningPubkey,
+        crossSignature: crossSign.signature,
+        candidateMasterSeed: unrelated.masterSeed,
+        candidateMasterPub: userB.masterPubkey,
+        selfSignSignature: selfSign.signature,
+        candidateDevicePub: deviceD.publicKeyRaw,
+        candidateSelfSigningPub: userB.selfSigningPubkey,
+      })
+      expect(valid).toBe(false)
+    })
+  })
+
+  describe('deriveSelfSigningPubFromMasterSeed', () => {
+    test('matches the pubkey produced by createMasterKey', async () => {
+      const sbKey = await makeSecretBoxKey()
+      const master = await createMasterKey({ pukSecretBoxKey: sbKey })
+      const derived = deriveSelfSigningPubFromMasterSeed(master.masterSeed)
+      expect(bytesToHex(derived)).toBe(bytesToHex(master.selfSigningPubkey))
+    })
+
+    test('different seeds produce different self-signing pubkeys', async () => {
+      const sbKey = await makeSecretBoxKey()
+      const a = await createMasterKey({ pukSecretBoxKey: sbKey })
+      const b = await createMasterKey({ pukSecretBoxKey: sbKey })
+      const derivedA = deriveSelfSigningPubFromMasterSeed(a.masterSeed)
+      const derivedB = deriveSelfSigningPubFromMasterSeed(b.masterSeed)
+      expect(bytesToHex(derivedA)).not.toBe(bytesToHex(derivedB))
     })
   })
 
