@@ -5,11 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.50.2] - 2026-04-14
+
+### Bug Fixes
+
+- abort rotation on wrap failure unless revoke (#147)
+
+### Miscellaneous
+
+- v0.50.2 [skip ci]
+
 ## [0.50.1] - 2026-04-14
 
 ### Bug Fixes
 
 - filter revoked devices in findDeviceBySigningPubkey (#146)
+- inline HPKE label+AAD binding in key-distribution (#149)
+- hard-gate SFrame call hook + adversarial tests (#145)
+- distinguish PRF-unavailable from wrong-PIN (#144)
+- throw HubFieldTamperError instead of attacker-controlled fallback (#143)
+- discard chain cache on trust-anchor drift + empty-chain poison (#148)
 
 ### Miscellaneous
 
