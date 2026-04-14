@@ -38,13 +38,12 @@ export const teamsListOptions = (hubId = 'global') =>
       return Promise.all(
         teams.map(async (team) => ({
           ...team,
-          name: await decryptHubField(team.encryptedName, hubId, team.id, 'encrypted_name', ''),
+          name: await decryptHubField(team.encryptedName, hubId, team.id, 'encrypted_name'),
           description: await decryptHubField(
             team.encryptedDescription,
             hubId,
             team.id,
-            'encrypted_description',
-            ''
+            'encrypted_description'
           ),
         }))
       )

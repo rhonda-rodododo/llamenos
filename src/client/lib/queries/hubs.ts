@@ -30,19 +30,12 @@ export const hubsListOptions = (_hubId = 'global') =>
       return Promise.all(
         hubs.map(async (hub) => ({
           ...hub,
-          name: await decryptHubField(
-            hub.encryptedName,
-            hub.id,
-            hub.id,
-            'encrypted_name',
-            hub.name
-          ),
+          name: await decryptHubField(hub.encryptedName, hub.id, hub.id, 'encrypted_name'),
           description: await decryptHubField(
             hub.encryptedDescription,
             hub.id,
             hub.id,
-            'encrypted_description',
-            hub.description
+            'encrypted_description'
           ),
         }))
       )
