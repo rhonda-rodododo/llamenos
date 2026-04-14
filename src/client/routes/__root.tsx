@@ -17,11 +17,12 @@ import { cryptoWorker } from '@/lib/crypto-worker-client'
 import { useCalls, useShiftStatus } from '@/lib/hooks'
 import { getHubKeyForId } from '@/lib/hub-key-cache'
 import * as keyManager from '@/lib/key-manager'
-import { NostrProvider } from '@/lib/nostr/context'
+import { NostrProvider, useRelay } from '@/lib/nostr/context'
 import { subscribeToPush } from '@/lib/push-subscription'
 import { queryClient } from '@/lib/query-client'
 import { useTheme } from '@/lib/theme'
 import { useKeyboardShortcuts } from '@/lib/use-keyboard-shortcuts'
+import { setSFrameOrchestratorDeps } from '@/lib/webrtc/sframe-orchestrator'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { Link, Outlet, createRootRoute, useLocation, useNavigate } from '@tanstack/react-router'
@@ -276,9 +277,33 @@ function NostrWrappedLayout() {
       signEvent={signEvent}
       getHubKey={getHubKey}
     >
+      <SFrameOrchestratorBridge />
       <AuthenticatedLayout />
     </NostrProvider>
   )
+}
+
+/**
+ * Installs SFrame orchestrator dependencies from the React tree into the
+ * module-level singleton consumed by the WebRTC manager. Running inside
+ * `NostrProvider` lets it call `useRelay()` for the live RelayManager; the
+ * installed deps are refreshed whenever the relay instance or active hub
+ * changes.
+ */
+function SFrameOrchestratorBridge() {
+  const relay = useRelay()
+  const { currentHubId } = useConfig()
+  useEffect(() => {
+    const dispose = setSFrameOrchestratorDeps({
+      relay,
+      getHubKey: (hubId: string) => getHubKeyForId(hubId),
+      getCurrentHubId: () => currentHubId ?? null,
+      getLocalPubkeyHex: () => cryptoWorker.getPublicKey(),
+      signEvent: (messageHex: string) => cryptoWorker.sign(messageHex),
+    })
+    return dispose
+  }, [relay, currentHubId])
+  return null
 }
 
 function AuthenticatedLayout() {
