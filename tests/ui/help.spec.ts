@@ -97,27 +97,12 @@ test.describe('Help & Getting Started', () => {
       timeout: 10000,
     })
 
-    // Getting Started checklist should be visible if not all items are done.
-    // If setup wizard is already completed and all items are done, the component hides itself.
-    // Check if the checklist or at least some checklist items are visible.
-    const checklist = adminPage.getByText('Getting Started')
-    const isVisible = await checklist.isVisible({ timeout: 5000 }).catch(() => false)
-
-    if (isVisible) {
-      // At least one checklist item should be visible
-      const hasItem = await adminPage
-        .getByText('Complete setup wizard')
-        .or(adminPage.getByText('Invite users'))
-        .or(adminPage.getByText('Create shift schedule'))
-        .or(adminPage.getByText('Configure telephony'))
-        .first()
-        .isVisible()
-        .catch(() => false)
-      expect(hasItem).toBeTruthy()
-    } else {
-      // All checklist items are done — this is acceptable, skip gracefully
-      test.skip(true, 'All getting started items completed — checklist auto-hides')
-    }
+    // Global test setup resets the DB before each run: only the seeded admin
+    // exists, setupCompleted is false, no shifts, no hotline number — so the
+    // checklist MUST render. If it doesn't, something is broken.
+    await expect(adminPage.getByTestId('getting-started-checklist')).toBeVisible({
+      timeout: 10000,
+    })
   })
 
   test('getting started checklist can be dismissed', async ({ adminPage }) => {
@@ -134,21 +119,12 @@ test.describe('Help & Getting Started', () => {
       timeout: 10000,
     })
 
-    // Check if checklist is visible (may auto-hide if all items done)
-    const checklist = adminPage.getByText('Getting Started')
-    const isVisible = await checklist.isVisible({ timeout: 5000 }).catch(() => false)
-    if (!isVisible) {
-      test.skip(true, 'All getting started items completed — checklist auto-hides')
-      return
-    }
+    const checklist = adminPage.getByTestId('getting-started-checklist')
+    await expect(checklist).toBeVisible({ timeout: 10000 })
 
-    // Click the dismiss (X) button
-    const checklistCard = adminPage.locator('text=Getting Started').locator('..').locator('..')
-    const closeBtn = checklistCard.getByLabel('Close')
-    await closeBtn.click()
+    await adminPage.getByTestId('getting-started-dismiss').click()
 
-    // Checklist should be hidden
-    await expect(adminPage.getByText('Getting Started')).not.toBeVisible({ timeout: 3000 })
+    await expect(checklist).not.toBeVisible({ timeout: 3000 })
   })
 
   test('command palette includes Help command', async ({ adminPage }) => {

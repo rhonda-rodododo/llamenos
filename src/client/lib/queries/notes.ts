@@ -217,8 +217,7 @@ export const customFieldsOptions = (hubId = 'global') =>
             field.encryptedOptions,
             hubId,
             field.id,
-            'encrypted_options',
-            ''
+            'encrypted_options'
           )
           return {
             ...field,

@@ -29,6 +29,7 @@ afterAll(async () => {
   // Clean up all entries with our run prefix (handles all hub IDs used in this run)
   const { sql } = await import('drizzle-orm')
   await db.delete(auditLog).where(sql`${auditLog.hubId} LIKE ${`${RUN_PREFIX}%`}`)
+  db.$client.close()
 })
 
 describe('audit-chain', () => {

@@ -4,7 +4,7 @@
  * Tests the /api/auth/* endpoints against a real server (with Authentik).
  * Uses the Playwright `api` project (no browser).
  *
- * Requires: running server + Authentik. Skips gracefully if unavailable.
+ * Requires: running server + Authentik.
  */
 
 import { expect, test } from '@playwright/test'
@@ -18,21 +18,6 @@ import {
   createAuthedRequestFromNsec,
   enrollInAuthentik,
 } from '../helpers/authed-request'
-
-// ---------------------------------------------------------------------------
-// Skip entire file if the server isn't reachable
-// ---------------------------------------------------------------------------
-
-test.beforeAll(async ({ request }) => {
-  try {
-    const res = await request.get('/api/health/live', { timeout: 5000 })
-    if (!res.ok()) {
-      test.skip(true, 'Server not reachable — skipping auth facade tests')
-    }
-  } catch {
-    test.skip(true, 'Server not reachable — skipping auth facade tests')
-  }
-})
 
 // ---------------------------------------------------------------------------
 // Helpers

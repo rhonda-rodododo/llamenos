@@ -29,8 +29,7 @@ export const tagsListOptions = (hubId = 'global') =>
             tag.encryptedCategory,
             hubId,
             tag.id,
-            'encrypted_category',
-            ''
+            'encrypted_category'
           ),
         }))
       )

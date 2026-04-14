@@ -29,15 +29,6 @@ const BASE = '/api/auth/recovery-group'
 const SOURCE_PREFIX = `10.77.${Math.floor(Math.random() * 200) + 10}`
 
 test.describe('recovery-group endpoint security', () => {
-  test.beforeAll(async ({ request }) => {
-    try {
-      const res = await request.get('/api/health/live', { timeout: 5000 })
-      if (!res.ok()) test.skip(true, 'Server not reachable')
-    } catch {
-      test.skip(true, 'Server not reachable')
-    }
-  })
-
   test('GET /:hubId returns 401 without a bearer token', async ({ request }) => {
     const hubId = '11111111-2222-4333-8444-555555555555'
     const res = await request.get(`${BASE}/${hubId}`, {

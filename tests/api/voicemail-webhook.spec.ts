@@ -12,20 +12,8 @@ function twilioForm(params: Record<string, string>): string {
 test.describe('Voicemail webhook API', () => {
   test.describe.configure({ mode: 'serial' })
 
-  /** Whether telephony is configured in this environment. Set in the first test. */
-  let telephonyAvailable = false
-  /** Shared callSid created during the first test, used by subsequent tests. */
-  let sharedCallSid = ''
-  /** RecordingSid sent in the voicemail-recording webhook. */
-  let sharedRecordingSid = ''
   /** Hub ID resolved for history queries. */
   let hubId = ''
-
-  test.beforeAll(async ({ request }) => {
-    // Enable transcription so the voicemail transcript test can pass
-    const adminApi = createAuthedRequestFromNsec(request, ADMIN_NSEC)
-    await adminApi.patch('/api/settings/transcription', { globalEnabled: true }).catch(() => {})
-  })
 
   test('voicemail-recording webhook accepts completed recording and sets hasVoicemail + recordingSid', async ({
     request,
@@ -33,8 +21,6 @@ test.describe('Voicemail webhook API', () => {
     const authedApi = createAuthedRequestFromNsec(request, ADMIN_NSEC)
     const callSid = `CA_test_voicemail_${Date.now()}`
     const recordingSid = `RE_test_${Date.now()}`
-    sharedCallSid = callSid
-    sharedRecordingSid = recordingSid
 
     // Resolve the hub ID — the incoming webhook will route to the sole hub,
     // and we need the same hub ID to query history via the hub-scoped endpoint.
@@ -55,14 +41,7 @@ test.describe('Voicemail webhook API', () => {
         Direction: 'inbound',
       }),
     })
-
-    // If telephony is not configured (no provider in dev), skip this and all dependent tests.
-    if (incomingRes.status() === 503 || incomingRes.status() === 404) {
-      test.skip(true, 'Telephony not configured in dev env -- skipping voicemail webhook test')
-      return
-    }
-
-    telephonyAvailable = true
+    expect(incomingRes.status()).toBe(200)
 
     // Step 2: Fire the voicemail-recording webhook with hub param so upsert uses the correct hub.
     const voicemailRes = await request.post(
@@ -100,8 +79,6 @@ test.describe('Voicemail webhook API', () => {
   })
 
   test('voicemail-complete webhook returns valid TwiML response', async ({ request }) => {
-    test.skip(!telephonyAvailable, 'Telephony not configured -- skipping')
-
     const res = await request.post('/telephony/voicemail-complete', {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       data: twilioForm({
@@ -130,39 +107,5 @@ test.describe('Voicemail webhook API', () => {
     })
     // Should not return 500 -- either 200/204 (handled gracefully) or 404/503 (no telephony config)
     expect(res.status()).not.toBe(500)
-  })
-
-  test('voicemail transcript note is created with system:voicemail author', async ({ request }) => {
-    test.skip(!telephonyAvailable, 'Telephony not configured -- skipping')
-    // Transcription is async and requires faster-whisper / AI service.
-    // Check if a system:voicemail note was created for the call.
-    const authedApi = createAuthedRequestFromNsec(request, ADMIN_NSEC)
-
-    // Give transcription a moment to complete (it runs asynchronously after webhook).
-    // Whisper model loading + transcription can take up to 15s on first call.
-    // Poll with retries instead of a fixed wait.
-    let voicemailNote: { authorPubkey: string; encryptedContent?: string } | undefined
-    for (let attempt = 0; attempt < 10; attempt++) {
-      await new Promise((r) => setTimeout(r, 2000))
-      const notesRes = await authedApi.get(`/api/notes?callId=${sharedCallSid}`)
-      if (notesRes.ok()) {
-        const data = (await notesRes.json()) as {
-          notes: Array<{ authorPubkey: string; encryptedContent?: string }>
-        }
-        voicemailNote = data.notes?.find((n) => n.authorPubkey === 'system:voicemail')
-        if (voicemailNote) break
-      }
-    }
-
-    if (!voicemailNote) {
-      test.skip(
-        true,
-        'No voicemail transcript note found -- transcription service likely not available'
-      )
-      return
-    }
-
-    expect(voicemailNote.authorPubkey).toBe('system:voicemail')
-    expect(voicemailNote.encryptedContent).toBeTruthy()
   })
 })

@@ -7,9 +7,6 @@
  * - Connection can be paused and resumed
  * - Connection config updates (geoContext, extractionIntervalSec, systemPromptSuffix, bufferTtlDays)
  * - Proper cleanup on deletion
- *
- * NOTE: POST /firehose returns 503 when FIREHOSE_AGENT_SEAL_KEY is not set.
- * All tests that require a connection check sealKeyConfigured and skip gracefully.
  */
 
 import { expect, test } from '@playwright/test'
@@ -25,7 +22,6 @@ test.describe('Firehose Extraction Integration', () => {
 
   let connectionId: string
   let reportTypeId: string
-  let sealKeyConfigured: boolean
 
   test.beforeAll(async ({ request }) => {
     ctx = await TestContext.create(request, {
@@ -44,8 +40,7 @@ test.describe('Firehose Extraction Integration', () => {
     const rt = rtData.reportType ?? rtData
     reportTypeId = rt.id
 
-    // Probe whether FIREHOSE_AGENT_SEAL_KEY is configured
-    const probeRes = await adminApi.post(ctx.hubPath('/firehose'), {
+    const createRes = await adminApi.post(ctx.hubPath('/firehose'), {
       reportTypeId,
       displayName: 'extraction-test-connection',
       geoContext: 'Eastern Europe',
@@ -54,14 +49,9 @@ test.describe('Firehose Extraction Integration', () => {
       bufferTtlDays: 7,
       systemPromptSuffix: 'Focus on SALUTE format fields.',
     })
-    if (probeRes.status() === 503) {
-      sealKeyConfigured = false
-      return
-    }
-    sealKeyConfigured = true
-    expect(probeRes.status()).toBe(201)
-    const probeData = await probeRes.json()
-    connectionId = probeData.connection.id
+    expect(createRes.status()).toBe(201)
+    const createData = await createRes.json()
+    connectionId = createData.connection.id
   })
 
   test.beforeEach(async ({ request }) => {
@@ -74,7 +64,7 @@ test.describe('Firehose Extraction Integration', () => {
     // are disposed when each test ends, so adminApi's inner context is stale here.
     const cleanupApi = createAuthedRequestFromNsec(request, ADMIN_NSEC)
     // Clean up connection if it was created (hub deletion does not cascade to firehose_connections)
-    if (sealKeyConfigured && connectionId) {
+    if (connectionId) {
       try {
         await cleanupApi.delete(ctx.hubPath(`/firehose/${connectionId}`))
       } catch {
@@ -95,11 +85,6 @@ test.describe('Firehose Extraction Integration', () => {
   // ─── Connection Lifecycle ────────────────────────────────────────────────
 
   test('connection starts in pending state with correct config', async () => {
-    if (!sealKeyConfigured) {
-      test.skip(true, 'FIREHOSE_AGENT_SEAL_KEY not configured — skipping')
-      return
-    }
-
     const res = await adminApi.get(ctx.hubPath(`/firehose/${connectionId}`))
     expect(res.status()).toBe(200)
     const data = await res.json()
@@ -131,11 +116,6 @@ test.describe('Firehose Extraction Integration', () => {
   // ─── Status / Health ─────────────────────────────────────────────────────
 
   test('status endpoint shows zero buffer for new connection', async () => {
-    if (!sealKeyConfigured) {
-      test.skip(true, 'FIREHOSE_AGENT_SEAL_KEY not configured — skipping')
-      return
-    }
-
     const res = await adminApi.get(ctx.hubPath('/firehose/status'))
     expect(res.status()).toBe(200)
     const data = await res.json()
@@ -159,11 +139,6 @@ test.describe('Firehose Extraction Integration', () => {
   // ─── Pause / Resume ──────────────────────────────────────────────────────
 
   test('connection can be paused and resumed', async () => {
-    if (!sealKeyConfigured) {
-      test.skip(true, 'FIREHOSE_AGENT_SEAL_KEY not configured — skipping')
-      return
-    }
-
     // Pause the connection
     const pauseRes = await adminApi.patch(ctx.hubPath(`/firehose/${connectionId}`), {
       status: 'paused',
@@ -194,11 +169,6 @@ test.describe('Firehose Extraction Integration', () => {
   // ─── Config Updates ──────────────────────────────────────────────────────
 
   test('connection config can be updated', async () => {
-    if (!sealKeyConfigured) {
-      test.skip(true, 'FIREHOSE_AGENT_SEAL_KEY not configured — skipping')
-      return
-    }
-
     const res = await adminApi.patch(ctx.hubPath(`/firehose/${connectionId}`), {
       geoContext: 'Central Europe',
       geoContextCountryCodes: ['DE', 'AT', 'CH'],
@@ -224,11 +194,6 @@ test.describe('Firehose Extraction Integration', () => {
   // ─── Deletion / Cleanup ──────────────────────────────────────────────────
 
   test('connection is properly cleaned up on deletion', async () => {
-    if (!sealKeyConfigured) {
-      test.skip(true, 'FIREHOSE_AGENT_SEAL_KEY not configured — skipping')
-      return
-    }
-
     // Delete the connection
     const deleteRes = await adminApi.delete(ctx.hubPath(`/firehose/${connectionId}`))
     expect(deleteRes.status()).toBe(200)
