@@ -253,7 +253,11 @@ export async function rewrapWithNewPin(
     prfOutput: factors.prfOutput,
     salt: newSalt,
   })
-  const reEncrypted = await cryptoWorker.reEncrypt(bytesToHex(newKek))
+  // TODO(tier-1 per-record-aad): nsec KEK wire format uses empty inner AAD
+  // — it must round-trip with `key-store.encryptNsec` / `handleUnlock`. Plan
+  // to migrate the whole nsec blob to a non-empty AAD is in
+  // POST_OVERHAUL_GAPS_2026-04-13.md Tier 1 P1 "Per-record AAD migration".
+  const reEncrypted = await cryptoWorker.reEncrypt(bytesToHex(newKek), new Uint8Array(0))
   const newBlob: EncryptedKeyData = {
     ...currentBlob,
     salt: bytesToHex(newSalt),
@@ -290,7 +294,11 @@ export async function rewrapWithNewRecoveryKey(
     prfOutput: factors.prfOutput,
     salt: newSalt,
   })
-  const reEncrypted = await cryptoWorker.reEncrypt(bytesToHex(newKek))
+  // TODO(tier-1 per-record-aad): nsec KEK wire format uses empty inner AAD
+  // — it must round-trip with `key-store.encryptNsec` / `handleUnlock`. Plan
+  // to migrate the whole nsec blob to a non-empty AAD is in
+  // POST_OVERHAUL_GAPS_2026-04-13.md Tier 1 P1 "Per-record AAD migration".
+  const reEncrypted = await cryptoWorker.reEncrypt(bytesToHex(newKek), new Uint8Array(0))
   const newBlob: EncryptedKeyData = {
     ...currentBlob,
     salt: bytesToHex(newSalt),

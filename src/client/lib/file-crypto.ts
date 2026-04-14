@@ -87,10 +87,15 @@ export async function decryptFileMetadata(
 ): Promise<EncryptedFileMetadata | null> {
   try {
     const worker = cryptoWorker
+    // TODO(tier-1 per-record-aad): File metadata envelopes were sealed by
+    // `encryptMetadataForPubkey` with empty inner AAD (legacy wire format).
+    // Migrate to `buildAad(LABEL_FILE_METADATA, fileId, 'metadata')` alongside
+    // POST_OVERHAUL_GAPS_2026-04-13.md Tier 1 P1 "Per-record AAD migration".
     const resultHex = await worker.decrypt(
       ephemeralPubkeyHex,
       encryptedContentHex,
-      LABEL_FILE_METADATA
+      LABEL_FILE_METADATA,
+      new Uint8Array(0)
     )
     const plaintext = hexToBytes(resultHex)
     return JSON.parse(new TextDecoder().decode(plaintext))
@@ -180,11 +185,17 @@ export async function decryptFile(
   // Build the same AAD used during encryption
   const aad = buildFileAad(fileId)
 
-  // Unwrap the file key via the crypto worker using decryptEnvelope (version + label checks)
+  // Unwrap the file key via the crypto worker using decryptEnvelope (version + label checks).
+  // TODO(tier-1 per-record-aad): The ECIES key-wrap on-disk was sealed with
+  // empty inner AAD via `eciesWrapKey` in crypto-primitives. Migrate both
+  // sides to `buildAad(LABEL_FILE_KEY, fileId, 'file-key')` alongside
+  // POST_OVERHAUL_GAPS_2026-04-13.md Tier 1 P1 "Per-record AAD migration".
   const fileKey = await decryptEnvelope(
     envelope,
     (ephemeralPubkey, wrappedKey, label) =>
-      cryptoWorker.decrypt(ephemeralPubkey, wrappedKey, label as CryptoLabel).then(hexToBytes),
+      cryptoWorker
+        .decrypt(ephemeralPubkey, wrappedKey, label as CryptoLabel, new Uint8Array(0))
+        .then(hexToBytes),
     LABEL_FILE_KEY
   )
 
@@ -210,11 +221,14 @@ export async function rewrapFileKey(
   envelope: Envelope,
   newRecipientPubkeyHex: string
 ): Promise<FileKeyEnvelope> {
-  // Unwrap with version + label check via the crypto worker
+  // Unwrap with version + label check via the crypto worker.
+  // TODO(tier-1 per-record-aad): see note in decryptFile above.
   const fileKey = await decryptEnvelope(
     envelope,
     (ephemeralPubkey, wrappedKey, label) =>
-      cryptoWorker.decrypt(ephemeralPubkey, wrappedKey, label as CryptoLabel).then(hexToBytes),
+      cryptoWorker
+        .decrypt(ephemeralPubkey, wrappedKey, label as CryptoLabel, new Uint8Array(0))
+        .then(hexToBytes),
     LABEL_FILE_KEY
   )
 

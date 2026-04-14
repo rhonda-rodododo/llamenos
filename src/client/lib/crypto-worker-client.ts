@@ -183,22 +183,28 @@ export class CryptoWorkerClient {
 
   /**
    * ECIES key unwrap using the worker's secret key. Returns the unwrapped
-   * 32-byte key as hex. Domain separation is provided via the `label` used
-   * to derive the inner wrapping key — there is intentionally no AAD
-   * parameter because the inner AEAD is called with empty AAD today. Adding
-   * an AAD here would be a silent no-op; hardening that end-to-end is a
-   * Tier 1 item.
+   * 32-byte key as hex.
+   *
+   * The caller-supplied `aad` is threaded into the inner XChaCha20-Poly1305
+   * AEAD alongside the label-derived key. Callers SHOULD pass
+   * `buildAad(label, recordId, fieldName)` (from `@shared/hpke-primitives`)
+   * to bind the ciphertext to its per-record context. Legacy call sites that
+   * must preserve an on-wire empty-AAD format may pass `new Uint8Array(0)`
+   * with a `// TODO(tier-1 per-record-aad)` comment referencing
+   * `POST_OVERHAUL_GAPS_2026-04-13.md` Tier 1 P1 "Per-record AAD migration".
    */
   async decrypt(
     ephemeralPubkeyHex: string,
     wrappedKeyHex: string,
-    label: CryptoLabel
+    label: CryptoLabel,
+    aad: Uint8Array
   ): Promise<string> {
     return this.call<string>({
       type: 'decrypt',
       ephemeralPubkeyHex,
       wrappedKeyHex,
       label,
+      aadHex: bytesToHex(aad),
     })
   }
 
@@ -206,6 +212,9 @@ export class CryptoWorkerClient {
    * Decrypt an envelope-encrypted field entirely inside the worker.
    * Combines ECIES unwrap + XChaCha20-Poly1305 decrypt in one round trip.
    * Returns the decrypted plaintext string.
+   *
+   * `aad` is threaded into the outer field AEAD (must match what was passed
+   * to {@link envelopeEncryptField} at seal time).
    */
   async decryptEnvelopeField(
     encryptedHex: string,
@@ -220,24 +229,28 @@ export class CryptoWorkerClient {
       ephemeralPubkeyHex,
       wrappedKeyHex,
       label,
-      aad: bytesToHex(aad),
+      aadHex: bytesToHex(aad),
     })
   }
 
   /**
    * ECIES key wrap for a recipient. Uses an ephemeral key inside the worker.
-   * See {@link decrypt} for why there is no `aad` parameter today.
+   *
+   * The caller-supplied `aad` is threaded into the inner XChaCha20-Poly1305
+   * AEAD. See {@link decrypt} for the recommended AAD shape.
    */
   async encrypt(
     plaintextHex: string,
     recipientPubkeyHex: string,
-    label: CryptoLabel
+    label: CryptoLabel,
+    aad: Uint8Array
   ): Promise<EncryptResult> {
     return this.call<EncryptResult>({
       type: 'encrypt',
       plaintextHex,
       recipientPubkeyHex,
       label,
+      aadHex: bytesToHex(aad),
     })
   }
 
@@ -258,9 +271,20 @@ export class CryptoWorkerClient {
   /**
    * Re-encrypt the held nsec under a new KEK.
    * Used for idp_value rotation without exposing nsec to the main thread.
+   *
+   * The caller-supplied `aad` is threaded into the inner AEAD. It MUST
+   * match what `key-store.encryptNsec` uses at first enrollment and what
+   * `unlock` expects — today that is `new Uint8Array(0)` so the shared
+   * nsec wire format stays consistent across enrollment, unlock, and
+   * rotation. See POST_OVERHAUL_GAPS_2026-04-13.md Tier 1 P1
+   * "Per-record AAD migration" for the planned nsec-blob migration.
    */
-  async reEncrypt(newKekHex: string): Promise<ReEncryptResult> {
-    return this.call<ReEncryptResult>({ type: 'reEncrypt', newKekHex })
+  async reEncrypt(newKekHex: string, aad: Uint8Array): Promise<ReEncryptResult> {
+    return this.call<ReEncryptResult>({
+      type: 'reEncrypt',
+      newKekHex,
+      aadHex: bytesToHex(aad),
+    })
   }
 
   /**
@@ -321,6 +345,9 @@ export class CryptoWorkerClient {
    * Envelope-encrypt a plaintext field for a set of recipients.
    * Generates a random symmetric key, XChaCha20-Poly1305-encrypts the plaintext,
    * and ECIES-wraps the key for each recipient pubkey.
+   *
+   * `aad` is threaded into the outer field AEAD. Pair with
+   * {@link decryptEnvelopeField} which MUST receive the same AAD at open time.
    */
   async envelopeEncryptField(
     plaintext: string,
@@ -347,7 +374,7 @@ export class CryptoWorkerClient {
       plaintext,
       recipientPubkeysHex,
       label,
-      aad: bytesToHex(aad),
+      aadHex: bytesToHex(aad),
     })
   }
 
