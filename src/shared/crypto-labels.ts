@@ -340,6 +340,13 @@ export const LABEL_SFRAME_RATCHET = 'llamenos:sframe-ratchet:v1' as CryptoLabel
 /** 7-emoji SAS derivation from device Ed25519 pubkey (Tier 6 fingerprint verification) */
 export const LABEL_SAS_MLS = 'llamenos:sas:v2' as CryptoLabel
 
+/**
+ * 7-emoji SAS v3 — binds verifier pubkey + target pubkey + session nonce.
+ * Supersedes LABEL_SAS_MLS, which derived from the target pubkey only and was
+ * trivially precomputable by any attacker who knew the public key.
+ */
+export const LABEL_SAS_MLS_V3 = 'llamenos:sas:v3' as CryptoLabel
+
 /** MLS exporter-secret → per-user items_key derivation */
 export const LABEL_ITEMS_KEY_EXPORT = 'llamenos:items-key-export:v1' as CryptoLabel
 
@@ -399,6 +406,7 @@ export const LABEL_REGISTRY = [
   LABEL_SFRAME_CALL_SECRET,
   LABEL_SFRAME_RATCHET,
   LABEL_SAS_MLS,
+  LABEL_SAS_MLS_V3,
   LABEL_ITEMS_KEY_EXPORT,
   LABEL_NOTE_EPOCH_KEY,
   LABEL_MLS_PROVISION,

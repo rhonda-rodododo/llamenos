@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/auth'
 import { useConfig } from '@/lib/config'
 import { hexToBytes } from '@noble/hashes/utils.js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 interface Device {
@@ -27,6 +27,16 @@ export function DevicesSection() {
   const queryClient = useQueryClient()
   const [verifying, setVerifying] = useState<Device | null>(null)
   const [verifyError, setVerifyError] = useState<string | null>(null)
+  // Fresh per-session nonce for SAS derivation. A new one is generated every
+  // time a verification session starts, binding the 7-emoji sequence to this
+  // specific session so an attacker who knows both device pubkeys cannot
+  // pre-compute the SAS a victim will see.
+  const sessionNonce = useMemo(() => {
+    if (!verifying) return null
+    const n = new Uint8Array(32)
+    crypto.getRandomValues(n)
+    return n
+  }, [verifying])
   const isAdmin =
     auth.roles.includes('role-admin') ||
     auth.roles.includes('role-super-admin') ||
@@ -120,10 +130,17 @@ export function DevicesSection() {
         </div>
       ) : null}
 
-      {verifying ? (
+      {verifying && sessionNonce ? (
         <VerifyFingerprintModal
           open
+          // TODO(tier6-pr2): replace with the verifying admin's own device
+          // pubkey once per-device identity is plumbed through the client.
+          // Until then, both parties must agree on this placeholder out of
+          // band — which, combined with the mutation still throwing, keeps
+          // this flow safely inert in production.
+          verifierDevicePubkey={new Uint8Array(32)}
           targetDevicePubkey={hexToBytes(verifying.ed25519Pubkey)}
+          sessionNonce={sessionNonce}
           onVerify={handleVerify}
           onCancel={() => {
             setVerifying(null)
