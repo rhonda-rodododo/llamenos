@@ -217,8 +217,7 @@ export const customFieldsOptions = (hubId = 'global') =>
             field.encryptedOptions,
             hubId,
             field.id,
-            'encrypted_options',
-            ''
+            'encrypted_options'
           )
           return {
             ...field,
@@ -226,16 +225,9 @@ export const customFieldsOptions = (hubId = 'global') =>
               field.encryptedFieldName,
               hubId,
               field.id,
-              'encrypted_field_name',
-              field.name
+              'encrypted_field_name'
             ),
-            label: await decryptHubField(
-              field.encryptedLabel,
-              hubId,
-              field.id,
-              'encrypted_label',
-              field.label
-            ),
+            label: await decryptHubField(field.encryptedLabel, hubId, field.id, 'encrypted_label'),
             options: decryptedOptions
               ? (() => {
                   try {

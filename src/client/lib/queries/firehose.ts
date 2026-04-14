@@ -42,8 +42,7 @@ export const firehoseConnectionsOptions = (hubId: string) =>
             c.encryptedDisplayName,
             hubId,
             c.id,
-            'encrypted_display_name',
-            c.displayName
+            'encrypted_display_name'
           ),
         }))
       )

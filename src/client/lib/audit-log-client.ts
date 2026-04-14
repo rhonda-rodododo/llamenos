@@ -38,3 +38,24 @@ export async function appendSignedAuditEntry(
   })
   if (!res.ok) throw new Error(`Append audit entry failed: ${res.status}`)
 }
+
+/**
+ * Fetch the current chain head entryHash for a hub. Returns `null` when the
+ * chain is empty. Callers use the returned value as `prevEntryHash` when
+ * constructing the next entry via {@link buildSignedAuditEntry}.
+ *
+ * This is intentionally lightweight — it hits `GET /hubs/:hubId/audit/head`
+ * and only reads back a 64-char hex hash, so it can be called in the hot path
+ * of any admin mutation that needs to append an audit entry without pulling
+ * the full chain.
+ */
+export async function fetchAuditHead(hubId: string): Promise<string | null> {
+  const res = await fetch(`${API_BASE}/hubs/${encodeURIComponent(hubId)}/audit/head`, {
+    method: 'GET',
+    headers: { ...getAuthHeaders() },
+    credentials: 'include',
+  })
+  if (!res.ok) throw new Error(`Fetch audit head failed: ${res.status}`)
+  const body = (await res.json()) as { entryHash: string | null }
+  return body.entryHash ?? null
+}

@@ -32,13 +32,7 @@ export const shiftsListOptions = (hubId = 'global') =>
       return Promise.all(
         shifts.map(async (shift) => ({
           ...shift,
-          name: await decryptHubField(
-            shift.encryptedName,
-            hubId,
-            shift.id,
-            'encrypted_name',
-            shift.name
-          ),
+          name: await decryptHubField(shift.encryptedName, hubId, shift.id, 'encrypted_name'),
         }))
       )
     },
