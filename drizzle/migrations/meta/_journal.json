@@ -442,6 +442,13 @@
       "when": 1776384000000,
       "tag": "0061_tier3_hub_key_fk_constraints",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1776470400000,
+      "tag": "0062_recovery_participants_dedup",
+      "breakpoints": true
     }
   ]
 }

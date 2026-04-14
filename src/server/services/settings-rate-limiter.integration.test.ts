@@ -26,6 +26,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await db.delete(rateLimitCounters).where(sql`${rateLimitCounters.key} LIKE ${`${KEY_PREFIX}%`}`)
+  db.$client.close()
 })
 
 describe('rate-limiter', () => {
