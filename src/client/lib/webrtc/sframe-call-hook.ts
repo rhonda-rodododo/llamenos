@@ -8,33 +8,39 @@
  * This module exists so the manager can stay adapter-agnostic: it obtains a
  * worker client via `getSFrameWorker()` once, then calls `buildSFrameCallHook`
  * to get a closure that registers the call, sets an initial per-call sender
- * key, and installs RTCRtpScriptTransforms on every sender/receiver.
+ * key (generated and HPKE-distributed via the orchestrator), and installs
+ * RTCRtpScriptTransforms on every sender/receiver.
  *
  * Failure semantics are **fail-closed**:
  *   - If the worker client is `null` (feature-detect said no), the hook
  *     rejects with a typed `SFrameWiringError('worker_unavailable')`.
- *   - If worker RPC fails or `installSFrameTransforms` throws, the hook
- *     rejects with `SFrameWiringError('hook_failed', cause)`.
+ *   - If worker RPC, orchestrator, or `installSFrameTransforms` throws, the
+ *     hook rejects with `SFrameWiringError('hook_failed', cause)`.
  *
  * Adapters already catch these rejections, close the PC, and emit an `error`
  * event. The manager consumes that error and surfaces the
- * `E2eeFallbackBanner`. There is no silent DTLS-SRTP fallback — until a
- * future tier wires Nostr-based key distribution, a per-call 32-byte secret
- * is generated locally via `crypto.getRandomValues()` and used as the sender
- * base key. Outbound frames get SFrame-sealed; inbound frames from a peer
- * that has not yet received our key event WILL fail to decrypt, which is the
- * correct fail-closed behavior for an unfinished key distribution path.
+ * `E2eeFallbackBanner`. There is no silent DTLS-SRTP fallback — the
+ * orchestrator generates the per-call secret, publishes a KIND_SFRAME_KEY
+ * event to the Nostr relay, and the SFrame hook installs it as the worker's
+ * sender key. A peer that hasn't received this key event will fail decryption
+ * (fail-closed).
  */
 
+import { isConsentGranted } from '../consent.js'
 import type { SFramePeerConnectionHook } from './sframe-hook-types.js'
 import { installSFrameTransforms } from './sframe-install.js'
+import { type SFrameOrchestrator, createSFrameOrchestrator } from './sframe-orchestrator.js'
 import type { SFrameWorkerClient } from './sframe-worker-client.js'
 
 /** Typed error so the manager can distinguish worker-unavailable from other
  *  wiring failures without string matching. */
 export class SFrameWiringError extends Error {
-  readonly code: 'worker_unavailable' | 'hook_failed'
-  constructor(code: 'worker_unavailable' | 'hook_failed', message?: string, cause?: unknown) {
+  readonly code: 'worker_unavailable' | 'hook_failed' | 'consent_required'
+  constructor(
+    code: 'worker_unavailable' | 'hook_failed' | 'consent_required',
+    message?: string,
+    cause?: unknown
+  ) {
     super(message ?? code)
     this.name = 'SFrameWiringError'
     this.code = code
@@ -57,30 +63,50 @@ export interface BuildSFrameCallHookInputs {
   senderId: string
 
   /**
-   * Optional override for the per-call random secret source. Production code
-   * should leave this unset — tests pass a deterministic function.
+   * Optional orchestrator injection. Production code leaves this unset — the
+   * hook builds a default orchestrator bound to the provided worker client.
+   * Tests inject stubs that return deterministic secrets.
    */
-  generateCallSecret?: () => Uint8Array
-}
+  orchestrator?: SFrameOrchestrator
 
-/** Deterministic 32-byte secret generator backed by WebCrypto's CSPRNG. */
-function defaultCallSecret(): Uint8Array {
-  const out = new Uint8Array(32)
-  crypto.getRandomValues(out)
-  return out
+  /**
+   * Optional consent predicate. Production leaves this unset — the hook uses
+   * the module-level {@link isConsentGranted} cache populated by `useConsent`.
+   * Tests inject a closure so they don't have to touch the module singleton.
+   */
+  consentCheck?: () => boolean
 }
 
 /**
  * Build a `SFramePeerConnectionHook` closure bound to the provided worker
- * client. Each invocation registers the call with the worker, uploads a
- * freshly-generated sender key, and installs SFrame transforms on the PC.
+ * client. Each invocation asks the orchestrator to generate + distribute a
+ * per-call SFrame secret, installs it as the worker's sender key, wires the
+ * DTLS fingerprint verification path, and installs SFrame transforms on the
+ * pc.
  */
 export function buildSFrameCallHook(inputs: BuildSFrameCallHookInputs): SFramePeerConnectionHook {
   const { sframeClient, senderId } = inputs
-  const genSecret = inputs.generateCallSecret ?? defaultCallSecret
+  const orchestrator =
+    inputs.orchestrator ?? (sframeClient ? createSFrameOrchestrator({ sframeClient }) : null)
+  const consentCheck = inputs.consentCheck ?? isConsentGranted
 
   return async (pc, ctx) => {
-    if (!sframeClient) {
+    // Hard gate: no E2EE call-path runs until the user has explicitly
+    // consented to data processing for the current CONSENT_VERSION. The
+    // ConsentGate UI normally prevents a call from ever being initiated
+    // pre-consent, but that's a defense-in-depth layer — this check catches
+    // programmatic call initiation and any future code path that bypasses
+    // the overlay. Fails closed with a dedicated error code so the WebRTC
+    // manager can surface a consent-specific UI rather than the generic
+    // "worker unavailable" fallback.
+    if (!consentCheck()) {
+      throw new SFrameWiringError(
+        'consent_required',
+        'Data processing consent required — refusing to start E2EE call'
+      )
+    }
+
+    if (!sframeClient || !orchestrator) {
       throw new SFrameWiringError(
         'worker_unavailable',
         'SFrame worker unavailable — refusing to complete call without E2EE'
@@ -90,15 +116,14 @@ export function buildSFrameCallHook(inputs: BuildSFrameCallHookInputs): SFramePe
     try {
       await sframeClient.registerCall(ctx.callId)
 
-      // Per-call base key. Until Nostr SFrame key distribution is wired
-      // (Tier 5 WS 5.6), this is a local random seed — outbound frames are
-      // sealed, and any peer that hasn't received this key via a future
-      // SFrameKeyEvent will fail decryption (fail-closed).
-      const callSecret = genSecret()
+      // Generate + distribute the per-call secret via the orchestrator. This
+      // publishes a KIND_SFRAME_KEY event and round-trips through parseKeyEvent
+      // as a loopback check. Fails the call closed on any HPKE/KEM error.
+      const { callSecret, state } = await orchestrator.startCall(ctx.callId)
+
       if (callSecret.byteLength !== 32) {
         throw new Error(`call secret must be 32 bytes, got ${callSecret.byteLength}`)
       }
-      // ArrayBuffer is what the worker RPC schema expects.
       const baseKey = (
         callSecret.byteOffset === 0 && callSecret.byteLength === callSecret.buffer.byteLength
           ? callSecret.buffer
@@ -111,10 +136,25 @@ export function buildSFrameCallHook(inputs: BuildSFrameCallHookInputs): SFramePe
         senderId,
         sframeClient,
       })
+
+      // Fire-and-forget DTLS binding: publishes our fingerprint under
+      // KIND_DTLS_BINDING once the local SDP is available. Errors log-and-drop
+      // because an SDP-extract failure in the single-volunteer case is not
+      // a security-relevant fail-closed trigger. A future workstream that
+      // consumes peer KIND_DTLS_BINDING events will fail-closed there.
+      void orchestrator.attachDtlsVerification(state, pc).catch(() => {
+        /* best-effort publish */
+      })
     } catch (err) {
-      // Release worker state for this call so a retry doesn't leak stale keys.
+      // Release worker + orchestrator state for this call so a retry doesn't
+      // leak stale keys.
       try {
         await sframeClient.releaseCall(ctx.callId)
+      } catch {
+        /* best-effort cleanup */
+      }
+      try {
+        await orchestrator?.releaseCall(ctx.callId)
       } catch {
         /* best-effort cleanup */
       }

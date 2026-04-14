@@ -57,17 +57,24 @@ export interface StorePukEnvelopeParams {
 export class DeviceService {
   constructor(private readonly db: Database) {}
 
-  /** Lookup a device by signing pubkey — returns the row or null. */
+  /**
+   * Lookup an **active** (non-revoked) device by signing pubkey.
+   *
+   * Filters `revokedAt IS NULL` so this resolver is safe to use as the
+   * audit-chain signer lookup — a revoked device's signatures must never
+   * verify against the live device table even if its row is still present.
+   * Matches the filter `AuditLogService.findSignerByPubkey` already applies.
+   */
   async findDeviceBySigningPubkey(pubkey: string): Promise<DeviceRow | null> {
     const rows = await this.db
       .select()
       .from(userDevices)
-      .where(eq(userDevices.signingPubkey, pubkey))
+      .where(and(eq(userDevices.signingPubkey, pubkey), isNull(userDevices.revokedAt)))
       .limit(1)
     return rows[0] ?? null
   }
 
-  /** Lookup a device by deviceId. */
+  /** Lookup a device by deviceId (active or revoked — callers may need both). */
   async findDeviceById(deviceId: string): Promise<DeviceRow | null> {
     const rows = await this.db
       .select()

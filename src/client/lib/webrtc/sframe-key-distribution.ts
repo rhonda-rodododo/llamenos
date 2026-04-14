@@ -1,30 +1,20 @@
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { LABEL_SFRAME_CALL_SECRET, labelToId } from '@shared/crypto-labels.js'
 import type { HpkeEnvelope } from '@shared/hpke-envelope.js'
+import { buildAad, hpkeOpen, hpkeSeal } from '@shared/hpke-primitives.js'
 import type { SFrameKeyEvent } from '@shared/schemas/nostr-events.js'
 
 /**
- * Injected HPKE primitives. The real implementations live in
- * `@shared/hpke-primitives.ts` as `hpkeSeal(plaintext, recipientPublicKey,
- * label, aad)` and `hpkeOpen(envelope, recipientPrivateKey, expectedLabel,
- * aad)`. This module accepts a simpler two-argument form so unit tests can
- * inject stubs without standing up real X25519 keys.
+ * Build / parse SFrame call-secret distribution events.
  *
- * In production, call sites MUST curry the real primitives to bind
- * `LABEL_SFRAME_CALL_SECRET` as the label and an appropriate AAD (for
- * example, `buildAad(LABEL_SFRAME_CALL_SECRET, callId, 'sframe-secret')`)
- * before passing them in. The curry is the place to enforce those bindings,
- * not this module.
+ * HPKE label + AAD binding is enforced **inline** by this module. There is
+ * no `HpkeSealFn` / `HpkeOpenFn` injection point — callers pass `callId`
+ * and the module calls `hpkeSeal` / `hpkeOpen` directly with
+ * `LABEL_SFRAME_CALL_SECRET` and
+ * `buildAad(LABEL_SFRAME_CALL_SECRET, callId, 'sframe-secret')`. This
+ * eliminates the "first caller forgets to curry" footgun that the injected
+ * variant allowed. Callers must supply real X25519 HPKE keys.
  */
-export type HpkeSealFn = (
-  plaintext: Uint8Array,
-  recipientPublicKey: CryptoKey
-) => Promise<HpkeEnvelope>
-
-export type HpkeOpenFn = (
-  envelope: HpkeEnvelope,
-  recipientPrivateKey: CryptoKey
-) => Promise<Uint8Array>
 
 export interface CallRecipient {
   deviceId: string
@@ -40,7 +30,6 @@ export interface BuildKeyEventInputs {
   recipients: CallRecipient[]
   senderIds: string[]
   reason: 'initial' | 'rotate_join' | 'rotate_leave' | 'rotate_scheduled'
-  hpkeSeal: HpkeSealFn
 }
 
 function b64urlDecode(s: string): Uint8Array {
@@ -55,6 +44,11 @@ function b64urlEncode(bytes: Uint8Array): string {
   let bin = ''
   for (const b of bytes) bin += String.fromCharCode(b)
   return btoa(bin).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '')
+}
+
+/** Canonical AAD for the SFrame call-secret wrap, bound to a specific callId. */
+function sframeAad(callId: string): Uint8Array {
+  return buildAad(LABEL_SFRAME_CALL_SECRET, callId, 'sframe-secret')
 }
 
 /**
@@ -74,9 +68,10 @@ export async function buildKeyEvent(inputs: BuildKeyEventInputs): Promise<SFrame
     throw new Error('at least one recipient required')
   }
 
+  const aad = sframeAad(inputs.callId)
   const sealedRecipients: SFrameKeyEvent['recipients'] = []
   for (const r of inputs.recipients) {
-    const envelope = await inputs.hpkeSeal(inputs.callSecret, r.publicKey)
+    const envelope = await hpkeSeal(inputs.callSecret, r.publicKey, LABEL_SFRAME_CALL_SECRET, aad)
     sealedRecipients.push({
       deviceId: r.deviceId,
       hpkeEnc: bytesToHex(b64urlDecode(envelope.enc)),
@@ -100,17 +95,14 @@ export interface ParseKeyEventInputs {
   event: SFrameKeyEvent
   localDeviceId: string
   privateKey: CryptoKey
-  hpkeOpen: HpkeOpenFn
 }
 
 /**
  * Extract and decrypt the local device's HPKE envelope from an SFrame key
  * event. Throws if this device is not in the recipients list.
  *
- * The reconstructed `HpkeEnvelope.labelId` is stamped with
- * `labelToId(LABEL_SFRAME_CALL_SECRET)` so that the real `hpkeOpen` label
- * cross-check (see `src/shared/hpke-primitives.ts`) passes. Test stubs that
- * ignore labelId still work because they never inspect the field.
+ * AAD is derived inline from `inputs.event.callId`, so a secret sealed for
+ * one call cannot be replayed into another — the AEAD fails on mismatch.
  */
 export async function parseKeyEvent(inputs: ParseKeyEventInputs): Promise<Uint8Array> {
   const entry = inputs.event.recipients.find((r) => r.deviceId === inputs.localDeviceId)
@@ -122,7 +114,12 @@ export async function parseKeyEvent(inputs: ParseKeyEventInputs): Promise<Uint8A
     enc: b64urlEncode(hexToBytes(entry.hpkeEnc)),
     ct: b64urlEncode(hexToBytes(entry.hpkeCiphertext)),
   }
-  return inputs.hpkeOpen(envelope, inputs.privateKey)
+  return hpkeOpen(
+    envelope,
+    inputs.privateKey,
+    LABEL_SFRAME_CALL_SECRET,
+    sframeAad(inputs.event.callId)
+  )
 }
 
 export { LABEL_SFRAME_CALL_SECRET }

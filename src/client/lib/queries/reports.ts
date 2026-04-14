@@ -248,13 +248,12 @@ export const reportTypesOptions = (hubId = 'global') =>
       return Promise.all(
         reportTypes.map(async (rt) => ({
           ...rt,
-          name: await decryptHubField(rt.encryptedName, hubId, rt.id, 'encrypted_name', rt.name),
+          name: await decryptHubField(rt.encryptedName, hubId, rt.id, 'encrypted_name'),
           description: await decryptHubField(
             rt.encryptedDescription,
             hubId,
             rt.id,
-            'encrypted_description',
-            rt.description
+            'encrypted_description'
           ),
         }))
       )

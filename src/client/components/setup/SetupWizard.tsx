@@ -110,11 +110,35 @@ export function SetupWizard({ needsBootstrap = false }: { needsBootstrap?: boole
     setPinLoading(true)
     setPinError('')
     try {
-      const ok = await unlockWithPin(pin)
-      if (!ok) {
-        setPinError(t('lock.wrongPin', { defaultValue: 'Wrong PIN' }))
-        setPinValue('')
+      const result = await unlockWithPin(pin)
+      if (result.ok) return
+      switch (result.reason) {
+        case 'prf-unavailable':
+          setPinError(
+            t('lock.prfUnavailable', {
+              defaultValue:
+                'WebAuthn authenticator unavailable — reconnect your security key or use the recovery phrase.',
+            })
+          )
+          break
+        case 'idp-unavailable':
+          setPinError(
+            t('lock.idpUnavailable', {
+              defaultValue: 'Your session expired. Sign in again and retry.',
+            })
+          )
+          break
+        case 'no-blob':
+          setPinError(
+            t('lock.noStoredKey', {
+              defaultValue: 'No stored key on this device.',
+            })
+          )
+          break
+        default:
+          setPinError(t('lock.wrongPin', { defaultValue: 'Wrong PIN' }))
       }
+      setPinValue('')
     } catch {
       setPinError(t('lock.wrongPin', { defaultValue: 'Wrong PIN' }))
       setPinValue('')
