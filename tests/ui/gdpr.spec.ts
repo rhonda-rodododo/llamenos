@@ -118,22 +118,6 @@ test.describe('GDPR Compliance', () => {
   })
 
   test.describe('Retention settings', () => {
-    // Written against the pre-overhaul flat-collapsible settings page that
-    // exposed `retention-callRecordsDays` / `retention-save-button` testids.
-    // After the admin-settings UX overhaul (#44) the retention controls live
-    // under /admin/call-settings and the `voicemailRetentionDays` field is
-    // rendered disabled with a "retention not yet active" helper — the
-    // feature isn't actually wired up server-side yet. This test had
-    // guarded its interactions behind isVisible() probes, so it was a
-    // soft no-op that only ever exercised navigation. Navigation to the
-    // legacy /admin/settings route now goes through a client-side redirect
-    // to /admin/$section which `navigateAfterLogin`'s waitForURL doesn't
-    // match, so the test was just timing out. Skip until retention is
-    // actually implemented — see docs/NEXT_BACKLOG.md.
-    test.skip('admin can view and save retention settings', async ({ adminPage: _ }) => {
-      // Intentionally left blank — see block comment above.
-    })
-
     test('GET /api/settings/retention returns retention config', async ({ adminPage, request }) => {
       // Use the page's JWT token to make an authenticated API request
       const accessToken = await adminPage.evaluate(

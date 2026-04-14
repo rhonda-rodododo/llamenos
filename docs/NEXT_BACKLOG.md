@@ -1,5 +1,34 @@
 # Next Backlog
 
+## Security overhaul — Phase 2 (from completion audit 2026-04-14)
+
+Full report: [`docs/security/SECURITY_OVERHAUL_COMPLETION_AUDIT_2026-04-14.md`](security/SECURITY_OVERHAUL_COMPLETION_AUDIT_2026-04-14.md). Phase 1 (Tiers 0, 3, 4, 5-Twilio, Tier 1 hub-fields, Tier 2 OPAQUE/Shamir/multi-factor KEK) shipped and is hardened. Phase 2 remains.
+
+### Phase-2 P0 (exploitable or load-bearing)
+
+- [ ] **Recovery-participant dedup** (Tier 3). `src/server/services/recovery-service.ts:73-111` `addParticipant` has no per-user dedup — one compromised admin can meet threshold alone. Add `recovery_participants` junction table with `UNIQUE (recovery_request_id, participant_user_id)` + route-level JWT-subject check against share-submitter identity.
+- [ ] **`decryptHubField` plaintext-fallback removal** (Tier 1). `src/client/lib/hub-field-crypto.ts:172-187` returns the 5th `placeholder` arg verbatim on AEAD failure; ~20 call sites in `src/client/lib/queries/*.ts` pass server-sent plaintext as placeholder. Drop the fallback, throw `HubFieldTamperError` on AEAD failure, remove server plaintext columns from the response types.
+- [ ] **`unlock` PRF-unavailable vs wrong-PIN discrimination** (Tier 2). `src/client/lib/key-manager.ts:399-410` swallows WebAuthn PRF errors and reports "wrong PIN", burning user PIN-lockout budget. Return a discriminated `UnlockResult` union.
+- [ ] **Tier 6 PR #2 — MLS message-path wiring** (Tier 6). Headline item. `src/client/lib/mls/conversation.ts` is still an 11-line skeleton. Scope per POST_OVERHAUL_GAPS §Tier 6: core-crypto bootstrap, real `MlsConversation` implementation, DB schema (`mls_hub_state` + `mls_key_packages`), server routes, hub-creation bootstrap, notes + messages path cutover, epoch commits on admin add/remove, audit payload variants, round-trip + adversarial tests, whitepaper rewrite. Multi-PR epic.
+- [ ] **Consent-gate adversarial tests** (Tier 5). `src/client/lib/consent.ts` + `src/client/components/consent-gate.tsx` have no test files. No test asserts `installSFrameOnCall` refuses to run when consent has not been granted.
+
+### Phase-2 P1 (hardening + integration tests)
+
+- [ ] `wrapHubKeyForDevices` half-commit rollback policy (Tier 1)
+- [ ] Audit chain cache trust-anchor drift (Tier 0)
+- [ ] Rotation-on-tamper integration test (Tier 0)
+- [ ] CLKR-during-revoke integration test (Tier 3)
+- [ ] Behavioral CSP iframe-escape Playwright test (Tier 4)
+- [ ] Behavioral SameSite CSRF test (Tier 4)
+- [ ] `DeviceService.findDeviceBySigningPubkey` revoked-device filter (Tier 3)
+- [ ] SFrame key-distribution inline HPKE binding (Tier 5)
+- [ ] `items-key` per-artifact AAD binding (Tier 1)
+- [ ] **Doc drift sweep:** CLAUDE.md security bullet corrections (lines 100/106/115), HPKE_MIGRATION_NOTES + POST_OVERHAUL_GAPS + AEAD_AUDIT `EnvelopeV3`/`envelope-v3` rename cleanup.
+
+### Phase-2 P2 (polish — see completion audit §Follow-ups)
+
+Type-design work (branded `ShamirShare`/`VerifiedShare`, `DicewarePhrase` redaction wrapper class, `Ed25519SigningKey`/`X25519EncryptionKey` CryptoKey wrappers, branded `MlsGroupId`/`MlsEpoch`, branded `SframeFrame` record, parse-don't-validate `UnsignedAuditEntry` → `SignedAuditEntry` transition, HKDF-only labels moved out of `LABEL_REGISTRY`, adversarial tests for PUK interruption / Shamir garbage-combine / OPAQUE timing oracle).
+
 ## Follow-up: Static-image GHCR publish + caddy from-registry override
 - **What:** `deploy/docker/docker-compose.production.yml` overrides the base `caddy:2-alpine` image with a local build (`target: static`) that bakes `dist/client` + `dist/crypto-sandbox` onto a caddy:2-alpine base. The new `docker-compose.from-registry.yml` (added below) covers `app` and `sip-bridge` but cannot cover `caddy` because `.github/workflows/docker.yml` does not currently publish a static-target image to GHCR. Operators using `production.yml` therefore still need a build toolchain on the host.
 - **Scope:** Add a third matrix entry to `.github/workflows/docker.yml` that builds the `static` Dockerfile target and publishes it as `ghcr.io/rhonda-rodododo/llamenos-hotline-static:${TAG}` with cosign + provenance + SBOM. Then add a `caddy:` block to `docker-compose.from-registry.yml` pointing at that image (`image: ghcr.io/rhonda-rodododo/llamenos-hotline-static:${LLAMENOS_VERSION:-latest}` + `build: !reset null`). Update `roles/llamenos/vars/main.yml` and `demo_vars.example.yml` defaults to point at the published tag (already done — image name string is in place but image is not yet published).
