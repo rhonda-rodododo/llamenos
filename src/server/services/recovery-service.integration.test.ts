@@ -37,7 +37,10 @@ async function cleanup(): Promise<void> {
 }
 
 beforeEach(cleanup)
-afterAll(cleanup)
+afterAll(async () => {
+  await cleanup()
+  db.$client.close()
+})
 
 describe('RecoveryService integration', () => {
   test('initiateRecovery creates a pending request with zero participants', async () => {

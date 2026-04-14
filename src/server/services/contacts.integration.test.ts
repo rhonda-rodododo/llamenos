@@ -40,6 +40,7 @@ afterAll(async () => {
   await service.resetForTest(`${RUN_PREFIX}-t7`)
   await service.resetForTest(`${RUN_PREFIX}-t8`)
   await service.resetForTest(`${RUN_PREFIX}-t9`)
+  db.$client.close()
 })
 
 describe('ContactService', () => {

@@ -34,6 +34,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await db.delete(hubKeys).where(eq(hubKeys.hubId, TEST_HUB_ID))
   await db.delete(hubs).where(eq(hubs.id, TEST_HUB_ID))
+  db.$client.close()
 })
 
 function makeEnvelope(pubkey: string) {

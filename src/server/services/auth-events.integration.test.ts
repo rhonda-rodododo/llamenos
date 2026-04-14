@@ -39,7 +39,10 @@ async function cleanup(): Promise<void> {
 }
 
 beforeEach(cleanup)
-afterAll(cleanup)
+afterAll(async () => {
+  await cleanup()
+  db.$client.close()
+})
 
 describe('AuthEventsService integration', () => {
   test('record + listForUser roundtrips', async () => {

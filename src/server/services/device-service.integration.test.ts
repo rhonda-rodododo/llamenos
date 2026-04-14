@@ -50,7 +50,10 @@ async function cleanup(): Promise<void> {
 }
 
 beforeEach(cleanup)
-afterAll(cleanup)
+afterAll(async () => {
+  await cleanup()
+  db.$client.close()
+})
 
 async function seedActive(): Promise<void> {
   await service.registerDevice({
