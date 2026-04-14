@@ -4,8 +4,16 @@
  *   - DB failure   → 500 opaque_storage_failure
  *   - login-state cache at capacity → 429 opaque_start_rate_limited
  *
- * These tests mock the WASM wrapper, the DB handle, and the login-state
- * cache via `mock.module`. The cap scenario is driven by overriding the
+ * Approach: mutate methods on the real shared `opaqueServer` object in
+ * place (saving the originals and restoring in `afterAll`). We *cannot*
+ * use `mock.module('../lib/opaque-server', ...)` here because that module
+ * only re-exports `opaqueServer` from `src/client/lib/opaque-client`, and
+ * bun's `mock.module` leaks across test files — the stub would still be
+ * bound by the time `src/client/lib/opaque-client.test.ts` runs later in
+ * the suite, breaking its real round-trip. Direct in-place mutation is
+ * fully reversible in `afterAll`, so it cannot leak.
+ *
+ * The cap scenario for the login-state cache is driven by overriding the
  * real cache's max-entries knob (`_test_setMaxEntries`) rather than by
  * mocking `createLoginState`, so the actual throw-path in
  * `login-state-cache.ts` is exercised end-to-end.
@@ -16,29 +24,14 @@ import { Hono } from 'hono'
 
 // ---- Module-level stubs ---------------------------------------------------
 //
-// `mock.module` must run BEFORE the target module is imported, so we set up
-// the stubs first, then dynamically import `./opaque` inside the test factory.
-
-type OpaqueServerStub = {
-  createRegistrationResponse: (args: unknown) => Promise<string>
-  finishRegistration: (args: unknown) => Promise<string>
-  startLogin: (args: unknown) => Promise<{ state: string; message: string }>
-  finishLogin: (args: unknown) => Promise<string>
-}
+// `mock.module` for db + opaque-server-setup must run BEFORE the target
+// module is imported. Those two are safe to mock at the module boundary
+// because they are not re-exported anywhere that another test file would
+// observe. `opaque-server` is handled differently (see below).
 
 type DbStub = {
   select: (...args: unknown[]) => unknown
   insert: (...args: unknown[]) => unknown
-}
-
-// Stable holder objects — fields are mutated in tests, never reassigned,
-// so the bindings captured by the route module under `mock.module` stay
-// pointed at the current stub implementations.
-const opaqueServerStub: OpaqueServerStub = {
-  createRegistrationResponse: async () => 'ok-registration-response',
-  finishRegistration: async () => 'ok-password-file',
-  startLogin: async () => ({ state: 'opaque-state', message: 'ok-credential-response' }),
-  finishLogin: async () => 'ok-session-key',
 }
 
 const dbStub: DbStub = {
@@ -50,14 +43,40 @@ type QueryChain = Record<string, unknown>
 let selectChain: QueryChain
 let insertChain: QueryChain
 
-function resetStubs() {
-  opaqueServerStub.createRegistrationResponse = async () => 'ok-registration-response'
-  opaqueServerStub.finishRegistration = async () => 'ok-password-file'
-  opaqueServerStub.startLogin = async () => ({
+// Import and capture the real `opaqueServer` object so we can mutate its
+// methods in place. This works because `src/server/lib/opaque-server.ts`
+// re-exports the same `opaqueServer` const from the client module, so
+// *both* the server routes and the client-side round-trip test see the
+// same object identity. Mutating methods here affects the routes; the
+// afterAll restore puts the real methods back.
+const realOpaqueServerModule = await import('../lib/opaque-server')
+const { opaqueServer } = realOpaqueServerModule
+type OpaqueServerLike = typeof opaqueServer
+
+const originalOpaqueServerMethods: OpaqueServerLike = {
+  ...opaqueServer,
+}
+
+function installOpaqueServerStubs() {
+  opaqueServer.createRegistrationResponse = (async () =>
+    'ok-registration-response') as typeof opaqueServer.createRegistrationResponse
+  opaqueServer.finishRegistration = (async () =>
+    'ok-password-file') as typeof opaqueServer.finishRegistration
+  opaqueServer.startLogin = (async () => ({
     state: 'opaque-state',
     message: 'ok-credential-response',
-  })
-  opaqueServerStub.finishLogin = async () => 'ok-session-key'
+  })) as typeof opaqueServer.startLogin
+  opaqueServer.finishLogin = (async () => 'ok-session-key') as typeof opaqueServer.finishLogin
+}
+
+function restoreOpaqueServer() {
+  for (const key of Object.keys(originalOpaqueServerMethods) as Array<keyof OpaqueServerLike>) {
+    ;(opaqueServer as Record<string, unknown>)[key as string] = originalOpaqueServerMethods[key]
+  }
+}
+
+function resetStubs() {
+  installOpaqueServerStubs()
 
   // Drizzle-like query builder that terminates in an awaited array. The
   // registration/finish path uses insert().values().onConflictDoUpdate(); the
@@ -76,18 +95,8 @@ function resetStubs() {
 }
 resetStubs()
 
-// Preserve the real modules' other exports so sibling tests that import
-// them (e.g. `createDatabase`, `initDb`) keep their bindings. Bun's
-// `mock.module` leaks module overrides across test files, so we only
-// swap the specific functions opaque.ts depends on.
 const realDb = await import('../db')
-const realOpaqueServer = await import('../lib/opaque-server')
 const realOpaqueServerSetup = await import('../lib/opaque-server-setup')
-
-mock.module('../lib/opaque-server', () => ({
-  ...realOpaqueServer,
-  opaqueServer: opaqueServerStub,
-}))
 
 mock.module('../lib/opaque-server-setup', () => ({
   ...realOpaqueServerSetup,
@@ -175,12 +184,12 @@ describe('opaque routes — error handling', () => {
     _test_resetMaxEntries()
   })
 
-  // Restore real module exports after this file finishes. Bun's `mock.module`
-  // leaks module overrides across test files, and `opaqueServer` is actually
-  // re-exported from `src/client/lib/opaque-client` — so leaving the stub in
-  // place would break `opaque-client.test.ts` when it runs later in the suite.
+  // Restore the shared `opaqueServer` methods to their originals. Without
+  // this, `opaque-client.test.ts` (which imports the same shared object)
+  // would pick up the stubs and fail its real round-trip. We also re-mock
+  // the other module paths with their real modules as a defense-in-depth.
   afterAll(() => {
-    mock.module('../lib/opaque-server', () => realOpaqueServer)
+    restoreOpaqueServer()
     mock.module('../lib/opaque-server-setup', () => realOpaqueServerSetup)
     mock.module('../db', () => realDb)
   })
@@ -195,7 +204,7 @@ describe('opaque routes — error handling', () => {
   })
 
   test('registration/start WASM failure → 500 opaque_protocol_failure', async () => {
-    opaqueServerStub.createRegistrationResponse = async () => {
+    opaqueServer.createRegistrationResponse = async () => {
       throw new Error('wasm boom')
     }
     const app = createTestApp()
@@ -263,7 +272,7 @@ describe('opaque routes — error handling', () => {
       credentialIdentifier: TEST_CRED_ID,
       state: '',
     })
-    opaqueServerStub.finishRegistration = async () => {
+    opaqueServer.finishRegistration = async () => {
       throw new Error('wasm boom')
     }
     const app = createTestApp()
@@ -278,7 +287,7 @@ describe('opaque routes — error handling', () => {
   })
 
   test('login/start WASM failure → 500 opaque_protocol_failure', async () => {
-    opaqueServerStub.startLogin = async () => {
+    opaqueServer.startLogin = async () => {
       throw new Error('wasm boom')
     }
     const app = createTestApp()
@@ -321,7 +330,7 @@ describe('opaque routes — error handling', () => {
       credentialIdentifier: TEST_CRED_ID,
       state: 'opaque-state',
     })
-    opaqueServerStub.finishLogin = async () => {
+    opaqueServer.finishLogin = async () => {
       throw new Error('wasm boom')
     }
     const app = createTestApp()
