@@ -29,6 +29,7 @@ import { ConfigProvider } from '@/lib/config'
 import { NoteSheetProvider } from '@/lib/note-sheet-context'
 import { ThemeProvider } from '@/lib/theme'
 import { ToastProvider } from '@/lib/toast'
+import { installTrustedTypesPolicy } from '@/lib/trusted-types-policy'
 import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -61,6 +62,17 @@ declare module '@tanstack/react-router' {
 }
 
 async function bootSPA(): Promise<void> {
+  // Belt-and-suspenders Trusted Types install. The inline <script> in
+  // index.html is the primary installer because it runs BEFORE the module
+  // bundle evaluates (required: top-level singletons construct Workers at
+  // module-init and would otherwise fail CSP `require-trusted-types-for
+  // 'script'`). This call is idempotent — `createPolicy` throws "already
+  // exists" on the second install and the function swallows that. It still
+  // runs in prod as defense-in-depth (covers the case where the inline
+  // installer is accidentally removed/refactored) and as the single import
+  // path that keeps `trusted-types-policy.ts` linked into the graph.
+  installTrustedTypesPolicy()
+
   // Gate 1: fail-closed binary verifier. Throws on any non-match, renders a
   // refusal screen into #root, and never returns on failure.
   await runBootReleaseVerifier()
