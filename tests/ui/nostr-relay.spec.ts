@@ -131,40 +131,6 @@ test.describe('Call ring Nostr events', () => {
     }
   })
 
-  test.beforeEach(async ({ adminPage }) => {
-    await navigateAfterLogin(adminPage, '/')
-
-    // Inject authedFetch for API calls
-    await adminPage.evaluate(() => {
-      window.__authedFetch = async (url: string, options: RequestInit = {}) => {
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-          ...((options.headers as Record<string, string>) || {}),
-        }
-        const token =
-          window.__TEST_AUTH_FACADE?.getAccessToken() ?? sessionStorage.getItem('__TEST_JWT')
-        if (token) {
-          headers.Authorization = `Bearer ${token}`
-        }
-        return fetch(url, { ...options, headers })
-      }
-    })
-
-    // Set up fallback group so calls proceed
-    const adminPubkey = await adminPage.evaluate(() => {
-      const km = (window as any).__TEST_KEY_MANAGER
-      return km?.getPublicKeyHex?.() ?? null
-    })
-    if (adminPubkey) {
-      await adminPage.evaluate(async (pubkey: string) => {
-        await window.__authedFetch?.('/api/settings/fallback-group', {
-          method: 'PUT',
-          body: JSON.stringify({ pubkeys: [pubkey] }),
-        })
-      }, adminPubkey)
-    }
-  })
-
   test('server publishes kind 1000 event to relay on inbound call', async ({ request }) => {
     const callSid = `CA_nostr_ring_${Date.now()}`
     pendingCallSids.push(callSid)
