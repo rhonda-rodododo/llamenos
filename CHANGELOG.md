@@ -5,15 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.48.4] - 2026-04-14
+
+### Bug Fixes
+
+- P1 — SFrame worker RPC timeout (#112)
+
+### Miscellaneous
+
+- v0.48.4 [skip ci]
+
 ## [0.48.3] - 2026-04-14
 
 ### Bug Fixes
 
 - Tier 6 SAS derivation binds both parties + nonce (#106)
+- Tier 3 P0 — verifier impersonation gaps (#107)
+- Tier 4 P0 — crypto sandbox iframe opaque-origin round-trip (#108)
+- Tier 2 P0 — recovery endpoints auth + rate limit + schema (#109)
 
 ### Documentation
 
 - post-overhaul gaps audit for 2026-04-13 session (#105)
+
+### Features
+
+- wire SFrame into call flow + E2EE indicators (#110)
 
 ### Miscellaneous
 
