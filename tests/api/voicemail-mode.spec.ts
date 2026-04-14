@@ -12,8 +12,6 @@ function twilioForm(params: Record<string, string>): string {
 test.describe('Voicemail mode routing', () => {
   test.describe.configure({ mode: 'serial' })
 
-  let telephonyAvailable = false
-
   /**
    * Helper: set voicemailMode via the settings API.
    */
@@ -59,12 +57,6 @@ test.describe('Voicemail mode routing', () => {
     const callSid = `CA_vm_always_${Date.now()}`
     const { status, body } = await simulateLanguageSelected(request, callSid)
 
-    if (status === 503 || status === 404) {
-      test.skip(true, 'Telephony not configured in dev env')
-      return
-    }
-    telephonyAvailable = true
-
     expect(status).toBe(200)
     // Should contain Record (voicemail prompt) and NOT Enqueue (normal ringing flow).
     // If captcha is enabled by a parallel test, the response contains Gather+Say instead —
@@ -85,8 +77,6 @@ test.describe('Voicemail mode routing', () => {
   test('voicemailMode=never with no users returns unavailable message (no Record, no Enqueue)', async ({
     request,
   }) => {
-    test.skip(!telephonyAvailable, 'Telephony not configured')
-
     // Set voicemailMode to 'never'
     await setVoicemailMode(request, 'never')
 
@@ -110,8 +100,6 @@ test.describe('Voicemail mode routing', () => {
   })
 
   test('voicemailMode=auto with no shifts returns voicemail TwiML', async ({ request }) => {
-    test.skip(!telephonyAvailable, 'Telephony not configured')
-
     // Mode is 'auto', and no shifts/fallback configured means no available users → voicemail
     await setVoicemailMode(request, 'auto')
 

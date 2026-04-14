@@ -20,21 +20,6 @@ import {
 } from '../helpers/authed-request'
 
 // ---------------------------------------------------------------------------
-// Skip entire file if the server isn't reachable
-// ---------------------------------------------------------------------------
-
-test.beforeAll(async ({ request }) => {
-  try {
-    const res = await request.get('/api/health/live', { timeout: 5000 })
-    if (!res.ok()) {
-      test.skip(true, 'Server not reachable — skipping auth facade tests')
-    }
-  } catch {
-    test.skip(true, 'Server not reachable — skipping auth facade tests')
-  }
-})
-
-// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 

@@ -18,15 +18,7 @@ const DATABASE_URL =
 
 let sql: ReturnType<typeof postgres>
 
-test.beforeAll(async ({ request }) => {
-  try {
-    const res = await request.get('/api/health/live', { timeout: 5000 })
-    if (!res.ok()) {
-      test.skip(true, 'Server not reachable')
-    }
-  } catch {
-    test.skip(true, 'Server not reachable')
-  }
+test.beforeAll(() => {
   sql = postgres(DATABASE_URL, { max: 2 })
 })
 
