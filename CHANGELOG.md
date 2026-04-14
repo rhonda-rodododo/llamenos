@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.50.4] - 2026-04-14
+
+### Miscellaneous
+
+- v0.50.4 [skip ci]
+
+### Testing
+
+- delete skipped device-fingerprint SAS interaction tests (#136)
+
 ## [0.50.3] - 2026-04-14
 
 ### Miscellaneous
@@ -14,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Testing
 
 - remove defensive 'Server not reachable' skips (#139)
+- remove dead non-Chromium skip branches (#138)
+- unskip getting-started + delete brittle hub-switcher test (#137)
 
 ## [0.50.2] - 2026-04-14
 
