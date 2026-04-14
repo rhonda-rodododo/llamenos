@@ -126,14 +126,15 @@ const jwtAuth = createMiddleware<AuthFacadeEnv>(async (c, next) => {
     return c.json({ error: 'Missing or invalid Authorization header' }, 401)
   }
   const token = header.slice(7)
+  let payload: Awaited<ReturnType<typeof verifyAccessToken>>
   try {
-    const payload = await verifyAccessToken(token, c.env.JWT_SECRET)
-    c.set('pubkey', payload.sub)
-    c.set('permissions', payload.permissions ?? [])
-    await next()
+    payload = await verifyAccessToken(token, c.env.JWT_SECRET)
   } catch {
     return c.json({ error: 'Invalid or expired token' }, 401)
   }
+  c.set('pubkey', payload.sub)
+  c.set('permissions', payload.permissions ?? [])
+  await next()
 })
 
 // ---------------------------------------------------------------------------

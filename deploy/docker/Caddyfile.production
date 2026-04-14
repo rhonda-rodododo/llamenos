@@ -88,7 +88,11 @@
 
 		Cross-Origin-Opener-Policy "same-origin"
 		Cross-Origin-Embedder-Policy "require-corp"
-		Cross-Origin-Resource-Policy "same-origin"
+		# CORP must be 'cross-origin' — the SPA host sets COEP: require-corp,
+		# which means the iframe fetch must opt in via CORP: cross-origin.
+		# frame-ancestors restricts who can embed; CORP allows the fetch to
+		# succeed. 'same-origin' would block the cross-origin iframe load.
+		Cross-Origin-Resource-Policy "cross-origin"
 		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
 		X-Content-Type-Options "nosniff"
 		# frame-ancestors (above) replaces X-Frame-Options — we MUST allow
