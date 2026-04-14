@@ -24,19 +24,12 @@ export const tagsListOptions = (hubId = 'global') =>
       return Promise.all(
         tags.map(async (tag) => ({
           ...tag,
-          label: await decryptHubField(
-            tag.encryptedLabel,
-            hubId,
-            tag.id,
-            'encrypted_label',
-            tag.name
-          ),
+          label: await decryptHubField(tag.encryptedLabel, hubId, tag.id, 'encrypted_label'),
           category: await decryptHubField(
             tag.encryptedCategory,
             hubId,
             tag.id,
-            'encrypted_category',
-            ''
+            'encrypted_category'
           ),
         }))
       )

@@ -26,7 +26,7 @@ mock.module('./crypto-worker-client', () => ({
   },
 }))
 
-const { buildSignedAuditEntry } = await import('./audit-log-client')
+const { buildSignedAuditEntry, fetchAuditHead } = await import('./audit-log-client')
 
 const HEX64 = 'cd'.repeat(32)
 const UUID = '00000000-0000-4000-8000-000000000001'
@@ -88,5 +88,54 @@ describe('buildSignedAuditEntry', () => {
         signerDeviceId: 'device-1',
       })
     ).rejects.toThrow('Crypto worker not unlocked')
+  })
+})
+
+describe('fetchAuditHead', () => {
+  const realFetch = globalThis.fetch
+
+  test('returns entryHash from the /audit/head endpoint', async () => {
+    const head = 'cd'.repeat(32)
+    const captured: { url?: string; method?: string } = {}
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      captured.url = typeof input === 'string' ? input : input.toString()
+      captured.method = init?.method
+      return new Response(JSON.stringify({ entryHash: head }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    }) as unknown as typeof fetch
+    try {
+      const result = await fetchAuditHead(UUID)
+      expect(result).toBe(head)
+      expect(captured.url).toContain(`/hubs/${UUID}/audit/head`)
+      expect(captured.method).toBe('GET')
+    } finally {
+      globalThis.fetch = realFetch
+    }
+  })
+
+  test('returns null for an empty chain', async () => {
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ entryHash: null }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })) as unknown as typeof fetch
+    try {
+      const result = await fetchAuditHead(UUID)
+      expect(result).toBeNull()
+    } finally {
+      globalThis.fetch = realFetch
+    }
+  })
+
+  test('throws on non-2xx response', async () => {
+    globalThis.fetch = (async () =>
+      new Response('server error', { status: 500 })) as unknown as typeof fetch
+    try {
+      await expect(fetchAuditHead(UUID)).rejects.toThrow('Fetch audit head failed: 500')
+    } finally {
+      globalThis.fetch = realFetch
+    }
   })
 })
