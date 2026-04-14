@@ -68,19 +68,80 @@ export function encryptForHub(plaintext: string, hubKey: Uint8Array, aad: Uint8A
 }
 
 /**
+ * Discriminated result of a strict hub-field decryption attempt.
+ *
+ * `{ ok: false, reason: 'decrypt_failed' }` is returned for ANY thrown error
+ * out of `symmetricDecrypt` — wrong hub key, AEAD tag mismatch (tampering),
+ * AAD mismatch, structurally invalid ciphertext, etc. Once the bytes have
+ * reached this function and the caller has selected a hub key + AAD to try,
+ * we treat every failure as one bucket on purpose: distinguishing
+ * "wrong key" from "tag mismatch" client-side is a footgun (it leaks bits
+ * about which condition tripped), and the conservative read for a
+ * security-sensitive caller is "this opened under the chosen key + AAD or
+ * it didn't". Callers that want to retry under a different key are free
+ * to do so on `ok: false` without learning *why* it failed.
+ */
+export type HubDecryptResult = { ok: true; value: string } | { ok: false; reason: 'decrypt_failed' }
+
+/**
+ * Strict form of hub-field decryption that returns a discriminated result.
+ *
+ * A `{ ok: false }` return means the ciphertext failed to open under the
+ * given hub key and AAD — possible tampering, wrong key, or AAD mismatch
+ * (see `HubDecryptResult` for the rationale on collapsing those cases).
+ * Always logs the underlying error via `console.error` so the event is
+ * visible during dev/test runs even when callers immediately discard the
+ * result. (`vite.config.ts` sets `dropConsole: true` for prod, so the call
+ * is dead-code-eliminated from the shipped client bundle — the structured
+ * logger replacement is tracked under
+ * `docs/superpowers/specs/2026-04-05-logging-infrastructure-design.md`.)
+ *
+ * Prefer this in any code path that needs to react to a decryption failure
+ * (audit alert, sigchain step abort, recovery prompt). Legacy code that
+ * just wants a `string | null` should keep using `decryptFromHub`, which
+ * delegates to this function.
+ */
+export function decryptFromHubWithError(
+  packed: Ciphertext,
+  hubKey: Uint8Array,
+  aad: Uint8Array
+): HubDecryptResult {
+  try {
+    return {
+      ok: true,
+      value: new TextDecoder().decode(symmetricDecrypt(packed, hubKey, aad)),
+    }
+  } catch (err) {
+    // Log every failure — a hub-field that was readable yesterday and is
+    // unreadable today is a security event, even if the caller decides to
+    // swallow the result. console.error is the established pattern for
+    // client-side genuine failures (see `lib/mls/core-crypto-loader.ts`)
+    // and is dropped from the shipped production bundle by Vite's
+    // `dropConsole: true`, so this stays dev/test-only on disk.
+    // biome-ignore lint/suspicious/noConsole: genuine failure in catch — no structured logger available client-side
+    console.error('[hub-key-manager] hub-field decryption failed (possible tampering)', {
+      error: err instanceof Error ? err.message : String(err),
+    })
+    return { ok: false, reason: 'decrypt_failed' }
+  }
+}
+
+/**
  * Decrypt hub-encrypted data using the hub key.
- * Returns null on decryption failure (wrong key, corrupted data, AAD mismatch, etc.).
+ *
+ * Returns `null` on decryption failure (wrong key, corrupted data, AAD
+ * mismatch, etc.). This is the legacy compatibility shim — new code that
+ * needs to distinguish success from failure for security-relevant reasons
+ * should call `decryptFromHubWithError` directly so the failure isn't
+ * silently coalesced into the same value as "no ciphertext yet".
  */
 export function decryptFromHub(
   packed: Ciphertext,
   hubKey: Uint8Array,
   aad: Uint8Array
 ): string | null {
-  try {
-    return new TextDecoder().decode(symmetricDecrypt(packed, hubKey, aad))
-  } catch {
-    return null
-  }
+  const result = decryptFromHubWithError(packed, hubKey, aad)
+  return result.ok ? result.value : null
 }
 
 // ---- Per-device HPKE wrapping (Task 24) ----

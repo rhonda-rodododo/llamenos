@@ -2,8 +2,10 @@ import { describe, expect, test } from 'bun:test'
 import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import { LABEL_HUB_FIELD } from '@shared/crypto-labels'
 import { createHpkeSuite } from '@shared/crypto-suite'
+import type { Ciphertext } from '@shared/crypto-types'
 import {
   decryptFromHub,
+  decryptFromHubWithError,
   encryptForHub,
   generateHubKey,
   planRotationCascade,
@@ -65,6 +67,95 @@ describe('encryptForHub / decryptFromHub', () => {
     const ct = encryptForHub('secret', key1, aad)
     const pt = decryptFromHub(ct, key2, aad)
     expect(pt).toBeNull()
+  })
+})
+
+describe('decryptFromHubWithError', () => {
+  test('matching key + AAD round-trips with ok: true', () => {
+    const key = generateHubKey()
+    const aad = utf8ToBytes(`${LABEL_HUB_FIELD}:row-1:encrypted_name`)
+    const ct = encryptForHub('hello world', key, aad)
+
+    const result = decryptFromHubWithError(ct, key, aad)
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value).toBe('hello world')
+    }
+  })
+
+  test('wrong key returns ok: false / decrypt_failed', () => {
+    const key1 = generateHubKey()
+    const key2 = generateHubKey()
+    const aad = utf8ToBytes(`${LABEL_HUB_FIELD}:row-1:encrypted_name`)
+    const ct = encryptForHub('top secret', key1, aad)
+
+    const result = decryptFromHubWithError(ct, key2, aad)
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.reason).toBe('decrypt_failed')
+    }
+  })
+
+  test('mismatched AAD returns ok: false / decrypt_failed', () => {
+    const key = generateHubKey()
+    const aadA = utf8ToBytes(`${LABEL_HUB_FIELD}:row-A:encrypted_name`)
+    const aadB = utf8ToBytes(`${LABEL_HUB_FIELD}:row-B:encrypted_name`)
+    const ct = encryptForHub('hello', key, aadA)
+
+    const result = decryptFromHubWithError(ct, key, aadB)
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.reason).toBe('decrypt_failed')
+    }
+  })
+
+  test('tampered ciphertext returns ok: false / decrypt_failed', () => {
+    const key = generateHubKey()
+    const aad = utf8ToBytes(`${LABEL_HUB_FIELD}:row-1:encrypted_name`)
+    const ct = encryptForHub('hello', key, aad)
+
+    // Flip a single hex nibble inside the AEAD tag region (last hex char).
+    // This is a tag-mismatch tampering attempt — the ciphertext is still a
+    // syntactically valid hex string, just with one bit flipped.
+    const lastHex = ct[ct.length - 1]
+    const flipped = lastHex === '0' ? '1' : '0'
+    const tampered = (ct.slice(0, -1) + flipped) as Ciphertext
+
+    const result = decryptFromHubWithError(tampered, key, aad)
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.reason).toBe('decrypt_failed')
+    }
+  })
+
+  test('structurally invalid ciphertext returns ok: false (not throw)', () => {
+    const key = generateHubKey()
+    const aad = utf8ToBytes(`${LABEL_HUB_FIELD}:row-1:encrypted_name`)
+
+    const result = decryptFromHubWithError('not-hex-at-all' as Ciphertext, key, aad)
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.reason).toBe('decrypt_failed')
+    }
+  })
+})
+
+describe('decryptFromHub (legacy null-return shim)', () => {
+  test('delegates to decryptFromHubWithError on success', () => {
+    const key = generateHubKey()
+    const aad = utf8ToBytes(`${LABEL_HUB_FIELD}:row-1:n`)
+    const ct = encryptForHub('legacy-ok', key, aad)
+    expect(decryptFromHub(ct, key, aad)).toBe('legacy-ok')
+  })
+
+  test('returns null for tampered ciphertext', () => {
+    const key = generateHubKey()
+    const aad = utf8ToBytes(`${LABEL_HUB_FIELD}:row-1:n`)
+    const ct = encryptForHub('legacy', key, aad)
+    const lastHex = ct[ct.length - 1]
+    const flipped = lastHex === '0' ? '1' : '0'
+    const tampered = (ct.slice(0, -1) + flipped) as Ciphertext
+    expect(decryptFromHub(tampered, key, aad)).toBeNull()
   })
 })
 
