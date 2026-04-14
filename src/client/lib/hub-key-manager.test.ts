@@ -4,6 +4,7 @@ import { LABEL_HUB_FIELD } from '@shared/crypto-labels'
 import { createHpkeSuite } from '@shared/crypto-suite'
 import type { Ciphertext } from '@shared/crypto-types'
 import {
+  HubKeyWrapError,
   decryptFromHub,
   decryptFromHubWithError,
   encryptForHub,
@@ -14,6 +15,7 @@ import {
   unwrapOldGen,
   walkGenerationChain,
   wrapHubKeyForDevice,
+  wrapHubKeyForDevices,
   wrapOldGenUnderNew,
 } from './hub-key-manager'
 
@@ -215,6 +217,133 @@ describe('wrapHubKeyForDevice + unwrapHubKeyForDevice', () => {
   })
 })
 
+// ---- Multi-device wrap failure policies ----
+
+/**
+ * Build a CryptoKey handle that is NOT usable as an HPKE KEM recipient.
+ * hpke-js expects an X25519 public key; any other CryptoKey (an AES-GCM
+ * symmetric key here) makes the KEM encap step throw. That gives us a
+ * deterministic failure injection without having to mock `hpkeSeal`.
+ */
+async function generateBrokenDevicePubkey(): Promise<CryptoKey> {
+  return crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt'])
+}
+
+describe('wrapHubKeyForDevices — failure policies', () => {
+  test('abort policy: partial failure throws HubKeyWrapError with failed devices', async () => {
+    const hubKey = generateHubKey()
+    const good = await generateDeviceKeypair()
+    const broken = await generateBrokenDevicePubkey()
+
+    let caught: unknown = null
+    try {
+      await wrapHubKeyForDevices(
+        hubKey,
+        [
+          { deviceId: 'good', encPubkey: good.publicKey },
+          { deviceId: 'broken', encPubkey: broken },
+        ],
+        HUB_ID,
+        'abort'
+      )
+    } catch (err) {
+      caught = err
+    }
+    expect(caught).toBeInstanceOf(HubKeyWrapError)
+    const err = caught as HubKeyWrapError
+    expect(err.policy).toBe('abort')
+    expect(err.hubId).toBe(HUB_ID)
+    expect(err.failedDevices).toHaveLength(1)
+    expect(err.failedDevices[0].deviceId).toBe('broken')
+    expect(typeof err.failedDevices[0].error).toBe('string')
+  })
+
+  test('abort policy is the default when no policy is passed', async () => {
+    const hubKey = generateHubKey()
+    const good = await generateDeviceKeypair()
+    const broken = await generateBrokenDevicePubkey()
+
+    await expect(
+      wrapHubKeyForDevices(
+        hubKey,
+        [
+          { deviceId: 'good', encPubkey: good.publicKey },
+          { deviceId: 'broken', encPubkey: broken },
+        ],
+        HUB_ID
+      )
+    ).rejects.toBeInstanceOf(HubKeyWrapError)
+  })
+
+  test('tolerate policy: partial failure returns only successful devices', async () => {
+    const hubKey = generateHubKey()
+    const good1 = await generateDeviceKeypair()
+    const good2 = await generateDeviceKeypair()
+    const broken = await generateBrokenDevicePubkey()
+
+    const results = await wrapHubKeyForDevices(
+      hubKey,
+      [
+        { deviceId: 'good-1', encPubkey: good1.publicKey },
+        { deviceId: 'broken', encPubkey: broken },
+        { deviceId: 'good-2', encPubkey: good2.publicKey },
+      ],
+      HUB_ID,
+      'tolerate'
+    )
+    expect(results).toHaveLength(2)
+    expect(results.map((r) => r.deviceId).sort()).toEqual(['good-1', 'good-2'])
+  })
+
+  test('tolerate policy still throws when ALL devices fail (empty result is always a bug)', async () => {
+    const hubKey = generateHubKey()
+    const broken1 = await generateBrokenDevicePubkey()
+    const broken2 = await generateBrokenDevicePubkey()
+
+    let caught: unknown = null
+    try {
+      await wrapHubKeyForDevices(
+        hubKey,
+        [
+          { deviceId: 'b1', encPubkey: broken1 },
+          { deviceId: 'b2', encPubkey: broken2 },
+        ],
+        HUB_ID,
+        'tolerate'
+      )
+    } catch (err) {
+      caught = err
+    }
+    expect(caught).toBeInstanceOf(HubKeyWrapError)
+    expect((caught as HubKeyWrapError).failedDevices).toHaveLength(2)
+  })
+
+  test('empty devices array returns empty result under either policy', async () => {
+    const hubKey = generateHubKey()
+    await expect(wrapHubKeyForDevices(hubKey, [], HUB_ID, 'abort')).resolves.toEqual([])
+    await expect(wrapHubKeyForDevices(hubKey, [], HUB_ID, 'tolerate')).resolves.toEqual([])
+  })
+
+  test('happy path: all devices succeed, result matches input order', async () => {
+    const hubKey = generateHubKey()
+    const d1 = await generateDeviceKeypair()
+    const d2 = await generateDeviceKeypair()
+
+    const results = await wrapHubKeyForDevices(
+      hubKey,
+      [
+        { deviceId: 'dev-1', encPubkey: d1.publicKey },
+        { deviceId: 'dev-2', encPubkey: d2.publicKey },
+      ],
+      HUB_ID,
+      'abort'
+    )
+    expect(results).toHaveLength(2)
+    expect(results[0].deviceId).toBe('dev-1')
+    expect(results[1].deviceId).toBe('dev-2')
+  })
+})
+
 // ---- Old-gen AES-GCM wrapping ----
 
 describe('wrapOldGenUnderNew + unwrapOldGen', () => {
@@ -371,6 +500,7 @@ describe('rotateHubKeyClkr', () => {
         { deviceId: 'dev-2', encPubkey: device2.publicKey },
         { deviceId: 'dev-3', encPubkey: device3.publicKey },
       ],
+      rotationReason: 'schedule',
     })
 
     expect(result.newHubKey.length).toBe(32)
@@ -397,6 +527,7 @@ describe('rotateHubKeyClkr', () => {
         deviceId: d.id,
         encPubkey: d.kp.publicKey,
       })),
+      rotationReason: 'schedule',
     })
 
     for (const device of devices) {
@@ -421,6 +552,7 @@ describe('rotateHubKeyClkr', () => {
       currentHubKey: oldKey,
       currentGen: 1,
       remainingDevices: [{ deviceId: 'dev-x', encPubkey: device.publicKey }],
+      rotationReason: 'schedule',
     })
 
     const recoveredOld = await unwrapOldGen(
@@ -441,11 +573,60 @@ describe('rotateHubKeyClkr', () => {
       currentHubKey: currentKey,
       currentGen: 1,
       remainingDevices: [{ deviceId: 'dev-1', encPubkey: device.publicKey }],
+      rotationReason: 'schedule',
     })
 
     expect(result.deviceCommitments).toHaveLength(1)
     expect(result.deviceCommitments[0].commitmentHash).toMatch(/^[0-9a-f]{64}$/)
     expect(result.deviceCommitments[0].deviceId).toBe('dev-1')
+  })
+
+  test('non-revoke reasons abort when any device wrap fails (no half-commit)', async () => {
+    const currentKey = generateHubKey()
+    const good = await generateDeviceKeypair()
+    const broken = await generateBrokenDevicePubkey()
+
+    // `schedule`, `add`, and `manual` all map to the 'abort' policy — every
+    // device must wrap successfully or the whole rotation is thrown. This
+    // prevents silently locking the failing device out of the new generation.
+    for (const reason of ['schedule', 'add', 'manual'] as const) {
+      await expect(
+        rotateHubKeyClkr({
+          hubId: HUB_ID,
+          currentHubKey: currentKey,
+          currentGen: 1,
+          remainingDevices: [
+            { deviceId: 'good', encPubkey: good.publicKey },
+            { deviceId: 'broken', encPubkey: broken },
+          ],
+          rotationReason: reason,
+        })
+      ).rejects.toBeInstanceOf(HubKeyWrapError)
+    }
+  })
+
+  test('revoke reason tolerates per-device wrap failures and returns the successful subset', async () => {
+    const currentKey = generateHubKey()
+    const keep = await generateDeviceKeypair()
+    const strangler = await generateBrokenDevicePubkey()
+
+    // Rotate-on-revoke: the caller has already dropped the revoked device
+    // from `remainingDevices`, but a straggler whose pubkey is unusable
+    // (e.g. corrupted stored CryptoKey for a device we're about to exclude
+    // anyway) should not block the rotation — the new key still has a
+    // reader (`keep`) and we proceed.
+    const result = await rotateHubKeyClkr({
+      hubId: HUB_ID,
+      currentHubKey: currentKey,
+      currentGen: 1,
+      remainingDevices: [
+        { deviceId: 'keep', encPubkey: keep.publicKey },
+        { deviceId: 'strangler', encPubkey: strangler },
+      ],
+      rotationReason: 'revoke',
+    })
+    expect(result.deviceEnvelopes.map((e) => e.deviceId)).toEqual(['keep'])
+    expect(result.deviceCommitments.map((c) => c.deviceId)).toEqual(['keep'])
   })
 })
 
