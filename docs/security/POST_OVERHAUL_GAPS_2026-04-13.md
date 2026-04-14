@@ -249,8 +249,9 @@ wired into SPA boot. Source: `tier-carry-forward/tier-5-notes.md`.
   origin`. Both sides see `ev.origin === "null"`; origin checks drop every
   message — the channel is silently broken in production today. Pick Option
   A (accept opaque origin + nonce HMAC) / B (drop sandbox attr) / C (add
-  `allow-same-origin`). Document the choice + enforce via a Playwright
-  round-trip test (`tests/ui/crypto-sandbox-real-boot.spec.ts`).
+  `allow-same-origin`). The nonce round-trip is already covered by
+  `src/client/lib/crypto-iframe-client.test.ts`; a Playwright-level harness
+  would need a two-origin webserver wired into CI before it can run.
 
 ### P1
 
