@@ -49,7 +49,24 @@ export interface LoginStateEntry {
 
 const DEFAULT_TTL_MS = 60_000
 
+/**
+ * Hard upper bound on the number of in-flight OPAQUE handshakes the
+ * cache will retain. A sustained flood of `*_start` calls without
+ * matching `*_finish` calls could otherwise grow the map without
+ * bound and exhaust server memory. Once the cap is hit (after
+ * purging expired entries) new writes throw `LoginStateCacheFullError`,
+ * which callers translate into a 429 response.
+ *
+ * 10 000 entries × ~200 bytes per entry is well under 5 MB even with
+ * generous object overhead, and is far more concurrent handshakes
+ * than a legitimate single-process deployment would ever see — a
+ * handshake that completes in <10 s means steady-state occupancy on
+ * a very busy node is measured in hundreds, not thousands.
+ */
+const DEFAULT_MAX_ENTRIES = 10_000
+
 const cache = new Map<string, LoginStateEntry>()
+let maxEntries = DEFAULT_MAX_ENTRIES
 
 function purgeExpired(now: number): void {
   for (const [id, entry] of cache.entries()) {
@@ -58,10 +75,25 @@ function purgeExpired(now: number): void {
 }
 
 /**
+ * Thrown by `createLoginState` when the cache is full even after
+ * purging expired entries. The OPAQUE route translates this into a
+ * 429 with a stable error code so the client can back off.
+ */
+export class LoginStateCacheFullError extends Error {
+  constructor() {
+    super('login-state-cache capacity exceeded')
+    this.name = 'LoginStateCacheFullError'
+  }
+}
+
+/**
  * Store a new handshake state and return the opaque session id that
  * the caller should hand back to the client. The returned id is a
  * cryptographically random UUID; the client uses it verbatim on its
  * follow-up `*_finish` request.
+ *
+ * Throws `LoginStateCacheFullError` if the cache is at capacity
+ * (after expired entries have been purged).
  */
 export function createLoginState(
   input: Omit<LoginStateEntry, 'expiresAt'>,
@@ -69,6 +101,9 @@ export function createLoginState(
 ): string {
   const now = Date.now()
   purgeExpired(now)
+  if (cache.size >= maxEntries) {
+    throw new LoginStateCacheFullError()
+  }
   const sessionId = randomUUID()
   cache.set(sessionId, { ...input, expiresAt: now + ttlMs })
   return sessionId
@@ -103,4 +138,21 @@ export function _test_resetLoginStateCache(): void {
  */
 export function _test_loginStateCacheSize(): number {
   return cache.size
+}
+
+/**
+ * Test-only hook: override the maximum cache entry count. Used by
+ * cap tests so they can assert the rejection path without populating
+ * 10 000+ entries. Pair with `_test_resetMaxEntries` in an `afterEach`
+ * to restore the production default.
+ */
+export function _test_setMaxEntries(n: number): void {
+  maxEntries = n
+}
+
+/**
+ * Test-only hook: restore the default maximum entry count.
+ */
+export function _test_resetMaxEntries(): void {
+  maxEntries = DEFAULT_MAX_ENTRIES
 }
