@@ -8,10 +8,8 @@
  *   4. Event can be decrypted using the server event key (derived from SERVER_NOSTR_SECRET)
  *   5. REST polling fallback works when relay is unreachable
  *
- * All tests skip gracefully when:
- *   - Nostr relay is not running (ws://localhost:7778 unreachable)
- *   - SERVER_NOSTR_SECRET is not set in env
- *   - Telephony is not configured (USE_TEST_ADAPTER=true expected)
+ * Expects: a running Nostr relay reachable at NOSTR_RELAY_URL (dev default 7778, CI 7777),
+ *          SERVER_NOSTR_SECRET set, USE_TEST_ADAPTER=true for telephony.
  */
 
 import WebSocket from 'ws'
@@ -24,27 +22,6 @@ const SERVER_NOSTR_SECRET = process.env.SERVER_NOSTR_SECRET
 
 /** Kind 1000 — incoming call ring (from @shared/nostr-events) */
 const KIND_CALL_RING = 1000
-
-/** Check if relay is reachable within 2 seconds */
-async function isNostrRelayAvailable(): Promise<boolean> {
-  return new Promise((resolve) => {
-    const timeout = setTimeout(() => {
-      ws.terminate()
-      resolve(false)
-    }, 2000)
-
-    const ws = new WebSocket(RELAY_URL)
-    ws.on('open', () => {
-      clearTimeout(timeout)
-      ws.close()
-      resolve(true)
-    })
-    ws.on('error', () => {
-      clearTimeout(timeout)
-      resolve(false)
-    })
-  })
-}
 
 /**
  * Subscribe to relay and collect events matching the filter.
@@ -86,37 +63,19 @@ function formEncode(params: Record<string, string>): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Phase 1: Relay availability (infrastructure check)
-// ─────────────────────────────────────────────────────────────────────────────
-
-test.describe('Nostr relay infrastructure', () => {
-  test('relay availability check returns boolean without throwing', async () => {
-    // This test always passes — it just verifies the helper works
-    const available = await isNostrRelayAvailable()
-    expect(typeof available).toBe('boolean')
-  })
-})
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Phase 2: Call ring event publishing
+// Call ring event publishing
 // ─────────────────────────────────────────────────────────────────────────────
 
 test.describe('Call ring Nostr events', () => {
   test.describe.configure({ mode: 'serial' })
 
-  let relayAvailable = false
-
   test.beforeAll(async ({ request }) => {
-    relayAvailable = await isNostrRelayAvailable()
-    if (relayAvailable) {
-      // Set admin as fallback ring group so calls trigger ringing + events
-      const adminApi = createAdminApiFromStorageState(request)
-      await adminApi.put('/api/settings/fallback-group', { pubkeys: [adminApi.pubkey] })
-    }
+    // Set admin as fallback ring group so calls trigger ringing + events
+    const adminApi = createAdminApiFromStorageState(request)
+    await adminApi.put('/api/settings/fallback-group', { pubkeys: [adminApi.pubkey] })
   })
 
   test.beforeEach(async ({ adminPage }) => {
-    if (!relayAvailable) return
     await navigateAfterLogin(adminPage, '/')
 
     // Inject authedFetch for API calls
@@ -151,11 +110,6 @@ test.describe('Call ring Nostr events', () => {
   })
 
   test('server publishes kind 1000 event to relay on inbound call', async ({ request }) => {
-    if (!relayAvailable) {
-      test.skip(true, 'Nostr relay not running')
-      return
-    }
-
     const callSid = `CA_nostr_ring_${Date.now()}`
     const collectedEvents: Array<{ kind: number; content: string; tags: string[][] }> = []
 
@@ -213,11 +167,6 @@ test.describe('Call ring Nostr events', () => {
   })
 
   test('call ring event content is ciphertext (not plaintext)', async ({ request }) => {
-    if (!relayAvailable) {
-      test.skip(true, 'Nostr relay not running')
-      return
-    }
-
     const callSid = `CA_nostr_enc_${Date.now()}`
     const collectedEvents: Array<{ kind: number; content: string; tags: string[][] }> = []
 
@@ -260,18 +209,12 @@ test.describe('Call ring Nostr events', () => {
     ws.close()
 
     const ringEvent = collectedEvents.find((e) => e.kind === KIND_CALL_RING)
-    if (!ringEvent) {
-      test.skip(
-        true,
-        'No relay event received — relay may not be configured with SERVER_NOSTR_SECRET'
-      )
-      return
-    }
+    expect(ringEvent, 'Expected a KIND_CALL_RING event on relay').toBeDefined()
 
     // Content must NOT be parseable as JSON (it's hex-encoded ciphertext)
     let isPlaintext = false
     try {
-      JSON.parse(ringEvent.content)
+      JSON.parse(ringEvent!.content)
       isPlaintext = true
     } catch {
       // Good — not JSON
@@ -280,17 +223,12 @@ test.describe('Call ring Nostr events', () => {
 
     // Content should be valid hex (XChaCha20 nonce || ciphertext)
     expect(
-      isValidHex(ringEvent.content),
-      `Expected hex ciphertext, got: ${ringEvent.content.slice(0, 40)}...`
+      isValidHex(ringEvent!.content),
+      `Expected hex ciphertext, got: ${ringEvent!.content.slice(0, 40)}...`
     ).toBe(true)
   })
 
   test('call ring event has correct tags', async ({ request }) => {
-    if (!relayAvailable) {
-      test.skip(true, 'Nostr relay not running')
-      return
-    }
-
     const callSid = `CA_nostr_tags_${Date.now()}`
     const collectedEvents: Array<{ kind: number; content: string; tags: string[][] }> = []
 
@@ -333,26 +271,16 @@ test.describe('Call ring Nostr events', () => {
     ws.close()
 
     const ringEvent = collectedEvents.find((e) => e.kind === KIND_CALL_RING)
-    if (!ringEvent) {
-      test.skip(true, 'No relay event received — relay may not be configured')
-      return
-    }
+    expect(ringEvent, 'Expected a KIND_CALL_RING event on relay').toBeDefined()
 
-    const tagMap = Object.fromEntries(ringEvent.tags.map((t) => [t[0], t[1]]))
+    const tagMap = Object.fromEntries(ringEvent!.tags.map((t) => [t[0], t[1]]))
     expect(tagMap.t, 'Expected "llamenos:event" tag').toBe('llamenos:event')
     // Hub ID is either "global" (no hub setup) or "default-hub" (after test-reset creates default hub)
     expect(tagMap.d, 'Expected hub ID in d tag').toBeTruthy()
   })
 
   test('call ring event decrypts correctly with SERVER_NOSTR_SECRET', async ({ request }) => {
-    if (!relayAvailable) {
-      test.skip(true, 'Nostr relay not running')
-      return
-    }
-    if (!SERVER_NOSTR_SECRET) {
-      test.skip(true, 'SERVER_NOSTR_SECRET not set — skipping decryption test')
-      return
-    }
+    expect(SERVER_NOSTR_SECRET, 'SERVER_NOSTR_SECRET must be set in the test env').toBeTruthy()
 
     const callSid = `CA_nostr_dec_${Date.now()}`
     const collectedEvents: Array<{ kind: number; content: string; tags: string[][] }> = []
@@ -396,17 +324,14 @@ test.describe('Call ring Nostr events', () => {
     ws.close()
 
     const ringEvent = collectedEvents.find((e) => e.kind === KIND_CALL_RING)
-    if (!ringEvent) {
-      test.skip(true, 'No relay event received')
-      return
-    }
+    expect(ringEvent, 'Expected a KIND_CALL_RING event on relay').toBeDefined()
 
     // Derive server event key and decrypt
     const { deriveServerEventKey, decryptHubEvent } = await import(
       '../src/server/lib/hub-event-crypto'
     )
-    const eventKey = deriveServerEventKey(SERVER_NOSTR_SECRET)
-    const decrypted = decryptHubEvent(ringEvent.content, eventKey)
+    const eventKey = deriveServerEventKey(SERVER_NOSTR_SECRET!)
+    const decrypted = decryptHubEvent(ringEvent!.content, eventKey)
 
     expect(decrypted, 'Event content must decrypt to a valid object').not.toBeNull()
     expect(decrypted?.type, 'Decrypted event must have type "call:ring"').toBe('call:ring')
@@ -416,11 +341,6 @@ test.describe('Call ring Nostr events', () => {
   test('unauthenticated subscriber cannot determine event type from content', async ({
     request,
   }) => {
-    if (!relayAvailable) {
-      test.skip(true, 'Nostr relay not running')
-      return
-    }
-
     const callSid = `CA_nostr_opaque_${Date.now()}`
     const collectedEvents: Array<{ kind: number; content: string; tags: string[][] }> = []
 
@@ -463,18 +383,15 @@ test.describe('Call ring Nostr events', () => {
     ws.close()
 
     const ringEvent = collectedEvents.find((e) => e.kind === KIND_CALL_RING)
-    if (!ringEvent) {
-      test.skip(true, 'No relay event received — relay may not be configured')
-      return
-    }
+    expect(ringEvent, 'Expected a KIND_CALL_RING event on relay').toBeDefined()
 
     // Without the key, content must not contain any semantic information
-    expect(ringEvent.content).not.toContain('call:ring')
-    expect(ringEvent.content).not.toContain('callSid')
-    expect(ringEvent.content).not.toContain(callSid)
+    expect(ringEvent!.content).not.toContain('call:ring')
+    expect(ringEvent!.content).not.toContain('callSid')
+    expect(ringEvent!.content).not.toContain(callSid)
 
     // All events carry the same generic tag — cannot distinguish types
-    const tTag = ringEvent.tags.find((t) => t[0] === 't')
+    const tTag = ringEvent!.tags.find((t) => t[0] === 't')
     expect(tTag?.[1]).toBe('llamenos:event')
   })
 })
