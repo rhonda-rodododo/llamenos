@@ -69,7 +69,7 @@ interface AuthContextValue extends AuthState {
   refreshProfile: () => Promise<void>
   toggleBreak: () => Promise<void>
   renewSession: () => Promise<void>
-  unlockWithPin: (pin: string) => Promise<boolean>
+  unlockWithPin: (pin: string) => Promise<keyManager.UnlockResult>
   /** Complete key setup after passkey login on a new device (imports nsec with PIN) */
   completePasskeyKeySetup: (pin: string) => Promise<boolean>
   lockKey: () => void
@@ -395,9 +395,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   // Unlock with PIN (primary day-to-day auth after passkey session)
-  const unlockWithPin = useCallback(async (pin: string): Promise<boolean> => {
-    const pubkey = await keyManager.unlock(pin)
-    if (!pubkey) return false
+  const unlockWithPin = useCallback(async (pin: string): Promise<keyManager.UnlockResult> => {
+    const result = await keyManager.unlock(pin)
+    if (!result.ok) return result
+    const { pubkey } = result
 
     try {
       const me = await getMe()
@@ -416,10 +417,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           deviceKeypair,
         })
       )
-      return true
-    } catch {
+      return { ok: true, pubkey }
+    } catch (err) {
+      // Post-unlock bootstrap failed (getMe, decrypt, hub key load). The
+      // key unlock itself succeeded — this is a session/IdP/network issue,
+      // NOT a wrong PIN. Re-lock the worker so we're in a consistent state
+      // and surface it as idp-unavailable so the PIN attempt counter is
+      // not incremented.
+      log('unlockWithPin bootstrap failed', err)
       await keyManager.lock()
-      return false
+      return { ok: false, reason: 'idp-unavailable' }
     }
   }, [])
 
