@@ -1,7 +1,16 @@
 import type {
+  SFrameDegradedNotification,
+  SFrameErrorResponse,
+  SFrameSuccessResponse,
   SFrameWorkerRequest,
-  SFrameWorkerResponse,
 } from '@shared/schemas/sframe-worker-messages.js'
+
+/**
+ * Reply type returned by {@link handleRequest}. Excludes the unsolicited
+ * `sframe_degraded` notification because RPC handlers only ever produce
+ * success or error responses keyed to a request id.
+ */
+export type SFrameWorkerRpcReply = SFrameSuccessResponse | SFrameErrorResponse
 import { importAesKey } from '@shared/sframe/cipher-suite.js'
 import { openFrame, sealFrame } from '@shared/sframe/frame-codec.js'
 import { asCiphertextBytes } from '@shared/sframe/sframe-types.js'
@@ -35,15 +44,107 @@ interface ReceiverKeyMap {
   grace: Map<number, GraceEntry>
 }
 
+/**
+ * Error-rate tracking state for a call. Updated by {@link recordOp} on every
+ * frame transform — pure data, no IO, so unit-testable in isolation.
+ */
+export interface DegradedTracker {
+  /** Count of consecutive failed transforms (resets to 0 on success). */
+  consecutiveErrors: number
+  /** Number of errors observed inside the current rolling window. */
+  errorsInWindow: number
+  /** Number of successful transforms inside the current rolling window. */
+  successesInWindow: number
+  /** Wall-clock ms when the current window began. */
+  windowStartMs: number
+  /**
+   * Whether a degraded notification has already been emitted for the current
+   * window. Cleared when the window rolls — prevents notification spam on
+   * every dropped frame.
+   */
+  degradedReported: boolean
+}
+
 interface CallState {
   callId: string
   senderKeys: Map<string, SenderKeyState>
   receiverKeys: Map<string, ReceiverKeyMap>
   metrics: { sealed: number; opened: number; errors: number; lastError?: string }
+  degraded: DegradedTracker
 }
 
 const GRACE_WINDOW_MS = 2_000
 const MAX_GRACE_KEYS = 3
+
+/** Rolling window length for the error-rate calculation. */
+export const DEGRADED_WINDOW_MS = 5_000
+/** Threshold of consecutive errors at which the worker emits a degraded event. */
+export const DEGRADED_CONSECUTIVE_THRESHOLD = 5
+/** Error-rate threshold (10%) over the rolling window. */
+export const DEGRADED_RATE_THRESHOLD = 0.1
+/** Minimum sample size before the rate threshold is consulted. */
+export const DEGRADED_MIN_SAMPLES = 10
+
+export function newDegradedTracker(now: number = Date.now()): DegradedTracker {
+  return {
+    consecutiveErrors: 0,
+    errorsInWindow: 0,
+    successesInWindow: 0,
+    windowStartMs: now,
+    degradedReported: false,
+  }
+}
+
+export interface DegradedSignal {
+  errorRate: number
+  consecutiveErrors: number
+}
+
+/**
+ * Update the tracker with the outcome of a single frame transform and return
+ * a {@link DegradedSignal} if the worker should emit a degraded notification
+ * for this op (and has not already emitted one in the current window).
+ *
+ * Pure function — no IO, no module state. Drives both the live worker and the
+ * unit tests so the threshold logic is verifiable without spawning a real
+ * Worker / TransformStream.
+ */
+export function recordOp(
+  tracker: DegradedTracker,
+  outcome: 'success' | 'error',
+  now: number = Date.now()
+): DegradedSignal | null {
+  // Roll the window forward if the previous one expired. A new window resets
+  // both counters AND the degradedReported flag so a still-failing call can
+  // re-notify on the next threshold breach.
+  if (now - tracker.windowStartMs >= DEGRADED_WINDOW_MS) {
+    tracker.errorsInWindow = 0
+    tracker.successesInWindow = 0
+    tracker.windowStartMs = now
+    tracker.degradedReported = false
+  }
+
+  if (outcome === 'error') {
+    tracker.consecutiveErrors += 1
+    tracker.errorsInWindow += 1
+  } else {
+    tracker.consecutiveErrors = 0
+    tracker.successesInWindow += 1
+  }
+
+  if (tracker.degradedReported) return null
+
+  const total = tracker.errorsInWindow + tracker.successesInWindow
+  const errorRate = total === 0 ? 0 : tracker.errorsInWindow / total
+  const breachedConsecutive = tracker.consecutiveErrors >= DEGRADED_CONSECUTIVE_THRESHOLD
+  const breachedRate = total >= DEGRADED_MIN_SAMPLES && errorRate > DEGRADED_RATE_THRESHOLD
+
+  if (breachedConsecutive || breachedRate) {
+    tracker.degradedReported = true
+    return { errorRate, consecutiveErrors: tracker.consecutiveErrors }
+  }
+  return null
+}
 
 const calls = new Map<string, CallState>()
 
@@ -65,7 +166,7 @@ function pruneGrace(map: Map<number, GraceEntry>): void {
   }
 }
 
-export async function handleRequest(req: SFrameWorkerRequest): Promise<SFrameWorkerResponse> {
+export async function handleRequest(req: SFrameWorkerRequest): Promise<SFrameWorkerRpcReply> {
   try {
     switch (req.type) {
       case 'registerCall': {
@@ -75,6 +176,7 @@ export async function handleRequest(req: SFrameWorkerRequest): Promise<SFrameWor
             senderKeys: new Map(),
             receiverKeys: new Map(),
             metrics: { sealed: 0, opened: 0, errors: 0 },
+            degraded: newDegradedTracker(),
           })
         }
         return { type: 'success', id: req.id }
@@ -207,6 +309,15 @@ function installWorkerGlobals(): void {
     workerSelf.postMessage?.(resp)
   }
 
+  const emitDegraded = (callId: string, signal: DegradedSignal): void => {
+    workerSelf.postMessage?.({
+      type: 'sframe_degraded',
+      callId,
+      errorRate: signal.errorRate,
+      consecutiveErrors: signal.consecutiveErrors,
+    } satisfies SFrameDegradedNotification)
+  }
+
   workerSelf.onrtctransform = (ev: Event) => {
     const transformer = (ev as unknown as { transformer: RtcTransformer }).transformer
     const opts = transformer.options
@@ -270,10 +381,17 @@ function installWorkerGlobals(): void {
             state.metrics.opened += 1
           }
           controller.enqueue(rawFrame)
+          // Successful transform: feed the degraded tracker so the rolling
+          // error rate is computed against real traffic.
+          recordOp(state.degraded, 'success')
         } catch (err) {
           state.metrics.errors += 1
           state.metrics.lastError = err instanceof Error ? err.message : String(err)
-          // drop frame
+          // Frame is dropped (controller.enqueue NOT called). Notify the main
+          // thread once per window when the consecutive-error or rate
+          // threshold is breached.
+          const signal = recordOp(state.degraded, 'error')
+          if (signal) emitDegraded(opts.callId, signal)
         }
       },
     })

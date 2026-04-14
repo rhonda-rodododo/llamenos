@@ -54,13 +54,38 @@ export const SFrameWorkerRequestSchema = z.discriminatedUnion('type', [
 ])
 export type SFrameWorkerRequest = z.infer<typeof SFrameWorkerRequestSchema>
 
+export const SFrameSuccessResponseSchema = z.object({
+  type: z.literal('success'),
+  id: z.string(),
+  result: z.unknown().optional(),
+})
+export type SFrameSuccessResponse = z.infer<typeof SFrameSuccessResponseSchema>
+
+export const SFrameErrorResponseSchema = z.object({
+  type: z.literal('error'),
+  id: z.string(),
+  error: z.string(),
+  code: SFrameErrorCodeSchema,
+})
+export type SFrameErrorResponse = z.infer<typeof SFrameErrorResponseSchema>
+
+/**
+ * Tier 5 P0 — unsolicited notification posted by the worker when frame
+ * decrypt errors exceed a threshold (≥5 consecutive OR >10% over a 5s
+ * window). Has no `id` because it is not a response to a request — the
+ * worker client dispatches it to subscribed listeners via `onDegraded`.
+ */
+export const SFrameDegradedNotificationSchema = z.object({
+  type: z.literal('sframe_degraded'),
+  callId: z.string(),
+  errorRate: z.number().min(0).max(1),
+  consecutiveErrors: z.number().int().nonnegative(),
+})
+export type SFrameDegradedNotification = z.infer<typeof SFrameDegradedNotificationSchema>
+
 export const SFrameWorkerResponseSchema = z.union([
-  z.object({ type: z.literal('success'), id: z.string(), result: z.unknown().optional() }),
-  z.object({
-    type: z.literal('error'),
-    id: z.string(),
-    error: z.string(),
-    code: SFrameErrorCodeSchema,
-  }),
+  SFrameSuccessResponseSchema,
+  SFrameErrorResponseSchema,
+  SFrameDegradedNotificationSchema,
 ])
 export type SFrameWorkerResponse = z.infer<typeof SFrameWorkerResponseSchema>
