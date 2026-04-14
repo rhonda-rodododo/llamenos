@@ -31,6 +31,8 @@ export type CryptoRpcResponder = (res: CryptoRpcResponse) => void
 
 /** Placeholder the router uses when an invalid payload has no usable id. */
 const NIL_UUID = '00000000-0000-0000-0000-000000000000'
+/** Placeholder nonce for responses to schema-invalid payloads that carry no usable nonce. */
+const NIL_NONCE_HEX = '0'.repeat(64)
 
 /**
  * Classify an arbitrary thrown value into one of the closed error codes
@@ -70,6 +72,15 @@ export class CryptoRpcRouter {
     // Mandatory origin check — first thing. See
     // feedback_cross_tab_sessionstorage_gotcha: we never trust the source of a
     // postMessage without checking ev.origin.
+    //
+    // The iframe is mounted with `sandbox="allow-scripts"` (no
+    // `allow-same-origin`), but the *parent* is NOT sandboxed — so the
+    // parent's origin is a real origin and we match it exactly here.
+    // The opaque-origin direction is handled on the parent side
+    // (crypto-iframe-client.ts); see docs/security/TIER_4_POST_REVIEW.md
+    // §C-3 and docs/security/TIER_5_POST_REVIEW.md for the Option A
+    // decision that pairs this exact-match check with a per-request nonce
+    // to defend the parent against same-origin forged responses.
     if (ev.origin !== this.config.parentOrigin) return
 
     const parsed = CryptoRpcRequestSchema.safeParse(ev.data)
@@ -78,11 +89,21 @@ export class CryptoRpcRouter {
         typeof (ev.data as { id?: unknown })?.id === 'string'
           ? (ev.data as { id: string }).id
           : NIL_UUID
+      // Echo the caller's nonce if it is structurally valid (64 lowercase
+      // hex chars). If not, fall back to the nil nonce — this still
+      // satisfies the response schema. The parent will drop any response
+      // whose nonce does not match its stored outstanding-request nonce.
+      const maybeNonce = (ev.data as { nonceHex?: unknown })?.nonceHex
+      const echoedNonce =
+        typeof maybeNonce === 'string' && /^[0-9a-f]{64}$/.test(maybeNonce)
+          ? maybeNonce
+          : NIL_NONCE_HEX
       // The nil UUID is allowed by the schema's regex, so we can safely place
       // it on the error response without failing response validation.
       respond({
         kind: 'error',
         id: this.sanitizeId(maybeId),
+        nonceHex: echoedNonce,
         code: 'schema_invalid',
         message: parsed.error.issues[0]?.message ?? 'invalid request shape',
       })
@@ -92,11 +113,12 @@ export class CryptoRpcRouter {
     const req = parsed.data
     try {
       const result = await this.dispatch(req)
-      respond({ kind: 'success', id: req.id, result })
+      respond({ kind: 'success', id: req.id, nonceHex: req.nonceHex, result })
     } catch (err) {
       respond({
         kind: 'error',
         id: req.id,
+        nonceHex: req.nonceHex,
         code: classifyError(err),
         message: err instanceof Error ? err.message : 'internal error',
       })
