@@ -17,8 +17,23 @@ import { expect, test } from '../fixtures/auth'
 import { navigateAfterLogin } from '../helpers'
 import { createAdminApiFromStorageState } from '../helpers/authed-request'
 
+// Force the whole file to run on a single worker. The Call-ring and
+// REST-polling describes both drive /telephony/incoming against the same
+// shared server state; letting Playwright schedule them on different workers
+// (they are independent top-level describes) lets the two describes race and
+// leaves the Call-ring tests flaky under CI load.
+test.describe.configure({ mode: 'serial' })
+
 const RELAY_URL = process.env.NOSTR_RELAY_URL || 'ws://localhost:7778'
-const SERVER_NOSTR_SECRET = process.env.SERVER_NOSTR_SECRET
+// Default matches the value baked into playwright.config.ts webServer env and
+// the TEST_SERVER_NOSTR_SECRET constant in .github/workflows/ci.yml. The
+// decrypt test needs to run against the same secret the server was started
+// with; the CI "Run UI E2E tests" step does not re-export SERVER_NOSTR_SECRET
+// to the test runner process, so without this fallback the decrypt test fails
+// every run with "SERVER_NOSTR_SECRET must be set in the test env".
+const SERVER_NOSTR_SECRET =
+  process.env.SERVER_NOSTR_SECRET ??
+  '0000000000000000000000000000000000000000000000000000000000000001'
 
 /** Kind 1000 — incoming call ring (from @shared/nostr-events) */
 const KIND_CALL_RING = 1000
@@ -26,6 +41,12 @@ const KIND_CALL_RING = 1000
 /**
  * Subscribe to relay and collect events matching the filter.
  * Returns a cleanup function. Events are pushed to the `events` array.
+ *
+ * KIND_CALL_RING (1000) is in the NIP-01 regular (persisted) range, so strfry
+ * replays every historical ring event to a new subscriber. To avoid picking up
+ * events from earlier tests in the same file, the default filter includes a
+ * `since` of "now" (seconds) so only events published after subscription flow
+ * into the collector.
  */
 function subscribeToRelay(
   events: Array<{ kind: number; content: string; tags: string[][] }>,
@@ -33,9 +54,10 @@ function subscribeToRelay(
 ): WebSocket {
   const subId = `test-${Date.now()}`
   const ws = new WebSocket(RELAY_URL)
+  const defaultedFilter = { since: Math.floor(Date.now() / 1000), ...filter }
 
   ws.on('open', () => {
-    ws.send(JSON.stringify(['REQ', subId, filter]))
+    ws.send(JSON.stringify(['REQ', subId, defaultedFilter]))
   })
 
   ws.on('message', (raw) => {
@@ -66,13 +88,47 @@ function formEncode(params: Record<string, string>): string {
 // Call ring event publishing
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Hang up a test-simulated call via the Twilio-compatible status webhook so
+ * the call does not linger in the server's active-calls cache and collide
+ * with later call-flow/multi-hub tests that expect a single incoming call.
+ *
+ * The `/telephony/call-status` handler reads the call to end from the
+ * `parentCallSid` URL query param (that is what TelephonyAdapter wires into
+ * the StatusCallback URL when it places the leg), not from the form body, so
+ * the cleanup request must encode the sid in the query string.
+ */
+async function hangupTestCall(
+  request: import('@playwright/test').APIRequestContext,
+  callSid: string
+): Promise<void> {
+  try {
+    await request.post(`/telephony/call-status?parentCallSid=${encodeURIComponent(callSid)}`, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      data: formEncode({ CallSid: callSid, CallStatus: 'completed' }),
+    })
+  } catch {
+    // cleanup is best-effort — never fail a test because teardown failed
+  }
+}
+
 test.describe('Call ring Nostr events', () => {
   test.describe.configure({ mode: 'serial' })
+
+  // Track callSids created during the describe so afterEach can hang them up.
+  const pendingCallSids: string[] = []
 
   test.beforeAll(async ({ request }) => {
     // Set admin as fallback ring group so calls trigger ringing + events
     const adminApi = createAdminApiFromStorageState(request)
     await adminApi.put('/api/settings/fallback-group', { pubkeys: [adminApi.pubkey] })
+  })
+
+  test.afterEach(async ({ request }) => {
+    while (pendingCallSids.length > 0) {
+      const sid = pendingCallSids.pop()
+      if (sid) await hangupTestCall(request, sid)
+    }
   })
 
   test.beforeEach(async ({ adminPage }) => {
@@ -111,6 +167,7 @@ test.describe('Call ring Nostr events', () => {
 
   test('server publishes kind 1000 event to relay on inbound call', async ({ request }) => {
     const callSid = `CA_nostr_ring_${Date.now()}`
+    pendingCallSids.push(callSid)
     const collectedEvents: Array<{ kind: number; content: string; tags: string[][] }> = []
 
     // Subscribe BEFORE triggering the call
@@ -168,6 +225,7 @@ test.describe('Call ring Nostr events', () => {
 
   test('call ring event content is ciphertext (not plaintext)', async ({ request }) => {
     const callSid = `CA_nostr_enc_${Date.now()}`
+    pendingCallSids.push(callSid)
     const collectedEvents: Array<{ kind: number; content: string; tags: string[][] }> = []
 
     const ws = subscribeToRelay(collectedEvents, {
@@ -230,6 +288,7 @@ test.describe('Call ring Nostr events', () => {
 
   test('call ring event has correct tags', async ({ request }) => {
     const callSid = `CA_nostr_tags_${Date.now()}`
+    pendingCallSids.push(callSid)
     const collectedEvents: Array<{ kind: number; content: string; tags: string[][] }> = []
 
     const ws = subscribeToRelay(collectedEvents, {
@@ -280,9 +339,8 @@ test.describe('Call ring Nostr events', () => {
   })
 
   test('call ring event decrypts correctly with SERVER_NOSTR_SECRET', async ({ request }) => {
-    expect(SERVER_NOSTR_SECRET, 'SERVER_NOSTR_SECRET must be set in the test env').toBeTruthy()
-
     const callSid = `CA_nostr_dec_${Date.now()}`
+    pendingCallSids.push(callSid)
     const collectedEvents: Array<{ kind: number; content: string; tags: string[][] }> = []
 
     const ws = subscribeToRelay(collectedEvents, {
@@ -328,9 +386,9 @@ test.describe('Call ring Nostr events', () => {
 
     // Derive server event key and decrypt
     const { deriveServerEventKey, decryptHubEvent } = await import(
-      '../src/server/lib/hub-event-crypto'
+      '../../src/server/lib/hub-event-crypto'
     )
-    const eventKey = deriveServerEventKey(SERVER_NOSTR_SECRET!)
+    const eventKey = deriveServerEventKey(SERVER_NOSTR_SECRET)
     const decrypted = decryptHubEvent(ringEvent!.content, eventKey)
 
     expect(decrypted, 'Event content must decrypt to a valid object').not.toBeNull()
@@ -342,6 +400,7 @@ test.describe('Call ring Nostr events', () => {
     request,
   }) => {
     const callSid = `CA_nostr_opaque_${Date.now()}`
+    pendingCallSids.push(callSid)
     const collectedEvents: Array<{ kind: number; content: string; tags: string[][] }> = []
 
     const ws = subscribeToRelay(collectedEvents, {
@@ -403,6 +462,15 @@ test.describe('Call ring Nostr events', () => {
 test.describe('REST polling fallback when relay unreachable', () => {
   test.describe.configure({ mode: 'serial' })
 
+  const pendingCallSids: string[] = []
+
+  test.afterEach(async ({ request }) => {
+    while (pendingCallSids.length > 0) {
+      const sid = pendingCallSids.pop()
+      if (sid) await hangupTestCall(request, sid)
+    }
+  })
+
   test.beforeEach(async ({ adminPage }) => {
     await navigateAfterLogin(adminPage, '/')
     await adminPage.evaluate(() => {
@@ -443,6 +511,7 @@ test.describe('REST polling fallback when relay unreachable', () => {
     }
 
     const callSid = `CA_rest_fallback_${Date.now()}`
+    pendingCallSids.push(callSid)
 
     const incomingRes = await request.post('/telephony/incoming', {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
