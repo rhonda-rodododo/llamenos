@@ -90,8 +90,27 @@ export async function loadHubKeysForUser(hubIds: string[]): Promise<void> {
         if (cacheGeneration === myGeneration) {
           hubKeyCache.set(hubId, { raw: hubKeyBytes, cryptoKey })
         }
-      } catch {
-        // Hub key unavailable or decryption failed — skip; REST polling covers this hub
+      } catch (err) {
+        // Hub key unavailable or decryption failed — skip; REST polling covers
+        // this hub. Log the cause so dev/test operators can distinguish a
+        // missing envelope (normal for a brand-new member who has not been
+        // wrapped yet) from a decryption failure (potential key drift,
+        // tampering, or wrong device key).
+        //
+        // Production stripping: `vite.config.ts` sets `dropConsole: true` for
+        // prod, so this call is dead-code-eliminated from the shipped client
+        // bundle (verified by `scripts/verify-no-console.sh` in the build
+        // pipeline). The structured-logger replacement is tracked in
+        // `docs/superpowers/specs/2026-04-05-logging-infrastructure-design.md`;
+        // until that lands, console.error is the established client pattern
+        // for genuine failures (see also `lib/mls/core-crypto-loader.ts`).
+        // Replacing the previous bare `catch {}` is the point of this fix —
+        // the silent swallow made operators blind to key drift in dev/test.
+        // biome-ignore lint/suspicious/noConsole: genuine failure in catch — no structured logger available client-side
+        console.error('[hub-key-cache] failed to load hub key', {
+          hubId,
+          error: err instanceof Error ? err.message : String(err),
+        })
       }
     })
   )
