@@ -26,6 +26,7 @@
  * (fail-closed).
  */
 
+import { isConsentGranted } from '../consent.js'
 import type { SFramePeerConnectionHook } from './sframe-hook-types.js'
 import { installSFrameTransforms } from './sframe-install.js'
 import { type SFrameOrchestrator, createSFrameOrchestrator } from './sframe-orchestrator.js'
@@ -34,8 +35,12 @@ import type { SFrameWorkerClient } from './sframe-worker-client.js'
 /** Typed error so the manager can distinguish worker-unavailable from other
  *  wiring failures without string matching. */
 export class SFrameWiringError extends Error {
-  readonly code: 'worker_unavailable' | 'hook_failed'
-  constructor(code: 'worker_unavailable' | 'hook_failed', message?: string, cause?: unknown) {
+  readonly code: 'worker_unavailable' | 'hook_failed' | 'consent_required'
+  constructor(
+    code: 'worker_unavailable' | 'hook_failed' | 'consent_required',
+    message?: string,
+    cause?: unknown
+  ) {
     super(message ?? code)
     this.name = 'SFrameWiringError'
     this.code = code
@@ -63,6 +68,13 @@ export interface BuildSFrameCallHookInputs {
    * Tests inject stubs that return deterministic secrets.
    */
   orchestrator?: SFrameOrchestrator
+
+  /**
+   * Optional consent predicate. Production leaves this unset — the hook uses
+   * the module-level {@link isConsentGranted} cache populated by `useConsent`.
+   * Tests inject a closure so they don't have to touch the module singleton.
+   */
+  consentCheck?: () => boolean
 }
 
 /**
@@ -76,8 +88,24 @@ export function buildSFrameCallHook(inputs: BuildSFrameCallHookInputs): SFramePe
   const { sframeClient, senderId } = inputs
   const orchestrator =
     inputs.orchestrator ?? (sframeClient ? createSFrameOrchestrator({ sframeClient }) : null)
+  const consentCheck = inputs.consentCheck ?? isConsentGranted
 
   return async (pc, ctx) => {
+    // Hard gate: no E2EE call-path runs until the user has explicitly
+    // consented to data processing for the current CONSENT_VERSION. The
+    // ConsentGate UI normally prevents a call from ever being initiated
+    // pre-consent, but that's a defense-in-depth layer — this check catches
+    // programmatic call initiation and any future code path that bypasses
+    // the overlay. Fails closed with a dedicated error code so the WebRTC
+    // manager can surface a consent-specific UI rather than the generic
+    // "worker unavailable" fallback.
+    if (!consentCheck()) {
+      throw new SFrameWiringError(
+        'consent_required',
+        'Data processing consent required — refusing to start E2EE call'
+      )
+    }
+
     if (!sframeClient || !orchestrator) {
       throw new SFrameWiringError(
         'worker_unavailable',
