@@ -1,7 +1,9 @@
 import { ConsentGate } from '@/components/consent-gate'
 import { createDebugLog } from '@/lib/debug-log'
 import { decryptObjectFields, resetMismatchFired, setOnDecryptMismatch } from '@/lib/decrypt-fields'
+import { getDeviceKeypair } from '@/lib/device-identity-store'
 import { permissionGranted } from '@shared/permissions'
+import type { DeviceKeypair } from '@shared/types'
 import {
   type ReactNode,
   createContext,
@@ -50,6 +52,13 @@ interface AuthState {
   needsKeySetup: boolean
   /** True when decrypt-fields detects no envelope matches the reader's pubkey. Cleared on sign-out and unlock. */
   keyMismatchDetected: boolean
+  /**
+   * Persistent per-device identity loaded from IDB (`llamenos-device` DB).
+   * Ed25519 signing + X25519 encryption keypair, created once during admin
+   * bootstrap and preserved across lock/logout. `null` on signed-out state
+   * or if the device keypair is not yet provisioned on this browser.
+   */
+  deviceKeypair: DeviceKeypair | null
 }
 
 interface AuthContextValue extends AuthState {
@@ -72,6 +81,7 @@ interface AuthContextValue extends AuthState {
   adminPubkey: string
   adminDecryptionPubkey: string
   keyMismatchDetected: boolean
+  deviceKeypair: DeviceKeypair | null
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -103,7 +113,22 @@ function stateFromMe(
     sessionExpired: false,
     needsKeySetup: false,
     keyMismatchDetected: false,
+    deviceKeypair: null,
     ...overrides,
+  }
+}
+
+/**
+ * Best-effort load of the persistent device keypair from IDB. Never throws:
+ * if the store is empty, corrupted, or unavailable we log and return null so
+ * callers can still land the user in an authenticated state.
+ */
+async function loadDeviceKeypairSafe(): Promise<DeviceKeypair | null> {
+  try {
+    return await getDeviceKeypair()
+  } catch (err) {
+    log('device keypair load failed', { err })
+    return null
   }
 }
 
@@ -133,6 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     adminDecryptionPubkey: '',
     needsKeySetup: false,
     keyMismatchDetected: false,
+    deviceKeypair: null,
   })
 
   const lastApiActivity = useRef(Date.now())
@@ -154,19 +180,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setState((s) => ({ ...s, isKeyUnlocked: false }))
     })
     const unsubUnlock = keyManager.onUnlock(() => {
-      // getPublicKeyHex is async now — update state when it resolves
-      void keyManager.getPublicKeyHex().then((pubkey) => {
-        // Clear keyMismatchDetected on unlock — fresh decryption will re-detect
-        // if the mismatch persists. Re-arm the fire-once guard so the handler
-        // can fire again with the new key state.
-        resetMismatchFired()
-        setState((s) => ({
-          ...s,
-          isKeyUnlocked: true,
-          keyMismatchDetected: false,
-          publicKey: pubkey ?? s.publicKey,
-        }))
-      })
+      // getPublicKeyHex is async now — update state when it resolves.
+      // Also hydrate the persistent device keypair from IDB so components
+      // like devices-section have access to the signing key without each
+      // hitting IDB independently.
+      void Promise.all([keyManager.getPublicKeyHex(), loadDeviceKeypairSafe()]).then(
+        ([pubkey, deviceKeypair]) => {
+          // Clear keyMismatchDetected on unlock — fresh decryption will re-detect
+          // if the mismatch persists. Re-arm the fire-once guard so the handler
+          // can fire again with the new key state.
+          resetMismatchFired()
+          setState((s) => ({
+            ...s,
+            isKeyUnlocked: true,
+            keyMismatchDetected: false,
+            publicKey: pubkey ?? s.publicKey,
+            deviceKeypair: deviceKeypair ?? s.deviceKeypair,
+          }))
+        }
+      )
     })
     return () => {
       unsubLock()
@@ -291,10 +323,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (cancelled) return
+      const deviceKeypair = isUnlocked ? await loadDeviceKeypairSafe() : null
+      if (cancelled) return
       setState(
         stateFromMe(me, {
           isKeyUnlocked: isUnlocked,
           publicKey: pubkey ?? me.pubkey,
+          deviceKeypair,
         })
       )
     }
@@ -342,10 +377,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const hubIds = (me.hubRoles ?? []).map((hr) => hr.hubId)
       await loadHubKeysForUser(hubIds)
       invalidateEncryptedQueries()
+      const deviceKeypair = await loadDeviceKeypairSafe()
       setState(
         stateFromMe(me, {
           isKeyUnlocked: true,
           publicKey: pubkey,
+          deviceKeypair,
         })
       )
     } catch (err) {
@@ -371,10 +408,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const hubIds = (me.hubRoles ?? []).map((hr) => hr.hubId)
       await loadHubKeysForUser(hubIds)
       invalidateEncryptedQueries()
+      const deviceKeypair = await loadDeviceKeypairSafe()
       setState(
         stateFromMe(me, {
           isKeyUnlocked: true,
           publicKey: pubkey,
+          deviceKeypair,
         })
       )
       return true
@@ -427,10 +466,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
+      const deviceKeypair = isUnlocked ? await loadDeviceKeypairSafe() : null
       setState(
         stateFromMe(me, {
           isKeyUnlocked: isUnlocked,
           publicKey: pubkey,
+          deviceKeypair,
         })
       )
       return false // no key setup needed
@@ -477,11 +518,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const hubIds = (me.hubRoles ?? []).map((hr) => hr.hubId)
       await loadHubKeysForUser(hubIds)
       invalidateEncryptedQueries()
+      const deviceKeypair = await loadDeviceKeypairSafe()
       setState(
         stateFromMe(me, {
           isKeyUnlocked: true,
           publicKey: pubkey,
           needsKeySetup: false,
+          deviceKeypair,
         })
       )
       return true
@@ -587,6 +630,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const draftKeys = Object.keys(localStorage).filter((k) => k.startsWith('llamenos-draft:'))
     for (const k of draftKeys) localStorage.removeItem(k)
     pendingNsecRef.current = null
+    // Note: we clear the deviceKeypair *state*, but deliberately do NOT
+    // clear the IDB-backed store. Device identity is persistent across
+    // lock/logout and is only removed on an explicit "forget this device"
+    // action.
     setState({
       isKeyUnlocked: false,
       publicKey: null,
@@ -609,6 +656,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sessionExpired: false,
       needsKeySetup: false,
       keyMismatchDetected: false,
+      deviceKeypair: null,
     })
   }, [])
 

@@ -245,4 +245,20 @@ test.describe('POST /api/hubs/:hubId/audit — signed audit chain', () => {
     const body = await res.json()
     expect(body.code).toBe('hub_mismatch')
   })
+
+  test('GET /audit/head returns the current chain head entryHash', async () => {
+    // Fetch via the dedicated head endpoint used by admin audit-log-client.
+    const headRes = await ctx.user('super-admin').api.get(ctx.hubPath('/audit/head'))
+    expect(headRes.status()).toBe(200)
+    const headBody = (await headRes.json()) as { entryHash: string | null }
+    expect(headBody.entryHash).toMatch(/^[0-9a-f]{64}$/)
+
+    // Cross-check against the full /signed list — head must equal the final
+    // entry's hash.
+    const listRes = await ctx.user('super-admin').api.get(ctx.hubPath('/audit/signed'))
+    const { entries } = await listRes.json()
+    expect(entries.length).toBeGreaterThanOrEqual(1)
+    const expectedHead: string = entries[entries.length - 1].entryHash
+    expect(headBody.entryHash).toBe(expectedHead)
+  })
 })
