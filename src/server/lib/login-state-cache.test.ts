@@ -1,13 +1,17 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import {
+  LoginStateCacheFullError,
   _test_loginStateCacheSize,
   _test_resetLoginStateCache,
+  _test_resetMaxEntries,
+  _test_setMaxEntries,
   consumeLoginState,
   createLoginState,
 } from './login-state-cache'
 
 afterEach(() => {
   _test_resetLoginStateCache()
+  _test_resetMaxEntries()
 })
 
 describe('login-state-cache', () => {
@@ -89,6 +93,81 @@ describe('login-state-cache', () => {
         60_000
       )
       expect(_test_loginStateCacheSize()).toBe(1)
+    } finally {
+      Date.now = realNow
+    }
+  })
+
+  test('throws LoginStateCacheFullError once the cap is reached', () => {
+    _test_setMaxEntries(2)
+    createLoginState({
+      flow: 'login',
+      purpose: 'root-kek',
+      userPubkey: 'pub-cap-1',
+      credentialIdentifier: 'pub-cap-1:root-kek',
+      state: 's1',
+    })
+    createLoginState({
+      flow: 'login',
+      purpose: 'root-kek',
+      userPubkey: 'pub-cap-2',
+      credentialIdentifier: 'pub-cap-2:root-kek',
+      state: 's2',
+    })
+    expect(_test_loginStateCacheSize()).toBe(2)
+
+    expect(() =>
+      createLoginState({
+        flow: 'login',
+        purpose: 'root-kek',
+        userPubkey: 'pub-cap-3',
+        credentialIdentifier: 'pub-cap-3:root-kek',
+        state: 's3',
+      })
+    ).toThrow(LoginStateCacheFullError)
+    // Size stays at cap — the rejected write was not stored.
+    expect(_test_loginStateCacheSize()).toBe(2)
+  })
+
+  test('expired entries are purged before the cap check', () => {
+    _test_setMaxEntries(2)
+    const realNow = Date.now
+    try {
+      let offset = 0
+      Date.now = () => realNow() + offset
+      // First entry with a very short TTL, will expire before the third write.
+      createLoginState(
+        {
+          flow: 'login',
+          purpose: 'root-kek',
+          userPubkey: 'pub-exp',
+          credentialIdentifier: 'pub-exp:root-kek',
+          state: 'stale',
+        },
+        1
+      )
+      // Second entry with a full TTL, still live when the third write happens.
+      createLoginState({
+        flow: 'login',
+        purpose: 'root-kek',
+        userPubkey: 'pub-live',
+        credentialIdentifier: 'pub-live:root-kek',
+        state: 'live',
+      })
+      expect(_test_loginStateCacheSize()).toBe(2)
+
+      // Jump past the first entry's TTL — purge must free a slot for the third.
+      offset = 10_000
+      expect(() =>
+        createLoginState({
+          flow: 'login',
+          purpose: 'root-kek',
+          userPubkey: 'pub-new',
+          credentialIdentifier: 'pub-new:root-kek',
+          state: 'new',
+        })
+      ).not.toThrow()
+      expect(_test_loginStateCacheSize()).toBe(2)
     } finally {
       Date.now = realNow
     }

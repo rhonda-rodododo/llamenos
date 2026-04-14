@@ -50,12 +50,25 @@ import {
 } from '../../shared/schemas/opaque'
 import { getDb } from '../db'
 import { userOpaqueRecords } from '../db/schema/opaque'
-import { consumeLoginState, createLoginState } from '../lib/login-state-cache'
+import { createLogger } from '../lib/logger'
+import {
+  LoginStateCacheFullError,
+  consumeLoginState,
+  createLoginState,
+} from '../lib/login-state-cache'
 import { opaqueServer } from '../lib/opaque-server'
 import { getOrCreateServerSetup } from '../lib/opaque-server-setup'
 import { createRouter } from '../lib/openapi'
 
-const ErrorSchema = z.object({ error: z.string() }).strict()
+const log = createLogger('api:opaque')
+
+/**
+ * Structured error response shape for OPAQUE routes. The `code`
+ * field is a stable machine-readable identifier the client uses to
+ * decide whether to surface a retry, rate-limit, or protocol error
+ * to the user. Kept `.strict()` so callers cannot tunnel extra fields.
+ */
+const ErrorSchema = z.object({ error: z.string(), code: z.string().optional() }).strict()
 
 const opaque = createRouter()
 
@@ -97,6 +110,14 @@ const registrationStartRoute = createRoute({
       description: 'Credential identifier does not match authenticated user',
       content: { 'application/json': { schema: ErrorSchema } },
     },
+    429: {
+      description: 'Login-state cache at capacity, retry later',
+      content: { 'application/json': { schema: ErrorSchema } },
+    },
+    500: {
+      description: 'OPAQUE protocol or storage failure',
+      content: { 'application/json': { schema: ErrorSchema } },
+    },
   },
 })
 
@@ -105,23 +126,57 @@ opaque.openapi(registrationStartRoute, async (c) => {
   const body = c.req.valid('json')
 
   if (!assertBoundCredential(body.credentialIdentifier, pubkey, body.purpose)) {
-    return c.json({ error: 'credential identifier mismatch' }, 400)
+    return c.json(
+      { error: 'credential identifier mismatch', code: 'opaque_credential_mismatch' as const },
+      400
+    )
   }
 
-  const setup = await getOrCreateServerSetup(getDb(), body.purpose)
-  const registrationResponse = await opaqueServer.createRegistrationResponse({
-    setupBase64: setup,
-    registrationRequestBase64: body.registrationRequest,
-    credentialIdentifier: body.credentialIdentifier,
-  })
+  let setup: string
+  try {
+    setup = await getOrCreateServerSetup(getDb(), body.purpose)
+  } catch (err) {
+    log.error('registration/start: server setup load failed', { err })
+    return c.json(
+      { error: 'opaque storage unavailable', code: 'opaque_storage_failure' as const },
+      500
+    )
+  }
 
-  const sessionId = createLoginState({
-    flow: 'registration',
-    purpose: body.purpose,
-    userPubkey: pubkey,
-    credentialIdentifier: body.credentialIdentifier,
-    state: '',
-  })
+  let registrationResponse: string
+  try {
+    registrationResponse = await opaqueServer.createRegistrationResponse({
+      setupBase64: setup,
+      registrationRequestBase64: body.registrationRequest,
+      credentialIdentifier: body.credentialIdentifier,
+    })
+  } catch (err) {
+    log.error('registration/start: createRegistrationResponse failed', { err })
+    return c.json(
+      { error: 'opaque protocol failed', code: 'opaque_protocol_failure' as const },
+      500
+    )
+  }
+
+  let sessionId: string
+  try {
+    sessionId = createLoginState({
+      flow: 'registration',
+      purpose: body.purpose,
+      userPubkey: pubkey,
+      credentialIdentifier: body.credentialIdentifier,
+      state: '',
+    })
+  } catch (err) {
+    if (err instanceof LoginStateCacheFullError) {
+      log.warn('registration/start: login-state cache at capacity')
+      return c.json(
+        { error: 'rate limited, try again later', code: 'opaque_start_rate_limited' as const },
+        429
+      )
+    }
+    throw err
+  }
 
   return c.json({ sessionId, registrationResponse }, 200)
 })
@@ -151,6 +206,10 @@ const registrationFinishRoute = createRoute({
       description: 'Session expired, stolen, or not a registration flow',
       content: { 'application/json': { schema: ErrorSchema } },
     },
+    500: {
+      description: 'OPAQUE protocol or storage failure',
+      content: { 'application/json': { schema: ErrorSchema } },
+    },
   },
 })
 
@@ -165,32 +224,52 @@ opaque.openapi(registrationFinishRoute, async (c) => {
     pending.userPubkey !== pubkey ||
     pending.credentialIdentifier !== body.credentialIdentifier
   ) {
-    return c.json({ error: 'invalid or expired session' }, 400)
+    return c.json(
+      { error: 'invalid or expired session', code: 'opaque_invalid_session' as const },
+      400
+    )
   }
 
-  const passwordFile = await opaqueServer.finishRegistration({
-    uploadBase64: body.registrationUpload,
-  })
+  let passwordFile: string
+  try {
+    passwordFile = await opaqueServer.finishRegistration({
+      uploadBase64: body.registrationUpload,
+    })
+  } catch (err) {
+    log.error('registration/finish: finishRegistration failed', { err })
+    return c.json(
+      { error: 'opaque protocol failed', code: 'opaque_protocol_failure' as const },
+      500
+    )
+  }
 
   const now = new Date()
-  await getDb()
-    .insert(userOpaqueRecords)
-    .values({
-      userPubkey: pubkey,
-      purpose: pending.purpose,
-      credentialIdentifier: body.credentialIdentifier,
-      passwordFile,
-      createdAt: now,
-      updatedAt: now,
-    })
-    .onConflictDoUpdate({
-      target: [userOpaqueRecords.userPubkey, userOpaqueRecords.purpose],
-      set: {
+  try {
+    await getDb()
+      .insert(userOpaqueRecords)
+      .values({
+        userPubkey: pubkey,
+        purpose: pending.purpose,
         credentialIdentifier: body.credentialIdentifier,
         passwordFile,
+        createdAt: now,
         updatedAt: now,
-      },
-    })
+      })
+      .onConflictDoUpdate({
+        target: [userOpaqueRecords.userPubkey, userOpaqueRecords.purpose],
+        set: {
+          credentialIdentifier: body.credentialIdentifier,
+          passwordFile,
+          updatedAt: now,
+        },
+      })
+  } catch (err) {
+    log.error('registration/finish: password file upsert failed', { err })
+    return c.json(
+      { error: 'opaque storage unavailable', code: 'opaque_storage_failure' as const },
+      500
+    )
+  }
 
   return c.json({ ok: true as const, credentialIdentifier: body.credentialIdentifier }, 200)
 })
@@ -224,6 +303,14 @@ const loginStartRoute = createRoute({
       description: 'No password file registered for this purpose',
       content: { 'application/json': { schema: ErrorSchema } },
     },
+    429: {
+      description: 'Login-state cache at capacity, retry later',
+      content: { 'application/json': { schema: ErrorSchema } },
+    },
+    500: {
+      description: 'OPAQUE protocol or storage failure',
+      content: { 'application/json': { schema: ErrorSchema } },
+    },
   },
 })
 
@@ -232,38 +319,85 @@ opaque.openapi(loginStartRoute, async (c) => {
   const body = c.req.valid('json')
 
   if (!assertBoundCredential(body.credentialIdentifier, pubkey, body.purpose)) {
-    return c.json({ error: 'credential identifier mismatch' }, 400)
+    return c.json(
+      { error: 'credential identifier mismatch', code: 'opaque_credential_mismatch' as const },
+      400
+    )
   }
 
   const db = getDb()
-  const record = await db
-    .select({ passwordFile: userOpaqueRecords.passwordFile })
-    .from(userOpaqueRecords)
-    .where(
-      and(eq(userOpaqueRecords.userPubkey, pubkey), eq(userOpaqueRecords.purpose, body.purpose))
-    )
-    .limit(1)
 
-  const existing = record[0]
-  if (!existing) {
-    return c.json({ error: 'no password file for this purpose' }, 404)
+  let existing: { passwordFile: string } | undefined
+  try {
+    const record = await db
+      .select({ passwordFile: userOpaqueRecords.passwordFile })
+      .from(userOpaqueRecords)
+      .where(
+        and(eq(userOpaqueRecords.userPubkey, pubkey), eq(userOpaqueRecords.purpose, body.purpose))
+      )
+      .limit(1)
+    existing = record[0]
+  } catch (err) {
+    log.error('login/start: password file select failed', { err })
+    return c.json(
+      { error: 'opaque storage unavailable', code: 'opaque_storage_failure' as const },
+      500
+    )
   }
 
-  const setup = await getOrCreateServerSetup(db, body.purpose)
-  const started = await opaqueServer.startLogin({
-    setupBase64: setup,
-    passwordFileBase64: existing.passwordFile,
-    credentialRequestBase64: body.credentialRequest,
-    credentialIdentifier: body.credentialIdentifier,
-  })
+  if (!existing) {
+    return c.json(
+      { error: 'no password file for this purpose', code: 'opaque_no_record' as const },
+      404
+    )
+  }
 
-  const sessionId = createLoginState({
-    flow: 'login',
-    purpose: body.purpose,
-    userPubkey: pubkey,
-    credentialIdentifier: body.credentialIdentifier,
-    state: started.state,
-  })
+  let setup: string
+  try {
+    setup = await getOrCreateServerSetup(db, body.purpose)
+  } catch (err) {
+    log.error('login/start: server setup load failed', { err })
+    return c.json(
+      { error: 'opaque storage unavailable', code: 'opaque_storage_failure' as const },
+      500
+    )
+  }
+
+  let started: { state: string; message: string }
+  try {
+    started = await opaqueServer.startLogin({
+      setupBase64: setup,
+      passwordFileBase64: existing.passwordFile,
+      credentialRequestBase64: body.credentialRequest,
+      credentialIdentifier: body.credentialIdentifier,
+    })
+  } catch (err) {
+    log.error('login/start: startLogin failed', { err })
+    return c.json(
+      { error: 'opaque protocol failed', code: 'opaque_protocol_failure' as const },
+      500
+    )
+  }
+
+  let sessionId: string
+  try {
+    sessionId = createLoginState({
+      flow: 'login',
+      purpose: body.purpose,
+      userPubkey: pubkey,
+      credentialIdentifier: body.credentialIdentifier,
+      state: started.state,
+    })
+  } catch (err) {
+    if (err instanceof LoginStateCacheFullError) {
+      log.warn('login/start: login-state cache at capacity')
+      return c.json(
+        { error: 'rate limited, try again later', code: 'opaque_start_rate_limited' as const },
+        429
+      )
+    }
+    throw err
+  }
 
   return c.json({ sessionId, credentialResponse: started.message }, 200)
 })
@@ -293,6 +427,10 @@ const loginFinishRoute = createRoute({
       description: 'Session expired, stolen, or not a login flow',
       content: { 'application/json': { schema: ErrorSchema } },
     },
+    500: {
+      description: 'OPAQUE protocol failure',
+      content: { 'application/json': { schema: ErrorSchema } },
+    },
   },
 })
 
@@ -302,7 +440,10 @@ opaque.openapi(loginFinishRoute, async (c) => {
 
   const pending = consumeLoginState(body.sessionId)
   if (!pending || pending.flow !== 'login' || pending.userPubkey !== pubkey) {
-    return c.json({ error: 'invalid or expired session' }, 400)
+    return c.json(
+      { error: 'invalid or expired session', code: 'opaque_invalid_session' as const },
+      400
+    )
   }
 
   // finishLogin returns a 64-byte session key that the server
@@ -310,10 +451,18 @@ opaque.openapi(loginFinishRoute, async (c) => {
   // client-side to unwrap its root KEK; the session key is only
   // proof-of-possession of the password, which is enough for the
   // server to say "handshake valid" via the 200 response.
-  await opaqueServer.finishLogin({
-    stateBase64: pending.state,
-    credentialFinalizationBase64: body.credentialFinalization,
-  })
+  try {
+    await opaqueServer.finishLogin({
+      stateBase64: pending.state,
+      credentialFinalizationBase64: body.credentialFinalization,
+    })
+  } catch (err) {
+    log.error('login/finish: finishLogin failed', { err })
+    return c.json(
+      { error: 'opaque protocol failed', code: 'opaque_protocol_failure' as const },
+      500
+    )
+  }
 
   return c.json({ ok: true as const }, 200)
 })
