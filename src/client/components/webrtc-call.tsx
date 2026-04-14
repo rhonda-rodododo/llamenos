@@ -7,6 +7,8 @@ import {
   getE2eeStatus,
   getState,
   initWebRtc,
+  isE2eeDegraded,
+  onE2eeDegraded,
   onE2eeStatusChange,
   onStateChange,
   toggleMute,
@@ -21,10 +23,10 @@ import { E2eeFallbackBanner, type E2eeFallbackReason } from './call/E2eeFallback
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 
-function e2eeStatusToBadge(status: E2eeStatus): E2eeBadgeState {
+function e2eeStatusToBadge(status: E2eeStatus, degraded: boolean): E2eeBadgeState {
   switch (status) {
     case 'active':
-      return 'e2ee-direct'
+      return degraded ? 'e2ee-degraded' : 'e2ee-direct'
     case 'unavailable':
     case 'unknown':
       return 'not-e2ee'
@@ -117,6 +119,7 @@ export function WebRtcCallControls() {
   const [muted, setMuted] = useState(false)
   const [e2eeStatus, setE2eeStatus] = useState<E2eeStatus>(getE2eeStatus)
   const [e2eeReason, setE2eeReason] = useState<string | undefined>(getE2eeReason)
+  const [degraded, setDegraded] = useState<boolean>(isE2eeDegraded)
   const [bannerDismissed, setBannerDismissed] = useState(false)
 
   useEffect(() => {
@@ -130,6 +133,10 @@ export function WebRtcCallControls() {
       // Re-show banner whenever a new unavailable event fires.
       if (next === 'unavailable') setBannerDismissed(false)
     })
+  }, [])
+
+  useEffect(() => {
+    return onE2eeDegraded((ev) => setDegraded(ev !== null))
   }, [])
 
   const handleMute = useCallback(() => {
@@ -219,7 +226,7 @@ export function WebRtcCallControls() {
         data-testid="webrtc-call-controls"
         data-e2ee-status={e2eeStatus}
       >
-        <ActiveCallBadge state={e2eeStatusToBadge(e2eeStatus)} />
+        <ActiveCallBadge state={e2eeStatusToBadge(e2eeStatus, degraded)} />
         <Button variant="outline" size="sm" onClick={handleMute} data-testid="button-call-mute">
           {muted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
           {muted ? t('calls.unmute') : t('calls.mute')}

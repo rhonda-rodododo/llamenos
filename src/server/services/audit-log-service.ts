@@ -106,6 +106,10 @@ function payloadIsAuthorizedFor(payload: AuditEntryPayload, role: string): boole
     case 'recovery_initiated':
     case 'recovery_completed':
       return true
+    // Tier 5 voice E2EE — any authenticated signer (volunteer in-call)
+    case 'call_e2ee_state_change':
+    case 'call_sframe_key_rotation':
+      return true
     default:
       return false
   }

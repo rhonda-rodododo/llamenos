@@ -13,6 +13,7 @@ const BADGE_RESOURCES = {
       badge: {
         direct: 'End-to-end encrypted (direct)',
         relayed: 'End-to-end encrypted (relayed)',
+        degraded: 'End-to-end encrypted (degraded)',
         none: 'Not end-to-end encrypted',
       },
     },
@@ -63,5 +64,13 @@ describe('ActiveCallBadge', () => {
     expect(html).toContain('aria-label="Not end-to-end encrypted"')
     expect(html).toContain('Not end-to-end encrypted')
     expect(html).toContain('bg-yellow-100')
+  })
+
+  test('renders e2ee-degraded state with degraded label and warning chip', () => {
+    const html = renderBadge('e2ee-degraded')
+    expect(html).toContain('data-badge-state="e2ee-degraded"')
+    expect(html).toContain('aria-label="End-to-end encrypted (degraded)"')
+    expect(html).toContain('End-to-end encrypted (degraded)')
+    expect(html).toContain('bg-yellow-200')
   })
 })

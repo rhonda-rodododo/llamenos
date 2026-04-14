@@ -67,6 +67,22 @@ let sframeClient: SFrameWorkerClient | null = null
 let e2eeStatus: E2eeStatus = 'unknown'
 let e2eeReason: string | undefined
 const e2eeHandlers = new Set<E2eeStatusHandler>()
+let degradedUnsubscribe: (() => void) | null = null
+let e2eeDegraded = false
+const e2eeDegradedHandlers = new Set<E2eeDegradedHandler>()
+
+/**
+ * Tier 5 P0 — surfaced when the SFrame worker reports that frame error rate
+ * has exceeded threshold for the active call. Carries the rolling error rate
+ * so the UI can render a yellow/warning indicator without polling getMetrics.
+ */
+export interface E2eeDegradedEvent {
+  callId: string
+  errorRate: number
+  consecutiveErrors: number
+}
+
+export type E2eeDegradedHandler = (ev: E2eeDegradedEvent | null) => void
 
 /**
  * Override the SFrame worker-client factory and/or hook builder used by the
@@ -239,6 +255,32 @@ export function onE2eeStatusChange(handler: E2eeStatusHandler): () => void {
 }
 
 /**
+ * Subscribe to degraded-call notifications posted by the SFrame worker.
+ * Fires with an {@link E2eeDegradedEvent} when the worker reports threshold
+ * breach, and with `null` when the call is released and degraded state is
+ * cleared. Returns an unsubscribe function.
+ */
+export function onE2eeDegraded(handler: E2eeDegradedHandler): () => void {
+  e2eeDegradedHandlers.add(handler)
+  return () => e2eeDegradedHandlers.delete(handler)
+}
+
+/**
+ * Whether the most recent call is currently flagged as degraded by the
+ * SFrame worker (consecutive errors or rolling error rate exceeded).
+ */
+export function isE2eeDegraded(): boolean {
+  return e2eeDegraded
+}
+
+function setE2eeDegraded(ev: E2eeDegradedEvent | null): void {
+  e2eeDegraded = ev !== null
+  for (const handler of e2eeDegradedHandlers) {
+    handler(ev)
+  }
+}
+
+/**
  * Initialize WebRTC for the current provider.
  * @param forceRefresh - When true, bypasses the ready/initializing guard and
  *   tears down the existing adapter before re-initializing. Used by token refresh.
@@ -272,6 +314,18 @@ export async function initWebRtc(forceRefresh = false): Promise<void> {
       setE2eeStatus('unavailable', 'browser_unsupported')
     } else {
       setE2eeStatus('unknown')
+      // Subscribe to unsolicited degraded notifications from the worker.
+      // The previous subscription (if any) is disposed first so re-init
+      // does not leak listeners across the singleton's lifetime.
+      degradedUnsubscribe?.()
+      degradedUnsubscribe = sframeClient.onDegraded((ev) => {
+        log('SFrame worker reported degraded call', ev.callId, ev.errorRate)
+        setE2eeDegraded({
+          callId: ev.callId,
+          errorRate: ev.errorRate,
+          consecutiveErrors: ev.consecutiveErrors,
+        })
+      })
     }
 
     // Identity for the local SFrame sender. The token identity is opaque
@@ -305,6 +359,9 @@ export async function initWebRtc(forceRefresh = false): Promise<void> {
       // worker singleton is retained for the next call; the e2ee status
       // returns to `unknown` until the next call connects.
       if (e2eeStatus === 'active') setE2eeStatus('unknown')
+      // Clear any degraded flag from the previous call so a fresh call
+      // starts with a clean badge state.
+      if (e2eeDegraded) setE2eeDegraded(null)
       setState('ended')
     })
 
@@ -402,7 +459,10 @@ export function destroyWebRtc(): void {
   incomingCallSid = null
   // Release per-manager SFrame bindings. The worker singleton itself is NOT
   // terminated here — other tabs / future inits can reuse it.
+  degradedUnsubscribe?.()
+  degradedUnsubscribe = null
   sframeClient = null
+  if (e2eeDegraded) setE2eeDegraded(null)
   setE2eeStatus('unknown')
   setState('idle')
 }

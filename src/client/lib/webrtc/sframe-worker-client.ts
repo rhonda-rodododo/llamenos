@@ -1,9 +1,13 @@
 import type {
+  SFrameDegradedNotification,
   SFrameErrorCode,
   SFrameWorkerRequest,
   SFrameWorkerResponse,
 } from '@shared/schemas/sframe-worker-messages.js'
 import { isSFrameSupported } from './feature-detect.js'
+
+export type { SFrameDegradedNotification }
+export type SFrameDegradedListener = (ev: SFrameDegradedNotification) => void
 
 /**
  * Tier 5 WS 5.4 — main-thread facade over the SFrame dedicated Web Worker.
@@ -54,6 +58,7 @@ export class SFrameWorkerClient {
   private worker: Worker
   private pending = new Map<string, Pending>()
   private idCounter = 0
+  private degradedListeners = new Set<SFrameDegradedListener>()
   private readonly rpcTimeoutMs: number
 
   constructor(worker?: Worker, rpcTimeoutMs: number = DEFAULT_RPC_TIMEOUT_MS) {
@@ -72,6 +77,18 @@ export class SFrameWorkerClient {
 
   private handleMessage(ev: MessageEvent<SFrameWorkerResponse>): void {
     const resp = ev.data
+    // Unsolicited notifications have no `id` matching a pending RPC promise —
+    // dispatch them to subscribed listeners and return early.
+    if (resp.type === 'sframe_degraded') {
+      for (const cb of this.degradedListeners) {
+        try {
+          cb(resp)
+        } catch {
+          /* listener failures must not break the worker bus */
+        }
+      }
+      return
+    }
     const p = this.pending.get(resp.id)
     if (!p) return
     this.pending.delete(resp.id)
@@ -80,6 +97,18 @@ export class SFrameWorkerClient {
       p.reject(new SFrameWorkerError(resp.error, resp.code))
     } else {
       p.resolve(resp.result)
+    }
+  }
+
+  /**
+   * Subscribe to unsolicited `sframe_degraded` notifications posted by the
+   * worker when frame error rate / consecutive errors exceed thresholds.
+   * Returns an unsubscribe function.
+   */
+  onDegraded(cb: SFrameDegradedListener): () => void {
+    this.degradedListeners.add(cb)
+    return () => {
+      this.degradedListeners.delete(cb)
     }
   }
 

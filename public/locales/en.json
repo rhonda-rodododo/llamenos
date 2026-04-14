@@ -1910,6 +1910,7 @@
       "badge": {
         "direct": "End-to-end encrypted (direct)",
         "relayed": "End-to-end encrypted (relayed)",
+        "degraded": "End-to-end encrypted (degraded)",
         "none": "Not end-to-end encrypted"
       },
       "fallback": {

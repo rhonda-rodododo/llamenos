@@ -115,6 +115,33 @@ export const DeviceFingerprintVerifiedPayloadSchema = z.object({
   verifierDeviceId: z.string().uuid(),
 })
 
+// --- Tier 5: voice E2EE state + key rotation (2026-04) ---
+
+const callE2eeStateEnum = z.enum(['unknown', 'active', 'unavailable'])
+
+/**
+ * Emitted whenever the per-call E2EE status transitions (e.g. SFrame install
+ * succeeds, hook fails, or the call ends and returns to unknown).
+ */
+export const CallE2eeStateChangePayloadSchema = z.object({
+  type: z.literal('call_e2ee_state_change'),
+  callId: z.string().min(1).max(256),
+  oldState: callE2eeStateEnum,
+  newState: callE2eeStateEnum,
+  reason: z.string().min(1).max(256).optional(),
+})
+
+/**
+ * Emitted whenever the SFrame sender key for an active call is rotated
+ * (member join/leave inside the call ring, manual rotation, scheduled).
+ */
+export const CallSframeKeyRotationPayloadSchema = z.object({
+  type: z.literal('call_sframe_key_rotation'),
+  callId: z.string().min(1).max(256),
+  newKeyId: z.number().int().min(0).max(127),
+  reason: z.enum(['member_added', 'member_removed', 'scheduled', 'manual']).optional(),
+})
+
 export const AuditEntryPayloadSchema = z.discriminatedUnion('type', [
   MembershipAddPayloadSchema,
   MembershipRemovePayloadSchema,
@@ -140,6 +167,9 @@ export const AuditEntryPayloadSchema = z.discriminatedUnion('type', [
   RecoveryCompletedPayloadSchema,
   // Tier 6: device fingerprint verification
   DeviceFingerprintVerifiedPayloadSchema,
+  // Tier 5: voice E2EE state + key rotation
+  CallE2eeStateChangePayloadSchema,
+  CallSframeKeyRotationPayloadSchema,
 ])
 export type AuditEntryPayload = z.infer<typeof AuditEntryPayloadSchema>
 

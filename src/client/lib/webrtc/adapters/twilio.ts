@@ -140,13 +140,32 @@ export class TwilioWebRTCAdapter implements WebRTCAdapter {
       this.#activeConnection = conn
 
       // SFrame hook installation point. The underlying pc usually does not
-      // exist until accept() runs and the media handler is created, so we try
-      // at incoming-time first (no-op if pc is null) and again on 'accept'.
+      // exist until accept() runs and the media handler is created. The
+      // 'incoming' event is the *early* probe: we do NOT fail-closed here
+      // because Twilio's media handler is intentionally null until accept()
+      // runs. The fail-closed gate runs on 'accept' below — if pc is still
+      // null at that point, the SDK shape has changed and we cannot install
+      // SFrame, so the call is refused per Tier 5 P1 requirements.
       const earlyPc = this.#pcFromConnection(conn)
       if (earlyPc) this.#installHook(earlyPc, callSid)
 
       conn.on('accept', () => {
         const pc = this.#pcFromConnection(conn)
+        if (this.#sframeHook && !pc) {
+          // Tier 5 P1 fail-closed: a hook was provided but the SDK no longer
+          // exposes the pc at the documented path. Refuse to proceed because
+          // we cannot install SFrame — silently continuing would land an
+          // unencrypted call while the UI claims E2EE.
+          const err = new Error('twilio adapter cannot install SFrame hook on accept: pc is null')
+          this.#emit('error', err)
+          try {
+            conn.disconnect()
+          } catch {
+            /* best-effort */
+          }
+          this.#activeConnection = null
+          return
+        }
         if (pc) this.#installHook(pc, callSid)
         this.#emit('connected')
       })

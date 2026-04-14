@@ -84,6 +84,40 @@ describe('SFrameWorkerClient', () => {
     await expect(client.registerCall('call-1')).rejects.toBeInstanceOf(SFrameWorkerError)
   })
 
+  test('onDegraded receives unsolicited sframe_degraded notifications', () => {
+    const events: Array<{ callId: string; errorRate: number; consecutiveErrors: number }> = []
+    const unsubscribe = client.onDegraded((ev) => {
+      events.push({
+        callId: ev.callId,
+        errorRate: ev.errorRate,
+        consecutiveErrors: ev.consecutiveErrors,
+      })
+    })
+    // Simulate the worker pushing an unsolicited message (no `id` matching a
+    // pending RPC promise). The handler must dispatch to listeners.
+    mock.onmessage?.({
+      data: { type: 'sframe_degraded', callId: 'call-x', errorRate: 0.42, consecutiveErrors: 7 },
+    } as MessageEvent)
+    expect(events).toHaveLength(1)
+    expect(events[0]).toEqual({ callId: 'call-x', errorRate: 0.42, consecutiveErrors: 7 })
+    unsubscribe()
+    mock.onmessage?.({
+      data: { type: 'sframe_degraded', callId: 'call-y', errorRate: 0.5, consecutiveErrors: 9 },
+    } as MessageEvent)
+    expect(events).toHaveLength(1) // unsubscribe stopped delivery
+  })
+
+  test('unsolicited sframe_degraded does not interfere with pending RPCs', async () => {
+    const promise = client.registerCall('call-1')
+    // Push a degraded notification BEFORE the responder fires — must not
+    // resolve / reject the pending registerCall promise.
+    mock.onmessage?.({
+      data: { type: 'sframe_degraded', callId: 'call-1', errorRate: 1, consecutiveErrors: 5 },
+    } as MessageEvent)
+    await promise
+    expect(true).toBe(true)
+  })
+
   test('rejects with worker_not_ready when worker hangs past rpcTimeoutMs', async () => {
     const hangingMock = new MockWorker()
     hangingMock.setResponder(null) // never respond
