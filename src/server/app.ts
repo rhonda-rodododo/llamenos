@@ -47,6 +47,7 @@ import { notificationsPublic } from './routes/notifications-public'
 import opaqueRoutes from './routes/opaque'
 import providerSetupRoutes from './routes/provider-setup'
 import provisioningRoutes from './routes/provisioning'
+import releasesRoutes from './routes/releases'
 import reportTypesRoutes from './routes/report-types'
 import reportsRoutes from './routes/reports'
 import settingsRoutes from './routes/settings'
@@ -152,6 +153,7 @@ api.use('*', cors)
 // Public routes (no auth)
 api.route('/csp-report', cspReportRoutes)
 api.route('/config', configRoutes)
+api.route('/releases', releasesRoutes)
 api.route('/', devRoutes)
 api.route('/auth', authRoutes)
 
@@ -323,6 +325,7 @@ const KNOWN_API_PREFIXES = new Set([
   'openapi.json',
   'docs',
   'config',
+  'releases',
   'auth',
   'invites',
   'provision',
