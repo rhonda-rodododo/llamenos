@@ -35,6 +35,7 @@ export type ChainVerificationErrorCode =
   | 'signature_invalid'
   | 'signer_not_trusted'
   | 'schema_invalid'
+  | 'empty_chain'
   | 'rotation_trigger_not_at_head'
   | 'invalid_rotation_trigger_type'
 
