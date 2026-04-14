@@ -128,12 +128,12 @@ export function DevicesSection() {
       {verifying && sessionNonce ? (
         <VerifyFingerprintModal
           open
-          // TODO(tier6-pr2): replace with the verifying admin's own device
-          // pubkey once per-device identity is plumbed through the client.
-          // Until then, both parties must agree on this placeholder out of
-          // band — which, combined with the mutation still throwing, keeps
-          // this flow safely inert in production.
-          verifierDevicePubkey={new Uint8Array(32)}
+          // Use the verifying admin's own Ed25519 signing pubkey from the
+          // persistent device identity (Tier 3). Falls back to a zero-byte
+          // placeholder if the device keypair isn't provisioned yet on this
+          // browser — the verify mutation itself still throws until the
+          // audit-chain signing lands, so this flow remains inert.
+          verifierDevicePubkey={auth.deviceKeypair?.signing.publicKey ?? new Uint8Array(32)}
           targetDevicePubkey={hexToBytes(verifying.ed25519Pubkey)}
           sessionNonce={sessionNonce}
           onVerify={handleVerify}
