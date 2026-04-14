@@ -3,6 +3,7 @@ import { HMAC_IP_PREFIX } from '@shared/crypto-labels'
 import { setCookie } from 'hono/cookie'
 import { getPrimaryRole } from '../../shared/permissions'
 import { getIdPAdapter } from '../app'
+import { refreshCookieOptions, sessionIdCookieOptions } from '../lib/cookies'
 import { hashIP } from '../lib/crypto-service'
 import { isValidE164 } from '../lib/helpers'
 import { signAccessToken } from '../lib/jwt'
@@ -120,21 +121,10 @@ auth.openapi(bootstrapRoute, async (c) => {
     sessions: services.sessions,
     crypto: services.crypto,
   })
-  const isSecure = c.env.ENVIRONMENT !== 'development'
-  setCookie(c, 'llamenos-refresh', refreshToken, {
-    httpOnly: true,
-    secure: isSecure,
-    sameSite: 'Strict',
-    path: '/api/auth/token',
-    maxAge: 30 * 24 * 60 * 60,
-  })
-  setCookie(c, 'llamenos-session-id', sessionId, {
-    httpOnly: true,
-    secure: isSecure,
-    sameSite: 'Strict',
-    path: '/',
-    maxAge: 30 * 24 * 60 * 60,
-  })
+  // Cookie options come from src/server/lib/cookies.ts — single source of truth
+  // for httpOnly / sameSite / path / Domain / conditional Secure (dev HTTP safe).
+  setCookie(c, 'llamenos-refresh', refreshToken, refreshCookieOptions())
+  setCookie(c, 'llamenos-session-id', sessionId, sessionIdCookieOptions())
 
   return c.json(
     {
