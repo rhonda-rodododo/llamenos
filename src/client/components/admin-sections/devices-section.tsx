@@ -2,10 +2,13 @@ import { DeviceBadge } from '@/components/device-badge'
 import { Button } from '@/components/ui/button'
 import { VerifyFingerprintModal } from '@/components/verify-fingerprint-modal'
 import { request } from '@/lib/api/client'
+import { buildSignedAuditEntry, fetchAuditHead } from '@/lib/audit-log-client'
 import { useAuth } from '@/lib/auth'
 import { useConfig } from '@/lib/config'
+import { pubkeyToHex } from '@/lib/device-identity'
 import { queryKeys } from '@/lib/queries/keys'
 import { hexToBytes } from '@noble/hashes/utils.js'
+import type { DeviceVerificationSuccess } from '@shared/schemas/device-verification'
 import type { Device, DeviceList } from '@shared/schemas/devices'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
@@ -49,15 +52,49 @@ export function DevicesSection() {
   const verifyMutation = useMutation({
     mutationFn: async (device: Device) => {
       if (!currentHubId) throw new Error('No hub context')
-      // TODO(tier6-pr2): Implement actual audit chain signing.
-      // This requires constructing a SignedAuditEntry with proper hash chain
-      // linking and Schnorr signature. Currently throws to prevent silent failure.
-      throw new Error('Device verification signing is not yet implemented — coming in Tier 6 PR #2')
-      // When implemented, the call will be:
-      // await request(`/hubs/${currentHubId}/devices/${device.id}/verify`, {
-      //   method: 'POST',
-      //   body: JSON.stringify({ signedEntry }),
-      // })
+      // The admin's own device keypair (Tier 3) must be provisioned — it
+      // supplies both the `verifierDeviceId` recorded in the payload and the
+      // `signerDeviceId` hex label that goes into the signed entry. If the
+      // device identity hasn't been bootstrapped yet the user cannot produce
+      // an audit-chain entry, so we fail fast with a translated error.
+      if (!auth.deviceKeypair) {
+        throw new Error(
+          t(
+            'device.verificationRequiresDeviceIdentity',
+            'Cannot verify: this device has no provisioned identity keypair'
+          )
+        )
+      }
+
+      // Fetch the current chain head so the new entry links correctly. The
+      // server re-checks this on append and rejects on mismatch, so a racy
+      // read here just becomes a chain_conflict error surfaced via onError.
+      const prevEntryHash = await fetchAuditHead(currentHubId)
+
+      const signerDeviceIdHex = pubkeyToHex(auth.deviceKeypair.signing.publicKey)
+      const signedEntry = await buildSignedAuditEntry({
+        hubId: currentHubId,
+        payload: {
+          type: 'device_fingerprint_verified',
+          hubId: currentHubId,
+          verifiedDeviceId: device.id,
+          verifiedDevicePubkey: device.ed25519Pubkey,
+          verifierDeviceId: auth.deviceKeypair.deviceId,
+        },
+        prevEntryHash,
+        signerDeviceId: signerDeviceIdHex,
+      })
+
+      // Submit through the dedicated device-verification endpoint rather than
+      // the generic /audit POST — the dedicated route double-checks payload
+      // type, hubId, and deviceId alignment before appending to the chain.
+      return await request<DeviceVerificationSuccess>(
+        `/hubs/${currentHubId}/devices/${device.id}/verify`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ signedEntry }),
+        }
+      )
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({
@@ -131,8 +168,9 @@ export function DevicesSection() {
           // Use the verifying admin's own Ed25519 signing pubkey from the
           // persistent device identity (Tier 3). Falls back to a zero-byte
           // placeholder if the device keypair isn't provisioned yet on this
-          // browser — the verify mutation itself still throws until the
-          // audit-chain signing lands, so this flow remains inert.
+          // browser — the mutationFn itself rejects in that case, so the SAS
+          // grid renders but any subsequent confirm is blocked with a clear
+          // error instead of producing a malformed signed entry.
           verifierDevicePubkey={auth.deviceKeypair?.signing.publicKey ?? new Uint8Array(32)}
           targetDevicePubkey={hexToBytes(verifying.ed25519Pubkey)}
           sessionNonce={sessionNonce}

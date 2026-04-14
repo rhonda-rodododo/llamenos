@@ -113,4 +113,24 @@ auditRoutes.get('/signed', requirePermission('audit:read'), async (c) => {
   return c.json({ entries }, 200)
 })
 
+// ── GET /head — return the chain head entryHash for a hub ──
+//
+// Clients building a new signed audit entry need the current `prevEntryHash`
+// (the latest entry's `entryHash`, or null for an empty chain). Fetching the
+// whole chain via `/signed` just to read the last row is wasteful and races
+// with large chains. This endpoint returns only `{ entryHash: string | null }`.
+//
+// Any authenticated member of the hub can read the head — the value is the
+// SHA-256 of ciphertext-neutral chain state and contains no PII.
+
+auditRoutes.get('/head', async (c) => {
+  const services = c.get('services')
+  const hubId = c.get('hubId')
+  if (!hubId) {
+    return c.json({ entryHash: null }, 200)
+  }
+  const head = await services.auditLog.getHead(hubId)
+  return c.json({ entryHash: head?.entryHash ?? null }, 200)
+})
+
 export default auditRoutes
