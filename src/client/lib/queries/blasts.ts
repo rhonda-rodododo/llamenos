@@ -51,13 +51,7 @@ export const blastsListOptions = (hubId = 'global') =>
       const blasts = await Promise.all(
         res.blasts.map(async (blast) => ({
           ...blast,
-          name: await decryptHubField(
-            blast.encryptedName,
-            hubId,
-            blast.id,
-            'encrypted_name',
-            blast.name
-          ),
+          name: await decryptHubField(blast.encryptedName, hubId, blast.id, 'encrypted_name'),
         }))
       )
 

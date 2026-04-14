@@ -1,12 +1,14 @@
 /**
  * Unit tests for `buildSFrameCallHook`. These exercise the failure-propagation
  * contract the manager + adapters depend on:
+ *   - Consent not granted → fail-closed with `consent_required`.
  *   - Worker unavailable → fail-closed with `worker_unavailable`.
  *   - Worker RPC failure → wrapped `hook_failed` + cleanup `releaseCall`.
  *   - Happy path → orchestrator.startCall + registerCall + setSenderKey +
  *     installSFrameTransforms all run in order.
  */
-import { describe, expect, mock, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
+import { __resetConsentState, __setConsentGrantedForTest } from '../consent'
 import { SFrameWiringError, buildSFrameCallHook } from './sframe-call-hook'
 import type { SFrameOrchestrator } from './sframe-orchestrator'
 import type { SFrameWorkerClient } from './sframe-worker-client'
@@ -71,6 +73,17 @@ function createStubOrchestrator(
 }
 
 describe('buildSFrameCallHook', () => {
+  // The module-level consent cache is shared across suites — grant it before
+  // every pre-existing test so they exercise the post-consent code path, and
+  // reset afterwards to avoid bleeding state into the dedicated
+  // consent-gate describe block below.
+  beforeEach(() => {
+    __setConsentGrantedForTest(true)
+  })
+  afterEach(() => {
+    __resetConsentState()
+  })
+
   test('rejects with SFrameWiringError(worker_unavailable) when client is null', async () => {
     const hook = buildSFrameCallHook({ sframeClient: null, senderId: 'local' })
     const pc = createStubPc() as unknown as RTCPeerConnection
@@ -202,5 +215,122 @@ describe('buildSFrameCallHook', () => {
     expect(caught).toBeInstanceOf(SFrameWiringError)
     expect((caught as SFrameWiringError).code).toBe('hook_failed')
     expect(worker.releaseCall).toHaveBeenCalledWith('call-1')
+  })
+})
+
+describe('buildSFrameCallHook — consent gate', () => {
+  // Reset state between every test so the default (no consent) is authoritative.
+  beforeEach(() => {
+    __resetConsentState()
+  })
+  afterEach(() => {
+    __resetConsentState()
+  })
+
+  test('rejects with consent_required when module consent cache is false', async () => {
+    const worker = createFakeWorker()
+    const pc = createStubPc() as unknown as RTCPeerConnection
+    const orchestrator = createStubOrchestrator()
+
+    const hook = buildSFrameCallHook({
+      sframeClient: worker as unknown as SFrameWorkerClient,
+      senderId: 'local',
+      orchestrator,
+    })
+
+    let caught: unknown = null
+    try {
+      await hook(pc, { callId: 'call-consent', direction: 'inbound' })
+    } catch (err) {
+      caught = err
+    }
+
+    expect(caught).toBeInstanceOf(SFrameWiringError)
+    expect((caught as SFrameWiringError).code).toBe('consent_required')
+    // The hook MUST NOT touch the worker or orchestrator before the consent
+    // check — otherwise a misbehaving orchestrator could publish a key event
+    // for a call the user never consented to.
+    expect(worker.registerCall).not.toHaveBeenCalled()
+    // biome-ignore lint/suspicious/noExplicitAny: mock fn type
+    expect((orchestrator.startCall as any).mock.calls.length).toBe(0)
+  })
+
+  test('rejects with consent_required even when client is null (consent gate precedes worker gate)', async () => {
+    // Adversarial: if the worker is also unavailable, the error surfaced
+    // must be consent_required, not worker_unavailable. This keeps the UI
+    // error message honest — the user needs to consent first regardless.
+    const hook = buildSFrameCallHook({ sframeClient: null, senderId: 'local' })
+    const pc = createStubPc() as unknown as RTCPeerConnection
+
+    let caught: unknown = null
+    try {
+      await hook(pc, { callId: 'call-nc', direction: 'inbound' })
+    } catch (err) {
+      caught = err
+    }
+    expect(caught).toBeInstanceOf(SFrameWiringError)
+    expect((caught as SFrameWiringError).code).toBe('consent_required')
+  })
+
+  test('proceeds to happy path once consent is granted', async () => {
+    __setConsentGrantedForTest(true)
+    const worker = createFakeWorker()
+    const pc = createStubPc() as unknown as RTCPeerConnection
+    const orchestrator = createStubOrchestrator()
+
+    const hook = buildSFrameCallHook({
+      sframeClient: worker as unknown as SFrameWorkerClient,
+      senderId: 'local',
+      orchestrator,
+    })
+
+    await hook(pc, { callId: 'call-ok', direction: 'inbound' })
+    expect(worker.registerCall).toHaveBeenCalledWith('call-ok')
+  })
+
+  test('honors injected consentCheck closure over the module singleton', async () => {
+    // Even though the module cache is granted, the injected closure returns
+    // false — the closure MUST win. This lets the WebRTC manager scope the
+    // consent decision to a specific React tree / call context in the future
+    // without touching the singleton.
+    __setConsentGrantedForTest(true)
+    const worker = createFakeWorker()
+    const pc = createStubPc() as unknown as RTCPeerConnection
+    const orchestrator = createStubOrchestrator()
+
+    const hook = buildSFrameCallHook({
+      sframeClient: worker as unknown as SFrameWorkerClient,
+      senderId: 'local',
+      orchestrator,
+      consentCheck: () => false,
+    })
+
+    let caught: unknown = null
+    try {
+      await hook(pc, { callId: 'call-inj', direction: 'inbound' })
+    } catch (err) {
+      caught = err
+    }
+    expect(caught).toBeInstanceOf(SFrameWiringError)
+    expect((caught as SFrameWiringError).code).toBe('consent_required')
+    expect(worker.registerCall).not.toHaveBeenCalled()
+  })
+
+  test('injected consentCheck=true overrides a false module cache', async () => {
+    // Symmetric to the above — the injection is authoritative both ways.
+    __resetConsentState()
+    const worker = createFakeWorker()
+    const pc = createStubPc() as unknown as RTCPeerConnection
+    const orchestrator = createStubOrchestrator()
+
+    const hook = buildSFrameCallHook({
+      sframeClient: worker as unknown as SFrameWorkerClient,
+      senderId: 'local',
+      orchestrator,
+      consentCheck: () => true,
+    })
+
+    await hook(pc, { callId: 'call-inj2', direction: 'inbound' })
+    expect(worker.registerCall).toHaveBeenCalledWith('call-inj2')
   })
 })
