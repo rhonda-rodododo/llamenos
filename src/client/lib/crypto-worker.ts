@@ -53,29 +53,33 @@ type WorkerRequest =
   | { type: 'lock'; id: string }
   | { type: 'sign'; id: string; messageHex: string }
   | {
-      // Legacy ECIES key unwrap (label-id envelope path). Domain separation comes
-      // from `label` (used to derive the symmetric wrapping key). The inner
-      // AEAD uses empty AAD — do NOT add an `aad` field here unless
-      // `eciesWrap`/`eciesUnwrap` actually plumb it through, otherwise
-      // callers will think they have binding they don't. New code should use
-      // the HPKE `hpkeSeal`/`hpkeOpen` sidecar below instead.
+      // Legacy ECIES key unwrap (label-id envelope path). Domain separation
+      // comes from `label` (used to derive the symmetric wrapping key). The
+      // inner AEAD is bound to `aad` — every caller MUST provide its intended
+      // AAD (typically `buildAad(label, recordId, fieldName)`). Legacy call
+      // sites that need to read already-stored wire format may pass
+      // `new Uint8Array(0)` with a TODO comment until they migrate. New code
+      // should use the HPKE `hpkeSeal`/`hpkeOpen` sidecar below instead.
       type: 'decrypt'
       id: string
       ephemeralPubkeyHex: string
       wrappedKeyHex: string
       label: CryptoLabel
+      aadHex: string
     }
   | {
-      // ECIES key wrap. See note on `decrypt` re: AAD.
+      // ECIES key wrap. The caller-supplied `aadHex` is threaded into the
+      // inner XChaCha20-Poly1305 AEAD alongside the label-derived key.
       type: 'encrypt'
       id: string
       plaintextHex: string
       recipientPubkeyHex: string
       label: CryptoLabel
+      aadHex: string
     }
   | { type: 'getPublicKey'; id: string }
   | { type: 'isUnlocked'; id: string }
-  | { type: 'reEncrypt'; id: string; newKekHex: string }
+  | { type: 'reEncrypt'; id: string; newKekHex: string; aadHex: string }
   | { type: 'provisionNsec'; id: string; recipientEphemeralPubkeyHex: string }
   | {
       type: 'decryptEnvelopeField'
@@ -84,7 +88,7 @@ type WorkerRequest =
       ephemeralPubkeyHex: string
       wrappedKeyHex: string
       label: CryptoLabel
-      aad: string
+      aadHex: string
     }
   | {
       type: 'envelopeEncryptField'
@@ -92,7 +96,7 @@ type WorkerRequest =
       plaintext: string
       recipientPubkeysHex: string[]
       label: CryptoLabel
-      aad: string
+      aadHex: string
     }
   | { type: 'signAuditEntry'; id: string; entryHashHex: string }
   | { type: 'computeHmac'; id: string; input: string; secretHex: string }
@@ -274,13 +278,19 @@ function randomBytes(n: number): Uint8Array {
 }
 
 /**
- * ECIES wrap: encrypt a plaintext under a recipient's public key with domain separation.
- * Uses ephemeral ECDH + SHA-256(label || sharedX) + XChaCha20-Poly1305.
+ * ECIES wrap: encrypt a plaintext under a recipient's public key with domain
+ * separation. Uses ephemeral ECDH + SHA-256(label || sharedX) + XChaCha20-Poly1305.
+ *
+ * The caller-supplied `aad` is threaded into the inner AEAD so the ciphertext
+ * is cryptographically bound to the caller's context (typically
+ * `buildAad(label, recordId, fieldName)`). Callers that need to preserve an
+ * existing wire format must pass `new Uint8Array(0)` explicitly.
  */
 function eciesWrap(
   plaintext: Uint8Array,
   recipientPubkeyHex: string,
-  label: string
+  label: string,
+  aad: Uint8Array
 ): { ephemeralPubkeyHex: string; wrappedKeyHex: string } {
   const ephemeralSecret = randomBytes(32)
   const ephemeralPublicKey = secp256k1.getPublicKey(ephemeralSecret, true)
@@ -297,7 +307,7 @@ function eciesWrap(
   const symmetricKey = sha256(keyInput)
 
   const nonce = randomBytes(24)
-  const cipher = xchacha20poly1305(symmetricKey, nonce)
+  const cipher = xchacha20poly1305(symmetricKey, nonce, aad)
   const ciphertext = cipher.encrypt(plaintext)
 
   const packed = new Uint8Array(nonce.length + ciphertext.length)
@@ -311,13 +321,16 @@ function eciesWrap(
 }
 
 /**
- * ECIES unwrap: decrypt using our secret key + ephemeral pubkey with domain separation.
+ * ECIES unwrap: decrypt using our secret key + ephemeral pubkey with domain
+ * separation. The AAD must match what was passed to `eciesWrap` when the
+ * ciphertext was produced — mismatch throws at AEAD-open time.
  */
 function eciesUnwrap(
   ephemeralPubkeyHex: string,
   wrappedKeyHex: string,
   sk: Uint8Array,
-  label: string
+  label: string,
+  aad: Uint8Array
 ): Uint8Array {
   const ephemeralPub = hexToBytes(ephemeralPubkeyHex)
   const shared = secp256k1.getSharedSecret(sk, ephemeralPub)
@@ -332,7 +345,7 @@ function eciesUnwrap(
   const data = hexToBytes(wrappedKeyHex)
   const nonce = data.slice(0, 24)
   const ciphertext = data.slice(24)
-  const cipher = xchacha20poly1305(symmetricKey, nonce)
+  const cipher = xchacha20poly1305(symmetricKey, nonce, aad)
   return cipher.decrypt(ciphertext)
 }
 
@@ -378,7 +391,8 @@ function handleSign(messageHex: string): string {
 function handleDecrypt(
   ephemeralPubkeyHex: string,
   wrappedKeyHex: string,
-  label: CryptoLabel
+  label: CryptoLabel,
+  aad: Uint8Array
 ): string {
   if (!secretKey) throw new Error('Worker is locked')
 
@@ -387,14 +401,15 @@ function handleDecrypt(
     throw new Error('Rate limit exceeded — worker auto-locked')
   }
 
-  const result = eciesUnwrap(ephemeralPubkeyHex, wrappedKeyHex, secretKey, label)
+  const result = eciesUnwrap(ephemeralPubkeyHex, wrappedKeyHex, secretKey, label, aad)
   return bytesToHex(result)
 }
 
 function handleEncrypt(
   plaintextHex: string,
   recipientPubkeyHex: string,
-  label: CryptoLabel
+  label: CryptoLabel,
+  aad: Uint8Array
 ): { ephemeralPubkeyHex: string; wrappedKeyHex: string } {
   // Encrypt doesn't need our nsec (uses ephemeral key), but we keep it
   // in the worker for API consistency and to enforce the worker-is-unlocked
@@ -407,7 +422,7 @@ function handleEncrypt(
   }
 
   const plaintext = hexToBytes(plaintextHex)
-  return eciesWrap(plaintext, recipientPubkeyHex, label)
+  return eciesWrap(plaintext, recipientPubkeyHex, label, aad)
 }
 
 function handleSignAuditEntry(entryHashHex: string): string {
@@ -428,14 +443,22 @@ function handleIsUnlocked(): boolean {
   return secretKey !== null
 }
 
-function handleReEncrypt(newKekHex: string): { nonce: string; ciphertext: string } {
+function handleReEncrypt(
+  newKekHex: string,
+  aad: Uint8Array
+): { nonce: string; ciphertext: string } {
   if (!secretKey) throw new Error('Worker is locked')
 
   const newKek = hexToBytes(newKekHex)
   const nonce = randomBytes(24)
-  const cipher = xchacha20poly1305(newKek, nonce)
+  const cipher = xchacha20poly1305(newKek, nonce, aad)
   // Encrypt the nsec as hex string (same format as encryptNsec in key-store)
-  // so that handleUnlock can decode it consistently
+  // so that handleUnlock can decode it consistently. The caller-supplied
+  // AAD must match what `key-store.encryptNsec` / `handleUnlock` expect —
+  // today that is the empty byte string, because the nsec wire format is
+  // shared across unlock + reEncrypt + first enrollment. See
+  // POST_OVERHAUL_GAPS_2026-04-13.md Tier 1 P1 "Per-record AAD migration"
+  // for the plan to migrate the nsec blob to a non-empty AAD.
   const nsecHexBytes = new TextEncoder().encode(bytesToHex(secretKey))
   const ciphertext = cipher.encrypt(nsecHexBytes)
   nsecHexBytes.fill(0)
@@ -788,10 +811,20 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
         result = handleSign(req.messageHex)
         break
       case 'decrypt':
-        result = handleDecrypt(req.ephemeralPubkeyHex, req.wrappedKeyHex, req.label)
+        result = handleDecrypt(
+          req.ephemeralPubkeyHex,
+          req.wrappedKeyHex,
+          req.label,
+          hexToBytes(req.aadHex)
+        )
         break
       case 'encrypt':
-        result = handleEncrypt(req.plaintextHex, req.recipientPubkeyHex, req.label)
+        result = handleEncrypt(
+          req.plaintextHex,
+          req.recipientPubkeyHex,
+          req.label,
+          hexToBytes(req.aadHex)
+        )
         break
       case 'getPublicKey':
         result = handleGetPublicKey()
@@ -800,7 +833,7 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
         result = handleIsUnlocked()
         break
       case 'reEncrypt':
-        result = handleReEncrypt(req.newKekHex)
+        result = handleReEncrypt(req.newKekHex, hexToBytes(req.aadHex))
         break
       case 'provisionNsec':
         result = handleProvisionNsec(req.recipientEphemeralPubkeyHex)
@@ -808,15 +841,22 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       case 'envelopeEncryptField': {
         // Generate a random symmetric key, encrypt the plaintext with it, and
         // ECIES-wrap the key for each recipient. Returns { encryptedHex, envelopes }.
+        //
+        // The outer field AEAD binds the caller-supplied AAD (`req.aadHex`).
+        // The inner ECIES key-wrap for each recipient uses an empty AAD to
+        // match the existing on-wire envelope format — callers that need
+        // per-record binding on the key-wrap path should migrate to HPKE.
+        // TODO(tier-1 per-record-aad): revisit inner key-wrap AAD alongside
+        // POST_OVERHAUL_GAPS_2026-04-13.md Tier 1 P1 "Per-record AAD migration".
         const messageKey = randomBytes(32)
         const fieldNonce = randomBytes(24)
-        const fieldCipher = xchacha20poly1305(messageKey, fieldNonce, hexToBytes(req.aad))
+        const fieldCipher = xchacha20poly1305(messageKey, fieldNonce, hexToBytes(req.aadHex))
         const ct = fieldCipher.encrypt(utf8ToBytes(req.plaintext))
         const packed = new Uint8Array(fieldNonce.length + ct.length)
         packed.set(fieldNonce)
         packed.set(ct, fieldNonce.length)
         const envelopes = req.recipientPubkeysHex.map((pub) => {
-          const wrapped = eciesWrap(messageKey, pub, req.label)
+          const wrapped = eciesWrap(messageKey, pub, req.label, new Uint8Array(0))
           return {
             recipientPubkey: pub,
             ephemeralPubkeyHex: wrapped.ephemeralPubkeyHex,
@@ -844,18 +884,25 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
           autoLock()
           throw new Error('Rate limit exceeded — worker auto-locked')
         }
-        // Step 1: ECIES unwrap the per-field symmetric message key
+        // Step 1: ECIES unwrap the per-field symmetric message key.
+        // Inner ECIES AEAD uses empty AAD to match on-wire envelope format
+        // produced by `envelopeEncryptField`.
+        // TODO(tier-1 per-record-aad): revisit alongside the per-record AAD
+        // migration in POST_OVERHAUL_GAPS_2026-04-13.md Tier 1 P1.
         const messageKey = eciesUnwrap(
           req.ephemeralPubkeyHex,
           req.wrappedKeyHex,
           secretKey,
-          req.label
+          req.label,
+          new Uint8Array(0)
         )
-        // Step 2: Symmetric decrypt the field ciphertext
+        // Step 2: Symmetric decrypt the field ciphertext — the caller-supplied
+        // AAD binds the ciphertext to its context (matches
+        // `envelopeEncryptField`'s outer AEAD).
         const fieldData = hexToBytes(req.encryptedHex)
         const fieldNonce = fieldData.slice(0, 24)
         const fieldCiphertext = fieldData.slice(24)
-        const fieldCipher = xchacha20poly1305(messageKey, fieldNonce, hexToBytes(req.aad))
+        const fieldCipher = xchacha20poly1305(messageKey, fieldNonce, hexToBytes(req.aadHex))
         const plaintext = fieldCipher.decrypt(fieldCiphertext)
         result = new TextDecoder().decode(plaintext)
         break
