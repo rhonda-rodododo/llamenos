@@ -1,11 +1,23 @@
 # The Llámenos Security Whitepaper
 
-**Version 1.0 — 2026-04-11**
+**Version 1.1 — 2026-04-13**
 **Authors:** Llámenos security working group
 **Status:** Public release. Canonical copy lives at
 `docs/security/WHITEPAPER.md` in the Llámenos source repository. Any copy
 served from a third-party mirror should be checked against the
 hash-chained releases listed in §10.
+
+> **Accuracy note.** This document describes both the architecture
+> Llámenos is built toward and the architecture that is shipped on
+> `main` today. Where the two diverge, §0.1 ("Current vs Target") is
+> the authoritative, short-form account of what is actually running in
+> the bundle you just loaded vs what is still in-flight. Throughout
+> the rest of the document, statements marked **(target)** describe
+> work that is partially or fully deferred; statements without that
+> marker describe behavior that is live on `main` as of the version
+> header above. If you find a present-tense claim in this document
+> that contradicts §0.1, treat §0.1 as correct and open a
+> documentation issue.
 
 ---
 
@@ -42,6 +54,58 @@ organizations.
 
 ---
 
+## 0.1 Current vs Target
+
+The seven-tier security overhaul landed its core skeletons on `main`
+through PR #104 (v0.48.2) and follow-up hardening PRs #105–#111. Not
+every sub-item shipped in the first pass — the table below is the
+short-form list of what is live on `main` today versus what is still
+in-flight. The deferrals are enumerated in full in
+`docs/security/POST_OVERHAUL_GAPS_2026-04-13.md`; this table is the
+reader-facing summary.
+
+| Area | Shipped today (on `main`) | Planned / target |
+|---|---|---|
+| **Hub-field encryption** (role names, shift names, report type names, custom field labels, team names) | HPKE v3 envelopes — `DHKEM(X25519, HKDF-SHA256) + HKDF-SHA256 + AES-256-GCM`, per-record AAD via `buildAad(label, recordId, fieldName)`. Source: `src/shared/hpke-primitives.ts`, `src/shared/crypto-suite.ts`, `src/client/lib/queries/*.ts`. | Unchanged. |
+| **Hub key distribution** | HPKE per-device wrap under `LABEL_HUB_KEY_WRAP` with AAD bound to `(deviceId, hubId)`. Source: `src/client/lib/hub-key-manager.ts`. | Unchanged. |
+| **Notes encryption** | **Legacy ECIES + XChaCha20-Poly1305 multi-admin envelopes.** Per-note random 32-byte key, XChaCha20-Poly1305 over the note body, key wrapped via `eciesWrapKey` under `LABEL_NOTE_KEY` for the author and for every current admin (multi-admin envelopes). Source: `src/shared/crypto-envelopes.ts#encryptNote`. | **MLS groupwise encryption** via vendored `@wireapp/core-crypto`, replacing the multi-admin envelope loop with an MLS group keyed on the hub. Tracked as Tier 6 PR #2. The MLS skeleton (`src/client/lib/mls/`) is vendored but `MlsConversation` is an empty class today. |
+| **Messages encryption** (SMS / WhatsApp / Signal inbound) | Same pattern as notes — random per-message key, XChaCha20-Poly1305 body, ECIES-wrapped under `LABEL_MESSAGE` for the assigned volunteer + each admin. Plaintext is discarded at the webhook boundary before any persistence. Source: `src/shared/crypto-envelopes.ts#encryptMessage`, `src/server/services/conversation-service.ts`. | Moves to the same MLS group as notes under Tier 6 PR #2. |
+| **Blasts** (outbound messaging to external recipients) | Same ECIES + XChaCha20-Poly1305 envelope pattern (`LABEL_BLAST_CONTENT`). | Out of scope for the MLS migration — external recipients are not hub members. Remains on the envelope-v3 style primitive. |
+| **Identity unlock KDF** | **PBKDF2-SHA256, 600,000 iterations** over the PIN, combined via HKDF-SHA256 with the IdP-bound value and (if present) the WebAuthn PRF output. Source: `src/client/lib/key-store.ts` (`PBKDF2_ITERATIONS = 600_000`, `deriveKEK`). | **Argon2id** (memory-hard) replacement. No Argon2id is wired anywhere in the client today. |
+| **Multi-factor KEK** | PIN + IdP-bound value (2-factor) or PIN + IdP-bound value + WebAuthn PRF (3-factor). Encrypted identity blob lives in localStorage; decrypted `nsec` is held in memory only and zeroed on lock. Source: `src/client/lib/key-store.ts`. | A separate **root-KEK bundle** (`src/client/lib/root-kek-store.ts`) persists an AES-KW-wrapped root key in IndexedDB but **does not yet wrap the identity bytes or hub CryptoKey** — that integration is a Tier 3 P1 item. Recovery-group Shamir share wrapping via HPKE is a Tier 2 P0 item and not yet shipped. |
+| **Crypto Web Worker isolation** | All ECIES / XChaCha20 / HPKE operations run in a dedicated Web Worker (`src/client/lib/crypto-worker.ts`). Identity key material lives in a closure inside the worker and is zeroed on lock. Source: `src/client/lib/crypto-worker.ts`, `src/client/lib/crypto-worker-client.ts`. | Unchanged as the *default* transport. |
+| **Crypto sandbox iframe** | **Scaffolded and wired, non-load-bearing.** The iframe subproject (`crypto-sandbox/`) exists and `bootCryptoSandbox()` eagerly boots it when `VITE_CRYPTO_ORIGIN` is set. Tier 4 P0 (PR #108) fixed the opaque-origin `postMessage` round-trip so the channel is no longer silently broken. However, no production call site routes crypto operations through the iframe today — the Web Worker remains the sole home for key material. Source: `src/client/lib/boot-crypto-sandbox.ts`, `src/client/lib/crypto-iframe-client.ts`. | **Exclusive home for cryptographic primitives.** Notes/messages decrypt, HPKE seal/open, SFrame key derivation, and identity unlock all migrate behind the iframe's postMessage RPC, so a main-frame XSS cannot read decrypted plaintext even under full compromise of the app origin. |
+| **Client-side binary verifier** | `src/client/lib/binary-verifier.ts` implemented (Ed25519 signed release manifest, SHA-256 file-by-file check, fail-closed enum of error conditions). | **Wiring into SPA boot.** `verifyOrThrow` has no caller in `src/client/main.tsx` as of this version — a compromised bundle currently boots and unlocks normally. Tracked as Tier 4 P0 in `POST_OVERHAUL_GAPS_2026-04-13.md`; PR #111 is in flight. The `/api/releases/latest/manifest` server route is not yet shipped. |
+| **Gossip attestation of loaded bundles** | `GossipVersionClient` (`src/client/lib/gossip-version.ts`) implemented with ephemeral schnorr keys per loader instance. | **Wiring** — no caller instantiates the client in production today, so fleet-divergence detection is observational only. Tracked as Tier 4 P0. |
+| **Reproducible builds + cosign signing** | `Dockerfile.build`, `SOURCE_DATE_EPOCH`-pinned, cosign keyless signing via GitHub Actions, SLSA provenance, `CHECKSUMS.txt` + `CHECKSUMS.txt.cosign-bundle` attached to each GitHub Release. | Unchanged. |
+| **Third-party verifiers** | Verifier workflow defined (`verify-llamenos.yml`). | Only **one** verifier is operational today; the second verifier and the signed `VERIFIER_MOU.md` are still being negotiated. The stale-fleet banner logic exists but is observational until the second verifier is running. |
+| **Voice E2EE (SFrame)** | Tier 5 PR #110 wired SFrame into the Twilio adapter + UI `ActiveCallBadge` / `E2eeFallbackBanner`. SFrame worker, key derivation, and Twilio pc-hook are live on `main`. | **Vonage + Plivo** adapters still have `TODO(tier-5)` markers for their SDK `RTCPeerConnection` accessors (`src/client/lib/webrtc/adapters/vonage.ts:48`, `plivo.ts:58`); `#installHook` is defined but never called. Per Tier 5 P0 in `POST_OVERHAUL_GAPS_2026-04-13.md`, those adapters will fail-closed when a hook is provided but `pc` is inaccessible. Worker error surfacing + fail-loud audit variants + modal-unmount fail-closed semantics are tracked as Tier 5 P1 (PRs #112, #117). |
+| **Warrant canary** | Plaintext Markdown at `docs/security/WARRANT_CANARY.md`, committed via a GPG-signed human commit. | **Ed25519 signing** of the canary document itself, `.sig` file published alongside, signing pubkey pinned in-bundle. Code for this is drafted in PR #113 (in flight) but has not merged; the canary is therefore not cryptographically verifiable from within the client today. |
+| **Session-capsule / refresh rotation** (Tier 0) | Opaque 32-byte refresh token hashed server-side; rotated on every refresh; `user_sessions` table backs revocation; session metadata envelope-encrypted per user; DB-IP Lite geolocation offline. | Unchanged. |
+| **Signed hash-chained audit log** | SHA-256 chain with `previousEntryHash` / `entryHash`, schnorr signature over `entryHash`, boot-time verifier refuses to show admin data on chain break. | Unchanged. |
+
+### Short-form truth
+
+- **Note/message confidentiality** is currently provided by
+  ECIES + XChaCha20-Poly1305 with per-note forward-secret keys wrapped
+  for every admin. This is the same envelope family the project has
+  used since before the HPKE migration. The HPKE migration (Tier 1)
+  deliberately did **not** touch this surface, because the intended
+  replacement is MLS groupwise encryption, not a second envelope
+  rewrite.
+- **Hub metadata confidentiality** (roles, shifts, reports, etc.) IS
+  HPKE-encrypted today with per-record AAD binding. This is the
+  Tier 1 shipment.
+- **Identity-key unlock** uses PBKDF2-SHA256 (600k) today.
+  Argon2id is a target for a later tier.
+- **All crypto still runs in the Web Worker, not the iframe.** The
+  iframe exists and postMessage is functional after PR #108, but it
+  is not the home of any key material in production. Treat any
+  "iframe-sandboxed crypto" language in the rest of this document as
+  **(target)**.
+
+---
+
 ## 1. Executive summary
 
 Llámenos' security model has six load-bearing properties. Every section
@@ -51,7 +115,7 @@ of this document ultimately maps back to one of them.
 |---|---|---|
 | 1 | Callers are anonymous by construction. | PSTN arrival → routing by opaque call-id → no caller-id storage beyond the minimum needed for duplicate-call dedup and ban enforcement. |
 | 2 | Volunteer identity is visible only to admins. | Volunteer PII is envelope-encrypted per-user; only admins hold the keys needed to decrypt it. Other volunteers see only opaque display handles. |
-| 3 | Note contents never reach the server in plaintext. | Per-note forward-secret keys, wrapped via HPKE to the note author and to each admin envelope. The server stores ciphertext + envelope metadata only. |
+| 3 | Note contents never reach the server in plaintext. | Per-note forward-secret keys wrapped to the note author and to every current admin. Today the wrap is ECIES + XChaCha20-Poly1305 on a multi-admin envelope (`encryptNote` in `src/shared/crypto-envelopes.ts`); **(target)** MLS groupwise encryption via `@wireapp/core-crypto` under Tier 6 PR #2. The server stores ciphertext + envelope metadata only in both cases. |
 | 4 | Audit events are tamper-evident. | SHA-256 hash chain + schnorr-signed sigchain; a single rewritten entry breaks the chain and is detectable by any reader. |
 | 5 | The code running in your browser matches the code the repo shipped. | Reproducible builds, cosign-signed checksums, third-party verifiers, and a client-side binary verifier that fails closed on mismatch. |
 | 6 | Targeted delivery attacks are publicly visible within minutes. | Every running client gossips the SHA-256 of the bundle it loaded; peers raise an alarm when they see a hash they cannot match. |
@@ -182,15 +246,28 @@ Llámenos explicitly does **not** defend against:
 ### 4.1 Per-note forward secrecy
 
 Every note written in Llámenos is encrypted under a fresh
-`ChaCha20-Poly1305` content key. The content key is randomly generated
+`XChaCha20-Poly1305` content key. The content key is randomly generated
 at note creation time, used to encrypt the note body, and then wrapped
 separately for each reader of the note — the volunteer who wrote it,
 and every current admin in the hub.
 
-Wrapping is done via HPKE (RFC 9180) using the
-`DHKEM(P-256, HKDF-SHA256)` kem, `HKDF-SHA256` kdf, and
-`ChaCha20-Poly1305` aead. The wrapped keys are stored in the database
-as individual envelopes. The note's ciphertext is stored once.
+**Shipped today:** Wrapping is done via the legacy ECIES envelope
+family (`eciesWrapKey` in `src/shared/crypto-primitives.ts`) under the
+domain label `LABEL_NOTE_KEY`. The per-note key is bound to each
+reader pubkey via ECDH over secp256k1, HKDF-SHA256 derivation, and an
+XChaCha20-Poly1305 key-wrap. The wrapped keys are stored as individual
+`RecipientKeyEnvelope` rows — one author envelope + one per current
+admin. The note's ciphertext is stored once. See `encryptNote` /
+`decryptNoteWithKey` in `src/shared/crypto-envelopes.ts`.
+
+**(target)** Tier 6 PR #2 replaces this multi-admin envelope loop with
+**MLS groupwise encryption** via vendored `@wireapp/core-crypto`:
+every hub owns an MLS group; notes become MLS application messages
+inside that group; adding or removing an admin is an MLS commit that
+advances the epoch rather than a rewrap of every past envelope.
+`src/client/lib/mls/conversation.ts` is an empty skeleton on `main`
+today — the lifecycle methods land in PR #2. Until then, the ECIES
+envelope path above is the real confidentiality boundary.
 
 This means:
 
@@ -210,8 +287,12 @@ signed event on the Nostr relay; clients hold-back any notes written
 after the revocation event from that admin's envelope set within the
 bounded-consistency window CLKR provides.
 
-**Source:** `src/client/lib/crypto-worker.ts`,
-`src/server/services/notes-service.ts`, `src/shared/hpke.ts`.
+**Source:** `src/shared/crypto-envelopes.ts` (note envelope + wrap),
+`src/shared/crypto-primitives.ts` (`eciesWrapKey` /
+`eciesUnwrapKeyWithSecret`), `src/client/lib/crypto-worker.ts` (worker
+RPC surface), `src/server/services/records.ts` (note row storage),
+`src/shared/hpke-primitives.ts` (the HPKE primitive family — not
+currently used for notes; see §0.1 for the MLS target).
 
 ### 4.2 Hub key + rotation
 
@@ -237,39 +318,58 @@ remaining members, and the old key is treated as compromised.
 **Source:** `src/client/lib/hub-key-manager.ts`,
 `src/shared/crypto-labels.ts`.
 
-### 4.3 Multi-factor KEK (key store v2)
+### 4.3 Multi-factor KEK (key store)
 
 A volunteer's long-lived identity key (the `nsec` used to sign audit
 entries and Nostr events) is held in memory only. At rest, it is
-encrypted under a **multi-factor Key Encryption Key** derived from:
+encrypted under a **multi-factor Key Encryption Key** derived from
+some combination of the following factors (the exact set is recorded
+on the encrypted blob so it can be reproduced at unlock time):
 
-- A **PIN** the user chooses at onboarding, stretched with Argon2id
-  (memory=64 MiB, time=3, parallelism=4).
-- An optional **recovery key** generated at onboarding and written
-  down offline.
-- An optional **WebAuthn credential** bound to a hardware
-  authenticator (YubiKey, platform TPM, etc.).
+- A **PIN** the user chooses at onboarding. Stretched with
+  **PBKDF2-SHA256, 600,000 iterations** against a 32-byte salt.
+  *(target — Argon2id memory-hard replacement is planned but not
+  wired anywhere on `main` today; see §0.1.)*
+- An **IdP-bound value** — a per-user 32-byte secret released by
+  the Authentik (or future) IdP after successful OIDC login.
+  Concatenating this into the KEK input means that an attacker who
+  has obtained the encrypted blob and the PIN still cannot unlock
+  without a fresh IdP session.
+- An optional **WebAuthn PRF output** bound to a hardware
+  authenticator (YubiKey, platform TPM, etc.). When WebAuthn PRF is
+  available the store runs in 3-factor mode
+  (`LABEL_NSEC_KEK_3F`); otherwise it runs in 2-factor mode
+  (`LABEL_NSEC_KEK_2F`).
 
-The KEK format is a symmetric split: each factor wraps a *share* of
-the KEK via HPKE, and unlock requires presenting any *one* factor.
-The encrypted identity key is then wrapped by the reassembled KEK.
-This means:
+The factor assembly is:
 
-- Losing your device does not require losing your account — you can
-  re-provision with the recovery key.
-- Rotating any single factor (changing your PIN, for example) does
-  not require re-encrypting everything at rest — only the KEK
-  wrapping is re-generated.
-- WebAuthn is a **primary** factor, not a "second factor", which
-  means an attacker who obtains your PIN still cannot unlock your
-  identity key without the physical device.
+1. PBKDF2-SHA256 over the PIN → 32-byte `pinDerived`.
+2. `ikm = pinDerived ‖ (prfOutput?) ‖ idpValue` (each exactly 32
+   bytes).
+3. HKDF-SHA256 over `ikm` with the factor-count-specific `info`
+   label → 32-byte KEK.
+4. XChaCha20-Poly1305 encrypts the `nsec` bytes under the KEK and
+   stores the result in `localStorage` as a JSON blob versioned
+   `version: 2`.
+
+**(target — multi-factor KEK expansion.)** The short-form
+architecture above intentionally reuses a single PIN across every
+unlock. A richer multi-factor design — a separate recovery key
+(diceware / Shamir) plus independent WebAuthn unlock as a *primary*
+factor rather than as PRF-extended IKM — is partially skeletoned in
+`src/client/lib/root-kek-store.ts` (IndexedDB-backed AES-KW root KEK
+bundle) but that store does **not** yet wrap the identity bytes or
+the hub `CryptoKey`. The integration is tracked as Tier 3 P1 in
+`POST_OVERHAUL_GAPS_2026-04-13.md`. Until it lands, the `key-store.ts`
+blob described above is the real identity-unlock surface.
 
 The in-memory `nsec` is zeroed on lock (tab blur, explicit lock,
 inactivity timeout) and wiped on logout. The key store's lifecycle
 tests verify this via a `fill(0)` check on the secret buffer after
 every lock event.
 
-**Source:** `src/client/lib/key-store-v2.ts`,
+**Source:** `src/client/lib/key-store.ts`,
+`src/client/lib/root-kek-store.ts`,
 `src/client/lib/crypto-worker-client.ts`.
 
 ### 4.4 Signed, hash-chained audit log
@@ -322,9 +422,15 @@ persistent storage. The webhook handler:
 
 1. Validates the provider's signature on the incoming payload.
 2. Generates a per-message random symmetric key.
-3. Encrypts the plaintext under that key with ChaCha20-Poly1305.
-4. Wraps the per-message key via HPKE for every reader (assigned
-   volunteer + each current admin) and for the hub.
+3. Encrypts the plaintext under that key with XChaCha20-Poly1305.
+4. Wraps the per-message key, under the domain label `LABEL_MESSAGE`,
+   for every reader (assigned volunteer + each current admin). The
+   wrap primitive on `main` today is **ECIES over secp256k1 + HKDF-
+   SHA256** (`eciesWrapKey` in `src/shared/crypto-primitives.ts`), the
+   same envelope family described in §4.1 for notes. **(target — Tier
+   6 PR #2)** the per-message key and the per-message wrap loop are
+   both replaced by MLS groupwise encryption against the hub's MLS
+   group.
 5. Writes the ciphertext, wrapped keys, and metadata to the database
    in a single transaction.
 6. Discards the plaintext before returning.
@@ -333,7 +439,8 @@ The server never writes the plaintext to disk — not even to a log.
 The hot-path test suite grep-checks the messaging service for
 `console.log` on plaintext variables at CI time.
 
-**Source:** `src/server/services/conversation-service.ts`,
+**Source:** `src/shared/crypto-envelopes.ts` (`encryptMessage`),
+`src/server/services/conversation-service.ts`,
 `src/server/middleware/webhook-signature.ts`.
 
 ---
@@ -369,10 +476,25 @@ and 1Password's web clients.
 
 ### 5.2 Sandboxed crypto iframe
 
-All cryptographic primitives — HPKE, ChaCha20, schnorr, SHA-256,
-Argon2id, the hub key manager, the multi-factor KEK, the audit-chain
-verifier, and the envelope decrypt pipeline — run inside an iframe
-served from `crypto.llamenos.example`. The iframe has:
+**Status on `main`: scaffolded and wired, non-load-bearing.** The
+design goal of §5.2 is that every cryptographic primitive — HPKE,
+XChaCha20, schnorr, SHA-256, the (target) Argon2id KDF, the hub key
+manager, the multi-factor KEK, the audit-chain verifier, and the
+envelope decrypt pipeline — runs inside an iframe served from
+`crypto.llamenos.example`, with identity key material never leaving
+the iframe's JavaScript context. The iframe subproject exists
+(`crypto-sandbox/` in the repo root), `bootCryptoSandbox()` eagerly
+boots it when `VITE_CRYPTO_ORIGIN` is set, and Tier 4 P0 (PR #108)
+fixed the opaque-origin `postMessage` round-trip that was silently
+breaking the channel before that fix. **However, no production call
+site routes crypto operations through the iframe today.** The
+dedicated crypto Web Worker (`src/client/lib/crypto-worker.ts`) is
+the real home for key material on `main`, and decrypted plaintext
+still flows through the main frame in the normal React Query cache.
+The architecture below describes the **(target)** state; treat the
+iframe as an isolation boundary under construction.
+
+The iframe has:
 
 - CSP `connect-src 'none'` (it does no network I/O on its own —
   the main frame shuttles all ciphertext/plaintext through
@@ -386,14 +508,19 @@ served from `crypto.llamenos.example`. The iframe has:
   schema-violating message is rejected and increments an anomaly
   counter visible to the main frame
 
-If a non-crypto subsystem is compromised (a React component bug, a
-router XSS, a CSS injection in a preview pane), it is contained to
-the main frame. It cannot read identity keys, decrypted notes, or
-the PIN, because the iframe never hands those back — only the
-concrete results of the RPC operations.
+**(target)** If a non-crypto subsystem is compromised (a React
+component bug, a router XSS, a CSS injection in a preview pane), it
+is contained to the main frame. It cannot read identity keys,
+decrypted notes, or the PIN, because the iframe never hands those
+back — only the concrete results of the RPC operations. This
+property only holds once every crypto call site has been migrated
+from the Web Worker transport to the iframe postMessage RPC; see
+`POST_OVERHAUL_GAPS_2026-04-13.md` Tier 4 for the migration order.
 
-**Source:** `crypto-sandbox/` Vite subproject, `src/shared/schemas/crypto-rpc.ts`,
-`src/client/lib/crypto-iframe-client.ts`.
+**Source:** `crypto-sandbox/` Vite subproject,
+`src/shared/schemas/crypto-rpc.ts`,
+`src/client/lib/crypto-iframe-client.ts`,
+`src/client/lib/boot-crypto-sandbox.ts`.
 
 ### 5.3 Reproducible builds
 
@@ -445,7 +572,20 @@ surface a banner.
 ### 5.5 Client-side binary verifier
 
 In parallel with the server-side third-party verifiers, every
-running client runs its own bundle integrity check. On unlock:
+running client is intended to run its own bundle integrity check
+before any key material is touched. The verifier module
+(`src/client/lib/binary-verifier.ts`) and its `verifyOrThrow` entry
+point exist on `main` today and implement the logic below.
+**However, as of v1.1 of this document `verifyOrThrow` has no
+caller in `src/client/main.tsx`** — a bundle with a mismatched
+manifest will currently boot and unlock normally. Wiring the
+verifier into the boot sequence (and shipping the
+`/api/releases/latest/manifest` server route that backs it) is
+Tier 4 P0 in `POST_OVERHAUL_GAPS_2026-04-13.md` and is being
+prepared on PR #111. The "fail-closed" property below therefore
+describes the **(target)** boot flow, not the current one.
+
+On unlock **(target)**:
 
 1. The client fetches the signed release manifest from
    `api.llamenos.example/api/releases/latest/manifest`.
@@ -481,10 +621,16 @@ for a *single user* — the server can serve signed, verified release
 X to 9,999 clients and a different-but-also-signed release Y to a
 single client whose cookie matches a targeting rule.
 
-To detect targeted attacks, every running client publishes a
-**bundle attestation** to the Nostr relay once per unlock. The
-attestation is a signed Nostr event (kind 20002, the ephemeral
-range) containing:
+To detect targeted attacks, every running client is intended to
+publish a **bundle attestation** to the Nostr relay once per
+unlock. The `GossipVersionClient` class
+(`src/client/lib/gossip-version.ts`) implements the publisher and
+subscriber logic, but as of v1.1 of this document **no call site
+instantiates it in SPA boot**, so fleet-divergence detection is
+observational only on `main`. Wiring is tracked as Tier 4 P0
+alongside the binary-verifier wiring. The attestation **(target)**
+is a signed Nostr event (kind 20002, the ephemeral range)
+containing:
 
 ```
 {
@@ -547,6 +693,17 @@ catch a different failure mode of the others:
 An attacker needs to defeat **all six** to silently serve modified
 code. Any one of them failing — in the right direction — is enough
 to raise the alarm.
+
+**(status on `main`)** Of the six defenses above, the origin split,
+reproducible builds, and the first third-party verifier are
+operational today. The sandboxed iframe is scaffolded but not yet
+load-bearing (§5.2); the client-side binary verifier is implemented
+but not yet wired into SPA boot (§5.5); the gossip attestation
+client is implemented but not yet instantiated in the boot path
+(§5.6). The delivery-hardening guarantee in this section therefore
+applies in full only to the **(target)** configuration — the
+Tier 4 P0 items in `POST_OVERHAUL_GAPS_2026-04-13.md` track the
+remaining wiring.
 
 ---
 
@@ -680,12 +837,16 @@ what you loaded.
 
 ### 7.5 Quantum-adversary deferral
 
-HPKE-P256 is not post-quantum secure. A sufficiently-capable
-quantum adversary collecting ciphertext today can decrypt it
-later. The Tier 6 roadmap vendors `@wireapp/core-crypto` and
-layers MLS on top of the note envelope, providing a post-quantum
-ciphersuite (XWing or P-384 fallback) for new notes. Llámenos v1
-is not post-quantum secure; Llámenos v2 will be.
+None of the curve-based primitives currently in use are post-
+quantum secure: hub-field HPKE uses `DHKEM(X25519, HKDF-SHA256)`,
+note/message ECIES uses secp256k1 + HKDF-SHA256, and the
+identity/Nostr key is schnorr over secp256k1. A sufficiently-
+capable quantum adversary collecting ciphertext today can decrypt
+it later. The Tier 6 roadmap vendors `@wireapp/core-crypto` and
+layers MLS on top of the note envelope, **(target)** providing a
+post-quantum ciphersuite (XWing or P-384 fallback) for new notes
+and messages. Llámenos v1 is not post-quantum secure; Llámenos v2
+will be.
 
 ### 7.6 Out-of-band leakage
 
@@ -724,13 +885,19 @@ statement.
 
 ### 8.2 How it works in practice
 
-The canary is refreshed monthly. Each refresh is signed with the
-Llámenos release signing key (the same key that signs the binary
-manifest in §5.3) and committed to the public repository. The
-canary commit is itself GPG-signed by a human operator identified
-in `docs/security/SECURITY_TEAM.md`. The signing flow requires
-the human to authenticate via WebAuthn; the canary cannot be
-refreshed programmatically.
+The canary is refreshed monthly. The canary commit is GPG-signed by
+a human operator identified in `docs/security/SECURITY_TEAM.md`; the
+canary cannot be refreshed programmatically.
+
+**(target)** Each refresh will additionally be **Ed25519-signed by
+the Llámenos release signing key** (the same key that signs the
+binary manifest in §5.3), with the signature published alongside
+`WARRANT_CANARY.md` as a `.sig` file and verified in-browser against
+a pubkey pinned into the SPA at build time. Tier 4 P1 tracks this as
+"warrant canary signing" and PR #113 is the in-flight
+implementation; until it merges, `WARRANT_CANARY.md` is plaintext
+Markdown protected only by the GPG commit signature and the
+reproducible-build chain.
 
 Clients display the canary's age in the settings UI. When the
 canary is more than **45 days** past its declared refresh interval,
@@ -842,6 +1009,45 @@ For press inquiries or general questions: `info@llamenos.example`.
 
 ## 11. Change log
 
+### 1.1 — 2026-04-13
+
+- Added §0.1 **"Current vs Target"** — the authoritative short-form
+  comparison of what is shipped on `main` today vs what is still
+  in-flight across the seven-tier security overhaul.
+- **Corrected the notes and messages sections** (§4.1, §4.5, §1
+  Property 3) to accurately describe the ECIES + XChaCha20-Poly1305
+  multi-admin envelope family that is actually shipped today. The
+  earlier wording claimed HPKE wrapping, which never landed for the
+  notes/messages surface — HPKE is the hub-field envelope only. MLS
+  groupwise encryption is the planned replacement for notes/messages
+  under Tier 6 PR #2 and is marked **(target)** throughout.
+- **Corrected §4.3** (Multi-factor KEK). The earlier wording claimed
+  Argon2id (memory-hard) PIN stretching and separate recovery-key +
+  WebAuthn split-share KEK wrapping. Reality on `main`:
+  PBKDF2-SHA256 at 600,000 iterations over the PIN, with the IdP-
+  bound value and (if available) the WebAuthn PRF output combined
+  via HKDF-SHA256 into the final KEK. Argon2id, independent recovery
+  key, and the split-share wrapping are all targets.
+- **Fenced §5.2, §5.5, §5.6, §5.7** with explicit "shipped vs
+  target" status. The sandboxed crypto iframe is scaffolded and
+  wired (PR #108 fixed the opaque-origin postMessage round-trip)
+  but no production call site routes through it — the Web Worker
+  remains the real crypto home. The client-side binary verifier
+  and gossip-version client exist but are not yet wired into SPA
+  boot (Tier 4 P0; PR #111 in flight). §5.7's compositional
+  guarantee reflects this partial coverage.
+- **Fenced §8.2** (warrant canary signing). Ed25519 signing of
+  `WARRANT_CANARY.md` is a target under PR #113; today the canary
+  is plaintext Markdown protected only by the GPG-signed commit.
+- Updated source-file references throughout to match the current
+  tree: `src/client/lib/key-store.ts` (not `-v2.ts`),
+  `src/shared/crypto-envelopes.ts` and `src/shared/crypto-primitives.ts`
+  for notes/messages, `src/shared/hpke-primitives.ts` (not
+  `src/shared/hpke.ts`).
+- Added change log entries below for Tier 5 (voice E2EE) shipping
+  partial wiring under PR #110 — wiring for the Vonage and Plivo
+  adapters is still outstanding and tracked as Tier 5 P0.
+
 ### 1.0 — 2026-04-11
 
 - Initial public publication.
@@ -853,22 +1059,29 @@ For press inquiries or general questions: `info@llamenos.example`.
   and will be documented when they ship to stable.
 - Warrant canary first issued alongside this publication.
 
-### Planned: 1.1 — after Tier 2.C merges
+### Planned: 1.2 — after Tier 2 P0 recovery-group work merges
 
-- Shamir recovery group documentation.
-- Updated KEK factor list once the Recovery Group UX lands.
+- Shamir recovery group documentation (HPKE-wrapped shares, threshold
+  recovery flow, `recovery-group-section.tsx` integration).
+- Updated KEK factor list once the Recovery Group UX lands — root-
+  KEK store (`root-kek-store.ts`) integration with identity bytes +
+  hub `CryptoKey`.
 
-### Planned: 1.2 — after Tier 5 merges
+### Planned: 1.3 — after Tier 5 P0 wiring finishes
 
-- Voice E2EE via SFrame + `RTCRtpScriptTransform`.
+- Voice E2EE via SFrame + `RTCRtpScriptTransform` on Twilio landed in
+  Tier 5 PR #110; the Vonage and Plivo SDK pc-accessor TODOs must be
+  closed before this section is promoted out of **(target)** status.
 - DTLS fingerprint binding to Nostr-signed signaling.
 - Fallback consent modal.
 
 ### Planned: 2.0 — after Tier 6 MLS reaches stage 3
 
-- Full rewrite of §4 to describe the MLS-based envelope.
+- Full rewrite of §4.1 and §4.5 to describe the MLS-based envelope.
 - Post-quantum ciphersuite.
-- Retirement of HPKE-P256 from the documented architecture.
+- Retirement of the HPKE envelope for hub-field confidentiality is
+  **not** planned — HPKE remains the right primitive for per-column
+  field encryption. Only the note/message path moves to MLS.
 
 ---
 
