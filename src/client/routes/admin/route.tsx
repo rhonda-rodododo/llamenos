@@ -1,6 +1,10 @@
 import { useAuth } from '@/lib/auth'
+import { useConfig } from '@/lib/config'
+import { useAuditChainIntegrity } from '@/lib/queries/audit'
+import { useToast } from '@/lib/toast'
 import { Outlet, createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 
 export const Route = createFileRoute('/admin')({
   component: AdminRoute,
@@ -31,8 +35,57 @@ export const Route = createFileRoute('/admin')({
 function AdminRoute() {
   const auth = useAuth()
   const navigate = useNavigate()
+  const { currentHubId } = useConfig()
+  const { t } = useTranslation()
+  const { toast } = useToast()
   const isSuperAdmin = auth.roles.includes('role-super-admin')
   const allowed = auth.isAdmin || isSuperAdmin
+
+  // Tier 0 baseline verification: on successful admin bootstrap, walk the
+  // signed audit chain once via the same hook the audit page uses. Results
+  // are cached via React Query so the audit page hit is free afterwards. A
+  // tampered/error result raises a toast so the admin cannot miss it even
+  // if they never open the audit page.
+  const chainIntegrity = useAuditChainIntegrity(allowed ? currentHubId : undefined)
+  const baselineToastedRef = useRef(false)
+
+  useEffect(() => {
+    if (!allowed) return
+    if (baselineToastedRef.current) return
+    if (chainIntegrity.isLoading || chainIntegrity.isFetching) return
+
+    if (chainIntegrity.isError) {
+      baselineToastedRef.current = true
+      toast(
+        t('auditLog.chain.errorToast', {
+          defaultValue: 'Could not verify audit chain: {{message}}',
+          message: (chainIntegrity.error as Error).message,
+        }),
+        'error'
+      )
+      return
+    }
+
+    if (chainIntegrity.data?.state === 'tampered') {
+      baselineToastedRef.current = true
+      toast(
+        t('auditLog.chain.tamperedToast', {
+          defaultValue: 'Audit chain TAMPERED — {{code}}',
+          code: chainIntegrity.data.error.code,
+        }),
+        'error'
+      )
+    }
+  }, [
+    allowed,
+    chainIntegrity.isLoading,
+    chainIntegrity.isFetching,
+    chainIntegrity.isError,
+    chainIntegrity.error,
+    chainIntegrity.data,
+    t,
+    toast,
+  ])
 
   useEffect(() => {
     if (auth.isLoading) return

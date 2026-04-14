@@ -11,10 +11,19 @@ import {
 } from '@/components/ui/select'
 import type { AuditLogEntry } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
-import { useAuditLog } from '@/lib/queries/audit'
+import { useConfig } from '@/lib/config'
+import { useAuditChainIntegrity, useAuditLog } from '@/lib/queries/audit'
 import { useUsers } from '@/lib/queries/users'
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { ChevronLeft, ChevronRight, ScrollText, Search } from 'lucide-react'
+import {
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  ScrollText,
+  Search,
+  ShieldCheck,
+} from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -88,6 +97,8 @@ const LIMIT = 50
 function AuditPage() {
   const { t } = useTranslation()
   const { isAdmin } = useAuth()
+  const { currentHubId } = useConfig()
+  const chainIntegrity = useAuditChainIntegrity(currentHubId)
   const [page, setPage] = useState(1)
   const [searchText, setSearchText] = useState('')
   const [eventType, setEventType] = useState('all')
@@ -154,6 +165,20 @@ function AuditPage() {
         <ScrollText className="h-6 w-6 text-primary" />
         <h1 className="text-xl font-bold sm:text-2xl">{t('auditLog.title')}</h1>
       </div>
+
+      <ChainIntegrityBanner
+        status={
+          chainIntegrity.isLoading || chainIntegrity.isFetching
+            ? { kind: 'verifying' }
+            : chainIntegrity.isError
+              ? { kind: 'error', error: chainIntegrity.error as Error }
+              : chainIntegrity.data
+                ? chainIntegrity.data.state === 'verified'
+                  ? { kind: 'verified', head: chainIntegrity.data.head }
+                  : { kind: 'tampered', error: chainIntegrity.data.error }
+                : { kind: 'verifying' }
+        }
+      />
 
       {/* Filter bar */}
       <Card>
@@ -315,6 +340,87 @@ function ActorDisplay({ pubkey, nameMap }: { pubkey: string; nameMap: Map<string
   }
 
   return <code className="text-xs text-muted-foreground">{pubkey.slice(0, 12)}...</code>
+}
+
+type ChainBannerStatus =
+  | { kind: 'verifying' }
+  | { kind: 'verified'; head: { createdAt: string; entryHash: string } }
+  | { kind: 'tampered'; error: { code: string; details: Record<string, unknown> } }
+  | { kind: 'error'; error: Error }
+
+function ChainIntegrityBanner({ status }: { status: ChainBannerStatus }) {
+  const { t } = useTranslation()
+  if (status.kind === 'verifying') {
+    return (
+      <div
+        data-testid="audit-chain-status-verifying"
+        className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground"
+      >
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        <span>
+          {t('auditLog.chain.verifying', { defaultValue: 'Verifying audit chain integrity…' })}
+        </span>
+      </div>
+    )
+  }
+  if (status.kind === 'verified') {
+    const when = new Date(status.head.createdAt).toLocaleString()
+    return (
+      <div
+        data-testid="audit-chain-status-verified"
+        className="flex items-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-300"
+      >
+        <ShieldCheck className="h-3.5 w-3.5" />
+        <span>
+          {t('auditLog.chain.verified', {
+            defaultValue: 'Chain verified — last entry {{when}}',
+            when,
+          })}
+        </span>
+      </div>
+    )
+  }
+  if (status.kind === 'tampered') {
+    return (
+      <div
+        data-testid="audit-chain-status-tampered"
+        role="alert"
+        className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+      >
+        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <div className="space-y-0.5">
+          <div className="font-semibold">
+            {t('auditLog.chain.tampered', {
+              defaultValue: 'TAMPERED — chain verification failed',
+            })}
+          </div>
+          <div
+            data-testid="audit-chain-status-tampered-code"
+            className="font-mono text-[10px] opacity-80"
+          >
+            {status.error.code}
+          </div>
+          <div className="font-mono text-[10px] opacity-70 break-all">
+            {JSON.stringify(status.error.details)}
+          </div>
+        </div>
+      </div>
+    )
+  }
+  return (
+    <div
+      data-testid="audit-chain-status-error"
+      className="flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300"
+    >
+      <AlertTriangle className="h-3.5 w-3.5" />
+      <span>
+        {t('auditLog.chain.error', {
+          defaultValue: 'Could not verify chain: {{message}}',
+          message: status.error.message,
+        })}
+      </span>
+    </div>
+  )
 }
 
 function AuditDetails({ entry }: { entry: AuditLogEntry }) {
