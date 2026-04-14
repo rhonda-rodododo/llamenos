@@ -120,6 +120,16 @@ Deployment guide: [`docs/security/DEPLOYMENT_HARDENING.md`](security/DEPLOYMENT_
 - [x] Operator runbook (secret rotation, incident response, backup recovery) (`docs/RUNBOOK.md`)
 - [x] Updated DEPLOYMENT_HARDENING.md with Ansible tooling cross-references
 
+### Follow-ups
+- [ ] **FDE ISO: `--unlock=tang` mode with bundled Tang server deployment role.**
+  Tang/Clevis network-bound disk encryption: unlocks the LUKS volume
+  automatically when the host is on a trusted network. Eliminates the
+  manual passphrase step on every boot for operators running multiple
+  hotlines. Requires a separately deployed Tang server (its own VPS,
+  hardening, backup story) and coordination with the existing
+  `key-store-v2` multi-factor KEK story. See
+  `docs/superpowers/specs/2026-04-09-fde-iso-builder-design.md` §12.
+
 ## Multi-Provider Telephony (Epics 32–36) — COMPLETE
 - [x] Epic 32: Provider Configuration System (admin UI, API, DO storage, connection test)
 - [x] Epic 33: Cloud Provider Adapters (SignalWire extends TwilioAdapter, Vonage, Plivo)

@@ -71,18 +71,24 @@ If a hosting provider is legally compelled to provide data, they **can access**:
 
 ### Scenario 1: Hosting Provider Subpoena (VPS)
 
-**What they can provide:**
+**Which court?** The answer depends entirely on whose courts have jurisdiction over the provider's parent company — not where the datacenter is. US-subject providers (AWS, GCP, Azure, Vultr, Linode, DigitalOcean, Cloudflare paid) are compelled by US legal process via the CLOUD Act regardless of datacenter location. See [THREAT_MODEL.md → Provider Jurisdiction and Deployment Tiers](THREAT_MODEL.md#provider-jurisdiction-and-deployment-tiers) for the full analysis and the recommended provider list.
+
+**What they can provide (assuming the subpoena is honored):**
 - Encrypted database blobs (useless without volunteer/admin private keys)
 - Plaintext metadata (call times, durations, volunteer assignments)
 - Caller phone hashes (irreversible without HMAC secret held by operator)
 - Audit logs with truncated IP hashes
 - Traffic metadata (request times, sizes, IP addresses)
 
-**What they cannot provide:**
+**What they cannot provide via a data-only subpoena:**
 - Note content, transcription text, report bodies (E2EE)
 - Volunteer private keys (client-side only)
 - Per-note encryption keys (ephemeral, never stored)
 - HMAC secret (operator-controlled, not stored with provider)
+
+**What a compelled runtime instrumentation order *could* enable** (court orders forcing the provider to inject code into the hypervisor or modify served JavaScript, possible in jurisdictions with FISA 702–style regimes):
+- Anything the volunteer or admin sees in plaintext after client-side decryption
+- This is why **FDE alone is not sufficient** — the encryption key lives in kernel memory once unlocked, and a compelled hypervisor-level attacker can capture it. Pairing FDE with a non-US-subject host is the intended defense.
 
 ### Scenario 2: Telephony Provider Subpoena (Twilio, etc.)
 

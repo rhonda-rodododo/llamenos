@@ -205,7 +205,9 @@ This section documents what data can be obtained through legal process against v
 
 ### Subpoena of Hosting Provider (VPS / Cloud)
 
-**Obtainable:**
+**Which court's subpoena?** The answer to "what can be obtained" depends entirely on who has jurisdiction over the provider's parent company — not just the datacenter location. See [Provider Jurisdiction and Deployment Tiers](#provider-jurisdiction-and-deployment-tiers) below for the full analysis.
+
+**Obtainable (assuming the subpoena is honored):**
 - Encrypted database contents (ciphertext for E2EE data)
 - Plaintext metadata: call timestamps, durations, volunteer assignments, call IDs
 - Caller phone hashes (irreversible without operator's HMAC secret)
@@ -213,11 +215,15 @@ This section documents what data can be obtained through legal process against v
 - Traffic metadata (request times, sizes, source IPs)
 - Account information for the operator
 
-**Not Obtainable:**
+**Not Obtainable via legal process against the hosting provider alone:**
 - Note content, transcription text, report bodies (E2EE — provider has ciphertext only)
 - Volunteer private keys (stored client-side, never uploaded)
 - Per-note encryption keys (ephemeral, never persisted)
 - Operator's HMAC secret (not stored with hosting provider)
+
+**Obtainable via compelled runtime instrumentation** (court order requiring the provider to actively modify the runtime — possible in jurisdictions that compel active assistance, e.g., FISA 702 orders, UK Technical Capability Notices):
+- Anything the application sees in plaintext: volunteer names and phones (decrypted client-side), note contents in memory on volunteer devices (requires serving modified JS), admin private keys if the admin uses the web client
+- This is why **jurisdiction of the hosting provider matters more than FDE** for the hostile-legal-environment threat model. FDE defeats "image the disk"; it does not defeat "inject code into the running VM."
 
 ### Subpoena of Telephony Provider (Twilio, SignalWire, etc.)
 
@@ -444,14 +450,103 @@ Push notification infrastructure is a **necessary trusted party** for mobile dep
 - **DNS and TLS termination**: All domain resolution passes through the provider (unless using custom DNS)
 - **Application secrets**: If the provider images the VM disk, `.env` files containing `JWT_SECRET`, `IDP_VALUE_ENCRYPTION_KEY`, etc. are accessible
 
-### Recommendation for Maximum Privacy Deployments
+## Provider Jurisdiction and Deployment Tiers
 
-For organizations operating under extreme threat models, **deploy Llamenos self-hosted on dedicated hardware** with full-disk encryption and a self-hosted strfry Nostr relay:
+The cloud provider trust boundary above defines what E2EE does and does not protect against **for a given provider**. This section addresses the orthogonal question of **which provider** to choose. It is a balancing act between legal protection (which jurisdiction can compel the provider?) and physical protection (can the provider's own employees casually access disk, or is data encrypted at rest?). Neither alone is sufficient for the hostile-legal-environment threat model.
 
-- strfry is an open-source, self-hosted Nostr relay written in C++ that runs entirely on operator-controlled infrastructure
-- Combined with Llamenos E2EE, provides true operator-only trust (the operator sees encrypted blobs, and controls the infrastructure)
-- Can be deployed on air-gapped or Tor-accessible infrastructure
-- No cloud provider dependency for any component
+### Why jurisdiction is not the same as datacenter location
+
+A provider's corporate jurisdiction determines which courts and law-enforcement agencies can compel it to disclose data or actively instrument running services. This is decided not by where bits are physically stored, but by **which courts have personal jurisdiction over the legal entity** that controls the data.
+
+- **US CLOUD Act (2018)** allows US authorities to compel any US-subject company to produce data in its "possession, custody, or control" regardless of where that data is stored worldwide. The test for "US-subject" is whether the company is subject to US personal jurisdiction. This is created by **any** of: US headquarters, US subsidiary, US datacenter, US office, or US employees. HQ location alone is insufficient — a German parent company with a US cloud subsidiary is still reachable through its US presence for data stored anywhere in its global network.
+- **EU / member-state law** typically requires a local court order and is subject to GDPR constraints on cross-border transfers. German (BDSG), French, Dutch, Icelandic, and Swiss providers have meaningfully different compelled-disclosure regimes than US-subject ones, and critically they cannot be reached by US legal process unless they *also* operate in the US.
+- **China National Intelligence Law (2017)**, Article 7, compels Chinese citizens and organizations to "support, assist, and cooperate with state intelligence work." Chinese cloud providers (Alibaba Cloud, Tencent Cloud, Huawei Cloud, Baidu Cloud) are therefore disqualified on state-access grounds independent of any CLOUD Act analysis.
+
+**Llamenos policy (strict test):** the operator's hosting provider must operate in exactly one jurisdiction (or only within a small set of aligned jurisdictions, e.g., EU-only). A provider with US operations of any kind is disqualified even if incorporated abroad, because US personal jurisdiction over the US arm creates a compulsion pathway for data in the non-US arm. The test is operationalized as: **does the provider have any of (US datacenter, US subsidiary, US office, US employees)?** If yes, disqualified.
+
+**Currently disqualified under this test** (as of 2026-04):
+
+| Provider | Reason |
+|----------|--------|
+| AWS, GCP, Azure | US-headquartered |
+| Vultr, Linode (Akamai), DigitalOcean | US-headquartered |
+| Cloudflare (paid products) | US-headquartered |
+| **Hetzner** | German parent, but operates US cloud datacenters in Ashburn VA (since 2021) and Hillsboro OR (since 2023). US operations create personal-jurisdiction reach. |
+| **OVHcloud** | French parent, but operates OVHcloud US LLC with ~200 US employees and two US datacenters (Vint Hill VA + Hillsboro OR since 2017). |
+| **Alibaba Cloud** | Chinese parent (disqualified on National Intelligence Law grounds) **and** operates Silicon Valley datacenters in Santa Clara CA since 2015 (additionally disqualified on CLOUD Act grounds). Dual-jurisdictional exposure. |
+| Other Chinese clouds (Tencent, Huawei, Baidu) | Chinese National Intelligence Law Art. 7 |
+
+**Currently on the clean list** (no US operations, single jurisdiction or aligned EU-only):
+
+| Provider | Jurisdiction | Notes |
+|----------|--------------|-------|
+| **Scaleway** | France (Iliad Group) | EU-only datacenters: Paris, Amsterdam, Warsaw, Milan. Best candidate for managed instance. |
+| **1984 Hosting** | Iceland | Iceland-only. Explicit civil-liberties focus. Custom ISO support via support ticket; status pending confirmation. |
+| **FlokiNET** | Iceland / Romania / Netherlands / Finland | Purpose-built for civil society and whistleblower projects. No ID required at signup; accepts crypto. |
+| **Infomaniak** | Switzerland | Swiss-only, strong Swiss data protection law, more expensive. |
+| **Exoscale** | Switzerland / Germany / Bulgaria / Austria | Swiss-headquartered. |
+
+This list is not exhaustive and is expected to change as providers expand. When evaluating any new provider, **verify current US operations before deploying** — datacenter expansions announced quietly can silently change a provider's jurisdictional status.
+
+### Why FDE is not the same as legal protection
+
+Full-disk encryption (via the custom ISO builder documented in `docs/deployment/iso-install.md`) defeats a specific set of attacks:
+
+- **Disk imaging** by the provider or a third party that obtains decommissioned hardware
+- **Snapshot-based exfiltration** when the VM is powered down
+- **Cold-boot attacks** on physical machines after they lose power
+- **Casual employee access** to shutdown disk images
+
+FDE does **not** defeat:
+
+- **Hypervisor-level RAM capture** on a running VM (the encryption key lives in kernel memory once unlocked)
+- **Compelled runtime instrumentation** — a court order forcing the provider to inject code into the hypervisor or swap the served JavaScript
+- **Live memory forensics** by an insider with hypervisor access
+- **Network-level capture of decrypted data** flowing through the application once unlocked
+
+Legal protection defeats the runtime-compulsion attacks that FDE cannot. FDE defeats the passive and recovered-media attacks that legal protection cannot reach (because they do not require provider cooperation). **The two are complementary**; choosing between them rather than stacking them is a false economy.
+
+### Deployment tiers (ranked by threat model coverage)
+
+The recommended tier for a given deployment depends on the operator's adversary model, budget, and operational capacity.
+
+| Tier | Description | Jurisdiction | Physical | Runtime compulsion | Cost & ops burden |
+|------|-------------|--------------|----------|---------------------|-------------------|
+| **1. Self-hosted on owned hardware (with FDE)** | Operator owns the physical machine in their jurisdiction, runs Llamenos via the Ansible playbook and the custom FDE ISO | Operator's own | **Strong** (physical access = operator only) | **Strong** (no provider to compel) | Highest — requires hardware, stable power/network, physical security, and ops skill |
+| **2. Single-jurisdiction dedicated server + custom FDE ISO** ⭐ **preferred production target** | Provider-owned bare metal from a clean-list provider (FlokiNET Romania/Netherlands via "install my own through iLO/IPMI", Scaleway Dedibox, Infomaniak dedicated, etc.) with custom FDE ISO installed via iLO/IPMI virtual media mount. Operator sets LUKS passphrase that the provider never sees. | Single non-US | **Strong** (dedicated hardware, disk encrypted) | **Strong against runtime compulsion** — no hypervisor, no memory-capture path that doesn't require physical datacenter access | Medium — ~€50–120/mo; longer provisioning |
+| **3. Single-jurisdiction cloud VPS + custom FDE ISO** | Virtualized instance from a clean-list provider (1984, Scaleway, FlokiNET VPS, Infomaniak, Exoscale) with custom FDE ISO attached via provider support or installed via rescue-mode qemu passthrough | Single non-US | Medium (disk encrypted, but hypervisor sees RAM) | Weak against hypervisor-level compulsion, strong against disk imaging | Low — ~€5–40/mo; **documented fallback and starting point for cost-sensitive deployments; current managed-instance tier** |
+| **4. Single-jurisdiction cloud VPS, stock OS, no FDE** | Standard VPS from a clean-list provider with provider-installed Debian and Ansible hardening | Single non-US | Weak (provider can image disk at will) | Weak | Lowest — minutes to provision, but cedes the most to the provider |
+| **5a. Foreign-parent host with US operations** | Hetzner Cloud, OVHcloud, any other provider that operates US datacenters / US subsidiary / US offices regardless of where the parent company is incorporated | **Disqualified** | Provider-dependent | **Disqualified** — CLOUD Act reach via US presence | Not supported for the default threat model |
+| **5b. US-headquartered cloud (any configuration)** | AWS, GCP, Azure, Vultr, Linode, DigitalOcean, Cloudflare paid, etc. | **Disqualified** | Provider-dependent | **Disqualified** — CLOUD Act | Not supported for the default threat model |
+| **5c. Chinese cloud (any configuration)** | Alibaba Cloud, Tencent Cloud, Huawei Cloud, Baidu Cloud. Note Alibaba additionally has US datacenters, creating dual exposure. | **Disqualified** | Provider-dependent | **Disqualified** — China National Intelligence Law Art. 7 compels cooperation; Alibaba also CLOUD Act subject via US operations | Not supported for any threat model |
+
+**Notes on the tiers:**
+
+- **FDE does real work in tiers 1, 2, and 3.** It makes decommissioned hardware and powered-off snapshots useless, and materially raises the cost of a rogue employee browsing your data. It does not substitute for legal protection and should be combined with it, not traded off against it.
+- **Tier 2 is the preferred production default** when the operator can afford the cost and ops overhead. The decisive advantage over Tier 3 is the absence of a hypervisor: there is no runtime-compulsion path that doesn't require physical datacenter access. A provider compelled to image the disk still gets only LUKS ciphertext; a provider compelled to dump running VM memory cannot do so without physically visiting the machine. On cloud VPS (Tier 3), the hypervisor sees the LUKS key in guest memory once the volume is unlocked, and compelled hypervisor instrumentation is a technically straightforward attack for any legal regime that permits it. The most direct concrete realization of Tier 2 today is **FlokiNET Romania dedicated with "install my own via iLO/IPMI"** — operator sets a LUKS passphrase the provider never sees, using the custom FDE ISO mounted as virtual media through iLO.
+- **Tier 3 is the documented fallback and the practical starting point for most deployments.** It is the cheapest path that still defeats the disk-imaging, snapshot, and decommissioned-hardware adversary classes, which is the large majority of realistic attacks against a small civil-society operator. For cost-sensitive operators, first-time operators, or early deployments that haven't yet justified dedicated hardware, Tier 3 remains the correct choice. The Llamenos managed instance at `platform.llamenos-hotline.com` starts at Tier 3 for exactly this reason.
+- **Tier 2 vs Tier 3 decision rule:** Tier 2 if the operator expects to face adversaries capable of compelling the provider to instrument running services (nation-state, hostile state where their deployment operates, well-resourced private adversaries with legal hooks into the provider's jurisdiction). Tier 3 if the operator's adversary class is primarily passive (disk-reuse, curious employees, snapshot subpoenas, legal process that stops at "hand over what's on disk"). Both are acceptable for the default Llamenos threat model; Tier 2 is strictly stronger but comes with real operational cost.
+- **Tier 5 (disqualified hosts) is disqualified even with FDE**, because the adversary that these hosts cannot defend against (federal legal process + runtime compulsion by either US or Chinese authorities) can bypass FDE by instrumenting the live hypervisor. Stacking FDE on top of a disqualified host creates a false sense of security and is actively worse than choosing a weaker tier honestly.
+- **The foreign-parent exception does not help** — Tier 5a is as disqualified as 5b. Hetzner is German, OVH is French, but both operate US datacenters and US subsidiaries, which creates US personal-jurisdiction hooks sufficient for US legal process to reach data anywhere in their networks. The only foreign-parent exception is a provider that has operations in exactly one jurisdiction (or a tightly aligned subset, e.g., EU-only).
+- **Single-jurisdiction does not mean safe.** Every jurisdiction has some compelled-disclosure regime. France, Iceland, the Netherlands, and Switzerland have historically been meaningfully stronger for civil-society workloads than the US, but none are immune. Operators with local-adversary threat models should prefer a jurisdiction hostile to their adversary.
+- **Anonymity vs verification trade-off.** Some providers (Hetzner, major EU clouds) require government ID at signup, which creates a paper trail linking the operator identity to the account. Privacy-focused providers (FlokiNET, Njalla, 1984) typically do not require ID and accept crypto payments. This trade-off is operator-specific and not covered by this threat model.
+- **Verify current provider status before deploying.** Provider US operations can change (datacenter openings, acquisitions) without public fanfare. A provider that was on the clean list a year ago may not be today. Before any new deployment, verify the provider still passes the strict test.
+
+### Recommendation for maximum-privacy deployments
+
+Operators whose threat model is dominated by nation-state adversaries with strong legal reach should deploy to **Tier 1 (self-hosted on owned hardware)**, combining:
+
+- Custom FDE ISO (`docs/deployment/iso-install.md`) on operator-owned hardware
+- Self-hosted strfry Nostr relay
+- Physical security for the machine (locked room, tamper-evident seals, etc.)
+- Network path that the operator controls or that routes through Tor / mix networks
+- Separate admin devices that never touch internet-facing infrastructure
+
+Operators whose threat model is dominated by lawful-but-adversarial legal process with runtime-compulsion capability (court orders that can force provider instrumentation of running services, as opposed to court orders that can only obtain data at rest) should prefer **Tier 2 — a single-jurisdiction dedicated server in a jurisdiction hostile to their adversary, with self-installed FDE**. The absence of a hypervisor cuts off the most practical attack against an FDE-protected system: compelling the provider to dump guest memory while the volume is unlocked. The operator owns the whole box; the provider's recourse is limited to physical datacenter operations, which require legal process that is usually narrower and slower than runtime-instrumentation orders.
+
+Operators whose threat model is dominated by legal process that stops at "hand over what's on disk" (disk imaging subpoenas, snapshot requests, employee access audits) and who cannot justify the cost and ops overhead of a dedicated server should deploy to **Tier 3 — a single-jurisdiction cloud VPS with the custom FDE ISO installed via custom-ISO attachment or rescue-mode qemu**. This tier defeats the large majority of realistic adversaries against a typical civil-society operator, at a fraction of the cost of Tier 2.
+
+**Llamenos-operated managed instance:** The `platform.llamenos-hotline.com` managed instance starts at **Tier 3** on a 1984 Hosting VPS (Iceland jurisdiction, custom FDE ISO attached via 1984 support), and is planned to migrate to **Tier 2** on a dedicated server in a hostile jurisdiction once deployment experience and load patterns justify the upgrade. Operators whose adversary *is* the state should not rely on a managed instance regardless of jurisdiction — they should self-host at Tier 1, or (distant second) run their own Tier 2 dedicated server under a jurisdiction and an account identity that are hostile to their adversary.
 
 ---
 
@@ -838,6 +933,9 @@ Transcription runs entirely in-browser via WASM (Whisper via `@huggingface/trans
 
 | Date | Version | Author | Changes |
 |------|---------|--------|---------|
+| 2026-04-13 | 2.3 | Tier 2 promoted to preferred production default | Moved the preferred production recommendation from Tier 3 (single-jurisdiction cloud VPS + FDE) to Tier 2 (single-jurisdiction dedicated + self-installed FDE). The previous Tier 3 default was partly a consequence of Hetzner being wrongly on the clean list, which made Tier 3 look cheap and frictionless; with Hetzner correctly removed, the cost/complexity delta between Tier 2 and Tier 3 on the actual clean-list providers is small enough that the runtime-compulsion protection gap dominates the calculus for production deployments. Added "Tier 2 vs Tier 3 decision rule" note. Documented `platform.llamenos-hotline.com` as starting at Tier 3 on 1984 VPS with a planned Tier 2 migration. Marked Tier 2 in the deployment table as preferred production target. FlokiNET Romania dedicated with "install my own via iLO/IPMI" documented as the current best-known concrete Tier 2 path (operator sets LUKS passphrase the provider never sees). 1984 Hosting confirmed on 2026-04-13 that they will attach custom ISOs to user accounts via support ticket, making 1984 VPS the fastest Tier 3 path. |
+| 2026-04-12 | 2.2 | Strict jurisdictional test | Tightened the provider disqualification test from "US-subject (headquartered)" to "any US operations including foreign-parent companies with US datacenters, US subsidiaries, US offices, or US employees." Explicitly disqualified Hetzner (Ashburn VA + Hillsboro OR datacenters), OVHcloud (Vint Hill VA + Hillsboro OR + OVHcloud US LLC subsidiary), and Alibaba Cloud (Santa Clara CA + Chinese National Intelligence Law dual exposure). Split tier 5 into 5a (foreign-parent with US operations), 5b (US headquartered), and 5c (Chinese cloud). Added the clean-list provider table (Scaleway, FlokiNET, 1984, Infomaniak, Exoscale). Added a "verify current provider status before deploying" note since provider US operations can change silently. |
+| 2026-04-12 | 2.1 | Jurisdiction & deployment tiers | Added "Provider Jurisdiction and Deployment Tiers" section with 5-tier deployment table (self-hosted, non-US dedicated, non-US cloud + FDE, non-US cloud stock, US-subject disqualified); clarified FDE vs legal-protection trade-off; extended "Subpoena of Hosting Provider" with runtime-compulsion analysis and jurisdiction dependency; US-subject providers (Vultr, AWS, GCP, Azure, Linode, DO, Cloudflare paid) explicitly disqualified for the default threat model; managed instance at platform.llamenos-hotline.com documented as Tier 3 |
 | 2026-04-01 | 2.0 | IdP + JWT Auth Overhaul | Added IdP trust boundary (Authentik), multi-factor KEK analysis for device seizure, JWT token threats table with rotation procedure, Authentik compromise scenarios, updated attack surface for auth facade endpoints, updated protected assets for E2EE volunteer PII / hub-key org metadata / contact directory, replaced Durable Objects with PostgreSQL throughout, updated PBAC permission references |
 | 2026-02-25 | 1.3 | ZK Architecture Overhaul | Removed WebSocket references (replaced with Nostr relay); added Nostr relay trust boundary, audit log tamper detection, admin key separation, hub key compromise analysis, reproducible builds, client-side transcription trust model |
 | 2026-02-25 | 1.2 | Epic 76.0 Phase 4 | Added threat model gap sections: APNs/FCM trust, Cloudflare trust boundary, admin pubkey fetch trust, departed volunteer key retirement, SMS/WhatsApp outbound limitation, npm supply chain risk |
