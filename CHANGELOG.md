@@ -5,11 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.48.6] - 2026-04-14
+
+### Bug Fixes
+
+- P1 — OPAQUE cache cap + route error handling (#115)
+
+### Miscellaneous
+
+- v0.48.6 [skip ci]
+
 ## [0.48.5] - 2026-04-14
 
 ### Bug Fixes
 
 - P1 — warrant canary Ed25519 signing (#113)
+- P1 — device shared schema + query key classification + verification route createRoute (#114)
+- P1 — hub-field decrypt error specificity + sigchain payload schemas (#116)
+- P1 — auth/invites cookie helpers + conditional secure (#120)
 
 ### Miscellaneous
 
