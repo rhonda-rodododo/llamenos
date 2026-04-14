@@ -4,19 +4,12 @@ import { VerifyFingerprintModal } from '@/components/verify-fingerprint-modal'
 import { request } from '@/lib/api/client'
 import { useAuth } from '@/lib/auth'
 import { useConfig } from '@/lib/config'
+import { queryKeys } from '@/lib/queries/keys'
 import { hexToBytes } from '@noble/hashes/utils.js'
+import type { Device, DeviceList } from '@shared/schemas/devices'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-
-interface Device {
-  id: string
-  userId: string
-  label: string | null
-  ed25519Pubkey: string
-  verified: boolean
-  createdAt: string
-}
 
 const HEX64_RE = /^[0-9a-f]{64}$/
 
@@ -44,10 +37,10 @@ export function DevicesSection() {
     auth.roles.includes('super_admin')
 
   const { data: devices = [] } = useQuery({
-    queryKey: ['hub', currentHubId, 'devices'],
+    queryKey: queryKeys.devices.list(currentHubId ?? undefined),
     queryFn: async () => {
       if (!currentHubId) return []
-      const res = await request<{ devices: Device[] }>(`/hubs/${currentHubId}/devices`)
+      const res = await request<DeviceList>(`/hubs/${currentHubId}/devices`)
       return res.devices
     },
     enabled: !!currentHubId,
@@ -67,7 +60,9 @@ export function DevicesSection() {
       // })
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['hub', currentHubId, 'devices'] })
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.devices.list(currentHubId ?? undefined),
+      })
       setVerifying(null)
       setVerifyError(null)
     },

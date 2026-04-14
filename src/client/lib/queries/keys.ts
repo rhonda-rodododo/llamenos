@@ -208,4 +208,12 @@ export const queryKeys = {
     passkeys: () => ['security', 'passkeys'] as const,
     history: (params?: { limit?: number }) => ['security', 'history', params ?? {}] as const,
   },
+
+  // Tier 6 device fingerprint verification — operational metadata
+  // (fingerprint, label, verified flag). Classified as PLAINTEXT in
+  // query-client.ts since none of these fields are encrypted at rest.
+  devices: {
+    all: ['devices'] as const,
+    list: (hubId?: string) => ['devices', 'list', hubId ?? ''] as const,
+  },
 } as const
