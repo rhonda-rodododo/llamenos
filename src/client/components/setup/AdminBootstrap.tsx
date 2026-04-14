@@ -6,6 +6,8 @@ import { useAuth } from '@/lib/auth'
 import { authFacadeClient } from '@/lib/auth-facade-client'
 import { createBackup, downloadBackupFile, generateRecoveryKey } from '@/lib/backup'
 import { createDebugLog } from '@/lib/debug-log'
+import { generateDeviceKeypair } from '@/lib/device-identity'
+import { putDeviceKeypair } from '@/lib/device-identity-store'
 import { setLanguage } from '@/lib/i18n'
 import * as keyManager from '@/lib/key-manager'
 import { useToast } from '@/lib/toast'
@@ -192,6 +194,13 @@ export function AdminBootstrap({ onComplete }: AdminBootstrapProps) {
         undefined,
         window.location.origin
       )
+      // Bootstrap a persistent device identity for this browser. Ed25519 +
+      // X25519 keypairs live in IDB and survive lock/logout; they are only
+      // removed on an explicit "forget this device" action. Auth context
+      // hydrates them on every unlock so components like devices-section
+      // can sign audit entries with this device's signing key.
+      const deviceKeypair = await generateDeviceKeypair({ isPaperKey: false })
+      await putDeviceKeypair(deviceKeypair)
       // Mark bootstrap as complete BEFORE signIn triggers re-renders
       sessionStorage.setItem('bootstrapComplete', '1')
       await signIn(nsec)

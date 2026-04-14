@@ -14,10 +14,12 @@ import { useTranslation } from 'react-i18next'
 
 const MAX_ATTEMPTS = 3
 
+type PinChallengeErrorState = null | 'wrong-pin' | 'prf-unavailable' | 'idp-unavailable'
+
 interface PinChallengeDialogProps {
   open: boolean
   attempts: number
-  error: boolean
+  error: PinChallengeErrorState
   onComplete: (pin: string) => Promise<void>
   onCancel: () => void
 }
@@ -73,7 +75,7 @@ export function PinChallengeDialog({
             onChange={setPin}
             onComplete={handlePinComplete}
             disabled={verifying}
-            error={error}
+            error={error !== null}
             autoFocus
           />
 
@@ -81,8 +83,18 @@ export function PinChallengeDialog({
             <p
               className="mt-3 text-center text-sm text-destructive"
               data-testid="pin-challenge-error"
+              data-error-kind={error}
             >
-              {t('pinChallenge.wrongPin', { remaining: remainingAttempts })}
+              {error === 'wrong-pin'
+                ? t('pinChallenge.wrongPin', { remaining: remainingAttempts })
+                : error === 'prf-unavailable'
+                  ? t('lock.prfUnavailable', {
+                      defaultValue:
+                        'WebAuthn authenticator unavailable — reconnect your security key or use the recovery phrase.',
+                    })
+                  : t('lock.idpUnavailable', {
+                      defaultValue: 'Your session expired. Sign in again and retry.',
+                    })}
             </p>
           )}
         </div>

@@ -37,19 +37,12 @@ export const rolesListOptions = (hubId = 'global') =>
       return Promise.all(
         roles.map(async (role) => ({
           ...role,
-          name: await decryptHubField(
-            role.encryptedName,
-            hubId,
-            role.id,
-            'encrypted_name',
-            role.name
-          ),
+          name: await decryptHubField(role.encryptedName, hubId, role.id, 'encrypted_name'),
           description: await decryptHubField(
             role.encryptedDescription,
             hubId,
             role.id,
-            'encrypted_description',
-            role.description
+            'encrypted_description'
           ),
         }))
       )
