@@ -1,4 +1,5 @@
 import { integer, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
+import { hubs } from './settings'
 
 export const userDevices = pgTable('user_devices', {
   deviceId: text('device_id').primaryKey(),
@@ -25,20 +26,32 @@ export const userPukEnvelopes = pgTable('user_puk_envelopes', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
+// Tier 3 P1 hardening (0061 migration): hub_id must reference hubs.id with
+// ON DELETE CASCADE so deleting a hub sweeps its PTK generations atomically
+// and we never leave orphan key metadata pointing at a non-existent hub.
 export const hubPtkGenerations = pgTable('hub_ptk_generations', {
   id: text('id').primaryKey(),
-  hubId: text('hub_id').notNull(),
+  hubId: text('hub_id')
+    .notNull()
+    .references(() => hubs.id, { onDelete: 'cascade' }),
   generation: integer('generation').notNull(),
   oldGenWrappedUnderNew: text('old_gen_wrapped_under_new'),
   rotatedBySigchainEntryId: text('rotated_by_sigchain_entry_id').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
+// Tier 3 P1 hardening (0061 migration): every envelope row must point at a
+// live hub and a live device. Cascade both so hub deletion and device
+// revocation (hard delete) sweep wrapped hub-key material atomically.
 export const hubKeyEnvelopes = pgTable('hub_key_envelopes', {
   id: text('id').primaryKey(),
-  hubId: text('hub_id').notNull(),
+  hubId: text('hub_id')
+    .notNull()
+    .references(() => hubs.id, { onDelete: 'cascade' }),
   generation: integer('generation').notNull(),
-  deviceId: text('device_id').notNull(),
+  deviceId: text('device_id')
+    .notNull()
+    .references(() => userDevices.deviceId, { onDelete: 'cascade' }),
   userId: text('user_id').notNull(),
   envelope: text('envelope').notNull(),
   sigchainEntryId: text('sigchain_entry_id').notNull(),
