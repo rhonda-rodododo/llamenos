@@ -74,20 +74,57 @@ describe('runBootReleaseVerifier', () => {
     expect(gossipCalled).toBe(false)
   })
 
-  test('throws VerifierFailure on not-configured (dev without pinned key)', async () => {
+  test('allows boot on not-configured (unsigned build, e.g. Playwright/dev)', async () => {
+    // `not-configured` means the bundle has no pinned release signing key
+    // baked in, so it cannot have come from the release pipeline. The gate
+    // warns and lets the SPA boot — otherwise every CI test suite (which
+    // builds without a production signing key) would be unable to reach
+    // global-setup. Release CI is responsible for enforcing that published
+    // builds DO have the key.
     let rendered = false
+    let gossipCalled = false
+    const result = await runBootReleaseVerifier({
+      verifyFn: async () => NOT_CONFIGURED,
+      gossipFn: () => {
+        gossipCalled = true
+      },
+      renderFailClosed: () => {
+        rendered = true
+      },
+    })
+    expect(result.status).toBe('not-configured')
+    expect(rendered).toBe(false)
+    // Gossip must NOT fire for an unsigned build — we have no verified
+    // release tag to attest to.
+    expect(gossipCalled).toBe(false)
+  })
+
+  test('renders fail-closed screen when verifier throws (e.g. fetch-error from signed build)', async () => {
+    // A signed build (pinned key present) whose manifest endpoint returns
+    // 503 must still fail closed — the key was baked in by release CI, so
+    // the missing manifest is a tampered/broken deployment, not a dev
+    // build. This path is exercised via a throwing verifyFn because the
+    // catch-and-render branch is what production bundles land on when
+    // `verifyOrThrow` (or equivalent) rejects.
+    let renderCalled = false
     await expect(
       runBootReleaseVerifier({
         verifyFn: async () => {
-          throw new VerifierFailure(NOT_CONFIGURED)
+          throw new VerifierFailure({
+            status: 'fetch-error',
+            checkedFiles: 0,
+            mismatches: [],
+            releaseTag: '',
+            detail: 'manifest HTTP 503',
+          })
         },
         gossipFn: () => {},
         renderFailClosed: () => {
-          rendered = true
+          renderCalled = true
         },
       })
     ).rejects.toBeInstanceOf(VerifierFailure)
-    expect(rendered).toBe(true)
+    expect(renderCalled).toBe(true)
   })
 
   test('defensively rejects if verifier returns non-match without throwing', async () => {
