@@ -63,7 +63,7 @@
   },
   "overrides": [
     {
-      "include": ["src/client/lib/debug-log.ts", "tests/**", "sip-bridge/**"],
+      "include": ["src/client/lib/debug-log.ts", "tests/**", "sip-bridge/**", "scripts/**"],
       "linter": {
         "rules": {
           "suspicious": {

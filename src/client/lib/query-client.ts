@@ -49,7 +49,15 @@ const ENCRYPTED_QUERY_KEYS: QueryKeyDomain[] = [
  * Query key domains that contain NO encrypted data — never cleared on lock.
  * Every domain in queryKeys must appear in exactly one of these two lists.
  */
-const PLAINTEXT_QUERY_KEYS: QueryKeyDomain[] = ['analytics', 'preferences', 'presence', 'provider']
+const PLAINTEXT_QUERY_KEYS: QueryKeyDomain[] = [
+  'analytics',
+  'preferences',
+  'presence',
+  'provider',
+  // Tier 6 device list — fingerprint + verification state are operational
+  // metadata, not encrypted, so the cache survives lock/unlock cycles.
+  'devices',
+]
 
 // Compile-time exhaustiveness: if a new domain is added to queryKeys but not
 // classified here, this line will produce a type error.

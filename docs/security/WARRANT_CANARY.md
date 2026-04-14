@@ -216,3 +216,53 @@ as a red-alert condition, not a warning.
 All future refreshes append an entry to this change history in
 addition to updating the statement block, the refresh schedule,
 and the signature block.
+
+---
+
+## Verification
+
+From the 2026-05-11 refresh onward, this canary ships with a detached
+Ed25519 signature over the UTF-8 bytes of this file, published as
+`docs/security/WARRANT_CANARY.md.sig` in the same commit as the canary
+itself.
+
+The canary signing key is held offline by the publisher. The
+**public** half is pinned into the Llámenos client bundle at build
+time via the `VITE_WARRANT_CANARY_PUBKEY` environment variable, so
+every running client carries a pre-agreed pubkey that the hosting
+layer cannot silently swap. A client built without
+`VITE_WARRANT_CANARY_PUBKEY` set reports the canary as
+"verification unavailable" rather than silently trusting the file —
+CI and release builds MUST set the env var.
+
+### Verifying from the command line
+
+```bash
+# Fetch the canary and its signature from the public repo.
+curl -fsSLO https://raw.githubusercontent.com/llamenos/llamenos-hotline/main/docs/security/WARRANT_CANARY.md
+curl -fsSLO https://raw.githubusercontent.com/llamenos/llamenos-hotline/main/docs/security/WARRANT_CANARY.md.sig
+
+# Verify against the pinned public key.
+./scripts/verify-canary.sh \
+    --in  WARRANT_CANARY.md \
+    --sig WARRANT_CANARY.md.sig \
+    --pub "$VITE_WARRANT_CANARY_PUBKEY"
+```
+
+Exit code `0` means the signature is valid. Exit code `1` means the
+signature does not match — treat this as a red-alert condition. Exit
+code `2` means no pubkey was provided (verification was not
+actually performed).
+
+The same `verifyWarrantCanary` code path runs in the browser bundle
+and in the CLI wrapper, so a `valid` result from either means the
+other will also say `valid`.
+
+### How this interacts with the placeholder signature block
+
+The plaintext `Signature` block embedded above describes the *legacy*
+schnorr-over-SHA256 scheme from the original runbook draft. The
+canonical signing flow going forward is the Ed25519 `.sig` sidecar
+described in this section. Once a full signed refresh has been
+published, that placeholder block will be removed in the same commit
+that rotates the statement.
