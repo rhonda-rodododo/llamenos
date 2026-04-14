@@ -111,3 +111,36 @@ export const RevokeDeviceParamsSchema = z.object({
   deviceId: z.string(),
 })
 export type RevokeDeviceParams = z.infer<typeof RevokeDeviceParamsSchema>
+
+// --- Tier 6: client-facing device record ---
+
+/**
+ * Single source of truth for the device row consumed by the admin
+ * `DevicesSection` UI and by every test that exercises the device
+ * fingerprint verification flow.
+ *
+ * This is intentionally distinct from `DeviceResponseSchema` above:
+ *   - `DeviceResponseSchema` describes the Tier 3 enrollment list
+ *     (signing/encryption pubkey pair, encrypted display name, PUK
+ *     bookkeeping fields).
+ *   - `DeviceSchema` describes the Tier 6 admin-facing list used to
+ *     render verification badges, where the relevant fields are the
+ *     ed25519 fingerprint, a free-form label, and a boolean verified
+ *     state — fingerprint and verification state are operational
+ *     metadata, NOT encrypted, hence classified as PLAINTEXT in the
+ *     query-client exhaustiveness check.
+ */
+export const DeviceSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  label: z.string().nullable(),
+  ed25519Pubkey: z.string().regex(/^[0-9a-f]{64}$/),
+  verified: z.boolean(),
+  createdAt: z.string().datetime(),
+})
+export type Device = z.infer<typeof DeviceSchema>
+
+export const DeviceListSchema = z.object({
+  devices: z.array(DeviceSchema),
+})
+export type DeviceList = z.infer<typeof DeviceListSchema>
