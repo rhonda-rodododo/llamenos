@@ -138,6 +138,9 @@ export const recoverySessions = pgTable(
  *
  * Lifecycle: pending → completed (threshold met + device enrolled)
  *                    → expired  (stale after maxAgeMs)
+ *
+ * `participants_count` is a cached counter — the source of truth is the
+ * row count in `recovery_participants`. See migration 0062 for rationale.
  */
 export const recoveryRequests = pgTable('recovery_requests', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -153,3 +156,35 @@ export const recoveryRequests = pgTable('recovery_requests', {
   newDeviceId: text('new_device_id'),
   sigchainEntryId: text('sigchain_entry_id'),
 })
+
+/**
+ * `recoveryParticipants`: One row per distinct participant contribution.
+ *
+ * Composite PK `(recovery_request_id, participant_user_id)` makes duplicate
+ * contributions from the same user impossible at the DB level — closes the
+ * Phase-2 P0 gap where a single compromised admin could call
+ * `RecoveryService.addParticipant` N times to meet the Shamir threshold
+ * alone. FK → `recovery_requests(id) ON DELETE CASCADE` keeps participant
+ * rows in lockstep with request lifecycle.
+ */
+export const recoveryParticipants = pgTable(
+  'recovery_participants',
+  {
+    recoveryRequestId: uuid('recovery_request_id').notNull(),
+    participantUserId: text('participant_user_id').notNull(),
+    sharePayload: text('share_payload').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    pk: primaryKey({
+      name: 'recovery_participants_pk',
+      columns: [t.recoveryRequestId, t.participantUserId],
+    }),
+    requestIdx: index('recovery_participants_request_idx').on(t.recoveryRequestId),
+    requestFk: foreignKey({
+      name: 'recovery_participants_request_id_fk',
+      columns: [t.recoveryRequestId],
+      foreignColumns: [recoveryRequests.id],
+    }).onDelete('cascade'),
+  })
+)
