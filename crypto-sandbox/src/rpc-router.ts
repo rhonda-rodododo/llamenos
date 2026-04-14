@@ -155,6 +155,10 @@ export class CryptoRpcRouter {
         return this.rotateHubKey(req)
       case 'reportBundleHash':
         return this.reportBundleHash(req)
+      default: {
+        const _exhaustive: never = req
+        throw new Error(`unknown op: ${(_exhaustive as { op: string }).op}`)
+      }
     }
   }
 
@@ -213,6 +217,6 @@ export class CryptoRpcRouter {
   private async reportBundleHash(
     _req: Extract<CryptoRpcRequest, { op: 'reportBundleHash' }>
   ): Promise<null> {
-    return null
+    throw new Error('reportBundleHash: not_implemented')
   }
 }
