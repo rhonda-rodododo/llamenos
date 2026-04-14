@@ -428,6 +428,13 @@
       "when": 1776211200000,
       "tag": "0059_tier2_recovery_group",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1776297600000,
+      "tag": "0060_recovery_group_constraints",
+      "breakpoints": true
     }
   ]
 }

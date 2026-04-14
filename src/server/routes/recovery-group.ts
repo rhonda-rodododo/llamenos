@@ -9,15 +9,26 @@ import {
  * Recovery Group API routes — mounted under `/api/auth/recovery-group/*`.
  *
  * Endpoints:
- *   POST /enroll          — admin enrolls a 2-of-N Shamir recovery group for a hub
- *   GET  /:hubId          — get recovery group info for a hub
- *   POST /initiate        — user initiates a recovery session (no auth required)
- *   POST /contribute-share — admin contributes their Shamir share
- *   GET  /session/:id     — get recovery session status
- *   POST /complete        — user completes recovery after 24h delay
- *   POST /user-envelope   — user stores their recovery envelope for a hub
+ *   POST /enroll          — admin enrolls a 2-of-N Shamir recovery group (auth required)
+ *   GET  /:hubId          — get recovery group info for a hub           (auth required)
+ *   POST /initiate        — user initiates a recovery session            (no auth, per-IP rate limited)
+ *   POST /contribute-share — admin contributes their Shamir share        (auth required)
+ *   GET  /session/:id     — get recovery session status                  (auth required)
+ *   POST /complete        — user completes recovery after 24h delay      (no auth)
+ *   POST /user-envelope   — user stores their recovery envelope          (auth required)
+ *
+ * Auth rationale: GET /:hubId and GET /session/:id leak the recovery-group
+ *   configuration (threshold, total shares, group public key) and ongoing
+ *   session state — that is admin/user-visible metadata, never anonymous.
+ *
+ * Rate-limit rationale: POST /initiate is anonymous because the recovering
+ *   user has no credentials. Without a per-IP cap an attacker could spray
+ *   initiation attempts to enumerate user identifiers, exhaust session rows
+ *   in the DB, or grief the threshold ceremony.
  */
 import { Hono } from 'hono'
+import { createMiddleware } from 'hono/factory'
+import { verifyAccessToken } from '../lib/jwt'
 import { createLogger } from '../lib/logger'
 import type { RecoveryGroupService } from '../services/recovery-group-service'
 import { RecoveryGroupDelayError } from '../services/recovery-group-service'
@@ -25,11 +36,84 @@ import { RecoveryGroupDelayError } from '../services/recovery-group-service'
 const log = createLogger('routes.recovery-group')
 
 interface RecoveryGroupEnv {
+  Bindings: {
+    JWT_SECRET: string
+  }
   Variables: {
     pubkey: string
+    permissions: string[]
     recoveryGroupService: RecoveryGroupService
     identityService: { findByIdentifier: (id: string) => Promise<{ pubkey: string } | null> }
   }
+}
+
+// ---------------------------------------------------------------------------
+// JWT middleware — mirrors auth-facade.ts jwtAuth, typed for this sub-router.
+// ---------------------------------------------------------------------------
+const jwtAuth = createMiddleware<RecoveryGroupEnv>(async (c, next) => {
+  const header = c.req.header('Authorization')
+  if (!header?.startsWith('Bearer ')) {
+    return c.json({ error: 'Missing or invalid Authorization header' }, 401)
+  }
+  const token = header.slice(7)
+  try {
+    const payload = await verifyAccessToken(token, c.env.JWT_SECRET)
+    c.set('pubkey', payload.sub)
+    c.set('permissions', payload.permissions ?? [])
+    await next()
+  } catch {
+    return c.json({ error: 'Invalid or expired token' }, 401)
+  }
+})
+
+// ---------------------------------------------------------------------------
+// Per-IP rate limiter for POST /initiate.
+//
+// Sliding 5-minute window, 10 requests per IP. At 10 attempts / 5 min an
+// attacker cannot practically enumerate user identifiers or DoS the
+// recovery-session table without triggering the 429 wall. The table is
+// bounded at MAX_IP_ENTRIES to prevent unbounded memory growth under
+// IP-spraying; we evict the oldest (insertion-order) entry once the cap
+// is hit, which is safe since window entries are short-lived anyway.
+// ---------------------------------------------------------------------------
+const INITIATE_WINDOW_MS = 5 * 60 * 1000
+const INITIATE_MAX_PER_WINDOW = 10
+const MAX_INITIATE_IP_ENTRIES = 10_000
+const initiateRate = new Map<string, { count: number; resetAt: number }>()
+
+function pruneExpiredInitiate(now: number): void {
+  for (const [ip, entry] of initiateRate) {
+    if (now >= entry.resetAt) initiateRate.delete(ip)
+  }
+}
+
+function isInitiateRateLimited(ip: string): boolean {
+  const now = Date.now()
+  const entry = initiateRate.get(ip)
+  if (!entry || now >= entry.resetAt) {
+    if (initiateRate.size >= MAX_INITIATE_IP_ENTRIES) {
+      pruneExpiredInitiate(now)
+      if (initiateRate.size >= MAX_INITIATE_IP_ENTRIES) {
+        const oldest = initiateRate.keys().next().value
+        if (oldest !== undefined) initiateRate.delete(oldest)
+      }
+    }
+    initiateRate.set(ip, { count: 1, resetAt: now + INITIATE_WINDOW_MS })
+    return false
+  }
+  entry.count++
+  return entry.count > INITIATE_MAX_PER_WINDOW
+}
+
+/** Test-only hook to reset the in-process rate-limit state between suites. */
+export function __resetInitiateRateLimitForTests(): void {
+  initiateRate.clear()
+}
+
+function clientIp(c: { req: { header: (name: string) => string | undefined } }): string {
+  return (
+    c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? c.req.header('x-real-ip') ?? 'unknown'
+  )
 }
 
 export const recoveryGroupRoutes = new Hono<RecoveryGroupEnv>()
@@ -59,9 +143,9 @@ recoveryGroupRoutes.post('/enroll', async (c) => {
   }
 })
 
-// --- GET /:hubId ---
+// --- GET /:hubId (auth required) ---
 
-recoveryGroupRoutes.get('/:hubId', async (c) => {
+recoveryGroupRoutes.get('/:hubId', jwtAuth, async (c) => {
   const hubId = c.req.param('hubId')
   const service = c.get('recoveryGroupService')
   const group = await service.getGroup(hubId)
@@ -78,8 +162,13 @@ recoveryGroupRoutes.get('/:hubId', async (c) => {
 })
 
 // --- POST /initiate (no auth required — recovering user has no credentials) ---
+// Per-IP rate limited: 10 req/5min to block enumeration + DB DoS.
 
 recoveryGroupRoutes.post('/initiate', async (c) => {
+  const ip = clientIp(c)
+  if (isInitiateRateLimited(ip)) {
+    return c.json({ error: 'Too many recovery attempts. Try again later.' }, 429)
+  }
   const body = await c.req.json()
   const parsed = RecoveryInitiateSchema.safeParse(body)
   if (!parsed.success) {
@@ -139,9 +228,9 @@ recoveryGroupRoutes.post('/contribute-share', async (c) => {
   }
 })
 
-// --- GET /session/:id ---
+// --- GET /session/:id (auth required) ---
 
-recoveryGroupRoutes.get('/session/:id', async (c) => {
+recoveryGroupRoutes.get('/session/:id', jwtAuth, async (c) => {
   const sessionId = c.req.param('id')
   const service = c.get('recoveryGroupService')
   const session = await service.getSession(sessionId)

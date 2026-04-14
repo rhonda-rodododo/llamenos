@@ -1,4 +1,15 @@
-import { index, integer, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
+import {
+  check,
+  foreignKey,
+  index,
+  integer,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uuid,
+} from 'drizzle-orm/pg-core'
 import { jsonb } from '../bun-jsonb'
 
 /**
@@ -26,15 +37,27 @@ import { jsonb } from '../bun-jsonb'
  * device and sigchain entry, and expiry for stale request cleanup.
  */
 
-export const hubRecoveryGroups = pgTable('hub_recovery_groups', {
-  hubId: uuid('hub_id').primaryKey(),
-  groupPublicKey: text('group_public_key').notNull(),
-  threshold: integer('threshold').notNull(),
-  totalShares: integer('total_shares').notNull(),
-  shareCommitments: jsonb<string[]>()('share_commitments').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  rotatedAt: timestamp('rotated_at', { withTimezone: true }),
-})
+export const hubRecoveryGroups = pgTable(
+  'hub_recovery_groups',
+  {
+    hubId: uuid('hub_id').primaryKey(),
+    groupPublicKey: text('group_public_key').notNull(),
+    threshold: integer('threshold').notNull(),
+    totalShares: integer('total_shares').notNull(),
+    shareCommitments: jsonb<string[]>()('share_commitments').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    rotatedAt: timestamp('rotated_at', { withTimezone: true }),
+  },
+  (t) => ({
+    // Tier 2 P0 hardening (0060 migration): a group cannot require more
+    // shares to recover than it issued, otherwise the group is permanently
+    // unrecoverable.
+    thresholdLeqTotal: check(
+      'hub_recovery_groups_threshold_total_shares_check',
+      sql`${t.threshold} <= ${t.totalShares}`
+    ),
+  })
+)
 
 export const hubRecoveryGroupShares = pgTable(
   'hub_recovery_group_shares',
@@ -47,6 +70,14 @@ export const hubRecoveryGroupShares = pgTable(
   (t) => ({
     pk: primaryKey({ columns: [t.hubId, t.adminPubkey] }),
     hubIdx: index('hub_recovery_group_shares_hub_idx').on(t.hubId),
+    // Tier 2 P0 hardening (0060 migration): every share row must point at a
+    // live recovery-group; removing the group cascades its shares so we
+    // never leave orphan ciphertext in the DB.
+    hubFk: foreignKey({
+      name: 'hub_recovery_group_shares_hub_id_fk',
+      columns: [t.hubId],
+      foreignColumns: [hubRecoveryGroups.hubId],
+    }).onDelete('cascade'),
   })
 )
 
