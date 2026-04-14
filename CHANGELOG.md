@@ -5,11 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.50.3] - 2026-04-14
+
+### Miscellaneous
+
+- v0.50.3 [skip ci]
+
+### Testing
+
+- remove defensive 'Server not reachable' skips (#139)
+
 ## [0.50.2] - 2026-04-14
 
 ### Bug Fixes
 
 - abort rotation on wrap failure unless revoke (#147)
+
+### Documentation
+
+- add INTENTIONAL_SKIPS.md registry (#140)
 
 ### Miscellaneous
 
