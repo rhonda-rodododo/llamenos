@@ -5,7 +5,7 @@ test.describe('Panic Wipe (L-9)', () => {
     // Verify we're on the dashboard and storage has data
     await expect(adminPage.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible()
     const hasKeyBefore = await adminPage.evaluate(
-      () => !!localStorage.getItem('llamenos-encrypted-key-v2')
+      () => !!localStorage.getItem('llamenos-encrypted-key')
     )
     expect(hasKeyBefore).toBe(true)
 
@@ -30,7 +30,7 @@ test.describe('Panic Wipe (L-9)', () => {
     expect(adminPage.url()).toContain('/login')
 
     const storageState = await adminPage.evaluate(() => ({
-      hasKey: !!localStorage.getItem('llamenos-encrypted-key-v2'),
+      hasKey: !!localStorage.getItem('llamenos-encrypted-key'),
       localStorageLength: localStorage.length,
     }))
     expect(storageState.hasKey).toBe(false)
@@ -54,9 +54,7 @@ test.describe('Panic Wipe (L-9)', () => {
     await expect(adminPage.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible()
 
     // Storage should still have the key
-    const hasKey = await adminPage.evaluate(
-      () => !!localStorage.getItem('llamenos-encrypted-key-v2')
-    )
+    const hasKey = await adminPage.evaluate(() => !!localStorage.getItem('llamenos-encrypted-key'))
     expect(hasKey).toBe(true)
   })
 })

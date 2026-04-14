@@ -35,8 +35,13 @@ export async function uploadEncryptedFile(
   // Deduplicate pubkeys (uploader may already be an admin)
   const allPubkeys = Array.from(new Set([uploaderPubkey, ...adminPubkeys]))
 
+  // Generate a client-side fileId for AAD binding.
+  // This ID is sent to the server which stores it as the canonical fileId,
+  // ensuring the fileId-bound AAD can round-trip on decrypt.
+  const fileId = crypto.randomUUID()
+
   // Encrypt the file and produce key envelopes + encrypted metadata for all recipients
-  const encrypted = await encryptFile(file, allPubkeys)
+  const encrypted = await encryptFile(file, fileId, allPubkeys)
 
   const result = await chunkedUpload({
     encryptedContent: encrypted.encryptedContent,
@@ -45,17 +50,19 @@ export async function uploadEncryptedFile(
     conversationId: '',
     recipientEnvelopes: encrypted.recipientEnvelopes,
     encryptedMetadata: encrypted.encryptedMetadata,
+    fileId,
     onProgress,
   })
 
-  const fileId = result.fileId
+  // Use the client-generated fileId (the server should echo it back; fall back gracefully)
+  const resolvedFileId = result.fileId || fileId
 
   // Bind context if provided at upload time
   if (contextType && contextId) {
-    await bindUploadContext(fileId, contextType, contextId)
+    await bindUploadContext(resolvedFileId, contextType, contextId)
   }
 
-  return { fileId }
+  return { fileId: resolvedFileId }
 }
 
 /**
@@ -105,8 +112,8 @@ export async function downloadAndDecryptFile(
   // Download encrypted content
   const encryptedContent = await downloadFile(fileId)
 
-  // Decrypt using the unwrapped file key (decryptFile extracts the key internally from the envelope)
-  const { blob } = await decryptFile(encryptedContent, myEnvelope)
+  // Decrypt using the unwrapped file key — fileId reconstructs the AAD used during encryption
+  const { blob } = await decryptFile(encryptedContent, myEnvelope, fileId)
 
   // Verify checksum
   const hashBuffer = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer())

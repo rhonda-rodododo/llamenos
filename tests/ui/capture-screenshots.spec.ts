@@ -212,7 +212,7 @@ test.describe('Screenshot Capture', () => {
     // Clear session to show login
     await adminPage.evaluate(() => {
       sessionStorage.clear()
-      localStorage.removeItem('llamenos-encrypted-key-v2')
+      localStorage.removeItem('llamenos-encrypted-key')
     })
     await adminPage.goto('/login')
     await adminPage.waitForTimeout(500)

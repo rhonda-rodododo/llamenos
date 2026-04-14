@@ -87,6 +87,10 @@ export const callSettings = pgTable('call_settings', {
   callRecordingMaxBytes: integer('call_recording_max_bytes').notNull().default(20971520), // 20MB
   voicemailMode: text('voicemail_mode').notNull().default('auto'), // 'auto' | 'always' | 'never'
   voicemailRetentionDays: integer('voicemail_retention_days'),
+  // Tier 5: hub-level policy for WebRTC voice E2EE (SFrame).
+  // 'required' — refuse non-E2EE calls; 'preferred' — warn on fallback;
+  // 'off' — never attempt E2EE. Default matches the tier-5 rollout plan.
+  voiceCallE2eePolicy: text('voice_call_e2ee_policy').notNull().default('preferred'),
 })
 
 export const transcriptionSettings = pgTable('transcription_settings', {

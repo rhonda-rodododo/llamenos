@@ -52,6 +52,7 @@
       "node_modules",
       "dist",
       "site",
+      "vendor",
       "*.config.ts",
       "*.config.js",
       "*.config.mjs",
@@ -62,11 +63,21 @@
   },
   "overrides": [
     {
-      "include": ["src/client/lib/debug-log.ts", "tests/**"],
+      "include": ["src/client/lib/debug-log.ts", "tests/**", "sip-bridge/**"],
       "linter": {
         "rules": {
           "suspicious": {
             "noConsole": "off"
+          }
+        }
+      }
+    },
+    {
+      "include": ["src/**/crypto*.ts", "src/**/hub-*.ts", "src/**/file-*.ts", "src/**/envelope-*.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noEmptyBlockStatements": "error"
           }
         }
       }

@@ -1,6 +1,5 @@
 import { type ActiveCall, addBan, createNote } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
-import { encryptNoteV2 } from '@/lib/crypto'
 import { useCallTimer, useCalls, useShiftStatus } from '@/lib/hooks'
 import {
   useCallAnalytics,
@@ -10,6 +9,7 @@ import {
 import { useCallsTodayCount, usePresence } from '@/lib/queries/calls'
 import { useUsers } from '@/lib/queries/users'
 import { useTranscription } from '@/lib/transcription'
+import { encryptNote } from '@shared/crypto-envelopes'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -518,7 +518,7 @@ function ActiveCallPanel({
     setSaving(true)
     try {
       const adminPub = adminDecryptionPubkey || authorPubkey
-      const { encryptedContent, authorEnvelope, adminEnvelopes } = encryptNoteV2(
+      const { encryptedContent, authorEnvelope, adminEnvelopes } = encryptNote(
         { text: noteText },
         authorPubkey,
         [adminPub]
@@ -540,7 +540,7 @@ function ActiveCallPanel({
         const text = await stopTranscription()
         if (text.trim()) {
           const adminPub = adminDecryptionPubkey || authorPubkey
-          const { encryptedContent, authorEnvelope, adminEnvelopes } = encryptNoteV2(
+          const { encryptedContent, authorEnvelope, adminEnvelopes } = encryptNote(
             { text: `[${t('transcription.title')}] ${text}` },
             authorPubkey,
             [adminPub]

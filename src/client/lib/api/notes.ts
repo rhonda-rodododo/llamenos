@@ -12,7 +12,7 @@ export interface EncryptedNote {
   createdAt: string
   updatedAt: string
   ephemeralPubkey?: string
-  // V2 per-note ECIES envelopes (forward secrecy)
+  // Per-note ECIES envelopes (forward secrecy)
   authorEnvelope?: KeyEnvelope
   adminEnvelopes?: RecipientEnvelope[]
 }

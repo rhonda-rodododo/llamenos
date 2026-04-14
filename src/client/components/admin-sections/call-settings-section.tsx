@@ -1,8 +1,4 @@
-import {
-  SectionBody,
-  SectionDescription,
-  SectionField,
-} from '@/components/admin-shell/section-layout'
+import { SectionBody, SectionDescription, SectionField } from '@/components/section-layout'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -67,6 +63,32 @@ export function CallSettingsSection() {
               <SelectItem value="auto">{t('callSettings.voicemailModeAuto')}</SelectItem>
               <SelectItem value="always">{t('callSettings.voicemailModeAlways')}</SelectItem>
               <SelectItem value="never">{t('callSettings.voicemailModeNever')}</SelectItem>
+            </SelectContent>
+          </Select>
+        </SectionField>
+        <SectionField
+          className="sm:col-span-2"
+          label={t('callSettings.voiceE2eePolicy')}
+          help={t('callSettings.voiceE2eePolicyDescription')}
+        >
+          <Select
+            value={settings.voiceCallE2eePolicy}
+            onValueChange={(val) =>
+              saveMutation.mutate({
+                voiceCallE2eePolicy: val as 'required' | 'preferred' | 'off',
+              })
+            }
+          >
+            <SelectTrigger
+              className="w-full"
+              data-testid="admin-call-settings-voice-e2ee-policy-select"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="required">{t('voice.e2ee.policy.required')}</SelectItem>
+              <SelectItem value="preferred">{t('voice.e2ee.policy.preferred')}</SelectItem>
+              <SelectItem value="off">{t('voice.e2ee.policy.off')}</SelectItem>
             </SelectContent>
           </Select>
         </SectionField>

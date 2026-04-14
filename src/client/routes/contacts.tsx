@@ -303,7 +303,12 @@ function ContactDirectoryPage() {
                         <span className="flex items-center gap-2">
                           <span
                             className="h-2.5 w-2.5 rounded-full shrink-0"
-                            style={{ backgroundColor: td.color || '#888' }}
+                            style={
+                              {
+                                '--tag-color': td.color || '#888',
+                                backgroundColor: 'var(--tag-color)',
+                              } as React.CSSProperties
+                            }
                           />
                           {td.label}
                         </span>

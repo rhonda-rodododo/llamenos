@@ -14,8 +14,6 @@ description = "Global allowlist for known safe patterns"
 regexes = [
   # Test/demo nsec key (intentionally embedded in demo-mode code)
   "nsec174zsa94n3e7t0ugfldh9tgkkzmaxhalr78uxt9phjq3mmn6d6xas5jdffh",
-  # localStorage key name, not a secret
-  "llamenos-encrypted-key-v2",
 ]
 regexTarget = "match"
 paths = [

@@ -20,6 +20,18 @@ export const adminNavConfig: AdminNavConfig = {
           requiredPermissions: ['settings:read'],
           testid: 'admin-sidebar-item-passkey-policy',
         },
+        {
+          slug: 'recovery-group',
+          labelKey: 'adminNav.items.recoveryGroup',
+          requiredPermissions: ['settings:write'],
+          testid: 'admin-sidebar-item-recovery-group',
+        },
+        {
+          slug: 'devices',
+          labelKey: 'adminNav.items.devices',
+          requiredPermissions: ['audit:read'],
+          testid: 'admin-sidebar-item-devices',
+        },
       ],
     },
     {

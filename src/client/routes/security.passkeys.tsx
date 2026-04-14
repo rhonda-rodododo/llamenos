@@ -1,10 +1,6 @@
+import { SectionBanner, SectionBody, SectionDescription } from '@/components/section-layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import {
-  SectionBanner,
-  SectionBody,
-  SectionDescription,
-} from '@/components/user-shell/section-layout'
 import { useDeletePasskey, usePasskeys, useRenamePasskey } from '@/lib/queries/security'
 import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
@@ -147,8 +143,8 @@ function PasskeysPage() {
   if (!data) return null
 
   return (
-    <SectionBody data-testid="passkeys-page" className="min-h-[40px]">
-      <SectionDescription>
+    <SectionBody surface="user" data-testid="passkeys-page" className="min-h-[40px]">
+      <SectionDescription surface="user">
         {t(
           'security.passkeys.description',
           'WebAuthn credentials that can sign you in. Add a backup to avoid lockout.'

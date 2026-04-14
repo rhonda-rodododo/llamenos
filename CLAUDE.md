@@ -46,7 +46,7 @@ src/
     routes/         # TanStack file-based routes
     components/     # App components + ui/ (shadcn primitives)
     lib/            # Client utilities (auth, crypto, ws, i18n, hooks)
-                    #   key-store-v2.ts — multi-factor KEK key store (PIN + recovery + WebAuthn)
+                    #   key-store.ts — multi-factor KEK key store (PIN + recovery + WebAuthn)
                     #   crypto-worker.ts / crypto-worker-client.ts — Web Worker crypto isolation
                     #   i18n.ts — i18next loader; locales live at public/locales/ (NOT src/client/locales)
   server/           # Bun/Hono backend
@@ -89,7 +89,7 @@ public/
 - **Service layer**: Seven PostgreSQL-backed services (IdentityService, SettingsService, RecordsService, ShiftManagerService, CallRouterService, ConversationService, AuditService) replace the former Durable Objects. Drizzle ORM manages schema and migrations.
 - **E2EE notes**: Per-note forward secrecy — unique random key per note, wrapped via ECIES for each reader. Dual-encrypted: one copy for volunteer, one for each admin (multi-admin envelopes).
 - **E2EE messaging**: Per-message envelope encryption — random symmetric key, ECIES-wrapped for assigned volunteer + each admin. Server encrypts inbound on webhook receipt, discards plaintext immediately.
-- **Key management**: Multi-factor KEK key store (`key-store-v2.ts`). Identity key encrypted under PIN + optional recovery key + optional WebAuthn. nsec held in closure only, zeroed on lock. Device linking via ephemeral ECDH provisioning rooms.
+- **Key management**: Multi-factor KEK key store (`key-store.ts`). Identity key encrypted under PIN + optional recovery key + optional WebAuthn. nsec held in closure only, zeroed on lock. Device linking via ephemeral ECDH provisioning rooms.
 - **Nostr relay real-time**: Ephemeral kind 20001 events via strfry (self-hosted). All event content encrypted with hub key. Generic tags (`["t", "llamenos:event"]`) — relay cannot distinguish event types.
 - **Hub key distribution**: Random 32 bytes (`crypto.getRandomValues`), ECIES-wrapped individually per member via `LABEL_HUB_KEY_WRAP`. Rotation on member departure excludes departed member.
 - **Client-side transcription**: WASM Whisper via `@huggingface/transformers` ONNX runtime. AudioWorklet ring buffer → Web Worker isolation. Audio never leaves the browser.
@@ -103,8 +103,9 @@ public/
 - **IdP adapter interface**: `src/server/idp/adapter.ts` defines the abstract `IdpAdapter` interface. `AuthentikAdapter` (`src/server/idp/authentik-adapter.ts`) implements OIDC login, user provisioning, group sync, and token refresh against Authentik. Designed for future provider swaps.
 - **Auth facade**: `src/server/routes/auth-facade.ts` provides `/api/auth/*` endpoints that abstract the IdP — login, logout, token refresh, session validation. Clients never talk to Authentik directly.
 - **Crypto Web Worker isolation**: All ECIES/XChaCha20 operations run in a dedicated Web Worker (`src/client/lib/crypto-worker.ts`) via a typed RPC client (`crypto-worker-client.ts`). Keeps the main thread responsive and isolates key material.
+- **Tier 1 HPKE**: New code must use `hpkeSeal` / `hpkeOpen` from `@shared/hpke-primitives` — HPKE RFC 9180 with `DHKEM(X25519) + HKDF-SHA256 + AES-256-GCM`, wire format `HpkeEnvelope { v: 3, labelId, enc, ct }`. AAD is `buildAad(label, recordId, fieldName)` binding ciphertext to (domain, row, column); hub-key encrypted records whose ids are server-generated UUIDs require the **client to pre-generate the id** and pass it through the create mutation so the server stores the same id used as AAD `recordId` on seal. The HPKE private key and hub AES-GCM key are non-extractable `CryptoKey` handles held inside the crypto-worker closure (installed via `unlockWithHandles`); identity X25519 stays as zero-on-lock raw bytes until the runtime ships native `deriveBits` for X25519. The legacy ECIES path in `crypto-worker.ts` is retained as a sidecar for unmigrated call sites (notes/files/hub-key-manager/provisioning); CI grep guardrails block new callers and silent HPKE→ECIES fallback. **Never** add a new caller of `@noble/ciphers/chacha` or `secp256k1.getSharedSecret`. See `docs/security/HPKE_MIGRATION_NOTES.md`.
 - **Decrypt-on-fetch**: Encrypted fields are decrypted inside React Query `queryFn` callbacks, not in components. This ensures decrypted data flows through the cache and re-renders correctly.
-- **Key-store-v2 multi-factor format**: `src/client/lib/key-store-v2.ts` stores the identity key encrypted under a multi-factor KEK (PIN + optional recovery key + optional WebAuthn). Supports factor rotation without re-encrypting all data.
+- **Key-store multi-factor format**: `src/client/lib/key-store.ts` stores the identity key encrypted under a multi-factor KEK (PIN + optional recovery key + optional WebAuthn). Supports factor rotation without re-encrypting all data.
 
 ### Encrypted Field Development Guide
 

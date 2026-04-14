@@ -6,7 +6,7 @@
  * worker decryption, and re-renders with decrypted values.
  */
 
-import { LABEL_USER_PII } from '@shared/crypto-labels'
+import { type CryptoLabel, LABEL_USER_PII } from '@shared/crypto-labels'
 import { useEffect, useRef, useState } from 'react'
 import { decryptArrayFields, decryptCache, decryptObjectFields } from './decrypt-fields'
 import * as keyManager from './key-manager'
@@ -17,7 +17,7 @@ import * as keyManager from './key-manager'
  */
 export function useDecryptedObject<T extends object>(
   data: T | null,
-  label: string = LABEL_USER_PII
+  label: CryptoLabel = LABEL_USER_PII
 ): T | null {
   const [decrypted, setDecrypted] = useState<T | null>(data)
   const mountedRef = useRef(true)
@@ -81,7 +81,7 @@ export function useDecryptedObject<T extends object>(
  */
 export function useDecryptedArray<T extends object>(
   data: T[],
-  label: string = LABEL_USER_PII
+  label: CryptoLabel = LABEL_USER_PII
 ): T[] {
   const [decrypted, setDecrypted] = useState<T[]>(data)
   const mountedRef = useRef(true)

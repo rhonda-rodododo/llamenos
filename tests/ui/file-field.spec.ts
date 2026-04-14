@@ -141,7 +141,13 @@ test.describe('File Custom Field', () => {
             conversationId,
             contextType: 'custom_field',
             recipientEnvelopes: [
-              { pubkey: adminPubkey, encryptedFileKey: 'test-key', ephemeralPubkey: 'test-ephem' },
+              {
+                v: 2,
+                labelId: 0,
+                pubkey: adminPubkey,
+                wrappedKey: 'test-key',
+                ephemeralPubkey: 'test-ephem',
+              },
             ],
             encryptedMetadata: [
               { pubkey: adminPubkey, encryptedContent: 'test-meta', ephemeralPubkey: 'test-ephem' },
@@ -205,7 +211,7 @@ test.describe('File Custom Field', () => {
             totalChunks: 2,
             conversationId,
             recipientEnvelopes: [
-              { pubkey: adminPubkey, encryptedFileKey: 'k', ephemeralPubkey: 'e' },
+              { v: 2, labelId: 0, pubkey: adminPubkey, wrappedKey: 'k', ephemeralPubkey: 'e' },
             ],
             encryptedMetadata: [
               { pubkey: adminPubkey, encryptedContent: 'm', ephemeralPubkey: 'e' },
@@ -266,7 +272,7 @@ test.describe('File Custom Field', () => {
           conversationId: '',
           contextType: 'custom_field',
           recipientEnvelopes: [
-            { pubkey: adminPubkey, encryptedFileKey: 'k', ephemeralPubkey: 'e' },
+            { v: 2, labelId: 0, pubkey: adminPubkey, wrappedKey: 'k', ephemeralPubkey: 'e' },
           ],
           encryptedMetadata: [{ pubkey: adminPubkey, encryptedContent: 'm', ephemeralPubkey: 'e' }],
         }),

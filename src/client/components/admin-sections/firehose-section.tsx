@@ -1,4 +1,4 @@
-import { SectionBody, SectionDescription } from '@/components/admin-shell/section-layout'
+import { SectionBody, SectionDescription } from '@/components/section-layout'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -124,9 +124,21 @@ export function FirehoseSection() {
   async function handleCreate() {
     if (!createForm.displayName.trim() || !createForm.reportTypeId) return
 
+    // Pre-generate a client UUID for the new connection so the AAD can be bound to a stable ID.
+    const newId = crypto.randomUUID()
+    const encryptedDisplayName =
+      (await encryptHubField(
+        createForm.displayName.trim(),
+        hubId,
+        newId,
+        'encrypted_display_name'
+      )) ?? undefined
     const input: CreateFirehoseConnectionInput = {
+      // Pass the pre-generated id through so the server stores the same id
+      // the client used as AAD `recordId` when sealing `encryptedDisplayName`.
+      id: newId,
       displayName: createForm.displayName.trim(),
-      encryptedDisplayName: encryptHubField(createForm.displayName.trim(), hubId) ?? undefined,
+      encryptedDisplayName,
       reportTypeId: createForm.reportTypeId,
       extractionIntervalSec: createForm.extractionIntervalSec,
     }

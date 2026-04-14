@@ -1,5 +1,5 @@
-import { SectionBody, SectionDescription } from '@/components/admin-shell/section-layout'
 import { ConfirmDialog } from '@/components/confirm-dialog'
+import { SectionBody, SectionDescription } from '@/components/section-layout'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -290,18 +290,26 @@ export function HubRolesSection() {
     setTimeout(() => setShowSaved(false), 2000)
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!form.name.trim()) return
     if (editingId === 'new') {
       const trimmedName = form.name.trim()
       const trimmedDesc = form.description.trim()
+      // Pre-generate a client role id so the AAD can be bound to a stable ID.
+      // Matches the server's legacy `role-${uuid}` convention.
+      const newId = `role-${crypto.randomUUID()}`
+      const encryptedName = await encryptHubField(trimmedName, hubId, newId, 'encrypted_name')
+      const encryptedDescription = trimmedDesc
+        ? await encryptHubField(trimmedDesc, hubId, newId, 'encrypted_description')
+        : undefined
       createRole.mutate(
         {
+          id: newId,
           name: trimmedName,
           description: trimmedDesc,
           permissions: form.permissions,
-          encryptedName: encryptHubField(trimmedName, hubId),
-          encryptedDescription: trimmedDesc ? encryptHubField(trimmedDesc, hubId) : undefined,
+          encryptedName,
+          encryptedDescription,
         },
         {
           onSuccess: () => {
@@ -315,6 +323,10 @@ export function HubRolesSection() {
     } else if (editingId) {
       const trimmedName = form.name.trim()
       const trimmedDesc = form.description.trim()
+      const encryptedName = await encryptHubField(trimmedName, hubId, editingId, 'encrypted_name')
+      const encryptedDescription = trimmedDesc
+        ? await encryptHubField(trimmedDesc, hubId, editingId, 'encrypted_description')
+        : undefined
       updateRole.mutate(
         {
           id: editingId,
@@ -322,8 +334,8 @@ export function HubRolesSection() {
             name: trimmedName,
             description: trimmedDesc,
             permissions: form.permissions,
-            encryptedName: encryptHubField(trimmedName, hubId),
-            encryptedDescription: trimmedDesc ? encryptHubField(trimmedDesc, hubId) : undefined,
+            encryptedName,
+            encryptedDescription,
           },
         },
         {

@@ -1,7 +1,8 @@
+import { API_BASE } from '@/lib/api/client'
 import { useAuth } from '@/lib/auth'
 import { authFacadeClient } from '@/lib/auth-facade-client'
-import { keyPairFromNsec } from '@/lib/crypto'
 import * as keyManager from '@/lib/key-manager'
+import { keyPairFromNsec } from '@shared/crypto-primitives'
 import { useNavigate } from '@tanstack/react-router'
 import { FileText, Info, LogIn, Shield, UserCog, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -55,7 +56,7 @@ export function DemoAccountPicker() {
       const nsecHex = bytesToHex(kp.secretKey)
 
       // 1. Import key with demo PIN — encrypts nsec with multi-factor KEK, loads into worker
-      const { syntheticIdpValue } = await import('@/lib/key-store-v2')
+      const { syntheticIdpValue } = await import('@/lib/key-store')
       await keyManager.importKey(
         nsecHex,
         DEMO_PIN,
@@ -68,10 +69,11 @@ export function DemoAccountPicker() {
       keyManager.disableAutoLock()
 
       // 2. Acquire JWT from demo-login endpoint (no IdP needed in demo mode)
-      const res = await fetch('/api/auth/demo-login', {
+      const res = await fetch(`${API_BASE}/auth/demo-login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pubkey }),
+        credentials: 'include',
       })
       if (!res.ok) throw new Error('Demo login failed')
       const { token } = (await res.json()) as { token: string }

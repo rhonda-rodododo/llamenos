@@ -70,7 +70,7 @@ A pre-compiled binary is downloaded and executed without SHA256 verification. Gi
 
 V1 note encryption derives a static key from the volunteer's identity key via HKDF. All V1 notes share the same derived key — compromising the identity key reveals ALL V1 notes retroactively.
 
-**Fix**: Removed the V1 `encryptNote()` export entirely. V1 `decryptNote()` retained for backward compat. All new notes use `encryptNoteV2()` with per-note ephemeral ECDH.
+**Fix**: Removed the V1 legacy note encryption export entirely. All new notes use `encryptNote()` with per-note ephemeral ECDH.
 
 #### ~~H-2: Dev Reset Endpoints Rely Solely on `ENVIRONMENT` Variable~~ — FIXED
 

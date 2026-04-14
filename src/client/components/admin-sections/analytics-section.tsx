@@ -1,4 +1,4 @@
-import { SectionBody, SectionDescription } from '@/components/admin-shell/section-layout'
+import { SectionBody, SectionDescription } from '@/components/section-layout'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {

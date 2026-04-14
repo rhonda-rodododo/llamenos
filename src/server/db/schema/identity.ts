@@ -1,4 +1,4 @@
-import { boolean, pgTable, text, timestamp, varchar } from 'drizzle-orm/pg-core'
+import { boolean, integer, pgTable, text, timestamp, varchar } from 'drizzle-orm/pg-core'
 import type { RecipientEnvelope } from '../../../shared/types'
 import { jsonb } from '../bun-jsonb'
 import { ciphertext, hmacHashed } from '../crypto-columns'
@@ -22,6 +22,22 @@ export const users = pgTable('users', {
   nameEnvelopes: jsonb<RecipientEnvelope[]>()('name_envelopes').notNull().default([]),
   encryptedPhone: ciphertext('encrypted_phone').notNull(),
   phoneEnvelopes: jsonb<RecipientEnvelope[]>()('phone_envelopes').notNull().default([]),
+  /**
+   * Tier 1 items_key indirection — generation counter (monotonic).
+   * Incremented each time the per-user items_key is rotated. The wrapped
+   * bytes below are regenerated from the new items_key; no artifact
+   * ciphertext is rewritten (wrap is byte-equivalent under AES-KW).
+   *
+   * NULL until the client materialises an items_key via generateItemsKey();
+   * existing users on first unlock after PR-B merge will bump from NULL → 1.
+   */
+  itemsKeyVersion: integer('items_key_version'),
+  /**
+   * Tier 1 items_key indirection — the per-user items_key wrapped by the
+   * classical master secret via AES-KW. 40 bytes raw, stored as base64.
+   * Opaque blob to the server: only the client can unwrap it.
+   */
+  itemsKeyWrapped: text('items_key_wrapped'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 

@@ -3,10 +3,21 @@ import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import { secp256k1 } from '@noble/curves/secp256k1.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
-import { LABEL_FILE_KEY, LABEL_FILE_METADATA } from '@shared/crypto-labels'
+import {
+  type CryptoLabel,
+  LABEL_FILE_KEY,
+  LABEL_FILE_METADATA,
+  labelToId,
+} from '@shared/crypto-labels'
+import {
+  decryptEnvelope,
+  eciesWrapKey,
+  symmetricDecrypt,
+  symmetricEncrypt,
+} from '@shared/crypto-primitives'
 import type { Ciphertext } from '@shared/crypto-types'
+import type { Envelope } from '@shared/types'
 import type { EncryptedFileMetadata, EncryptedMetaItem, FileKeyEnvelope } from '@shared/types'
-import { eciesUnwrapKey, eciesWrapKey } from './crypto'
 import { cryptoWorker } from './crypto-worker-client'
 
 function randomBytes(n: number): Uint8Array {
@@ -16,16 +27,18 @@ function randomBytes(n: number): Uint8Array {
 }
 
 /**
- * Unwrap a symmetric file key using the crypto worker (secret key never touches main thread).
+ * Build the AAD for file content encryption.
+ * Format: labelBytes || labelId (1 byte) || fileId bytes
+ * This triple-redundant binding prevents cross-context and cross-file ciphertext reuse.
  */
-export async function unwrapFileKey(
-  encryptedFileKeyHex: string,
-  ephemeralPubkeyHex: string
-): Promise<Uint8Array> {
-  return eciesUnwrapKey(
-    { wrappedKey: encryptedFileKeyHex as Ciphertext, ephemeralPubkey: ephemeralPubkeyHex },
-    LABEL_FILE_KEY
-  )
+function buildFileAad(fileId: string): Uint8Array {
+  const labelBytes = utf8ToBytes(LABEL_FILE_KEY)
+  const fileIdBytes = utf8ToBytes(fileId)
+  const aad = new Uint8Array(labelBytes.length + 1 + fileIdBytes.length)
+  aad.set(labelBytes, 0)
+  aad[labelBytes.length] = labelToId(LABEL_FILE_KEY)
+  aad.set(fileIdBytes, labelBytes.length + 1)
+  return aad
 }
 
 /**
@@ -73,7 +86,6 @@ export async function decryptFileMetadata(
   ephemeralPubkeyHex: string
 ): Promise<EncryptedFileMetadata | null> {
   try {
-    // Delegate ECDH to the crypto worker — secret key never touches main thread
     const worker = cryptoWorker
     const resultHex = await worker.decrypt(
       ephemeralPubkeyHex,
@@ -88,23 +100,32 @@ export async function decryptFileMetadata(
 }
 
 export interface EncryptedFileUpload {
+  /** Raw bytes of the encrypted content (nonce+ciphertext from symmetricEncrypt, decoded from hex). */
   encryptedContent: Uint8Array
+  /** Per-recipient key envelopes with pubkey tag. */
   recipientEnvelopes: FileKeyEnvelope[]
   encryptedMetadata: EncryptedMetaItem[]
 }
 
 /**
- * Encrypt a file for multiple recipients.
- * Uses a single random symmetric key to encrypt the file content once,
- * then wraps that key for each recipient using ECIES.
+ * Encrypt a file for multiple recipients (Envelope + fileId-bound AAD).
+ *
+ * The file content is encrypted with XChaCha20-Poly1305 using an AAD that binds
+ * the ciphertext to both LABEL_FILE_KEY and the fileId, preventing cross-file
+ * ciphertext substitution attacks. Each recipient gets an Envelope wrapping
+ * the same file key via ECIES.
+ *
+ * The fileId must be a client-generated UUID (crypto.randomUUID()) on new uploads
+ * and the server-provided file identifier on re-encryption / re-sharing.
  */
 export async function encryptFile(
   file: File,
+  fileId: string,
   recipientPubkeys: string[]
 ): Promise<EncryptedFileUpload> {
   const plaintextBytes = new Uint8Array(await file.arrayBuffer())
 
-  // Compute checksum
+  // Compute checksum of the plaintext for integrity verification on decrypt
   const hashBuffer = await crypto.subtle.digest('SHA-256', plaintextBytes)
   const checksum = bytesToHex(new Uint8Array(hashBuffer))
 
@@ -115,54 +136,63 @@ export async function encryptFile(
     checksum,
   }
 
-  // Generate random symmetric key for file content
+  // Generate a random per-file symmetric key
   const fileKey = randomBytes(32)
-  const fileNonce = randomBytes(24)
-  const cipher = xchacha20poly1305(fileKey, fileNonce)
-  const encryptedContent = cipher.encrypt(plaintextBytes)
 
-  // Pack: nonce (24) + ciphertext
-  const packed = new Uint8Array(fileNonce.length + encryptedContent.length)
-  packed.set(fileNonce)
-  packed.set(encryptedContent, fileNonce.length)
+  // Build AAD: labelBytes || labelId byte || fileId bytes
+  const aad = buildFileAad(fileId)
 
-  // Wrap the file key for each recipient using shared ECIES
+  // Encrypt file content with mandatory AAD binding
+  // symmetricEncrypt returns hex — decode to bytes for the upload API
+  const encryptedHex = symmetricEncrypt(plaintextBytes, fileKey, aad)
+  const encryptedContent = hexToBytes(encryptedHex)
+
+  // Wrap the file key for each recipient using Envelope (ECIES + wire-format label)
+  const labelId = labelToId(LABEL_FILE_KEY)
   const recipientEnvelopes: FileKeyEnvelope[] = recipientPubkeys.map((pubkey) => {
     const { wrappedKey, ephemeralPubkey } = eciesWrapKey(fileKey, pubkey, LABEL_FILE_KEY)
-    return { pubkey, encryptedFileKey: wrappedKey, ephemeralPubkey }
+    return { v: 2, labelId, pubkey, wrappedKey, ephemeralPubkey }
   })
 
+  // Zero the file key immediately after use
+  fileKey.fill(0)
+
   // Encrypt metadata for each recipient
-  const encryptedMetadataList = recipientPubkeys.map((pubkey) =>
+  const encryptedMetadata = recipientPubkeys.map((pubkey) =>
     encryptMetadataForPubkey(metadata, pubkey)
   )
 
-  return {
-    encryptedContent: packed,
-    recipientEnvelopes,
-    encryptedMetadata: encryptedMetadataList,
-  }
+  return { encryptedContent, recipientEnvelopes, encryptedMetadata }
 }
 
 /**
- * Decrypt a file given the encrypted content and key envelope.
+ * Decrypt a file given the encrypted content, a key envelope, and the fileId.
+ *
+ * The fileId is required to reconstruct the AAD that was used during encryption —
+ * passing the wrong fileId causes an AEAD authentication failure (throws).
  * Secret key operations are delegated to the crypto worker.
  */
 export async function decryptFile(
   encryptedContent: ArrayBuffer,
-  envelope: FileKeyEnvelope
+  envelope: Envelope,
+  fileId: string
 ): Promise<{ blob: Blob; checksum: string }> {
-  // Unwrap the file key via worker
-  const fileKey = await unwrapFileKey(envelope.encryptedFileKey, envelope.ephemeralPubkey)
+  // Build the same AAD used during encryption
+  const aad = buildFileAad(fileId)
 
-  // Extract nonce and decrypt
-  const data = new Uint8Array(encryptedContent)
-  const nonce = data.slice(0, 24)
-  const ciphertext = data.slice(24)
-  const cipher = xchacha20poly1305(fileKey, nonce)
-  const plaintext = cipher.decrypt(ciphertext)
+  // Unwrap the file key via the crypto worker using decryptEnvelope (version + label checks)
+  const fileKey = await decryptEnvelope(
+    envelope,
+    (ephemeralPubkey, wrappedKey, label) =>
+      cryptoWorker.decrypt(ephemeralPubkey, wrappedKey, label as CryptoLabel).then(hexToBytes),
+    LABEL_FILE_KEY
+  )
 
-  // Compute checksum for verification
+  // Convert raw bytes to hex for symmetricDecrypt (which expects hex-encoded input)
+  const encryptedHex = bytesToHex(new Uint8Array(encryptedContent)) as Ciphertext
+  const plaintext = symmetricDecrypt(encryptedHex, fileKey, aad)
+
+  // Compute checksum for integrity verification
   const hashBuffer = await crypto.subtle.digest('SHA-256', plaintext.buffer as ArrayBuffer)
   const checksum = bytesToHex(new Uint8Array(hashBuffer))
 
@@ -177,23 +207,30 @@ export async function decryptFile(
  * Admin decrypts the key via worker, then re-encrypts for the new pubkey.
  */
 export async function rewrapFileKey(
-  encryptedFileKeyHex: string,
-  ephemeralPubkeyHex: string,
+  envelope: Envelope,
   newRecipientPubkeyHex: string
 ): Promise<FileKeyEnvelope> {
-  // Decrypt with admin key via worker
-  const fileKey = await unwrapFileKey(encryptedFileKeyHex, ephemeralPubkeyHex)
+  // Unwrap with version + label check via the crypto worker
+  const fileKey = await decryptEnvelope(
+    envelope,
+    (ephemeralPubkey, wrappedKey, label) =>
+      cryptoWorker.decrypt(ephemeralPubkey, wrappedKey, label as CryptoLabel).then(hexToBytes),
+    LABEL_FILE_KEY
+  )
 
   // Re-encrypt for new recipient
-  const { wrappedKey: encryptedFileKey, ephemeralPubkey } = eciesWrapKey(
+  const { wrappedKey, ephemeralPubkey } = eciesWrapKey(
     fileKey,
     newRecipientPubkeyHex,
     LABEL_FILE_KEY
   )
+  fileKey.fill(0)
 
   return {
+    v: 2,
+    labelId: labelToId(LABEL_FILE_KEY),
     pubkey: newRecipientPubkeyHex,
-    encryptedFileKey,
+    wrappedKey,
     ephemeralPubkey,
   }
 }

@@ -1,4 +1,5 @@
-import { SectionBody, SectionDescription } from '@/components/user-shell/section-layout'
+import { SectionBody, SectionDescription } from '@/components/section-layout'
+import { API_BASE } from '@/lib/api/client'
 import { setAutoLockMs } from '@/lib/key-manager'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
@@ -19,7 +20,7 @@ export function IdleLockSection() {
   const { data: prefs } = useQuery<Prefs>({
     queryKey: ['security', 'prefs'],
     queryFn: async () => {
-      const res = await fetch('/api/auth/security-prefs', { credentials: 'include' })
+      const res = await fetch(`${API_BASE}/auth/security-prefs`, { credentials: 'include' })
       if (!res.ok) return { autoLockMs: DEFAULT_MS }
       return res.json()
     },
@@ -32,7 +33,7 @@ export function IdleLockSection() {
 
   const update = useMutation({
     mutationFn: async (ms: number) => {
-      const res = await fetch('/api/auth/security-prefs', {
+      const res = await fetch(`${API_BASE}/auth/security-prefs`, {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'content-type': 'application/json' },
@@ -57,8 +58,8 @@ export function IdleLockSection() {
       <h3 className="text-lg font-semibold mb-3">
         {t('security.autoLock.title', 'Auto-lock after inactivity')}
       </h3>
-      <SectionBody data-testid="idle-lock-slider">
-        <SectionDescription>
+      <SectionBody surface="user" data-testid="idle-lock-slider">
+        <SectionDescription surface="user">
           {t(
             'security.autoLock.desc',
             'Lock the app after this long without activity. Applies whether the tab is visible or hidden.'

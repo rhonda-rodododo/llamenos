@@ -1,4 +1,4 @@
-import { SectionBody, SectionDescription } from '@/components/admin-shell/section-layout'
+import { SectionBody, SectionDescription } from '@/components/section-layout'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -72,11 +72,20 @@ export function ReportTypesSection() {
       if (editing.id) {
         const trimmedName = editing.name.trim()
         const trimmedDesc = editing.description.trim()
+        const encryptedName = await encryptHubField(
+          trimmedName,
+          hubId,
+          editing.id,
+          'encrypted_name'
+        )
+        const encryptedDescription = trimmedDesc
+          ? await encryptHubField(trimmedDesc, hubId, editing.id, 'encrypted_description')
+          : undefined
         await updateReportType(editing.id, {
           name: trimmedName,
           description: trimmedDesc || undefined,
-          encryptedName: encryptHubField(trimmedName, hubId),
-          encryptedDescription: trimmedDesc ? encryptHubField(trimmedDesc, hubId) : undefined,
+          encryptedName,
+          encryptedDescription,
         })
         const existing = reportTypes.find((rt) => rt.id === editing.id)
         if (editing.isDefault && !existing?.isDefault) {
@@ -85,12 +94,19 @@ export function ReportTypesSection() {
       } else {
         const trimmedName = editing.name.trim()
         const trimmedDesc = editing.description.trim()
+        // Pre-generate a client UUID for the new report type so the AAD can be bound to a stable ID.
+        const newId = crypto.randomUUID()
+        const encryptedName = await encryptHubField(trimmedName, hubId, newId, 'encrypted_name')
+        const encryptedDescription = trimmedDesc
+          ? await encryptHubField(trimmedDesc, hubId, newId, 'encrypted_description')
+          : undefined
         await createReportType({
+          id: newId,
           name: trimmedName,
           description: trimmedDesc || undefined,
           isDefault: editing.isDefault,
-          encryptedName: encryptHubField(trimmedName, hubId),
-          encryptedDescription: trimmedDesc ? encryptHubField(trimmedDesc, hubId) : undefined,
+          encryptedName,
+          encryptedDescription,
         })
       }
       void queryClient.invalidateQueries({ queryKey: queryKeys.settings.reportTypes() })

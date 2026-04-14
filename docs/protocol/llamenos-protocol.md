@@ -100,7 +100,6 @@ Every cryptographic operation uses a unique domain separation string to prevent 
 | Constant | Label | Purpose | Section |
 |----------|-------|---------|---------|
 | `HKDF_SALT` | `"llamenos:hkdf-salt:v1"` | HKDF salt for legacy symmetric key derivation | 5.4 |
-| `HKDF_CONTEXT_NOTES` | `"llamenos:notes"` | HKDF context for legacy V1 note encryption | 5.4 |
 | `HKDF_CONTEXT_DRAFTS` | `"llamenos:drafts"` | HKDF context for draft encryption | 8 |
 | `HKDF_CONTEXT_EXPORT` | `"llamenos:export"` | HKDF context for export encryption | — |
 | `LABEL_HUB_EVENT` | `"llamenos:hub-event"` | Hub event HKDF derivation from hub key | 14 |
@@ -221,9 +220,9 @@ Every cryptographic operation uses a unique domain separation string to prevent 
 
 ## 3. Local Key Protection
 
-### 3.1 Multi-Factor Encrypted Key Store (v2)
+### 3.1 Multi-Factor Encrypted Key Store
 
-The identity key is stored in `localStorage` encrypted under a multi-factor Key Encryption Key (KEK). The v2 format supersedes the v1 PIN-only format.
+The identity key is stored in `localStorage` encrypted under a multi-factor Key Encryption Key (KEK).
 
 **Key Derivation (Multi-Factor KEK):**
 
@@ -252,7 +251,7 @@ nsec hex string (UTF-8 encoded)
   → ciphertext
 ```
 
-**Storage format (localStorage `llamenos-encrypted-key-v2`):**
+**Storage format (localStorage `llamenos-encrypted-key`):**
 ```json
 {
   "version": 2,
@@ -299,7 +298,7 @@ The Key Manager (`key-manager.ts`) delegates all secret key operations to a dedi
 **Operations:**
 - `unlock(pin)` — Derives multi-factor KEK (PIN + IdP value + optional PRF), decrypts nsec from localStorage, sends to worker for validation.
 - `lock()` — Instructs the worker to zero and discard the secret key bytes.
-- `importKey(nsecHex, pin, pubkey, idpValue, prfOutput?, idpIssuer)` — For onboarding/recovery: encrypts nsec to localStorage with v2 format, loads into worker.
+- `importKey(nsecHex, pin, pubkey, idpValue, prfOutput?, idpIssuer)` — For onboarding/recovery: encrypts nsec to localStorage, loads into worker.
 - `getPublicKeyHex()` — Returns hex pubkey from the worker (available only when unlocked).
 - `wipeKey()` — Locks the key manager and removes the encrypted key from localStorage entirely.
 
@@ -307,10 +306,6 @@ The Key Manager (`key-manager.ts`) delegates all secret key operations to a dedi
 - Configurable idle timeout (default: 5 minutes of no API activity)
 - `document.visibilitychange` when `document.hidden === true` (tab backgrounded), with configurable delay
 - Explicit `lock()` call
-
-### 3.3 Key Store v1 to v2 Migration
-
-> **Historical note:** v1 key stores used PIN-only PBKDF2 (no IdP factor, no PRF). The v1 format stored under `llamenos-encrypted-key` with fields: `salt` (16 bytes), `iterations`, `nonce` (24 bytes), `ciphertext`, and a truncated `pubkey` hash. v1 blobs are detected by the absence of a `version` field or `version !== 2`. On first unlock with an available IdP session, the client decrypts with the PIN-only KEK, then re-encrypts using the v2 multi-factor KEK and stores under the v2 key. The v1 blob is removed.
 
 ## 4. Authentication and Session Model
 
@@ -670,8 +665,8 @@ New Device (N)                         Primary Device (P)
   |-- 13. Prompt for PIN                 |
   |-- 14. importKey(nsec, pin,           |
   |        syntheticIdpValue)            |
-  |        (v2 format with synthetic     |
-  |        issuer "device-link")         |
+  |        (synthetic issuer             |
+  |         "device-link")               |
   |                                      |
   |-- 15. WS send: { type: "ack" }      |
   |                                      |
@@ -723,7 +718,7 @@ These auto-lock behaviors apply only to the key manager. The JWT access token an
 Each device maintains its own:
 - WebAuthn credential (passkey)
 - JWT access + refresh token pair
-- Encrypted key store (v2 blob in localStorage)
+- Encrypted key store (localStorage blob)
 - Key manager state (locked/unlocked)
 
 Sessions are independent across devices. Revoking a session on one device does not affect others unless an admin performs a full re-enrollment (`POST /api/auth/admin/re-enroll/:pubkey`), which revokes all IdP sessions and deletes all WebAuthn credentials.

@@ -5,8 +5,10 @@
 #   2. Build app (needed for CHECKSUMS and attestation)
 #   3. Auto-determine version bump from conventional commits
 #   4. Bump version, generate changelog, commit + tag
-#   5. Create GitHub Release with changelog, checksums, provenance
-#   6. GPG sign checksums
+#   5. Generate CycloneDX SBOM
+#   6. Cosign keyless signing + SBOM attestation
+#   7. GPG sign checksums
+#   8. Create GitHub Release with changelog, checksums, provenance, SBOM
 #
 # The created tag also triggers docker.yml for Docker image builds.
 # The release event triggers auto-deploy-demo.yml and deploy-site.yml.
@@ -323,6 +325,34 @@ jobs:
           echo "--- provenance.json ---"
           cat provenance.json
 
+      - name: Generate CycloneDX SBOM
+        run: |
+          npx --yes @cyclonedx/cdxgen -o sbom.cdx.json --spec-version 1.5
+          echo "SBOM generated: $(jq '.components | length' sbom.cdx.json) components"
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
+
+      - name: Attest SBOM
+        run: |
+          cosign attest-blob --yes \
+            --predicate sbom.cdx.json \
+            --type cyclonedx \
+            --output-file sbom.cdx.json.att \
+            CHECKSUMS.txt
+          echo "SBOM attestation attached to CHECKSUMS.txt"
+
+      - name: Sign release artifacts (keyless)
+        run: |
+          for f in CHECKSUMS.txt provenance.json; do
+            [ -f "$f" ] || continue
+            cosign sign-blob --yes \
+              --output-signature "${f}.cosign.sig" \
+              --output-certificate "${f}.cosign.pem" \
+              "$f"
+            echo "Signed: $f"
+          done
+
       - name: GPG sign CHECKSUMS.txt (Epic 79)
         env:
           GPG_PRIVATE_KEY: ${{ secrets.RELEASE_GPG_PRIVATE_KEY }}
@@ -358,4 +388,29 @@ jobs:
           files: |
             CHECKSUMS.txt
             CHECKSUMS.txt.asc
+            CHECKSUMS.txt.cosign.sig
+            CHECKSUMS.txt.cosign.pem
             provenance.json
+            provenance.json.cosign.sig
+            provenance.json.cosign.pem
+            sbom.cdx.json
+            sbom.cdx.json.att
+
+  # ─── Docker Image Publish ─────────────────────────────────
+  # Calls the reusable docker.yml workflow. workflow_call runs in the same
+  # logical chain as the caller, so it is NOT subject to the GITHUB_TOKEN
+  # downstream-trigger suppression rule that blocks `on: push: tags`.
+  docker:
+    needs: [version, release]
+    if: needs.version.outputs.should_release == 'true'
+    uses: ./.github/workflows/docker.yml
+    with:
+      version: ${{ needs.version.outputs.new_version }}
+      ref: refs/tags/v${{ needs.version.outputs.new_version }}
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+      security-events: write
+    secrets: inherit

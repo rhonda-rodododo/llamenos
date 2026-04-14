@@ -52,11 +52,22 @@ export async function provisionEndpoint(
       aors: username,
       webrtc: 'yes',
       transport: 'transport-wss',
-      context: 'volunteers',
+      context: 'volunteers-sframe', // Tier 5: dedicated SFrame passthrough context
       dtls_auto_generate_cert: 'yes',
       media_encryption: 'dtls',
       disallow: 'all',
-      allow: 'opus,ulaw',
+      allow: 'opus', // Tier 5: Opus-only — SFrame requires a single codec end-to-end
+      // Asterisk 18+ advanced codec negotiation — refuse any transcoding.
+      // Field syntax: comma-separated `name: value` pairs; `transcode: prevent`
+      // ensures Asterisk refuses any SDP that would require reencoding Opus.
+      codec_prefs_incoming_offer:
+        'prefer: pending, operation: intersect, keep: all, transcode: prevent',
+      codec_prefs_outgoing_offer:
+        'prefer: pending, operation: intersect, keep: all, transcode: prevent',
+      codec_prefs_incoming_answer:
+        'prefer: pending, operation: intersect, keep: all, transcode: prevent',
+      codec_prefs_outgoing_answer:
+        'prefer: pending, operation: intersect, keep: all, transcode: prevent',
     })
   } catch (err) {
     // Rollback auth + aor on endpoint failure

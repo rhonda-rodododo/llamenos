@@ -1,0 +1,57 @@
+# From-registry overrides for Llamenos Docker deployment.
+#
+# Replaces the local `build:` blocks in docker-compose.yml with pre-published
+# images from GHCR. These images are signed (cosign keyless), come with SLSA
+# build provenance, an SPDX SBOM, and have already passed the Trivy
+# CRITICAL/HIGH gate at publish time. They match exactly what was scanned —
+# operators do not need a build toolchain or the full source tree on the host.
+#
+# Tag selection: pin via LLAMENOS_VERSION in `.env`, e.g.
+#   LLAMENOS_VERSION=0.45.0
+# Defaults to `latest` (matches the default branch tip) for first-time setup.
+#
+# Usage (with the production overrides):
+#   docker compose \
+#     -f docker-compose.yml \
+#     -f docker-compose.production.yml \
+#     -f docker-compose.from-registry.yml \
+#     up -d
+#
+# Or, to upgrade in place:
+#   # bump LLAMENOS_VERSION in .env, then:
+#   docker compose -f ... pull
+#   docker compose -f ... up -d
+#
+# Watchtower (already wired in docker-compose.production.yml) can also be
+# pointed at this image set — both `app` and `sip-bridge` carry the
+# `com.centurylinklabs.watchtower.enable=true` label so they update on the
+# scheduled cron.
+#
+# Scope note — caddy still builds locally:
+# `docker-compose.production.yml` overrides `caddy` with a local build
+# (`target: static`) that bakes dist/client + dist/crypto-sandbox onto a
+# caddy:2-alpine base. The static image is not currently published to
+# GHCR by .github/workflows/docker.yml, so this from-registry override
+# does NOT cover caddy — operators using `production.yml` will still
+# need a build toolchain for the static target. Publishing the static
+# image is tracked separately; once it lands, add a `caddy:` block here
+# pointing at `ghcr.io/rhonda-rodododo/llamenos-hotline-static:${LLAMENOS_VERSION}`.
+
+services:
+  app:
+    image: ghcr.io/rhonda-rodododo/llamenos-hotline:${LLAMENOS_VERSION:-latest}
+    # Reset the `build:` block from docker-compose.yml so docker compose
+    # does not try to rebuild from source. `!reset` is the documented
+    # Compose Spec idiom for clearing a value inherited from a previous
+    # file in the chain. Requires Docker Compose v2.24+ (Jan 2024).
+    build: !reset null
+
+  sip-bridge:
+    image: ghcr.io/rhonda-rodododo/llamenos-hotline-sip-bridge:${LLAMENOS_VERSION:-latest}
+    build: !reset null
+    # Opt this container into the watchtower update schedule defined in
+    # docker-compose.production.yml. The base sip-bridge service does not set
+    # this label because it builds from source locally; once we are pulling
+    # tagged images, automatic updates become valuable.
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"

@@ -8,6 +8,12 @@ export interface ChunkedUploadOptions {
   conversationId: string
   recipientEnvelopes: FileKeyEnvelope[]
   encryptedMetadata: EncryptedMetaItem[]
+  /**
+   * Client-generated UUID used as AAD binding in the file encryption.
+   * Passed to the server so it can store and return this as the canonical fileId,
+   * enabling AAD verification on decrypt.
+   */
+  fileId?: string
   chunkSize?: number
   onProgress?: (completed: number, total: number) => void
 }
@@ -26,13 +32,14 @@ export async function chunkedUpload(options: ChunkedUploadOptions): Promise<Uplo
   const totalSize = options.encryptedContent.length
   const totalChunks = Math.ceil(totalSize / chunkSize)
 
-  // Initialize upload
+  // Initialize upload — include client-generated fileId so server can use it as the canonical ID.
   const initData: UploadInit = {
     totalSize,
     totalChunks,
     conversationId: options.conversationId,
     recipientEnvelopes: options.recipientEnvelopes,
     encryptedMetadata: options.encryptedMetadata,
+    ...(options.fileId ? { fileId: options.fileId } : {}),
   }
 
   const { uploadId } = await initUpload(initData)

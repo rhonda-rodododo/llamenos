@@ -246,7 +246,7 @@ export interface EncryptedNote {
   createdAt: string
   updatedAt: string
   ephemeralPubkey?: string // hex-encoded, present for server-encrypted transcriptions (ECIES)
-  // V2 per-note ECIES envelopes (forward secrecy)
+  // Per-note ECIES envelopes (forward secrecy)
   authorEnvelope?: KeyEnvelope
   adminEnvelopes?: RecipientEnvelope[]
   replyCount?: number // cached count of replies (Epic 123)
@@ -278,6 +278,11 @@ export interface CallSettings {
   voicemailMode: 'auto' | 'always' | 'never' // default 'auto'
   voicemailRetentionDays: number | null // null = no explicit limit
   callRecordingMaxBytes: number // 100KB-50MB, default 20MB (20971520)
+  // Tier 5 — hub-level policy for WebRTC voice call SFrame E2EE.
+  //   'required'  — refuse calls that cannot negotiate SFrame
+  //   'preferred' — default; show active-consent modal on fallback
+  //   'off'       — never attempt SFrame (plaintext SRTP only)
+  voiceCallE2eePolicy: 'required' | 'preferred' | 'off'
 }
 
 export interface InviteCode {
@@ -454,6 +459,8 @@ export type AppEnv = {
     hubPermissions?: string[]
     /** Injected service instances */
     services: Services
+    /** CSP nonce for the current response (base64, 16 random bytes) */
+    cspNonce: string
   }
 }
 
@@ -569,6 +576,11 @@ export interface IvrAudioMeta {
 }
 
 export interface CreateRoleData {
+  /**
+   * Client-generated id. Required when `encryptedName` is provided so the
+   * server stores the same id the client bound into AAD via buildAad().
+   */
+  id?: string
   name: string
   permissions: string[]
   description: string
@@ -728,6 +740,11 @@ export interface ShiftSchedule {
 }
 
 export interface CreateScheduleData {
+  /**
+   * Client-generated id. Required when `encryptedName` is provided so the
+   * server stores the same id the client bound into AAD via buildAad().
+   */
+  id?: string
   hubId?: string
   /** Plaintext name (legacy / server-side fallback). Prefer encryptedName for new clients. */
   name?: string
@@ -768,6 +785,11 @@ export interface RingGroup {
 }
 
 export interface CreateRingGroupData {
+  /**
+   * Client-generated id. Required when `encryptedName` is provided so the
+   * server stores the same id the client bound into AAD via buildAad().
+   */
+  id?: string
   hubId?: string
   name: string
   userPubkeys: string[]

@@ -12,6 +12,9 @@ services:
   app:
     environment:
       - ENVIRONMENT=production
+      # Tier 4 PR-A: API enforces cross-site CORS/cookies scoped to the SPA origin.
+      - APP_ORIGIN=https://${APP_DOMAIN:?APP_DOMAIN is required}
+      - API_COOKIE_DOMAIN=${API_DOMAIN:?API_DOMAIN is required}
     logging:
       driver: json-file
       options:
@@ -23,8 +26,26 @@ services:
           memory: 1G
 
   caddy:
+    # Tier 4 PR-A: override the base caddy:2-alpine image with a local
+    # build that bakes dist/client + dist/crypto-sandbox into /srv/app and
+    # /srv/crypto. The same Caddy process still terminates TLS and
+    # handles all three origins via Caddyfile.production site blocks.
+    image: llamenos-static:local
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+      target: static
+      args:
+        BUILD_VERSION: ${BUILD_VERSION:-dev}
+        BUILD_COMMIT: ${BUILD_COMMIT:-local}
+        BUILD_TIME: ${BUILD_TIME:-}
     volumes:
       - ./Caddyfile.production:/etc/caddy/Caddyfile:ro
+    environment:
+      - APP_DOMAIN=${APP_DOMAIN:?APP_DOMAIN is required — e.g. app.hotline.example}
+      - API_DOMAIN=${API_DOMAIN:?API_DOMAIN is required — e.g. api.hotline.example}
+      - CRYPTO_DOMAIN=${CRYPTO_DOMAIN:?CRYPTO_DOMAIN is required — e.g. crypto.hotline.example}
+      - ACME_EMAIL=${ACME_EMAIL:?ACME_EMAIL is required}
     logging:
       driver: json-file
       options:

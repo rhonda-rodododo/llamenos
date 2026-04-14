@@ -1,16 +1,20 @@
+import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import { LABEL_SIGNAL_CONTACT } from '@shared/crypto-labels'
 import { normalizeSignalIdentifier } from '@shared/signal-identifier-normalize'
+import { API_BASE } from './api/client'
 import { cryptoWorker } from './crypto-worker-client'
 
 async function fetchHmacKey(): Promise<string> {
-  const res = await fetch('/api/auth/signal-contact/hmac-key', { credentials: 'include' })
+  const res = await fetch(`${API_BASE}/auth/signal-contact/hmac-key`, {
+    credentials: 'include',
+  })
   if (!res.ok) throw new Error('hmac-key fetch failed')
   const body = (await res.json()) as { key: string }
   return body.key
 }
 
 async function postContact(body: unknown): Promise<void> {
-  const res = await fetch('/api/auth/signal-contact', {
+  const res = await fetch(`${API_BASE}/auth/signal-contact`, {
     method: 'POST',
     credentials: 'include',
     headers: { 'content-type': 'application/json' },
@@ -35,7 +39,8 @@ export async function registerSignalContact(opts: RegisterSignalContactOpts): Pr
   const { encryptedHex, envelopes } = await cryptoWorker.envelopeEncryptField(
     JSON.stringify({ identifier: normalized, type: opts.identifierType }),
     [opts.userPubkey],
-    LABEL_SIGNAL_CONTACT
+    LABEL_SIGNAL_CONTACT,
+    utf8ToBytes(LABEL_SIGNAL_CONTACT)
   )
 
   // Single server call — the app server proxies registration to the notifier

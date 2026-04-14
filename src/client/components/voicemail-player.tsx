@@ -2,7 +2,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { type EncryptedNote, downloadFile, getFileEnvelopes, listNotes } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
-import { decryptNoteV2 } from '@/lib/crypto'
+import { decryptNote } from '@/lib/crypto-worker-helpers'
 import { decryptFile } from '@/lib/file-crypto'
 import * as keyManager from '@/lib/key-manager'
 import type { FileKeyEnvelope } from '@shared/types'
@@ -58,7 +58,7 @@ export function VoicemailPlayer({ fileId, callId, canListen }: VoicemailPlayerPr
           return
         }
 
-        // Voicemail notes use V2 per-note ECIES envelopes
+        // Voicemail notes use per-note ECIES envelopes
         const envelope = isAdmin
           ? (vmNote.adminEnvelopes?.find((e) => e.pubkey === publicKey) ??
             vmNote.adminEnvelopes?.[0])
@@ -66,7 +66,7 @@ export function VoicemailPlayer({ fileId, callId, canListen }: VoicemailPlayerPr
 
         let text: string | null = null
         if (envelope) {
-          const payload = await decryptNoteV2(vmNote.encryptedContent, envelope)
+          const payload = await decryptNote(vmNote.encryptedContent, envelope)
           text = payload?.text ?? null
         }
         setTranscript(text)
@@ -97,7 +97,8 @@ export function VoicemailPlayer({ fileId, callId, canListen }: VoicemailPlayerPr
 
       if (!envelope) throw new Error('No key envelope found')
 
-      const { blob } = await decryptFile(content, envelope)
+      // fileId is bound into the AAD — passing wrong fileId causes auth failure
+      const { blob } = await decryptFile(content, envelope, fileId)
       const url = URL.createObjectURL(blob)
       setBlobUrl(url)
     } catch {

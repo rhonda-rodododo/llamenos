@@ -1,5 +1,5 @@
-import { SectionBody, SectionDescription } from '@/components/admin-shell/section-layout'
 import { AudioRecorder } from '@/components/audio-recorder'
+import { SectionBody, SectionDescription } from '@/components/section-layout'
 import { Badge } from '@/components/ui/badge'
 import {
   type IvrAudioRecording,

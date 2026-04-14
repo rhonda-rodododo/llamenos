@@ -1,3 +1,21 @@
+// The Trusted Types `llamenos` and `default` policies are installed by the
+// inline <script> in index.html, BEFORE this module bundle starts loading.
+// That ordering is required because top-level singletons in this dependency
+// graph (crypto-worker-client, transcription-manager, sframe-worker-client,
+// vite-plugin-pwa registerSW) construct Workers and a Service Worker as soon
+// as their modules are evaluated, and the CSP enforces
+// `require-trusted-types-for 'script'`. See index.html and
+// src/client/lib/trusted-types-policy.ts for the policy rules.
+
+// Tier 4 PR-B — kick off the crypto-sandbox iframe boot in parallel with
+// SPA render. Non-blocking: when VITE_CRYPTO_ORIGIN is unset (local dev,
+// same-origin layout) this is a no-op. When it is set, the iframe loads
+// alongside the React tree and a future PR will gate mount on its ready
+// promise via SandboxLoader. See src/client/lib/boot-crypto-sandbox.ts.
+import { bootCryptoSandbox } from '@/lib/boot-crypto-sandbox'
+
+bootCryptoSandbox()
+
 import { AuthProvider } from '@/lib/auth'
 import { ConfigProvider } from '@/lib/config'
 import { NoteSheetProvider } from '@/lib/note-sheet-context'
@@ -24,9 +42,9 @@ declare global {
       size: () => number
     }
     __llamenos_test_crypto: {
-      encryptNoteV2: typeof import('./lib/crypto').encryptNoteV2
-      decryptNoteV2: typeof import('./lib/crypto').decryptNoteV2
-      decryptMessage: typeof import('./lib/crypto').decryptMessage
+      encryptNote: typeof import('@shared/crypto-envelopes').encryptNote
+      decryptNote: typeof import('./lib/crypto-worker-helpers').decryptNote
+      decryptMessage: typeof import('./lib/crypto-worker-helpers').decryptMessage
     }
   }
 }
@@ -49,9 +67,15 @@ if (typeof window !== 'undefined') {
       }
     }
   )
-  import('./lib/crypto').then(({ encryptNoteV2, decryptNoteV2, decryptMessage }) => {
-    window.__llamenos_test_crypto = { encryptNoteV2, decryptNoteV2, decryptMessage }
-  })
+  Promise.all([import('@shared/crypto-envelopes'), import('./lib/crypto-worker-helpers')]).then(
+    ([envelopes, helpers]) => {
+      window.__llamenos_test_crypto = {
+        encryptNote: envelopes.encryptNote,
+        decryptNote: helpers.decryptNote,
+        decryptMessage: helpers.decryptMessage,
+      }
+    }
+  )
 }
 
 declare module '@tanstack/react-router' {

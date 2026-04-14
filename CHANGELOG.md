@@ -5,6 +5,167 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.48.3] - 2026-04-14
+
+### Bug Fixes
+
+- Tier 6 SAS derivation binds both parties + nonce (#106)
+
+### Documentation
+
+- post-overhaul gaps audit for 2026-04-13 session (#105)
+
+### Miscellaneous
+
+- v0.48.3 [skip ci]
+
+## [0.48.2] - 2026-04-13
+
+### Miscellaneous
+
+- v0.48.2 [skip ci]
+
+### Refactoring
+
+- final v2/v3 symbol purge + enable MLS by default (#104)
+
+## [0.48.1] - 2026-04-13
+
+### Bug Fixes
+
+- restore green CI after security overhaul (#103)
+
+### Miscellaneous
+
+- v0.48.1 [skip ci]
+
+## [0.48.0] - 2026-04-13
+
+### Features
+
+- tier 6 PR #1 — fingerprint UX + vendored core-crypto (flag off) [rebased v3] (#102)
+
+### Miscellaneous
+
+- v0.48.0 [skip ci]
+
+## [0.47.0] - 2026-04-13
+
+### Features
+
+- session-capsule type brands + cross-tab message parsers [rebased] (#101)
+
+### Miscellaneous
+
+- v0.47.0 [skip ci]
+
+## [0.46.0] - 2026-04-13
+
+### Bug Fixes
+
+- single-hop redirect from /admin (#100)
+- resolve duplicate drizzle migration index 0056 (#99)
+
+### Documentation
+
+- strike items already shipped (#97)
+
+### Features
+
+- Tier 3 PR-B (cross-signing) + PR-C (CLKR + device-revoke) (#87)
+- Tier 5 — voice E2EE via SFrame (#89)
+- Telnyx WebRTC login token generator (#98)
+- use GHCR images in production compose (#95)
+
+### Miscellaneous
+
+- v0.46.0 [skip ci]
+
+### Refactoring
+
+- dedupe section-layout primitives into shared module (#93)
+
+## [0.45.0] - 2026-04-12
+
+### Features
+
+- Tier 1 (HPKE) + Tier 2 (OPAQUE/Diceware/Shamir) + Tier 3 PR-A (devices) (#85)
+
+### Miscellaneous
+
+- v0.45.0 [skip ci]
+
+## [0.44.0] - 2026-04-12
+
+### Features
+
+- tier 4 PR-C — binary verifier + gossip + whitepaper + warrant canary (#84)
+
+### Miscellaneous
+
+- v0.44.0 [skip ci]
+
+## [0.43.0] - 2026-04-12
+
+### Features
+
+- FDE ISO builder for Debian 13 + dropbear unlock (#51)
+- tier 4 PR-B — sandboxed crypto iframe + RPC + Trusted Types (#83)
+
+### Miscellaneous
+
+- v0.43.0 [skip ci]
+
+## [0.42.2] - 2026-04-12
+
+### Bug Fixes
+
+- restore test infra after Tier 0/1/4 crypto+origin rewrites (#77)
+
+### Miscellaneous
+
+- v0.42.2 [skip ci]
+
+## [0.42.1] - 2026-04-11
+
+### Bug Fixes
+
+- notification-pwa:65 stop hanging pushManager.subscribe in CI (#70)
+
+### Miscellaneous
+
+- v0.42.1 [skip ci]
+
+## [0.42.0] - 2026-04-11
+
+### CI/CD
+
+- fix GHCR docker publish (reusable workflow + supply-chain hardening) (#67)
+
+### Documentation
+
+- fix locale path + count drift — public/locales/, 22 locales (#61)
+- add implementation queue + session kickoff template (#62)
+- tier-by-tier session prompts (#63)
+- all prep PRs merged; Tier 0 ready for implementation (#65)
+- tier 0 impl in progress, PR #68 draft
+- correct Tier 0 next-task workstream reference
+- tier 0 WS 0.1+0.3+0.4 landed; resume at task 17
+
+### Features
+
+- sec tier 0 albrecht hardening (#52)
+- tier 1 hpke primitives (#53)
+- tier 2 unlock recovery (#54)
+- tier 3 per device keys (#55)
+- tier 4 delivery hardening (#56)
+- tier 5 voice e2ee (#57)
+- tier 6 mls pq (#58)
+
+### Miscellaneous
+
+- v0.42.0 [skip ci]
+
 ## [0.41.1] - 2026-04-11
 
 ### Bug Fixes

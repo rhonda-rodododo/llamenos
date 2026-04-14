@@ -1,13 +1,8 @@
+import { SectionActions, SectionBody, SectionField } from '@/components/section-layout'
 import { Input } from '@/components/ui/input'
-import { SectionActions, SectionBody, SectionField } from '@/components/user-shell/section-layout'
 import { authFacadeClient } from '@/lib/auth-facade-client'
 import { isUnlocked } from '@/lib/key-manager'
-import {
-  deriveKekProof,
-  isValidPin,
-  loadEncryptedKeyV2,
-  rewrapWithNewPin,
-} from '@/lib/key-store-v2'
+import { deriveKekProof, isValidPin, loadEncryptedKey, rewrapWithNewPin } from '@/lib/key-store'
 import { useChangePin } from '@/lib/queries/security-actions'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -37,7 +32,7 @@ export function PinChangeSection() {
       setError(t('security.pin.locked', 'Account is locked; unlock first'))
       return
     }
-    const blob = loadEncryptedKeyV2()
+    const blob = loadEncryptedKey()
     if (!blob) {
       setError(t('security.pin.locked', 'Account is locked; unlock first'))
       return
@@ -68,7 +63,7 @@ export function PinChangeSection() {
   return (
     <div>
       <h3 className="text-lg font-semibold mb-3">{t('security.pin.title', 'Change PIN')}</h3>
-      <SectionBody data-testid="pin-change-form">
+      <SectionBody surface="user" data-testid="pin-change-form">
         <SectionField label={t('security.pin.current', 'Current PIN')} htmlFor="pin-current">
           <Input
             id="pin-current"
@@ -102,6 +97,7 @@ export function PinChangeSection() {
           </p>
         )}
         <SectionActions
+          surface="user"
           slug="pin"
           saveButtonTestId="submit-pin"
           onSave={submit}

@@ -185,7 +185,9 @@ function SettingsPage() {
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <Settings2 className="h-6 w-6 text-primary" />
-        <h1 className="text-xl font-bold sm:text-2xl">{t('settings.title')}</h1>
+        <h1 data-testid="settings-heading" className="text-xl font-bold sm:text-2xl">
+          {t('settings.title')}
+        </h1>
       </div>
 
       {/* Profile */}

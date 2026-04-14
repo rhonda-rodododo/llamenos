@@ -7,12 +7,12 @@ import { useAuth } from '@/lib/auth'
 import { authFacadeClient } from '@/lib/auth-facade-client'
 import { createBackup, downloadBackupFile, generateRecoveryKey } from '@/lib/backup'
 import { useConfig } from '@/lib/config'
-import { generateKeyPair, keyPairFromNsec } from '@/lib/crypto'
 import { setLanguage } from '@/lib/i18n'
 import * as keyManager from '@/lib/key-manager'
 import { isValidPin } from '@/lib/key-manager'
 import { useToast } from '@/lib/toast'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
+import { generateKeyPair, keyPairFromNsec } from '@shared/crypto-primitives'
 import { LANGUAGES } from '@shared/languages'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
@@ -193,7 +193,7 @@ function OnboardingPage() {
 
       // Import key via key manager (encrypts with PIN and real IdP nsecSecret)
       // Falls back to synthetic device-link value if IdP enrollment failed during redeem
-      const { syntheticIdpValue } = await import('@/lib/key-store-v2')
+      const { syntheticIdpValue } = await import('@/lib/key-store')
       const idpValue = idpNsecSecret ?? syntheticIdpValue('device-link')
       const issuer = idpNsecSecret ? window.location.origin : 'device-link'
       await keyManager.importKey(nsecHex, confirmedPin, pubkey, idpValue, undefined, issuer)

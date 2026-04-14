@@ -6,6 +6,7 @@
  * The token is a base64-encoded JSON payload containing SIP credentials.
  */
 
+import type { SFrameCapableAdapterOptions, SFramePeerConnectionHook } from '../sframe-hook-types'
 import type { WebRTCAdapter, WebRtcEvent, WebRtcEventHandler } from '../types'
 
 /** Decoded from the base64 token passed to initialize(). */
@@ -15,6 +16,9 @@ export interface SipTokenPayload {
   password: string
   iceServers: RTCIceServer[]
 }
+
+/** Constructor options for {@link SipWebRTCAdapter}. */
+export type SipWebRTCAdapterOptions = SFrameCapableAdapterOptions
 
 // Minimal JsSIP interfaces — JsSIP ships .d.ts but we only need a subset.
 interface JsSIPUA {
@@ -38,6 +42,11 @@ export class SipWebRTCAdapter implements WebRTCAdapter {
   #session: JsSIPRTCSession | null = null
   #handlers: Map<WebRtcEvent, Set<WebRtcEventHandler<WebRtcEvent>>> = new Map()
   #iceServers: RTCIceServer[] = []
+  readonly #sframeHook: SFramePeerConnectionHook | undefined
+
+  constructor(options: SipWebRTCAdapterOptions = {}) {
+    this.#sframeHook = options.sframeHook
+  }
 
   // ---------------------------------------------------------------------------
   // Event bus
@@ -136,6 +145,27 @@ export class SipWebRTCAdapter implements WebRTCAdapter {
       session.on('failed', () => {
         this.#session = null
         this.#emit('error', new Error('SIP session failed'))
+      })
+
+      // SFrame hook: when JsSIP exposes the underlying RTCPeerConnection
+      // (pre-answer), invoke the caller-provided installer so SFrame transforms
+      // can be attached to senders/receivers and the DTLS binding verified
+      // before any media flows. Failures terminate the session.
+      session.on('peerconnection', (...pcArgs: unknown[]) => {
+        const data = pcArgs[0] as { peerconnection?: RTCPeerConnection } | undefined
+        const pc = data?.peerconnection
+        if (!pc) return
+        const hook = this.#sframeHook
+        if (!hook) return
+        void Promise.resolve(hook(pc, { callId: callSid, direction: 'inbound' })).catch((err) => {
+          this.#emit('error', err instanceof Error ? err : new Error(String(err)))
+          try {
+            pc.close()
+          } catch {
+            /* best-effort */
+          }
+          session.terminate({ status_code: 480, reason_phrase: 'SFrame setup failed' })
+        })
       })
 
       this.#emit('incoming', callSid)

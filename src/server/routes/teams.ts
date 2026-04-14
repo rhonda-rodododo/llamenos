@@ -28,6 +28,9 @@ const IdContactParamSchema = z.object({
 })
 
 const CreateTeamBodySchema = z.object({
+  // Client-generated UUID. Required so the server stores the same id the
+  // client used as AAD `recordId` when sealing `encryptedName`.
+  id: z.string().uuid().optional(),
   encryptedName: z.string(),
   encryptedDescription: z.string().optional(),
 })
@@ -109,6 +112,7 @@ teams.openapi(createTeamRoute, async (c) => {
   }
 
   const team = await services.teams.createTeam({
+    id: body.id,
     hubId,
     encryptedName: body.encryptedName as import('@shared/crypto-types').Ciphertext,
     encryptedDescription:

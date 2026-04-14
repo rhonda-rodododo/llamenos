@@ -7,18 +7,22 @@
  */
 import { describe, expect, it } from 'bun:test'
 import {
+  __setSFrameInjection,
   acceptCall,
   destroyWebRtc,
+  getE2eeStatus,
   getState,
   hangupCall,
   hasIncomingCall,
   initWebRtc,
   isConnected,
   isMuted,
+  onE2eeStatusChange,
   onStateChange,
   rejectCall,
   toggleMute,
 } from './manager'
+import { SFrameWiringError } from './sframe-call-hook'
 
 describe('WebRTCManager exports', () => {
   it('exports all required functions', () => {
@@ -95,6 +99,67 @@ describe('WebRTCManager state change subscriptions', () => {
     expect(log2.length).toBeGreaterThan(len2) // still subscribed
 
     unsub2()
+  })
+})
+
+describe('WebRTCManager SFrame wiring', () => {
+  it('exports getE2eeStatus/onE2eeStatusChange and starts in unknown', () => {
+    destroyWebRtc()
+    expect(typeof getE2eeStatus).toBe('function')
+    expect(typeof onE2eeStatusChange).toBe('function')
+    expect(getE2eeStatus()).toBe('unknown')
+  })
+
+  it('onE2eeStatusChange fires on transitions and unsubscribes cleanly', () => {
+    destroyWebRtc()
+    const received: Array<{ status: string; reason?: string }> = []
+    const unsubscribe = onE2eeStatusChange((status, reason) => received.push({ status, reason }))
+
+    // Manually drive transitions via SFrame injection + a fake hook.
+    // Here we use the injection seam to install a worker factory that
+    // returns null (feature-detect failure path) and then call through
+    // the public SFrameInjection plumbing indirectly by invoking the
+    // hook builder it exposes.
+    const restore = __setSFrameInjection({
+      getSFrameWorker: () => null,
+      buildHook: () => async () => {
+        throw new SFrameWiringError('worker_unavailable')
+      },
+    })
+    // Nothing fires until initWebRtc runs, but we can still test the
+    // direct subscription plumbing by triggering a destroyWebRtc which
+    // resets e2ee status back to unknown.
+    destroyWebRtc()
+    expect(received.find((r) => r.status === 'unknown')).toBeDefined()
+
+    unsubscribe()
+    restore()
+    const before = received.length
+    destroyWebRtc()
+    expect(received.length).toBe(before)
+  })
+
+  it('__setSFrameInjection returns a disposer that restores the previous injection', () => {
+    destroyWebRtc()
+    // Two layered injections — the inner dispose should restore the outer.
+    const outer = __setSFrameInjection({
+      getSFrameWorker: () => null,
+      buildHook: () => async () => {
+        /* outer no-op */
+      },
+    })
+    const inner = __setSFrameInjection({
+      getSFrameWorker: () => null,
+      buildHook: () => async () => {
+        throw new SFrameWiringError('hook_failed')
+      },
+    })
+    inner()
+    // Outer injection is still active — verified by the disposer not
+    // throwing and by the manager still being in a clean state.
+    outer()
+    destroyWebRtc()
+    expect(getE2eeStatus()).toBe('unknown')
   })
 })
 

@@ -25,6 +25,7 @@ export async function listTags() {
 }
 
 export async function createTag(data: {
+  id?: string
   name: string
   encryptedLabel: Ciphertext
   color?: string

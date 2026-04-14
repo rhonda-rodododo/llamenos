@@ -7,6 +7,7 @@
 
 import { type PreferencesUpdateInput, PreferencesUpdateSchema } from '@shared/schemas/blasts'
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { API_BASE } from '../api/client'
 import { queryKeys } from './keys'
 
 // ---------------------------------------------------------------------------
@@ -37,7 +38,9 @@ export const preferencesOptions = (token: string) =>
   queryOptions({
     queryKey: queryKeys.preferences.mine(),
     queryFn: async (): Promise<SubscriberPrefs> => {
-      const res = await fetch(`/api/messaging/preferences?token=${encodeURIComponent(token)}`)
+      const res = await fetch(
+        `${API_BASE}/messaging/preferences?token=${encodeURIComponent(token)}`
+      )
       if (!res.ok) throw new Error('Invalid token')
       return res.json() as Promise<SubscriberPrefs>
     },
@@ -68,11 +71,14 @@ export function useUpdatePreferences(token: string) {
       if (!parsed.success) {
         throw new Error(`Invalid preferences: ${parsed.error.message}`)
       }
-      const res = await fetch(`/api/messaging/preferences?token=${encodeURIComponent(token)}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(parsed.data),
-      })
+      const res = await fetch(
+        `${API_BASE}/messaging/preferences?token=${encodeURIComponent(token)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(parsed.data),
+        }
+      )
       if (!res.ok) throw new Error('Update failed')
       return res.json() as Promise<SubscriberPrefs>
     },

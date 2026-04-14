@@ -1,23 +1,19 @@
 # Next Backlog
 
-## Follow-up: Type-brand hardening for session-capsule types (PR #50 review item #9)
-- **What:** `SessionCapsule`, `SyncMessage`, and the `exportSession`/`importSession` worker RPC types are a sea of untyped hex strings. Field-swap bugs (e.g. `encryptedNsec` ↔ `capsuleNonce`) typecheck today because both are `string`. The codebase already has `src/shared/crypto-types.ts` with a `Ciphertext` brand — the session-capsule module should follow the same pattern.
-- **Scope:** Introduce `HexString<N>`, `SessionToken`, `CapsuleNonceHex`, `EncryptedNsecHex`, `PubkeyHash16` brands. Add `parseSessionCapsule(raw: unknown)` inside `idbGet()` and `parseSyncMessage(data: unknown)` at both BroadcastChannel boundaries. Symmetrize worker RPC field names (`token` vs `tokenHex`). Consolidate cross-tab message types (lock + sync) in one module. Type `CryptoWorkerClient.call<R>` generically to eliminate per-method casts.
-- **Why follow-up, not in PR #50:** touches `crypto-types.ts`, `crypto-worker.ts`, `crypto-worker-client.ts`, `key-manager.ts`, and `session-capsule.ts` — the blast radius warrants its own spec/plan cycle. PR #50 already addresses all critical/high/medium findings; this is a medium-priority type-level hardening pass.
-- **Files:** `src/shared/crypto-types.ts`, `src/client/lib/session-capsule.ts`, `src/client/lib/crypto-worker.ts`, `src/client/lib/crypto-worker-client.ts`, `src/client/lib/key-manager.ts`
-- **See:** type-design-analyzer report in PR #50 review
+## Follow-up: Static-image GHCR publish + caddy from-registry override
+- **What:** `deploy/docker/docker-compose.production.yml` overrides the base `caddy:2-alpine` image with a local build (`target: static`) that bakes `dist/client` + `dist/crypto-sandbox` onto a caddy:2-alpine base. The new `docker-compose.from-registry.yml` (added below) covers `app` and `sip-bridge` but cannot cover `caddy` because `.github/workflows/docker.yml` does not currently publish a static-target image to GHCR. Operators using `production.yml` therefore still need a build toolchain on the host.
+- **Scope:** Add a third matrix entry to `.github/workflows/docker.yml` that builds the `static` Dockerfile target and publishes it as `ghcr.io/rhonda-rodododo/llamenos-hotline-static:${TAG}` with cosign + provenance + SBOM. Then add a `caddy:` block to `docker-compose.from-registry.yml` pointing at that image (`image: ghcr.io/rhonda-rodododo/llamenos-hotline-static:${LLAMENOS_VERSION:-latest}` + `build: !reset null`). Update `roles/llamenos/vars/main.yml` and `demo_vars.example.yml` defaults to point at the published tag (already done — image name string is in place but image is not yet published).
+- **Files:** `.github/workflows/docker.yml`, `deploy/docker/docker-compose.from-registry.yml`, `roles/llamenos/templates/docker-compose.j2`.
+
+## ~~Follow-up: Type-brand hardening for session-capsule types (PR #50 review item #9)~~ — DONE (PR #96)
+- Shipped as PR #96 (branch `feat/session-capsule-type-brands`). Added length-tagged `HexString<N>` brands (`SessionToken`, `CapsuleNonceHex`, `EncryptedNsecHex`, `PubkeyHash16`), runtime `parseSessionCapsule` / `parseSyncMessage` / `parseLockMessage` validators at IDB + BroadcastChannel boundaries, symmetric `tokenHex` field in worker RPC, generic `CryptoWorkerClient.call<R>`, and new `@client/lib/cross-tab-messages` module consolidating both cross-tab protocols. 57 new passing tests; no regressions.
 
 ## High Priority (Pre-Launch)
 - [x] Set up Cloudflare Tunnel for local dev with telephony webhooks (`scripts/dev-tunnel.sh`)
 - [x] Configure production wrangler secrets (TWILIO_*, ADMIN_PUBKEY) — deployed and running
 - [ ] Test full call flow end-to-end: incoming call -> CAPTCHA -> parallel ring -> answer -> notes -> hang up *(requires real phone + telephony account)*
 - [x] **BUG: `[encrypted]` placeholders after crypto worker auto-lock** — Fixed in PR #48 (feat/pin-prompt-locked-key). App now redirects to /login when key is locked after reload/auto-lock.
-- [ ] **BUG: Transient decrypt failures on contact profile load** — Discovered while fixing PR #48 CI failures. When loading a contact profile (`useContact`, `useContactRelationships`, `useContactTimeline`), `decryptFieldWithRecovery` sometimes fails on fields whose envelope pubkey matches the reader pubkey. PR #48 worked around this by no longer locking the session on transient decrypt errors — now it just shows `[encrypted]` for the affected field. **The root cause is NOT fixed.** Investigation needed:
-    - Why does `decryptEnvelopeField` fail in the worker when the envelope pubkey matches the reader's pubkey? (ECIES unwrap error? bad ciphertext? nonce reuse? race condition between worker operations?)
-    - Why does `resolveEncryptedFields` fire mismatch detection for `encryptedDisplayName` on a freshly-created contact? (`getContactRecipients` returning stale pubkeys? client adding wrong admin pk? envelope not including current admin?)
-    - Related files: `src/client/lib/decrypt-fields.ts` (decryptFieldWithRecovery + resolveEncryptedFields), `src/client/lib/crypto-worker.ts` (decryptEnvelopeField handler + eciesUnwrap), `src/client/components/contacts/create-contact-dialog.tsx` (envelope construction via `getContactRecipients()` + `envelopeEncrypt`), `src/server/routes/contacts/discovery.ts` (`/recipients` endpoint).
-    - Reproducer: `bunx playwright test tests/ui/contacts.spec.ts:167` with `window.LLAMENOS_DEBUG_CRYPTO = true` — mismatch detection logs `encryptedDisplayName` reader vs envelope pubkey mismatch. Actual decrypt failure stack goes through `decryptFieldWithRecovery` → retry → `fireLockOnce` (pre-PR #48 behavior) or null (post-PR #48 behavior).
-    - PR #48 also bumped crypto worker decrypt rate limits (100/sec → 500/sec) because parallel React Query fetches were legitimately exceeding the old limit. Investigate whether rate limit hits are still possible under heavier load and whether batching multiple field decrypts into a single worker call would be a better solution.
+- [x] **BUG: Transient decrypt failures on contact profile load** — Fixed in PR #48 final commit `55bf5ee4` ("fix(crypto): scope decrypt field scan to caller-supplied fields"). Root cause: `resolveEncryptedFields` scanned all `encrypted*` keys regardless of label, so a second decrypt pass (e.g. `LABEL_CONTACT_PII`) re-attempted fields already decrypted under `LABEL_CONTACT_SUMMARY`, causing XChaCha20-Poly1305 AEAD auth failures because ECIES derives the symmetric key as `sha256(label || sharedX)`. Fix exposes a `fieldNames?: readonly string[]` parameter on `decryptObjectFields`/`decryptArrayFields`; `src/client/lib/queries/contacts.ts` now defines `CONTACT_SUMMARY_FIELDS`, `CONTACT_PII_FIELDS`, `CONTACT_RELATIONSHIP_FIELDS` constants that `contactDetailOptions` passes through to scope each label pass. Rate limit restored to 100/sec. Regression tests in `src/client/lib/decrypt-fields.test.ts`.
 
 ## Security Audit Findings (2026-02-12, Round 4)
 
@@ -277,9 +273,9 @@ All items below have a design spec and implementation plan in `docs/superpowers/
 - [x] **Geocoding Location Fields** (`2026-03-22-geocoding-location-fields-plan.md`) — GeocodingAdapter interface, OpenCage + Geoapify implementations, LocationField component with autocomplete/GPS, admin settings, i18n, E2E tests.
 - [x] **Hub Admin Zero-Trust Visibility** (`2026-03-22-hub-admin-zero-trust-visibility-plan.md`) — Complete. allowSuperAdminAccess field exposed in Hub type/schema, IdentityService getSuperAdminPubkeys/isSuperAdmin, PATCH /hubs/:hubId/settings with self-grant 403 protection, GET /hubs/:hubId/key-envelope, admin UI toggle with confirmation dialogs and access badges, i18n for 13 locales, 4 E2E tests.
 - [ ] **E2E Test Coverage Expansion** (`2026-03-22-e2e-test-coverage-expansion.md`) — Contacts page, hub membership management, WebAuthn passkeys, blast sending, voicemail webhooks.
-- [ ] **Unit & Integration Tests** (`2026-03-22-unit-integration-tests.md`) — bun:test suite for crypto labels, custom fields, rate limiter, audit chain, WebAuthn counter, hub key envelopes. Files exist in src/server/__tests__/ (import paths fixed), needs DB integration tests verified against live Postgres.
-- [ ] **File Service & Blob Storage** (`2026-03-22-file-service-blob-storage.md`) — Replace R2 with Drizzle file_records table + MinIO BlobStorage, FilesService class.
-- [ ] **Watchtower Auto-Updates** (`2026-03-22-watchtower-production-updates.md`) — Watchtower sidecar in docker-compose.production.yml, label-based opt-in, GHCR auth, Ansible template.
+- [x] **Unit & Integration Tests** (`2026-03-22-unit-integration-tests.md`) — Complete: colocated `.test.ts` pattern adopted instead of `tests/unit/`. Coverage confirmed via `src/shared/crypto-labels.test.ts`, `src/server/services/records.integration.test.ts` (audit chain), `src/server/services/identity.integration.test.ts` (WebAuthn + counter monotonicity), `src/server/services/settings-rate-limiter.integration.test.ts`, `src/server/services/settings-hub-keys.integration.test.ts`, `src/client/lib/audit-chain-verifier.test.ts`. WebAuthn counter monotonicity is enforced via atomic conditional UPDATE in `identity.ts:560` — the security gap the plan called out has already been fixed.
+- [x] **File Service & Blob Storage** (`2026-03-22-file-service-blob-storage.md`) — Complete: `FilesService` exists at `src/server/services/files.ts`, `file_records` table defined in `src/server/db/schema/conversations.ts`, storage abstraction via `StorageManager`, voicemail pipeline at `src/server/lib/voicemail-storage.ts` uses the service.
+- [x] **Watchtower Auto-Updates** (`2026-03-22-watchtower-production-updates.md`) — Complete: Watchtower service + labels in `docker-compose.production.yml`, Ansible Jinja2 template, `demo_vars.example.yml`, `.env.example`, and `PRODUCTION_CHECKLIST.md` all wired up.
 
 ### Provider Auto-Registration Refactor (2026-03-23) — COMPLETE
 
@@ -316,13 +312,13 @@ admin-flow (18), blast-sending (8), notes-crud (7), smoke (4), theme (7), health
 - [ ] **roles.spec.ts** — 6/28 tests fail: serial chain cascade (role update fails after create; reporter/custom role hub context 400 vs 403)
 - [ ] **Hub-scoped API calls from non-hub-member volunteers** return 400 (hub context required) instead of 403 (permission denied) — tests accept both
 - [ ] **conversations.spec.ts** — setup wizard flow is fragile; mostly smoke tests; needs real message send/receive tests when providers are configured
-- [ ] **hub-access-control.spec.ts** — 1/4 tests fail (missing data-testid="hub-access-toggle")
+- [x] **hub-access-control.spec.ts** — Verified 2026-04-12: all 3 tests pass. `data-testid="hub-access-toggle"` already on the `Switch` at `src/client/components/admin-sections/hubs-edit-dialog.tsx:246`. The branch that renders the toggle only fires for non-super-admins; super admins get a read-only `Badge`, so the test's `.not.toBeVisible()` assertion on the toggle is correct and passes.
 
 ## App Bugs Found During Test Restructuring (2026-03-24)
 
 - [x] **CAPTCHA retry not implemented** — Investigated 2026-04-02: service layer correctly implements retry logic (attempt tracking, max enforcement, re-Gather). Test 5.4 in `voice-captcha.spec.ts` is active (no test.fixme) and validates the behavior. Bug was either already fixed or incorrectly reported.
 - [x] **Dashboard incoming calls require Nostr relay** — Investigated 2026-04-02: REST polling fallback already implemented at 30s intervals (`src/client/lib/queries/calls.ts:87-112`). Nostr is primary for sub-second updates; REST is the safety net. No additional work needed.
-- [ ] **Drizzle migration journal out of sync** — Migrations 0004, 0005, 0008, 0009, 0010 were in SQL files but missing from the journal or not applied to the dev database. Root cause: worktree-based development may have lost migration state. Applied manually during test restructuring.
+- [x] **Drizzle migration journal out of sync** — Done in PR #99 (2026-04-13): resolved current drift at index 0056. Commit 31b62dc2 (Tier 1+2+3 merge) shipped two `0056_*.sql` files but journal only tracked `0056_tier3_per_device_keys`; `0056_tier2_recovery_group` was orphaned so the `hub_recovery_groups` / `hub_recovery_group_shares` / `user_recovery_envelopes` / `recovery_sessions` tables never got created despite being referenced by the recovery service. Renamed the orphan to `0059_tier2_recovery_group.sql` and added the journal entry; verified clean apply against a fresh DB (61 migrations, all recovery tables present). Also restored `shamir-secret-sharing` to package.json (same prereq as PR #96/#98). The older 0004/0005/0008/0009/0010 drift referenced in this entry appears to have been resolved by subsequent work — dev DB up through 51 applied migrations has no gaps.
 - [x] **TwiML callback URLs use /api/telephony/ prefix** — Fixed 2026-04-02: global find-replace `/api/telephony/` → `/telephony/` across all 19 affected files (4 adapters, 6 capabilities, test adapter, test payload factory, 5 provider-setup, 1 UI component, 1 live test helper).
 
 ## SIP WebRTC Browser Calling
@@ -350,7 +346,7 @@ admin-flow (18), blast-sending (8), notes-crud (7), smoke (4), theme (7), health
 ## Data Layer — Future Work
 
 - [x] **React Query for fetch + decrypt** — Completed in react-query refactor PR #28.
-- [ ] **Eliminate remaining decryptHubField calls** — 53 usages of `decryptHubField` still in 10+ component files (shifts, blasts, hubs, contacts, etc.). Each should be moved to the respective React Query `queryFn` following the decrypt-in-queryFn pattern established in roles.ts. Also remove `hub-field-crypto.ts` once all callsites are migrated.
+- [x] **Eliminate remaining decryptHubField calls** — Verified 2026-04-12: all `decryptHubField()` call sites now live in `src/client/lib/queries/*.ts` (teams, tags, settings, shifts, notes, blasts, roles, reports, hubs, firehose) — the target decrypt-in-queryFn pattern. Zero component-level callers remain. The 2 mentions in `tag-input.tsx` and `platform-roles-section.tsx` are comments referencing the function, not calls. `hub-field-crypto.ts` stays as the implementation the queries import.
 
 ## Comprehensive Audit (2026-04-02)
 
@@ -404,10 +400,12 @@ admin-flow (18), blast-sending (8), notes-crud (7), smoke (4), theme (7), health
 ### Incomplete Adapter Completion
 **Spec:** `docs/superpowers/specs/2026-04-02-adapter-completion.md` | **Plan:** `docs/superpowers/plans/2026-04-02-adapter-completion.md`
 
-- [ ] **Telnyx telephony adapter** — Full TelephonyAdapter (23 methods) with TeXML format. ~600 lines.
-- [ ] **Telnyx SMS adapter** — MessagingAdapter with JSON webhooks. ~200 lines.
-- [ ] **SignalWire WebRTC tokens** — Copy Twilio JWT logic, adapt config. ~30 lines.
-- [ ] **Vonage webhook verification** — Implement Application API query with RS256 JWT. ~50 lines.
+- [x] **Telnyx telephony adapter** — Complete: `src/server/telephony/telnyx.ts` implements all 23 TelephonyAdapter methods (TeXML IVR, Call Control API, webhook verification, recording API). Tests: `telnyx.test.ts`, `telnyx-api.test.ts`.
+- [x] **Telnyx SMS adapter** — Complete: `src/server/messaging/sms/telnyx.ts` implements `MessagingAdapter` with Telnyx JSON webhook parsing, wired into factory at `src/server/messaging/sms/factory.ts:87-92`. Tests: `telnyx.test.ts`.
+- [x] **SignalWire WebRTC tokens** — Complete: `generateSignalWireToken()` in `src/server/telephony/webrtc-tokens.ts` with HS256 JWT + Voice grant (Twilio-compatible), `isWebRtcConfigured()` guard on `webrtcEnabled` + `apiKeySid` + `apiKeySecret` + `twimlAppSid`.
+- [x] **Vonage webhook verification** — Complete: `VonageAdapter.verifyWebhookConfig()` in `src/server/telephony/vonage.ts:631` queries `GET /v2/applications/{id}` with RS256 JWT minted via `signApplicationJwt()`, compares `capabilities.voice.webhooks.answer_url` against expected base URL.
+- [x] **Telnyx WebRTC token generation** — Done in PR #98: `generateTelnyxToken()` in `src/server/telephony/webrtc-tokens.ts` uses Telnyx's two-step Telephony Credential flow (`POST /v2/telephony_credentials` with `connection_id`, then `POST /v2/telephony_credentials/{id}/token` for the login JWT). Optional `sipConnectionId` + `webrtcEnabled` fields added to `TelnyxConfigSchema`; `isWebRtcConfigured()` enforces both at runtime. 8 new tests via scoped fetch stub (`webrtc-tokens.test.ts`).
+- [ ] **Bandwidth WebRTC token generation** — `src/server/telephony/webrtc-tokens.ts:36` still throws. Bandwidth schema already has `webrtcEnabled`; needs Bandwidth Voice SDK JWT mint.
 
 ## Deferred from User Security & Device Management (2026-04-04)
 Spec: `docs/superpowers/specs/2026-04-04-user-security-device-management-design.md` (pending)
@@ -420,4 +418,4 @@ These items were identified during brainstorming but deferred as follow-up effor
 
 ## Dedupe section-layout primitives (2026-04-05)
 
-- [ ] **Dedupe user-shell + admin-shell `section-layout.tsx`** — PR #43 and PR #44 landed parallel copies. Once both merge, move the primitives to `src/client/components/section-layout/` (or `section-ui/`), update imports in both admin-sections/* and user-sections/*, delete the duplicates. APIs are identical except user-shell's `SectionActions` has a `saveButtonTestId` prop for legacy E2E selectors — keep that in the shared copy.
+- [x] **Dedupe user-shell + admin-shell `section-layout.tsx`** — Done: moved primitives to `src/client/components/section-layout/`, with a `surface: 'admin' | 'user'` prop on `SectionBody`/`SectionDescription`/`SectionActions` to preserve each surface's distinct visual rhythm and testid prefix. `saveButtonTestId` legacy override retained. 19 unit tests cover both surfaces. Old duplicates deleted.

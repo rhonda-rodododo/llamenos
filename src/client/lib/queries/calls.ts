@@ -14,7 +14,7 @@ import {
   getUserPresence,
   listActiveCalls,
 } from '@/lib/api'
-import { decryptCallRecord } from '@/lib/crypto'
+import { decryptCallRecord } from '@/lib/crypto-worker-helpers'
 import * as keyManager from '@/lib/key-manager'
 import { queryOptions, useQuery } from '@tanstack/react-query'
 import { queryKeys } from './keys'

@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { serveStatic } from '@hono/node-server/serve-static'
 import { OpenAPIHono } from '@hono/zod-openapi'
 import { Scalar } from '@scalar/hono-api-reference'
 import { Hono } from 'hono'
@@ -6,6 +9,7 @@ import type { IdPAdapter } from './idp/adapter'
 import messagingRoutes from './messaging/router'
 import { auth } from './middleware/auth'
 import { cors } from './middleware/cors'
+import { cspNonce } from './middleware/csp-nonce'
 import { errorHandler } from './middleware/error'
 import { hubContext } from './middleware/hub'
 import { logContextMiddleware } from './middleware/log-context'
@@ -22,7 +26,9 @@ import configRoutes from './routes/config'
 import contactsRoutes from './routes/contacts'
 import contactImportRoutes from './routes/contacts-import'
 import conversationsRoutes from './routes/conversations'
+import cspReportRoutes from './routes/csp-report'
 import devRoutes from './routes/dev'
+import deviceVerificationRoutes from './routes/device-verification'
 import filesRoutes from './routes/files'
 import firehoseRoutes from './routes/firehose'
 import gdprRoutes from './routes/gdpr'
@@ -38,6 +44,7 @@ import metricsRoutes, { httpMetrics } from './routes/metrics'
 import notesRoutes from './routes/notes'
 import notificationsRoutes from './routes/notifications'
 import { notificationsPublic } from './routes/notifications-public'
+import opaqueRoutes from './routes/opaque'
 import providerSetupRoutes from './routes/provider-setup'
 import provisioningRoutes from './routes/provisioning'
 import reportTypesRoutes from './routes/report-types'
@@ -69,6 +76,18 @@ const app = new Hono<AppEnv>()
 // Log context must be the first middleware so every subsequent log call
 // auto-attaches { reqId, traceId } (plus userId/hubId once layered by auth/hub).
 app.use('*', logContextMiddleware)
+
+// CSP nonce must run before securityHeaders so the header middleware can
+// read `c.get('cspNonce')` when building the CSP directive.
+app.use('*', cspNonce)
+
+// Security headers must be registered BEFORE `app.route('/api', api)` and
+// `app.route('/telephony', ...)` — Hono middleware is positional and
+// `app.use('*', ...)` does not apply retroactively to routes mounted earlier.
+// This middleware sets response headers via `await next()` then header-set,
+// so it works in the pre-routes position and attaches CSP/HSTS/COOP/COEP/etc
+// to every /api/* and /telephony/* response.
+app.use('*', securityHeaders)
 
 app.onError(errorHandler)
 
@@ -131,6 +150,7 @@ api.get(
 api.use('*', cors)
 
 // Public routes (no auth)
+api.route('/csp-report', cspReportRoutes)
 api.route('/config', configRoutes)
 api.route('/', devRoutes)
 api.route('/auth', authRoutes)
@@ -267,6 +287,7 @@ authenticated.route('/firehose', firehoseRoutes)
 authenticated.route('/gdpr', gdprRoutes)
 authenticated.route('/geocoding', geocodingRoutes)
 authenticated.route('/notifications', notificationsRoutes)
+authenticated.route('/opaque', opaqueRoutes)
 
 // Hub-scoped authenticated routes
 const hubScoped = new OpenAPIHono<AppEnv>()
@@ -287,6 +308,7 @@ hubScoped.route('/tags', tagsRoutes)
 hubScoped.route('/teams', teamsRoutes)
 hubScoped.route('/intakes', intakesRoutes)
 hubScoped.route('/firehose', firehoseRoutes)
+hubScoped.route('/devices', deviceVerificationRoutes)
 
 authenticated.route('/hubs/:hubId', hubScoped)
 
@@ -295,6 +317,7 @@ authenticated.route('/hubs/:hubId', hubScoped)
 // leaking information about which route prefixes exist.
 const KNOWN_API_PREFIXES = new Set([
   // Public routes
+  'csp-report',
   'health',
   'metrics',
   'openapi.json',
@@ -331,6 +354,7 @@ const KNOWN_API_PREFIXES = new Set([
   'gdpr',
   'geocoding',
   'firehose',
+  'opaque',
 ])
 api.use('*', async (c, next) => {
   // Extract first path segment after /api/
@@ -352,7 +376,62 @@ app.route('/telephony', telephonyRoutes)
 // Mount API under /api
 app.route('/api', api)
 
-// Static assets with security headers
-app.use('*', securityHeaders)
+// Tier 4 PR-A: in production, this host is API-only — no SPA fallback.
+// In development/test mode, serve the SPA from dist/client/ so Playwright
+// E2E tests and local dev work without a Caddy reverse proxy.
+if (process.env.ENVIRONMENT === 'development') {
+  const staticDir = path.resolve(process.cwd(), 'dist', 'client')
+
+  // CSP nonce injection. The dev CSP uses
+  // `script-src 'self' 'nonce-XXX' 'strict-dynamic'`, which makes browsers
+  // ignore `'self'` and only execute scripts that carry the matching nonce.
+  // The Vite build inserts `nonce="__CSP_NONCE__"` placeholders via
+  // cspNoncePlaceholderPlugin in vite.config.ts; we substitute the
+  // per-response nonce here. We also catch any <script> tag missing a
+  // nonce attribute (e.g. the vite-plugin-pwa register-sw script that is
+  // appended after the placeholder plugin runs) and inject one.
+  let indexTemplate: string | null = null
+  try {
+    indexTemplate = readFileSync(path.join(staticDir, 'index.html'), 'utf-8')
+  } catch {
+    // Built index.html not available — SPA fallback disabled.
+  }
+
+  if (indexTemplate) {
+    const tmpl = indexTemplate
+    // Serve `/` and `/index.html` via nonce injection BEFORE serveStatic
+    // gets a chance to return the raw template from disk. This matters
+    // because the service worker precaches `/index.html` into Cache Storage
+    // and serves it for every navigation via workbox's NavigationRoute — if
+    // that cached body still contains the literal `__CSP_NONCE__`
+    // placeholder, the browser enforces a fresh CSP nonce header against a
+    // stale body and blocks every script on reload.
+    const serveIndex = createMiddleware(async (c) => {
+      const nonce = c.get('cspNonce') ?? ''
+      const html = tmpl
+        .replaceAll('__CSP_NONCE__', nonce)
+        .replace(/<script(?![^>]*\snonce=)/g, `<script nonce="${nonce}"`)
+      return c.html(html)
+    })
+    app.get('/', serveIndex)
+    app.get('/index.html', serveIndex)
+
+    // Static assets (anything with an extension that exists on disk).
+    // `index` is disabled so directory requests fall through to the SPA
+    // fallback below instead of serving index.html raw.
+    app.use('*', serveStatic({ root: staticDir, index: '__no_index__' }))
+
+    // SPA fallback for client-side routes (/dashboard, /admin/*, …) that
+    // have no matching file on disk.
+    app.use('*', serveIndex)
+  } else {
+    // No built template — only serve static assets.
+    app.use('*', serveStatic({ root: staticDir, index: '__no_index__' }))
+  }
+} else {
+  // Production: API-only. Any request outside /api/* or /telephony/* returns
+  // JSON 404 (matches the API error envelope).
+  app.notFound((c) => c.json({ error: 'Not Found' }, 404))
+}
 
 export default app

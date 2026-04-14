@@ -5,7 +5,7 @@ test.describe('Device linking — /link-device page', () => {
   test('shows start linking button on initial load', async ({ browser }) => {
     const ctx = await browser.newContext()
     const page = await ctx.newPage()
-    await page.addInitScript(() => localStorage.removeItem('llamenos-encrypted-key-v2'))
+    await page.addInitScript(() => localStorage.removeItem('llamenos-encrypted-key'))
     await page.goto('/link-device')
     await expect(page.getByTestId('link-device-card')).toBeVisible({ timeout: 10000 })
     await expect(page.getByTestId('start-linking')).toBeVisible()
@@ -18,7 +18,7 @@ test.describe('Device linking — /link-device page', () => {
     // Inject a fake encrypted key blob
     await page.addInitScript(() => {
       localStorage.setItem(
-        'llamenos-encrypted-key-v2',
+        'llamenos-encrypted-key',
         JSON.stringify({
           version: 2,
           kdf: 'pbkdf2-sha256',
@@ -40,7 +40,7 @@ test.describe('Device linking — /link-device page', () => {
   test('shows QR code and short code after clicking start', async ({ browser }) => {
     const ctx = await browser.newContext()
     const page = await ctx.newPage()
-    await page.addInitScript(() => localStorage.removeItem('llamenos-encrypted-key-v2'))
+    await page.addInitScript(() => localStorage.removeItem('llamenos-encrypted-key'))
     await page.goto('/link-device')
     await expect(page.getByTestId('start-linking')).toBeVisible({ timeout: 10000 })
 
@@ -58,7 +58,7 @@ test.describe('Device linking — /link-device page', () => {
   test('has language selector and theme toggles', async ({ browser }) => {
     const ctx = await browser.newContext()
     const page = await ctx.newPage()
-    await page.addInitScript(() => localStorage.removeItem('llamenos-encrypted-key-v2'))
+    await page.addInitScript(() => localStorage.removeItem('llamenos-encrypted-key'))
     await page.goto('/link-device')
     await expect(page.getByTestId('link-device-card')).toBeVisible({ timeout: 10000 })
 
@@ -105,7 +105,7 @@ test.describe('Device linking — login page integration', () => {
   test('recovery view shows link-this-device button when no stored key', async ({ browser }) => {
     const ctx = await browser.newContext()
     const page = await ctx.newPage()
-    await page.addInitScript(() => localStorage.removeItem('llamenos-encrypted-key-v2'))
+    await page.addInitScript(() => localStorage.removeItem('llamenos-encrypted-key'))
     await page.goto('/login')
     // No stored key → recovery view is default
     await expect(page.getByRole('link', { name: /link this device/i })).toBeVisible({
@@ -117,7 +117,7 @@ test.describe('Device linking — login page integration', () => {
   test('link-this-device button navigates to /link-device', async ({ browser }) => {
     const ctx = await browser.newContext()
     const page = await ctx.newPage()
-    await page.addInitScript(() => localStorage.removeItem('llamenos-encrypted-key-v2'))
+    await page.addInitScript(() => localStorage.removeItem('llamenos-encrypted-key'))
     await page.goto('/login')
     await expect(page.getByRole('link', { name: /link this device/i })).toBeVisible({
       timeout: 10000,
@@ -134,7 +134,7 @@ test.describe('Device linking — login page integration', () => {
     // Inject fake stored key for PIN view
     await page.addInitScript(() => {
       localStorage.setItem(
-        'llamenos-encrypted-key-v2',
+        'llamenos-encrypted-key',
         JSON.stringify({
           version: 2,
           kdf: 'pbkdf2-sha256',

@@ -20,6 +20,53 @@ import type {
 import type { EnabledChannels, SetupState } from '@shared/schemas/settings'
 import type { Ciphertext } from './crypto-types'
 
+// --- Device Identity (Tier 3) ---
+
+export interface DeviceKeypair {
+  deviceId: string
+  signing: {
+    privateKey: CryptoKey // non-extractable Ed25519
+    publicKey: Uint8Array // raw 32 bytes
+  }
+  encryption: {
+    privateKey: CryptoKey // non-extractable X25519
+    publicKey: Uint8Array // raw 32 bytes
+  }
+  createdAt: string // ISO 8601
+  isPaperKey: boolean
+}
+
+export interface DeviceMetadata {
+  deviceId: string
+  signingPubkey: string // hex
+  encryptionPubkey: string // hex
+  encryptedDisplayName: string
+  addedByDeviceId: string | null
+  revokedAt: string | null
+  createdAt: string
+  lastSeenAt: string
+}
+
+export interface PukState {
+  generation: number
+  signPubkey: string // hex
+  dhPubkey: string // hex
+}
+
+// --- Versioned ECIES Key Envelope ---
+
+/**
+ * Wire-format versioned ECIES key envelope with embedded label identity.
+ * The `labelId` byte is looked up against LABEL_REGISTRY; a receiver that
+ * expected a different label will refuse to unwrap (CryptoLabelMismatchError).
+ */
+export interface Envelope {
+  v: 2
+  labelId: number
+  wrappedKey: Ciphertext
+  ephemeralPubkey: string
+}
+
 // --- ECIES Key Envelopes ---
 // These use the branded Ciphertext type for internal type safety.
 // The schema equivalents in @shared/schemas/records use plain strings (for zod validation).
@@ -257,6 +304,11 @@ export interface ReportType {
 }
 
 export interface CreateReportTypeInput {
+  /**
+   * Client-generated id. Required when `encryptedName` is provided so the
+   * server stores the same id the client bound into AAD via buildAad().
+   */
+  id?: string
   name: string
   description?: string
   isDefault?: boolean
@@ -283,11 +335,12 @@ export interface EncryptedFileMetadata {
   checksum: string // SHA-256 of plaintext for integrity verification
 }
 
-/** ECIES-wrapped file encryption key for one recipient. */
-export interface FileKeyEnvelope {
+/**
+ * ECIES-wrapped file encryption key for one recipient.
+ * Extends Envelope with a recipient pubkey tag for multi-recipient selection.
+ */
+export interface FileKeyEnvelope extends Envelope {
   pubkey: string
-  encryptedFileKey: Ciphertext
-  ephemeralPubkey: string
 }
 
 export interface EncryptedMetaItem {
@@ -330,6 +383,11 @@ export interface UploadInit {
   /** Optional context binding — can be provided at init time or later via PATCH /context. */
   contextType?: 'conversation' | 'note' | 'report' | 'custom_field' | 'voicemail'
   contextId?: string
+  /**
+   * Client-generated UUID used as the AAD file identity during encryption.
+   * Server uses this as the canonical fileId so that fileId-bound AAD round-trips on decrypt.
+   */
+  fileId?: string
 }
 
 /** What gets encrypted before storage — replaces plain text */

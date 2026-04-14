@@ -1,5 +1,5 @@
-import { SectionBody, SectionDescription } from '@/components/admin-shell/section-layout'
 import { ConfirmDialog } from '@/components/confirm-dialog'
+import { SectionBody, SectionDescription } from '@/components/section-layout'
 import { TagBadge } from '@/components/tag-input'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -88,25 +88,32 @@ export function TagsSection() {
     setTimeout(() => setShowSaved(false), 2000)
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!form.label.trim()) return
-
-    const encryptedLabel = encryptHubField(form.label.trim(), hubId)
-    if (!encryptedLabel) {
-      toast(t('common.error', { defaultValue: 'Error' }), 'error')
-      return
-    }
-
-    const encryptedCategory = form.category.trim()
-      ? encryptHubField(form.category.trim(), hubId)
-      : undefined
 
     if (editingId === 'new') {
       const name = form.name.trim() || slugify(form.label.trim())
       if (!name) return
 
+      // Pre-generate a client UUID for the new tag so the AAD can be bound to a stable ID.
+      const newId = crypto.randomUUID()
+      const encryptedLabel = await encryptHubField(
+        form.label.trim(),
+        hubId,
+        newId,
+        'encrypted_label'
+      )
+      if (!encryptedLabel) {
+        toast(t('common.error', { defaultValue: 'Error' }), 'error')
+        return
+      }
+      const encryptedCategory = form.category.trim()
+        ? await encryptHubField(form.category.trim(), hubId, newId, 'encrypted_category')
+        : undefined
+
       createTag.mutate(
         {
+          id: newId,
           name,
           encryptedLabel,
           color: form.color,
@@ -129,6 +136,20 @@ export function TagsSection() {
         }
       )
     } else if (editingId) {
+      const encryptedLabel = await encryptHubField(
+        form.label.trim(),
+        hubId,
+        editingId,
+        'encrypted_label'
+      )
+      if (!encryptedLabel) {
+        toast(t('common.error', { defaultValue: 'Error' }), 'error')
+        return
+      }
+      const encryptedCategory = form.category.trim()
+        ? await encryptHubField(form.category.trim(), hubId, editingId, 'encrypted_category')
+        : undefined
+
       updateTag.mutate(
         {
           id: editingId,
@@ -202,7 +223,12 @@ export function TagsSection() {
             >
               <span
                 className="h-3.5 w-3.5 rounded-full shrink-0"
-                style={{ backgroundColor: tag.color || '#888' }}
+                style={
+                  {
+                    '--tag-color': tag.color || '#888',
+                    backgroundColor: 'var(--tag-color)',
+                  } as React.CSSProperties
+                }
               />
 
               <div className="flex-1 min-w-0">
@@ -312,7 +338,12 @@ export function TagsSection() {
                         ? 'border-foreground scale-110'
                         : 'border-transparent hover:border-muted-foreground/50'
                     )}
-                    style={{ backgroundColor: color }}
+                    style={
+                      {
+                        '--swatch-color': color,
+                        backgroundColor: 'var(--swatch-color)',
+                      } as React.CSSProperties
+                    }
                     onClick={() => setForm((prev) => ({ ...prev, color }))}
                     data-testid={`admin-tags-color-${color}`}
                   >

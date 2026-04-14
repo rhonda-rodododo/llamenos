@@ -5,7 +5,7 @@
  * Note permalink navigation requires parameterized route support.
  */
 
-import { encryptNoteV2 } from '../../src/client/lib/crypto'
+import { encryptNote } from '@shared/crypto-envelopes'
 import { expect, test } from '../fixtures/auth'
 import { navigateAfterLogin } from '../helpers'
 import {
@@ -22,7 +22,7 @@ async function createNoteViaApi(
   noteText: string,
   callId: string
 ): Promise<string> {
-  const { encryptedContent, authorEnvelope, adminEnvelopes } = encryptNoteV2(
+  const { encryptedContent, authorEnvelope, adminEnvelopes } = encryptNote(
     { text: noteText },
     ADMIN_PUBKEY,
     [ADMIN_PUBKEY]

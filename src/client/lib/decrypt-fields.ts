@@ -10,7 +10,8 @@
  */
 
 import { createDebugLog } from '@/lib/debug-log'
-import { LABEL_USER_PII } from '@shared/crypto-labels'
+import { utf8ToBytes } from '@noble/ciphers/utils.js'
+import { type CryptoLabel, LABEL_USER_PII } from '@shared/crypto-labels'
 import type { RecipientEnvelope } from '@shared/types'
 import { CryptoWorkerLockedError, cryptoWorker, isWorkerLockedError } from './crypto-worker-client'
 import * as keyManager from './key-manager'
@@ -141,13 +142,22 @@ async function fireLockOnce(): Promise<void> {
  * function's "broken worker" branch, which is the last line of defence. The
  * primary guard is that `decryptObjectFields` / `resolveEncryptedFields`
  * only scans the fields the caller asked for.
+ *
+ * AAD: callers can pass an explicit `aadOverride` to bind the decrypt to a
+ * specific `(recordId, fieldName)` tuple. When omitted (legacy callers), the
+ * AAD falls back to label-only — matching what the encrypt path currently
+ * produces for envelope-encrypted fields (contacts, sessions, bans, call
+ * records). Migrating those fields to per-record AAD is tracked as a
+ * follow-up in AEAD_AUDIT_2026-04-10.md; see Tier 1 PR-B notes.
  */
 async function decryptFieldWithRecovery(
   ciphertext: string,
   envelope: RecipientEnvelope,
-  label: string
+  label: CryptoLabel,
+  aadOverride?: Uint8Array
 ): Promise<string | null> {
   const worker = cryptoWorker
+  const aad = aadOverride ?? utf8ToBytes(label)
 
   // First attempt
   try {
@@ -155,7 +165,8 @@ async function decryptFieldWithRecovery(
       ciphertext,
       envelope.ephemeralPubkey,
       envelope.wrappedKey,
-      label
+      label,
+      aad
     )
   } catch (firstErr) {
     // Known locked — no point retrying, fire lock so PIN prompt appears
@@ -170,7 +181,8 @@ async function decryptFieldWithRecovery(
         ciphertext,
         envelope.ephemeralPubkey,
         envelope.wrappedKey,
-        label
+        label,
+        aad
       )
     } catch (secondErr) {
       // Both attempts failed.
@@ -327,7 +339,7 @@ export function resolveEncryptedFields(
 export async function decryptObjectFields<T extends Record<string, unknown>>(
   obj: T,
   readerPubkey: string,
-  label: string = LABEL_USER_PII,
+  label: CryptoLabel = LABEL_USER_PII,
   fieldNames?: readonly string[]
 ): Promise<T> {
   const refs = resolveEncryptedFields(obj, readerPubkey, fieldNames)
@@ -387,7 +399,7 @@ export async function decryptObjectFields<T extends Record<string, unknown>>(
 export async function decryptEnvelopeJson<T>(
   ciphertext: string,
   envelope: RecipientEnvelope,
-  label: string
+  label: CryptoLabel
 ): Promise<T | null> {
   const cached = decryptCache.get(ciphertext, label)
   if (cached !== null) {
@@ -410,7 +422,7 @@ export async function decryptEnvelopeJson<T>(
 export async function decryptArrayFields<T extends Record<string, unknown>>(
   items: T[],
   readerPubkey: string,
-  label: string = LABEL_USER_PII,
+  label: CryptoLabel = LABEL_USER_PII,
   fieldNames?: readonly string[]
 ): Promise<T[]> {
   await Promise.all(items.map((item) => decryptObjectFields(item, readerPubkey, label, fieldNames)))

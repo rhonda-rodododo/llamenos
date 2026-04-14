@@ -19,7 +19,7 @@ import {
   updateConversation,
 } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
-import { decryptMessage } from '@/lib/crypto'
+import { decryptMessage } from '@/lib/crypto-worker-helpers'
 import { decryptArrayFields } from '@/lib/decrypt-fields'
 import * as keyManager from '@/lib/key-manager'
 import { LABEL_USER_PII } from '@shared/crypto-labels'

@@ -13,7 +13,13 @@
 #   ansible-vault edit demo_vars.yml
 
 # ─── Domain & TLS ────────────────────────────────────────────────
-# Your demo domain name (Caddy will auto-provision TLS via Let's Encrypt)
+# Your demo domain name (Caddy will auto-provision TLS via Let's Encrypt).
+# This is the REGISTRABLE parent — the deployment exposes three split
+# origins under it (app.<parent>, api.<parent>, crypto.<parent>) per
+# Tier 4 PR-A. Override llamenos_app_domain / llamenos_api_domain /
+# llamenos_crypto_domain directly if the default subdomain layout is
+# not acceptable. All three subdomains must resolve to this host and
+# Let's Encrypt will issue individual certs for each.
 domain: demo.llamenos-hotline.com
 
 # Email for Let's Encrypt certificate notifications
@@ -35,10 +41,17 @@ deploy_group: deploy
 
 # ─── Application ─────────────────────────────────────────────────
 # Docker image for the Llamenos app
-# Use a specific tag in production (e.g., ghcr.io/llamenos/llamenos:0.20.0)
-llamenos_image: ghcr.io/llamenos/llamenos:latest
+# Use a specific tag in production (e.g., ghcr.io/rhonda-rodododo/llamenos-hotline:0.45.0)
+llamenos_image: ghcr.io/rhonda-rodododo/llamenos-hotline:latest
 
-# Docker image for Caddy reverse proxy
+# Tier 4 PR-A companion image: caddy:2-alpine with dist/client baked into
+# /srv/app and dist/crypto-sandbox into /srv/crypto. Built from
+# deploy/docker/Dockerfile target: static and published alongside the
+# main llamenos image. Pin to the matching tag in production.
+llamenos_static_image: ghcr.io/rhonda-rodododo/llamenos-hotline-static:latest
+
+# (legacy, no longer used by the caddy service since Tier 4 PR-A — kept
+# as a placeholder so inventories referencing it don't fail)
 caddy_image: caddy:2.9-alpine
 
 # Docker image for PostgreSQL

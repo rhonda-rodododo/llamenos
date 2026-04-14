@@ -103,8 +103,9 @@ function createProcessor(services: ReturnType<typeof createMockServices>) {
   // Override crypto/adapter helpers — no real crypto in unit tests
   processor._getHubKey = mock(() => Promise.resolve(new Uint8Array(32)))
   processor._decryptBlastContent = mock(() => 'Hello world')
-  processor._decryptIdentifier = mock((_encrypted: string, _hubKey: Uint8Array) =>
-    Promise.resolve(`+1555${_encrypted.replace('encrypted-', '')}`)
+  processor._decryptIdentifier = mock(
+    (_subscriberId: string, encrypted: string, _hubKey: Uint8Array) =>
+      Promise.resolve(`+1555${encrypted.replace('encrypted-', '')}`)
   )
   const mockAdapter = createMockAdapter()
   processor._getAdapter = mock(() => Promise.resolve(mockAdapter))

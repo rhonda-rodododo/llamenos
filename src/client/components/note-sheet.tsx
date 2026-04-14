@@ -1,8 +1,8 @@
 import { useAuth } from '@/lib/auth'
 import { useConfig } from '@/lib/config'
-import { encryptNoteV2 } from '@/lib/crypto'
 import { useNoteSheet } from '@/lib/note-sheet-context'
 import { useDraft } from '@/lib/use-draft'
+import { encryptNote } from '@shared/crypto-envelopes'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -124,14 +124,12 @@ export function NoteSheet() {
       if (fieldValues.length > 0) {
         payload.fields = Object.fromEntries(fieldValues)
       }
-      // V2 per-note ephemeral key encryption (forward secrecy)
+      // Per-note ephemeral key encryption (forward secrecy)
       const authorPub = publicKey
       const adminPub = adminDecryptionPubkey || authorPub // fallback to self if admin decryption pubkey not available
-      const { encryptedContent, authorEnvelope, adminEnvelopes } = encryptNoteV2(
-        payload,
-        authorPub,
-        [adminPub]
-      )
+      const { encryptedContent, authorEnvelope, adminEnvelopes } = encryptNote(payload, authorPub, [
+        adminPub,
+      ])
 
       if (mode === 'edit' && editNoteId) {
         await updateNote(editNoteId, { encryptedContent, authorEnvelope, adminEnvelopes })

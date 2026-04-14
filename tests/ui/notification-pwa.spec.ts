@@ -1,5 +1,4 @@
 import { expect, test } from '../fixtures/auth'
-import { clearSessionCapsule, reenterPinAfterReload } from '../helpers'
 
 test.describe('Notification prompt banner', () => {
   test('shows notification banner when permission is default', async ({ adminPage }) => {
@@ -64,7 +63,14 @@ test.describe('Notification prompt banner', () => {
 
 test.describe('Settings notification permission status', () => {
   test('shows "Enabled" badge when notifications are granted', async ({ adminPage }) => {
-    await adminPage.addInitScript(() => {
+    // Override window.Notification on the current page (no reload), AFTER
+    // __root.tsx's mount-time subscribeToPush() effect has already run with
+    // the default permission. The previous addInitScript + reload approach
+    // made that effect fire on a fresh mount with our fake Notification, which
+    // hangs pushManager.subscribe() in headless and stalls the next route
+    // transition. Doing the override post-mount means useNotificationPermission
+    // will pick up 'granted' on its 2s poll without triggering subscribeToPush.
+    await adminPage.evaluate(() => {
       Object.defineProperty(window, 'Notification', {
         value: { permission: 'granted', requestPermission: () => Promise.resolve('granted') },
         writable: true,
@@ -72,23 +78,16 @@ test.describe('Settings notification permission status', () => {
       })
     })
 
-    // Reload so the addInitScript takes effect; clear capsule first so the
-    // locked-key redirect fires and PIN re-entry is required.
-    await clearSessionCapsule(adminPage)
-    await adminPage.reload()
-    await reenterPinAfterReload(adminPage)
+    await adminPage.getByTestId('nav-settings').click()
+    await expect(adminPage.getByTestId('settings-heading')).toBeVisible()
 
-    await adminPage.getByRole('link', { name: 'Settings', exact: true }).click()
-    await expect(
-      adminPage.getByRole('heading', { name: 'Account Settings', exact: true })
-    ).toBeVisible()
+    await adminPage.getByTestId('notifications-trigger').click()
 
-    // Expand notifications section
-    const notifSection = adminPage.getByRole('heading', { name: 'Call Notifications' })
-    await notifSection.click()
-
-    // Should show the Enabled badge
-    await expect(adminPage.getByText('Notifications are enabled.')).toBeVisible()
+    // Text assertions are the test's subject — we're verifying the UI renders
+    // the exact "Enabled" / "Notifications are enabled." strings.
+    await expect(adminPage.getByText('Notifications are enabled.')).toBeVisible({
+      timeout: 10000,
+    })
     await expect(adminPage.getByText('Enabled', { exact: true })).toBeVisible()
   })
 

@@ -142,8 +142,8 @@ function LinkDevicePage() {
     }
     try {
       // Device linking: use synthetic IdP value; real IdP rotation will happen at first unlock
-      const { syntheticIdpValue } = await import('@/lib/key-store-v2')
-      const kp = await import('@/lib/crypto').then((m) => m.keyPairFromNsec(nsec))
+      const { syntheticIdpValue } = await import('@/lib/key-store')
+      const kp = await import('@shared/crypto-primitives').then((m) => m.keyPairFromNsec(nsec))
       const linkPubkey = kp?.publicKey ?? ''
       await keyManager.importKey(
         nsec,

@@ -9,7 +9,7 @@
  * a placeholder when locked.
  */
 
-import { LABEL_USER_PII } from '@shared/crypto-labels'
+import { type CryptoLabel, LABEL_USER_PII } from '@shared/crypto-labels'
 import type { Ciphertext } from '@shared/crypto-types'
 import type { RecipientEnvelope } from '@shared/types'
 import { ClientCryptoService } from './crypto-service'
@@ -23,7 +23,7 @@ export function decryptEnvelopeField(
   envelopes: RecipientEnvelope[] | null | undefined,
   secretKey: Uint8Array,
   pubkey: string,
-  label: string = LABEL_USER_PII
+  label: CryptoLabel = LABEL_USER_PII
 ): string | null {
   if (!encrypted || !envelopes?.length) return null
   try {

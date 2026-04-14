@@ -21,7 +21,7 @@ import {
   updateNote,
 } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
-import { decryptNoteV2, decryptTranscription } from '@/lib/crypto'
+import { decryptNote, decryptTranscription } from '@/lib/crypto-worker-helpers'
 import { decryptHubField } from '@/lib/hub-field-crypto'
 import * as keyManager from '@/lib/key-manager'
 import type { NotePayload } from '@shared/types'
@@ -91,7 +91,7 @@ export const notesListOptions = (filters: NoteFilters | undefined, auth: NotesAu
             ? (note.adminEnvelopes?.find((e) => e.pubkey === myPubkey) ?? note.adminEnvelopes?.[0])
             : note.authorEnvelope
           if (envelope) {
-            payload = (await decryptNoteV2(note.encryptedContent, envelope)) || {
+            payload = (await decryptNote(note.encryptedContent, envelope)) || {
               text: '[Decryption failed]',
             }
           } else {
@@ -169,7 +169,7 @@ export const noteDetailOptions = (noteId: string, auth: NotesAuth) =>
             rawNote.adminEnvelopes?.[0])
           : rawNote.authorEnvelope
         if (envelope) {
-          payload = (await decryptNoteV2(rawNote.encryptedContent, envelope)) || {
+          payload = (await decryptNote(rawNote.encryptedContent, envelope)) || {
             text: '[Decryption failed]',
           }
         } else {
@@ -211,23 +211,43 @@ export const customFieldsOptions = (hubId = 'global') =>
     queryKey: queryKeys.settings.customFields(),
     queryFn: async (): Promise<CustomFieldDefinition[]> => {
       const res = await getCustomFields()
-      return (res.fields ?? []).map((field) => {
-        const decryptedOptions = decryptHubField(field.encryptedOptions, hubId, '')
-        return {
-          ...field,
-          name: decryptHubField(field.encryptedFieldName, hubId, field.name),
-          label: decryptHubField(field.encryptedLabel, hubId, field.label),
-          options: decryptedOptions
-            ? (() => {
-                try {
-                  return JSON.parse(decryptedOptions) as string[]
-                } catch {
-                  return field.options
-                }
-              })()
-            : field.options,
-        }
-      })
+      return Promise.all(
+        (res.fields ?? []).map(async (field) => {
+          const decryptedOptions = await decryptHubField(
+            field.encryptedOptions,
+            hubId,
+            field.id,
+            'encrypted_options',
+            ''
+          )
+          return {
+            ...field,
+            name: await decryptHubField(
+              field.encryptedFieldName,
+              hubId,
+              field.id,
+              'encrypted_field_name',
+              field.name
+            ),
+            label: await decryptHubField(
+              field.encryptedLabel,
+              hubId,
+              field.id,
+              'encrypted_label',
+              field.label
+            ),
+            options: decryptedOptions
+              ? (() => {
+                  try {
+                    return JSON.parse(decryptedOptions) as string[]
+                  } catch {
+                    return field.options
+                  }
+                })()
+              : field.options,
+          }
+        })
+      )
     },
     staleTime: 10 * 60 * 1000, // 10 minutes
   })

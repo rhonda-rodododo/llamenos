@@ -55,10 +55,14 @@ export async function listRoles(
         DEFAULT_ROLES.map((r) => ({
           id: r.id,
           hubId: hId,
-          encryptedName: hubKey ? cryptoService.hubEncrypt(r.name, hubKey) : (r.name as Ciphertext), // Plaintext until hub key available (pre-production)
+          // AAD must match the client's `(row.id, fieldName)` formula so
+          // hub-field-crypto.ts can decrypt the seeded row.
+          encryptedName: hubKey
+            ? cryptoService.hubEncryptField(r.name, hubKey, r.id, 'encrypted_name')
+            : (r.name as Ciphertext), // Plaintext until hub key available (pre-production)
           encryptedDescription: r.description
             ? hubKey
-              ? cryptoService.hubEncrypt(r.description, hubKey)
+              ? cryptoService.hubEncryptField(r.description, hubKey, r.id, 'encrypted_description')
               : (r.description as Ciphertext)
             : null,
           permissions: r.permissions,
@@ -100,7 +104,11 @@ export async function createRole(
     data.description ??
     null) as Ciphertext | null
 
-  const id = `role-${crypto.randomUUID()}`
+  // Client-provided id is required for AAD binding: the client seals the
+  // ciphertext with buildAad(label, id, fieldName) before POST. Accept it
+  // verbatim so decrypt on refetch matches. Legacy callers that omit id
+  // fall back to a server-generated UUID.
+  const id = data.id ?? `role-${crypto.randomUUID()}`
   const [row] = await db
     .insert(roles)
     .values({

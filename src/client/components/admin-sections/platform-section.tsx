@@ -1,8 +1,4 @@
-import {
-  SectionBanner,
-  SectionBody,
-  SectionDescription,
-} from '@/components/admin-shell/section-layout'
+import { SectionBanner, SectionBody, SectionDescription } from '@/components/section-layout'
 import { useTranslation } from 'react-i18next'
 
 /**

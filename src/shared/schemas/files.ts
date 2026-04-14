@@ -10,9 +10,15 @@ export const EncryptedFileMetadataSchema = z.object({
 })
 export type EncryptedFileMetadata = z.infer<typeof EncryptedFileMetadataSchema>
 
+/**
+ * ECIES key envelope for a single file recipient.
+ * Wire-format envelope with version byte, labelId, wrapped per-file key, and recipient pubkey tag.
+ */
 export const FileKeyEnvelopeSchema = z.object({
+  v: z.literal(2),
+  labelId: z.number().int(),
   pubkey: z.string(),
-  encryptedFileKey: z.string(),
+  wrappedKey: z.string(),
   ephemeralPubkey: z.string(),
 })
 export type FileKeyEnvelope = z.infer<typeof FileKeyEnvelopeSchema>
@@ -56,5 +62,11 @@ export const UploadInitSchema = z.object({
   encryptedMetadata: z.array(EncryptedMetaItemSchema),
   contextType: z.enum(['conversation', 'note', 'report', 'custom_field', 'voicemail']).optional(),
   contextId: z.string().optional(),
+  /**
+   * Client-generated UUID for AAD binding.
+   * The server records this as the canonical fileId so that the fileId-bound AAD
+   * round-trips correctly on decrypt.
+   */
+  fileId: z.string().uuid().optional(),
 })
 export type UploadInit = z.infer<typeof UploadInitSchema>
