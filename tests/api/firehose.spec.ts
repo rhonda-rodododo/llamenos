@@ -23,7 +23,6 @@ test.describe('Firehose Connections API', () => {
 
   let connectionId: string
   let reportTypeId: string
-  let sealKeyConfigured: boolean
 
   test.beforeAll(async ({ request }) => {
     ctx = await TestContext.create(request, {
@@ -41,21 +40,16 @@ test.describe('Firehose Connections API', () => {
     const rt = rtData.reportType ?? rtData
     reportTypeId = rt.id
 
-    // Probe whether FIREHOSE_AGENT_SEAL_KEY is configured by attempting a create
-    const probeRes = await adminApi.post(ctx.hubPath('/firehose'), {
+    // Create the shared connection used by read/update/delete tests.
+    const createRes = await adminApi.post(ctx.hubPath('/firehose'), {
       reportTypeId,
       displayName: 'probe-connection',
       extractionIntervalSec: 60,
       bufferTtlDays: 7,
     })
-    if (probeRes.status() === 503) {
-      sealKeyConfigured = false
-      return
-    }
-    sealKeyConfigured = true
-    expect(probeRes.status()).toBe(201)
-    const probeData = await probeRes.json()
-    connectionId = probeData.connection.id
+    expect(createRes.status()).toBe(201)
+    const createData = await createRes.json()
+    connectionId = createData.connection.id
   })
 
   test.beforeEach(async ({ request }) => {
@@ -70,11 +64,7 @@ test.describe('Firehose Connections API', () => {
   // ─── CRUD ────────────────────────────────────────────────────────────────
 
   test('POST /firehose - creates a connection', async () => {
-    if (!sealKeyConfigured) {
-      test.skip(true, 'FIREHOSE_AGENT_SEAL_KEY not configured — skipping create test')
-      return
-    }
-    // connectionId was set during beforeAll probe — verify it was created correctly
+    // connectionId was set during beforeAll — verify it was created correctly
     expect(connectionId).toBeTruthy()
 
     // Fetch the connection to verify fields
@@ -91,10 +81,6 @@ test.describe('Firehose Connections API', () => {
   })
 
   test('GET /firehose - lists connections', async () => {
-    if (!sealKeyConfigured) {
-      test.skip(true, 'FIREHOSE_AGENT_SEAL_KEY not configured — skipping list test')
-      return
-    }
     const res = await adminApi.get(ctx.hubPath('/firehose'))
     expect(res.status()).toBe(200)
     const data = await res.json()
@@ -104,10 +90,6 @@ test.describe('Firehose Connections API', () => {
   })
 
   test('GET /firehose/:id - gets a connection', async () => {
-    if (!sealKeyConfigured) {
-      test.skip(true, 'FIREHOSE_AGENT_SEAL_KEY not configured — skipping get test')
-      return
-    }
     const res = await adminApi.get(ctx.hubPath(`/firehose/${connectionId}`))
     expect(res.status()).toBe(200)
     const data = await res.json()
@@ -122,10 +104,6 @@ test.describe('Firehose Connections API', () => {
   })
 
   test('GET /firehose/status - returns health for all connections', async () => {
-    if (!sealKeyConfigured) {
-      test.skip(true, 'FIREHOSE_AGENT_SEAL_KEY not configured — skipping status test')
-      return
-    }
     const res = await adminApi.get(ctx.hubPath('/firehose/status'))
     expect(res.status()).toBe(200)
     const data = await res.json()
@@ -138,10 +116,6 @@ test.describe('Firehose Connections API', () => {
   })
 
   test('PATCH /firehose/:id - updates extraction interval and geo context', async () => {
-    if (!sealKeyConfigured) {
-      test.skip(true, 'FIREHOSE_AGENT_SEAL_KEY not configured — skipping update test')
-      return
-    }
     const res = await adminApi.patch(ctx.hubPath(`/firehose/${connectionId}`), {
       extractionIntervalSec: 120,
       geoContext: 'North America',
@@ -157,11 +131,6 @@ test.describe('Firehose Connections API', () => {
   })
 
   test('PATCH /firehose/:id - pauses and resumes connection', async () => {
-    if (!sealKeyConfigured) {
-      test.skip(true, 'FIREHOSE_AGENT_SEAL_KEY not configured — skipping pause/resume test')
-      return
-    }
-
     // Pause
     const pauseRes = await adminApi.patch(ctx.hubPath(`/firehose/${connectionId}`), {
       status: 'paused',
@@ -192,11 +161,6 @@ test.describe('Firehose Connections API', () => {
   })
 
   test('DELETE /firehose/:id - deletes a connection', async () => {
-    if (!sealKeyConfigured) {
-      test.skip(true, 'FIREHOSE_AGENT_SEAL_KEY not configured — skipping delete test')
-      return
-    }
-
     // Delete the connection
     const deleteRes = await adminApi.delete(ctx.hubPath(`/firehose/${connectionId}`))
     expect(deleteRes.status()).toBe(200)
@@ -257,27 +221,5 @@ test.describe('Firehose Connections API', () => {
       })
       expect(res.status()).toBe(400)
     })
-  })
-
-  // ─── POST returns 503 when seal key is missing ────────────────────────────
-
-  test('POST /firehose - responds 503 when seal key not configured (env-dependent)', async () => {
-    // This test verifies behavior in either env state:
-    // - If sealKeyConfigured is false, the probe in beforeAll already returned 503
-    // - If sealKeyConfigured is true, the key is set and we cannot easily test 503 here
-    // We verify the route exists and behaves correctly based on env config.
-    if (sealKeyConfigured) {
-      // Key is configured — a valid request should succeed (already tested above)
-      test.skip(true, 'Seal key is configured — 503 path not reachable in this env')
-    } else {
-      // Verify the 503 response contract
-      const res = await adminApi.post(ctx.hubPath('/firehose'), {
-        reportTypeId: reportTypeId ?? 'placeholder-id',
-        displayName: 'no-key-connection',
-      })
-      expect(res.status()).toBe(503)
-      const data = await res.json()
-      expect(typeof data.error).toBe('string')
-    }
   })
 })
