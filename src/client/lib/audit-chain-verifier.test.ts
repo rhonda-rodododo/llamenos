@@ -130,8 +130,7 @@ describe('verifyAuditChain', () => {
       cacheStore: cache,
     })
     expect(head).toBeNull()
-    const row = await cache.get(HUB_ID)
-    expect(row?.lastVerifiedEntryHash).toBeNull()
+    expect(await cache.get(HUB_ID)).toBeNull()
   })
 
   test('rejects divergent prevEntryHash', async () => {
@@ -381,18 +380,12 @@ describe('verifyAuditChain', () => {
     expect(fetchCalls).toEqual([entries[1].entryHash])
   })
 
-  test('empty chain throws before the cache is written (no cache poisoning)', async () => {
-    // First call: fetcher returns zero entries and there's no prior cached
-    // row. The verifier must throw empty_chain and NOT leave a row behind.
-    await expect(
-      verifyAuditChain(HUB_ID, new Set([ADMIN_PUB]), {
-        fetchEntriesSince: async () => [],
-        cacheStore: cache,
-      })
-    ).rejects.toMatchObject({
-      name: 'ChainVerificationError',
-      code: 'empty_chain',
+  test('empty chain returns null without writing cache (no cache poisoning)', async () => {
+    const head = await verifyAuditChain(HUB_ID, new Set([ADMIN_PUB]), {
+      fetchEntriesSince: async () => [],
+      cacheStore: cache,
     })
+    expect(head).toBeNull()
     expect(await cache.get(HUB_ID)).toBeNull()
   })
 })

@@ -237,9 +237,7 @@ export async function verifyAuditChain(
 
   const effectiveHead = head ?? cachedRow?.headEntry ?? null
 
-  // Emptiness check precedes the cache write so a never-populated chain
-  // cannot poison the IDB row with a trust set from zero entries.
-  if (!effectiveHead) throw new ChainVerificationError('empty_chain')
+  if (!effectiveHead) return null
 
   const newRow: ChainCacheRow = {
     hubId,
