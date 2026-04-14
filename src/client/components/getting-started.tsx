@@ -130,7 +130,7 @@ export function GettingStartedChecklist() {
   if (allDone) return null
 
   return (
-    <Card className="border-primary/20 bg-primary/5">
+    <Card data-testid="getting-started-checklist" className="border-primary/20 bg-primary/5">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-base">
@@ -147,6 +147,7 @@ export function GettingStartedChecklist() {
               />
             </Button>
             <Button
+              data-testid="getting-started-dismiss"
               variant="ghost"
               size="icon-xs"
               onClick={handleDismiss}
