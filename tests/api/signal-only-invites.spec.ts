@@ -7,15 +7,6 @@ import { generateSecretKey } from 'nostr-tools/pure'
 import { createAuthedRequest } from '../helpers/authed-request'
 
 test.describe('Signal-only user invites', () => {
-  test.beforeAll(async ({ request }) => {
-    try {
-      const res = await request.get('/api/health/live', { timeout: 5000 })
-      if (!res.ok()) test.skip(true, 'Server not reachable')
-    } catch {
-      test.skip(true, 'Server not reachable')
-    }
-  })
-
   test('user invite send rejects sms channel', async ({ request }) => {
     const authed = createAuthedRequest(request, generateSecretKey())
     // Request body zod rejects unknown channel enum values at validation
