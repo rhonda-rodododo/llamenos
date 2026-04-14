@@ -12,9 +12,9 @@
  *   3.3: Session from passkey auth works for API calls
  *   4.1: Delete passkey credential
  *
- * All tests skip gracefully when:
- *   - Browser does not support WebAuthn (non-Chromium)
- *   - CDP session fails to set up virtual authenticator
+ * Playwright is configured to run UI tests under Desktop Chrome only, so
+ * the CDP-based virtual authenticator must always be available. If setup
+ * throws, that's a real failure — no silent skip.
  */
 
 import { type CDPSession, type Page, expect, test } from '../fixtures/auth'
@@ -24,30 +24,21 @@ import { navigateAfterLogin } from '../helpers'
 // Helper: Virtual Authenticator
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Enable virtual authenticator via CDP.
- * Returns { cdp, authenticatorId } for cleanup.
- * Returns null if CDP/WebAuthn not supported (non-Chromium).
- */
 async function setupVirtualAuthenticator(
   page: Page
-): Promise<{ cdp: CDPSession; authenticatorId: string } | null> {
-  try {
-    const cdp = await page.context().newCDPSession(page)
-    await cdp.send('WebAuthn.enable', { enableUI: false })
-    const { authenticatorId } = await cdp.send('WebAuthn.addVirtualAuthenticator', {
-      options: {
-        protocol: 'ctap2',
-        transport: 'internal',
-        hasResidentKey: true,
-        hasUserVerification: true,
-        isUserVerified: true,
-      },
-    })
-    return { cdp, authenticatorId }
-  } catch {
-    return null
-  }
+): Promise<{ cdp: CDPSession; authenticatorId: string }> {
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('WebAuthn.enable', { enableUI: false })
+  const { authenticatorId } = await cdp.send('WebAuthn.addVirtualAuthenticator', {
+    options: {
+      protocol: 'ctap2',
+      transport: 'internal',
+      hasResidentKey: true,
+      hasUserVerification: true,
+      isUserVerified: true,
+    },
+  })
+  return { cdp, authenticatorId }
 }
 
 async function teardownVirtualAuthenticator(
@@ -91,11 +82,6 @@ test.describe('Passkey registration', () => {
 
   test('admin can register a passkey — credential appears in list', async ({ adminPage }) => {
     const auth = await setupVirtualAuthenticator(adminPage)
-    if (!auth) {
-      test.skip(true, 'Virtual authenticator not supported (non-Chromium)')
-      return
-    }
-
     await openPasskeysSection(adminPage)
 
     const labelInput = adminPage.getByTestId('passkey-label-input')
@@ -122,10 +108,6 @@ test.describe('Passkey registration', () => {
 
   test('register button is disabled when label is empty', async ({ adminPage }) => {
     const auth = await setupVirtualAuthenticator(adminPage)
-    if (!auth) {
-      test.skip(true, 'Virtual authenticator not supported')
-      return
-    }
 
     await openPasskeysSection(adminPage)
 
@@ -146,10 +128,6 @@ test.describe('Passkey registration', () => {
 
   test('multiple passkeys can be registered', async ({ adminPage }) => {
     const auth1 = await setupVirtualAuthenticator(adminPage)
-    if (!auth1) {
-      test.skip(true, 'Virtual authenticator not supported')
-      return
-    }
 
     await openPasskeysSection(adminPage)
 
@@ -206,10 +184,6 @@ test.describe('Passkey authentication', () => {
 
   test('login with passkey succeeds without entering nsec', async ({ adminPage }) => {
     const auth = await setupVirtualAuthenticator(adminPage)
-    if (!auth) {
-      test.skip(true, 'Virtual authenticator not supported')
-      return
-    }
 
     await openPasskeysSection(adminPage)
     const labelInput = adminPage.getByTestId('passkey-label-input')
@@ -270,10 +244,6 @@ test.describe('Passkey authentication', () => {
 
   test('session from passkey auth is valid for API calls', async ({ adminPage }) => {
     const auth = await setupVirtualAuthenticator(adminPage)
-    if (!auth) {
-      test.skip(true, 'Virtual authenticator not supported')
-      return
-    }
 
     await openPasskeysSection(adminPage)
     const labelInput = adminPage.getByTestId('passkey-label-input')
@@ -377,10 +347,6 @@ test.describe('Credential management', () => {
 
   test('deleting a passkey removes it from the list', async ({ adminPage }) => {
     const auth = await setupVirtualAuthenticator(adminPage)
-    if (!auth) {
-      test.skip(true, 'Virtual authenticator not supported')
-      return
-    }
 
     await openPasskeysSection(adminPage)
     const labelInput = adminPage.getByTestId('passkey-label-input')
