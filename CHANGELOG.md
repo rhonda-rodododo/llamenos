@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.50.1] - 2026-04-14
+
+### Bug Fixes
+
+- filter revoked devices in findDeviceBySigningPubkey (#146)
+
+### Miscellaneous
+
+- v0.50.1 [skip ci]
+
 ## [0.50.0] - 2026-04-14
 
 ### Documentation
@@ -14,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Features
 
 - wire sframe key-distribution, recipients, rotation, DTLS (#131)
+- wire device-identity bootstrap into setup + unlock (#129)
 
 ### Miscellaneous
 
