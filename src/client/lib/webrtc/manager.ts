@@ -18,10 +18,36 @@ import { PlivoWebRTCAdapter } from './adapters/plivo'
 import { SipWebRTCAdapter } from './adapters/sip'
 import { TwilioWebRTCAdapter } from './adapters/twilio'
 import { VonageWebRTCAdapter } from './adapters/vonage'
+import { SFrameWiringError, buildSFrameCallHook } from './sframe-call-hook'
+import type { SFramePeerConnectionHook } from './sframe-hook-types'
+import { type SFrameWorkerClient, getSFrameWorker } from './sframe-worker-client'
 import type { StateChangeHandler, WebRTCAdapter, WebRtcState } from './types'
 
 // Re-export types consumed by other modules
 export type { StateChangeHandler, WebRtcState }
+
+/**
+ * End-to-end-encryption status reported by the manager to UI surfaces.
+ *
+ *  - `unknown`      — no call active, or not yet probed.
+ *  - `active`       — SFrame transforms are installed; call is E2EE.
+ *  - `unavailable`  — SFrame worker cannot run (browser unsupported or
+ *                     worker crashed). Fail-closed: the active call has
+ *                     been torn down and the next call is blocked until
+ *                     the operator acknowledges the fallback banner.
+ */
+export type E2eeStatus = 'unknown' | 'active' | 'unavailable'
+
+export type E2eeStatusHandler = (status: E2eeStatus, reason?: string) => void
+
+/**
+ * Injection seam for tests — lets them swap the worker-client factory and the
+ * hook builder without going through the real Worker constructor.
+ */
+export interface SFrameInjection {
+  getSFrameWorker?: () => SFrameWorkerClient | null
+  buildHook?: (client: SFrameWorkerClient | null, senderId: string) => SFramePeerConnectionHook
+}
 
 // ---------------------------------------------------------------------------
 // Module-level singleton state
@@ -35,24 +61,57 @@ let currentProvider: string | null = null
 let incomingCallSid: string | null = null
 let refreshTimer: ReturnType<typeof setTimeout> | null = null
 
+// SFrame wiring
+let sframeInjection: SFrameInjection = {}
+let sframeClient: SFrameWorkerClient | null = null
+let e2eeStatus: E2eeStatus = 'unknown'
+let e2eeReason: string | undefined
+const e2eeHandlers = new Set<E2eeStatusHandler>()
+
+/**
+ * Override the SFrame worker-client factory and/or hook builder used by the
+ * manager. Returns a disposer that restores the previous injection. Tests use
+ * this to swap real Workers for stubs.
+ */
+export function __setSFrameInjection(injection: SFrameInjection): () => void {
+  const prev = sframeInjection
+  sframeInjection = injection
+  return () => {
+    sframeInjection = prev
+  }
+}
+
+function resolveSFrameWorker(): SFrameWorkerClient | null {
+  const factory = sframeInjection.getSFrameWorker ?? getSFrameWorker
+  return factory()
+}
+
+function resolveHookBuilder(
+  client: SFrameWorkerClient | null,
+  senderId: string
+): SFramePeerConnectionHook {
+  if (sframeInjection.buildHook) return sframeInjection.buildHook(client, senderId)
+  return buildSFrameCallHook({ sframeClient: client, senderId })
+}
+
 // ---------------------------------------------------------------------------
 // Adapter factory
 // ---------------------------------------------------------------------------
 
-function createAdapter(provider: string): WebRTCAdapter {
+function createAdapter(provider: string, sframeHook: SFramePeerConnectionHook): WebRTCAdapter {
   switch (provider) {
     case 'twilio':
     case 'signalwire':
-      return new TwilioWebRTCAdapter()
+      return new TwilioWebRTCAdapter({ sframeHook })
     case 'vonage':
-      return new VonageWebRTCAdapter()
+      return new VonageWebRTCAdapter({ sframeHook })
     case 'plivo':
-      return new PlivoWebRTCAdapter()
+      return new PlivoWebRTCAdapter({ sframeHook })
     case 'asterisk':
     case 'freeswitch':
     case 'kamailio':
     case 'sip':
-      return new SipWebRTCAdapter()
+      return new SipWebRTCAdapter({ sframeHook })
     default:
       throw new Error(`No WebRTC adapter for provider: ${provider}`)
   }
@@ -75,6 +134,27 @@ function setState(state: WebRtcState, error?: string): void {
       handler('ready')
     }
   }
+}
+
+function setE2eeStatus(status: E2eeStatus, reason?: string): void {
+  e2eeStatus = status
+  e2eeReason = reason
+  for (const handler of e2eeHandlers) {
+    handler(status, reason)
+  }
+}
+
+/**
+ * Detect whether an adapter-emitted error came from the SFrame hook. Adapters
+ * forward the hook rejection verbatim, so we can check `instanceof` or walk
+ * the cause chain. This avoids false-positive `unavailable` flips from
+ * unrelated adapter errors (registration failure, ICE disconnect, etc.).
+ */
+function isSFrameHookFailure(err: Error): boolean {
+  if (err instanceof SFrameWiringError) return true
+  const cause = (err as Error & { cause?: unknown }).cause
+  if (cause instanceof SFrameWiringError) return true
+  return false
 }
 
 // ---------------------------------------------------------------------------
@@ -134,6 +214,31 @@ export function onStateChange(handler: StateChangeHandler): () => void {
 }
 
 /**
+ * Current end-to-end-encryption status for the active (or most recent) call.
+ */
+export function getE2eeStatus(): E2eeStatus {
+  return e2eeStatus
+}
+
+/**
+ * Machine-readable reason for the last non-`active` status transition, if
+ * any. Used by the UI to pick the right fallback-banner copy.
+ */
+export function getE2eeReason(): string | undefined {
+  return e2eeReason
+}
+
+/**
+ * Subscribe to E2EE status transitions. Returns an unsubscribe function.
+ * Fires synchronously on every transition (including duplicates) so the UI
+ * can drive the fallback banner + active-call badge from a single source.
+ */
+export function onE2eeStatusChange(handler: E2eeStatusHandler): () => void {
+  e2eeHandlers.add(handler)
+  return () => e2eeHandlers.delete(handler)
+}
+
+/**
  * Initialize WebRTC for the current provider.
  * @param forceRefresh - When true, bypasses the ready/initializing guard and
  *   tears down the existing adapter before re-initializing. Used by token refresh.
@@ -156,7 +261,26 @@ export async function initWebRtc(forceRefresh = false): Promise<void> {
     const { token, provider, ttl } = await getWebRtcToken()
     currentProvider = provider
 
-    const newAdapter = createAdapter(provider)
+    // Resolve SFrame worker once per init. If the worker cannot be loaded
+    // (no RTCRtpScriptTransform, no Worker, or the singleton threw) the call
+    // must fail closed — the hook will reject with SFrameWiringError and the
+    // adapter terminates the session. The manager exposes `unavailable` so
+    // the overlay can mount <E2eeFallbackBanner>.
+    sframeClient = resolveSFrameWorker()
+    if (sframeClient === null) {
+      log('SFrame worker unavailable — E2EE fallback banner will show on call attempts')
+      setE2eeStatus('unavailable', 'browser_unsupported')
+    } else {
+      setE2eeStatus('unknown')
+    }
+
+    // Identity for the local SFrame sender. The token identity is opaque
+    // but stable for the lifetime of this registration — good enough for
+    // per-call sender-key tagging.
+    const senderId = `local-${provider}`
+    const sframeHook = resolveHookBuilder(sframeClient, senderId)
+
+    const newAdapter = createAdapter(provider, sframeHook)
 
     // Wire adapter events → state machine
     newAdapter.on('incoming', (callSid) => {
@@ -167,17 +291,32 @@ export async function initWebRtc(forceRefresh = false): Promise<void> {
 
     newAdapter.on('connected', () => {
       log('Call connected')
+      // The SFrame hook runs synchronously on the `peerconnection` event
+      // before 'connected', so if we reach here without the adapter having
+      // emitted an error, SFrame install succeeded and we are E2EE.
+      if (sframeClient !== null) setE2eeStatus('active')
       setState('connected')
     })
 
     newAdapter.on('disconnected', () => {
       log('Call disconnected')
       incomingCallSid = null
+      // Per-call SFrame state is released by the adapter (pc.close()). The
+      // worker singleton is retained for the next call; the e2ee status
+      // returns to `unknown` until the next call connects.
+      if (e2eeStatus === 'active') setE2eeStatus('unknown')
       setState('ended')
     })
 
     newAdapter.on('error', (err) => {
       log('Adapter error:', err.message)
+      // The adapter already terminates the PC when the SFrame hook throws.
+      // A hook failure propagates as an Error with SFrameWiringError as its
+      // message or cause. Surface unavailable so the overlay can show the
+      // fallback banner even if the worker client itself is still alive.
+      if (isSFrameHookFailure(err)) {
+        setE2eeStatus('unavailable', 'sframe_hook_failed')
+      }
       setState('error', err.message)
     })
 
@@ -188,6 +327,9 @@ export async function initWebRtc(forceRefresh = false): Promise<void> {
     scheduleTokenRefresh(ttl, provider)
   } catch (err) {
     log('Init failed:', err instanceof Error ? err.message : 'unknown')
+    if (err instanceof Error && isSFrameHookFailure(err)) {
+      setE2eeStatus('unavailable', 'sframe_init_failed')
+    }
     setState('error', err instanceof Error ? err.message : 'WebRTC initialization failed')
   }
 }
@@ -258,6 +400,10 @@ export function destroyWebRtc(): void {
   }
   currentProvider = null
   incomingCallSid = null
+  // Release per-manager SFrame bindings. The worker singleton itself is NOT
+  // terminated here — other tabs / future inits can reuse it.
+  sframeClient = null
+  setE2eeStatus('unknown')
   setState('idle')
 }
 
