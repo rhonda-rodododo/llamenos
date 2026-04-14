@@ -30,10 +30,17 @@ export async function eciesUnwrapKey(
   envelope: KeyEnvelope,
   label: CryptoLabel
 ): Promise<Uint8Array> {
-  // Domain separation is provided via `label` (symmetric wrapping key is
-  // derived from `label || sharedX`). The inner AEAD is called with empty
-  // AAD today; see note on `cryptoWorker.decrypt`.
-  const resultHex = await cryptoWorker.decrypt(envelope.ephemeralPubkey, envelope.wrappedKey, label)
+  // TODO(tier-1 per-record-aad): ECIES key-wraps produced by
+  // `@shared/crypto-primitives` `eciesWrapKey` today seal with an empty
+  // inner AEAD AAD. Migrate both sides to
+  // `buildAad(label, recordId, fieldName)` alongside
+  // POST_OVERHAUL_GAPS_2026-04-13.md Tier 1 P1 "Per-record AAD migration".
+  const resultHex = await cryptoWorker.decrypt(
+    envelope.ephemeralPubkey,
+    envelope.wrappedKey,
+    label,
+    new Uint8Array(0)
+  )
   return hexToBytes(resultHex)
 }
 
@@ -159,7 +166,16 @@ export async function decryptTranscription(
   ephemeralPubkeyHex: string
 ): Promise<string | null> {
   try {
-    const resultHex = await cryptoWorker.decrypt(ephemeralPubkeyHex, packed, LABEL_TRANSCRIPTION)
+    // TODO(tier-1 per-record-aad): transcription wire format seals with
+    // empty inner AEAD AAD. Migrate to
+    // `buildAad(LABEL_TRANSCRIPTION, callId, 'transcript')` alongside
+    // POST_OVERHAUL_GAPS_2026-04-13.md Tier 1 P1 "Per-record AAD migration".
+    const resultHex = await cryptoWorker.decrypt(
+      ephemeralPubkeyHex,
+      packed,
+      LABEL_TRANSCRIPTION,
+      new Uint8Array(0)
+    )
     return new TextDecoder().decode(hexToBytes(resultHex))
   } catch {
     return null

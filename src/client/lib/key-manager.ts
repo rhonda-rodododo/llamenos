@@ -218,7 +218,10 @@ async function handleRotation(
     salt: newSalt,
   })
   // Ask worker to re-encrypt without exposing nsec to the main thread
-  const reEncrypted = await cryptoWorker.reEncrypt(bytesToHex(newKek))
+  // TODO(tier-1 per-record-aad): nsec KEK wire format uses empty inner AAD
+  // — it must round-trip with `key-store.encryptNsec` / `handleUnlock`. See
+  // POST_OVERHAUL_GAPS_2026-04-13.md Tier 1 P1 "Per-record AAD migration".
+  const reEncrypted = await cryptoWorker.reEncrypt(bytesToHex(newKek), new Uint8Array(0))
   const newBlob: EncryptedKeyData = {
     ...currentBlob,
     salt: bytesToHex(newSalt),
@@ -279,8 +282,11 @@ async function rotateSyntheticToReal(
       prfOutput,
       salt: newSalt,
     })
-    // Re-encrypt without exposing nsec to the main thread
-    const reEncrypted = await cryptoWorker.reEncrypt(bytesToHex(newKek))
+    // Re-encrypt without exposing nsec to the main thread.
+    // TODO(tier-1 per-record-aad): nsec KEK wire format uses empty inner AAD
+    // — it must round-trip with `key-store.encryptNsec` / `handleUnlock`. See
+    // POST_OVERHAUL_GAPS_2026-04-13.md Tier 1 P1 "Per-record AAD migration".
+    const reEncrypted = await cryptoWorker.reEncrypt(bytesToHex(newKek), new Uint8Array(0))
     const newBlob: EncryptedKeyData = {
       ...currentBlob,
       salt: bytesToHex(newSalt),
