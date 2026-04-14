@@ -5,7 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.50.5] - 2026-04-14
+
+### Bug Fixes
+
+- Tier 3 — recovery-participant dedup via junction table (#142)
+
+### Miscellaneous
+
+- v0.50.5 [skip ci]
+
 ## [0.50.4] - 2026-04-14
+
+### Bug Fixes
+
+- per-artifact HKDF subkey binding (#150)
 
 ### Miscellaneous
 
@@ -14,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Testing
 
 - delete skipped device-fingerprint SAS interaction tests (#136)
+- remove defensive sealKey/telephony skips (#134)
 
 ## [0.50.3] - 2026-04-14
 

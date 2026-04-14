@@ -1,6 +1,6 @@
 {
   "name": "llamenos",
-  "version": "0.50.4",
+  "version": "0.50.5",
   "private": true,
   "license": "AGPL-3.0-or-later",
   "type": "module",
