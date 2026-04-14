@@ -42,6 +42,7 @@ describe('rotateHubKeyClkr — audit chain cache invalidation', () => {
       currentHubKey: generateHubKey(),
       currentGen: 1,
       remainingDevices: [{ deviceId: 'dev-1', encPubkey: device.publicKey }],
+      rotationReason: 'manual',
     })
     expect(clearCalls).toContain(HUB_ID)
   })
@@ -60,6 +61,7 @@ describe('rotateHubKeyClkr — audit chain cache invalidation', () => {
         currentHubKey: generateHubKey(),
         currentGen: 2,
         remainingDevices: [{ deviceId: 'dev-x', encPubkey: device.publicKey }],
+        rotationReason: 'manual',
       })
       // Rotation still succeeded — caller sees a full result object.
       expect(result.newHubKey.length).toBe(32)
