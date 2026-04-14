@@ -199,6 +199,43 @@ const payloadFixtures: Array<{ name: string; payload: AuditEntryPayload }> = [
       verifierDeviceId: UUID,
     },
   },
+  // Tier 5: voice E2EE state + key rotation
+  {
+    name: 'call_e2ee_state_change',
+    payload: {
+      type: 'call_e2ee_state_change',
+      callId: 'call-CA1234',
+      oldState: 'unknown',
+      newState: 'active',
+      reason: 'sframe_install_succeeded',
+    },
+  },
+  {
+    name: 'call_e2ee_state_change without reason',
+    payload: {
+      type: 'call_e2ee_state_change',
+      callId: 'call-CA1234',
+      oldState: 'active',
+      newState: 'unknown',
+    },
+  },
+  {
+    name: 'call_sframe_key_rotation',
+    payload: {
+      type: 'call_sframe_key_rotation',
+      callId: 'call-CA1234',
+      newKeyId: 7,
+      reason: 'member_added',
+    },
+  },
+  {
+    name: 'call_sframe_key_rotation without reason',
+    payload: {
+      type: 'call_sframe_key_rotation',
+      callId: 'call-CA1234',
+      newKeyId: 0,
+    },
+  },
 ]
 
 describe('AuditEntryPayloadSchema', () => {
@@ -239,6 +276,25 @@ describe('AuditEntryPayloadSchema', () => {
       type: 'role_change',
       userId: UUID,
       newRole: 'admin',
+    })
+    expect(result.success).toBe(false)
+  })
+
+  test('rejects call_e2ee_state_change with invalid newState', () => {
+    const result = AuditEntryPayloadSchema.safeParse({
+      type: 'call_e2ee_state_change',
+      callId: 'call-1',
+      oldState: 'unknown',
+      newState: 'totally_secure',
+    })
+    expect(result.success).toBe(false)
+  })
+
+  test('rejects call_sframe_key_rotation with out-of-range keyId', () => {
+    const result = AuditEntryPayloadSchema.safeParse({
+      type: 'call_sframe_key_rotation',
+      callId: 'call-1',
+      newKeyId: 256,
     })
     expect(result.success).toBe(false)
   })
