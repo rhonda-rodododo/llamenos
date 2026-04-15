@@ -3,11 +3,16 @@
 # with the next version bump and a CHANGELOG.md entry. Merging that PR
 # triggers release.yml to cut the actual release.
 #
-# Requires a fine-grained Personal Access Token in `secrets.RELEASE_PAT`
-# with `contents: write` and `pull-requests: write` on this repo. A PAT
-# is required (not GITHUB_TOKEN) so that the resulting release PR triggers
-# downstream workflows like ci.yml — GitHub's anti-recursion rule blocks
-# workflow triggers from PRs opened with GITHUB_TOKEN.
+# Uses GITHUB_TOKEN with explicit write permissions on contents and
+# pull-requests. Requires the repo setting "Allow GitHub Actions to
+# create and approve pull requests" to be enabled.
+#
+# Caveat: PRs opened by GITHUB_TOKEN do NOT trigger downstream
+# `pull_request` workflow runs (GitHub anti-recursion rule), so CI will
+# not run on the release PR automatically. That's OK for this workflow
+# because the release PR's only diffs are package.json + CHANGELOG.md
+# on top of main, so main's CI state IS the release PR's effective CI
+# state. Verify main is green before merging the release PR.
 
 name: Knope — Prepare Release PR
 
@@ -20,7 +25,9 @@ concurrency:
   group: knope-prepare
   cancel-in-progress: true
 
-permissions: {}
+permissions:
+  contents: write
+  pull-requests: write
 
 jobs:
   prepare-release:
@@ -35,7 +42,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
-          token: ${{ secrets.RELEASE_PAT }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Configure git identity
         run: |
@@ -46,11 +53,11 @@ jobs:
         uses: knope-dev/action@19617851f9f13ab2f27a05989c55efb18aca3675 # v2.1.2
         with:
           version: 0.22.4
-          github-token: ${{ secrets.RELEASE_PAT }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Prepare release PR
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         # continue-on-error so this job passes when there are no
         # version-bumping commits since the last release (knope errors
         # out when PrepareRelease finds nothing to release).
