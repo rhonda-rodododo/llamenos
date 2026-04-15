@@ -24,7 +24,7 @@ import { DhkemX25519HkdfSha256 } from '@hpke/dhkem-x25519'
  */
 export const HPKE_SUITE_ID = 'llamenos-hpke-v1:x25519-hkdf-sha256-aes256gcm' as const
 
-export type HpkeSuiteId = typeof HPKE_SUITE_ID
+type HpkeSuiteId = typeof HPKE_SUITE_ID
 
 /**
  * Factory for the single cipher suite used by the app.

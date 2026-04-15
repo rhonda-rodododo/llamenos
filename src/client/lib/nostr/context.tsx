@@ -10,9 +10,9 @@ import { RelayManager } from './relay'
 import type { RelayState } from './types'
 
 /** Async accessor for the current Nostr x-only pubkey (or null when locked). */
-export type GetPubkey = () => Promise<string | null>
+type GetPubkey = () => Promise<string | null>
 /** Async Schnorr signer delegated to the crypto worker. */
-export type SignEvent = (messageHex: string) => Promise<string>
+type SignEvent = (messageHex: string) => Promise<string>
 
 interface NostrContextValue {
   relay: RelayManager | null

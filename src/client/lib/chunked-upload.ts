@@ -3,7 +3,7 @@ import { completeUpload, getUploadStatus, initUpload, uploadChunk } from './api'
 
 const DEFAULT_CHUNK_SIZE = 5 * 1024 * 1024 // 5MB
 
-export interface ChunkedUploadOptions {
+interface ChunkedUploadOptions {
   encryptedContent: Uint8Array
   conversationId: string
   recipientEnvelopes: FileKeyEnvelope[]
@@ -18,7 +18,7 @@ export interface ChunkedUploadOptions {
   onProgress?: (completed: number, total: number) => void
 }
 
-export interface UploadResult {
+interface UploadResult {
   fileId: string
   status: string
 }

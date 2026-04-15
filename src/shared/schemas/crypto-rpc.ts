@@ -47,7 +47,7 @@ export const CryptoRpcEnvelopeSchema = z.object({
   ephemeralPubkey: Hex({ exactHex: 66 }),
   payload: Hex().optional(),
 })
-export type CryptoRpcEnvelope = z.infer<typeof CryptoRpcEnvelopeSchema>
+type CryptoRpcEnvelope = z.infer<typeof CryptoRpcEnvelopeSchema>
 
 export const CryptoRpcRequestSchema = z.discriminatedUnion('op', [
   z.object({
@@ -166,4 +166,4 @@ export const CryptoRpcReadySchema = z.object({
   kind: z.literal('ready'),
   protocol: z.literal(1),
 })
-export type CryptoRpcReady = z.infer<typeof CryptoRpcReadySchema>
+type CryptoRpcReady = z.infer<typeof CryptoRpcReadySchema>

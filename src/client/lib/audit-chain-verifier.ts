@@ -29,7 +29,7 @@ import { API_BASE, API_ORIGIN } from './api/client'
 
 // ---- error type ----
 
-export type ChainVerificationErrorCode =
+type ChainVerificationErrorCode =
   | 'prev_entry_hash_mismatch'
   | 'entry_hash_mismatch'
   | 'signature_invalid'
@@ -144,7 +144,7 @@ async function defaultFetchEntriesSince(
 
 // ---- main verifier ----
 
-export interface VerifyAuditChainOptions {
+interface VerifyAuditChainOptions {
   fetchEntriesSince?: (hubId: string, since: string | null) => Promise<SignedAuditEntry[]>
   cacheStore?: ChainCacheStore
 }

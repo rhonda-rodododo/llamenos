@@ -26,7 +26,7 @@ import { queryKeys } from './keys'
 // Types
 // ---------------------------------------------------------------------------
 
-export type DecryptedBlastContent = Record<string, BlastContent | null>
+type DecryptedBlastContent = Record<string, BlastContent | null>
 
 interface SubscriberStatsData {
   total: number

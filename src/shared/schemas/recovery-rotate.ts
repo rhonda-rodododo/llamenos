@@ -9,4 +9,4 @@ export const RecoveryRotateResponseSchema = z.object({
   recoveryKey: z.string(),
 })
 
-export type RecoveryRotateInput = z.infer<typeof RecoveryRotateSchema>
+type RecoveryRotateInput = z.infer<typeof RecoveryRotateSchema>

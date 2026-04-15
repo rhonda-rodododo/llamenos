@@ -30,7 +30,7 @@ import { queryKeys } from './keys'
 // Types
 // ---------------------------------------------------------------------------
 
-export interface DecryptedConversationMessages {
+interface DecryptedConversationMessages {
   messages: ConversationMessage[]
   decryptedContent: Map<string, string>
 }

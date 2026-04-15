@@ -30,4 +30,4 @@ export type Loggable<T> = T extends Unloggable
  * TypeScript infers narrow types at call sites and Loggable<T> actually
  * rejects Unloggable fields.  Kept for documentation / ad-hoc usage.
  */
-export type LogExtra = Loggable<Record<string, unknown>>
+type LogExtra = Loggable<Record<string, unknown>>

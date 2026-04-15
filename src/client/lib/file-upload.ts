@@ -7,7 +7,7 @@ import { bindUploadContext, downloadFile, getFileEnvelopes, getFileMetadata } fr
 import { chunkedUpload } from './chunked-upload'
 import { decryptFile, decryptFileMetadata, encryptFile } from './file-crypto'
 
-export interface UploadEncryptedFileOptions {
+interface UploadEncryptedFileOptions {
   file: File
   /** Uploader's own pubkey — always gets an envelope. */
   uploaderPubkey: string
@@ -77,7 +77,7 @@ export async function bindFileContext(
   await bindUploadContext(fileId, contextType, contextId)
 }
 
-export interface DownloadedFile {
+interface DownloadedFile {
   data: Uint8Array
   metadata: EncryptedFileMetadata
   blob: Blob

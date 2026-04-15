@@ -33,7 +33,7 @@ type ReportFilters = {
   category?: string
 }
 
-export interface DecryptedReportMessages {
+interface DecryptedReportMessages {
   messages: ConversationMessage[]
   decryptedContent: Map<string, string>
 }

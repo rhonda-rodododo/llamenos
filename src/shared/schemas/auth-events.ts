@@ -50,6 +50,6 @@ export const AuthEventExportResponseSchema = z.object({
 })
 
 export type AuthEventType = z.infer<typeof AuthEventTypeSchema>
-export type AuthEventResponse = z.infer<typeof AuthEventSchema>
+type AuthEventResponse = z.infer<typeof AuthEventSchema>
 export type AuthEventListResponse = z.infer<typeof AuthEventListResponseSchema>
 export type AuthEventExportResponse = z.infer<typeof AuthEventExportResponseSchema>

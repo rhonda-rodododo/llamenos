@@ -30,7 +30,7 @@ export const CreateConversationSchema = z.object({
   externalId: z.string().optional(),
   assignedTo: z.string().optional(),
 })
-export type CreateConversationInput = z.infer<typeof CreateConversationSchema>
+type CreateConversationInput = z.infer<typeof CreateConversationSchema>
 
 export const EncryptedMessageSchema = z.object({
   id: z.uuid(),

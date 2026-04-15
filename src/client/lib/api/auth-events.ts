@@ -1,7 +1,7 @@
 import type { RecipientEnvelope } from '@shared/types'
 import { request } from './client'
 
-export interface AuthEventApiRow {
+interface AuthEventApiRow {
   id: string
   eventType: string
   encryptedPayload: string

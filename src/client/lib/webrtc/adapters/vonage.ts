@@ -13,7 +13,7 @@ import type { WebRTCAdapter, WebRtcEvent, WebRtcEventHandler } from '../types'
 const log = createDebugLog('llamenos:webrtc:vonage')
 
 /** Constructor options for {@link VonageWebRTCAdapter}. */
-export type VonageWebRTCAdapterOptions = SFrameCapableAdapterOptions
+type VonageWebRTCAdapterOptions = SFrameCapableAdapterOptions
 
 // Minimal types from @vonage/client-sdk
 interface VonageClientInstance {

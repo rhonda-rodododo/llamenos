@@ -18,7 +18,7 @@ export interface SipTokenPayload {
 }
 
 /** Constructor options for {@link SipWebRTCAdapter}. */
-export type SipWebRTCAdapterOptions = SFrameCapableAdapterOptions
+type SipWebRTCAdapterOptions = SFrameCapableAdapterOptions
 
 // Minimal JsSIP interfaces — JsSIP ships .d.ts but we only need a subset.
 interface JsSIPUA {

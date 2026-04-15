@@ -109,7 +109,7 @@ export interface OAuthStartResponse {
   docsUrl: string
 }
 
-export interface OAuthStatusResponse {
+interface OAuthStatusResponse {
   provider: string
   status: 'pending' | 'connected' | 'error' | 'expired'
   accountSid?: string
@@ -146,7 +146,7 @@ export interface ProviderCredentials {
 
 // --- Signal Registration ---
 
-export interface SignalRegistrationResponse {
+interface SignalRegistrationResponse {
   ok: boolean
   method: 'sms' | 'voice'
 }

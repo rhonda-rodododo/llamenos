@@ -4,7 +4,7 @@ import { z } from 'zod/v4'
 export const GdprConsentSchema = z.object({
   version: z.string().optional(),
 })
-export type GdprConsentInput = z.infer<typeof GdprConsentSchema>
+type GdprConsentInput = z.infer<typeof GdprConsentSchema>
 
 // ── Retention Settings ──
 export const RetentionSettingsSchema = z.object({

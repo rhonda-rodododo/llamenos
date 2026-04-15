@@ -43,7 +43,7 @@ export const CreateBlastSchema = z.object({
   targetChannels: z.array(BlastChannelEnum).min(1),
   scheduledAt: z.iso.datetime().optional(),
 })
-export type CreateBlastInput = z.infer<typeof CreateBlastSchema>
+type CreateBlastInput = z.infer<typeof CreateBlastSchema>
 
 export const SubscriberSchema = z.object({
   id: z.uuid(),
@@ -64,7 +64,7 @@ export const CreateSubscriberSchema = z.object({
   token: z.string().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
 })
-export type CreateSubscriberInput = z.infer<typeof CreateSubscriberSchema>
+type CreateSubscriberInput = z.infer<typeof CreateSubscriberSchema>
 
 export const BlastDeliverySchema = z.object({
   id: z.uuid(),

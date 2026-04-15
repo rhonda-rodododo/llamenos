@@ -17,4 +17,4 @@ export const LockdownResponseSchema = z.object({
 })
 
 export type LockdownTier = z.infer<typeof LockdownTierSchema>
-export type LockdownRequest = z.infer<typeof LockdownRequestSchema>
+type LockdownRequest = z.infer<typeof LockdownRequestSchema>

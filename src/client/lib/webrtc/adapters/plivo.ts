@@ -18,7 +18,7 @@ import type { WebRTCAdapter, WebRtcEvent, WebRtcEventHandler } from '../types'
 const log = createDebugLog('llamenos:webrtc:plivo')
 
 /** Constructor options for {@link PlivoWebRTCAdapter}. */
-export type PlivoWebRTCAdapterOptions = SFrameCapableAdapterOptions
+type PlivoWebRTCAdapterOptions = SFrameCapableAdapterOptions
 
 // Minimal types from plivo-browser-sdk
 interface PlivoClient {

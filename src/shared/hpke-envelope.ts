@@ -49,7 +49,7 @@ export const HpkeEnvelopeSchema = z.object({
   ct: z.string().min(1),
 }) satisfies z.ZodType<HpkeEnvelope>
 
-export type HpkeEnvelopeInput = z.input<typeof HpkeEnvelopeSchema>
+type HpkeEnvelopeInput = z.input<typeof HpkeEnvelopeSchema>
 
 /**
  * Type guard — accepts anything that already parses as a valid envelope.

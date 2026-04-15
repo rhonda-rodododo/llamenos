@@ -51,8 +51,8 @@ export interface LockMessage {
   type: 'lock'
 }
 
-export type SyncMessage = SyncRequestMessage | SyncResponseMessage
-export type CrossTabMessage = SyncMessage | LockMessage
+type SyncMessage = SyncRequestMessage | SyncResponseMessage
+type CrossTabMessage = SyncMessage | LockMessage
 
 function isObject(x: unknown): x is Record<string, unknown> {
   return typeof x === 'object' && x !== null

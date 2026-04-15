@@ -13,7 +13,7 @@ export const CreateTagSchema = z
   .refine((data) => data.name !== undefined || data.encryptedLabel !== undefined, {
     message: 'Either name or encryptedLabel must be provided',
   })
-export type CreateTagInput = z.infer<typeof CreateTagSchema>
+type CreateTagInput = z.infer<typeof CreateTagSchema>
 
 // ── Update Tag ──
 export const UpdateTagSchema = z.object({
@@ -21,4 +21,4 @@ export const UpdateTagSchema = z.object({
   color: z.string().optional(),
   encryptedCategory: z.string().nullable().optional(),
 })
-export type UpdateTagInput = z.infer<typeof UpdateTagSchema>
+type UpdateTagInput = z.infer<typeof UpdateTagSchema>

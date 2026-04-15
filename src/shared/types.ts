@@ -36,7 +36,7 @@ export interface DeviceKeypair {
   isPaperKey: boolean
 }
 
-export interface DeviceMetadata {
+interface DeviceMetadata {
   deviceId: string
   signingPubkey: string // hex
   encryptionPubkey: string // hex
@@ -47,7 +47,7 @@ export interface DeviceMetadata {
   lastSeenAt: string
 }
 
-export interface PukState {
+interface PukState {
   generation: number
   signPubkey: string // hex
   dhPubkey: string // hex
@@ -234,14 +234,14 @@ export interface RelationshipPayload {
 }
 
 /** Contact summary fields (Tier 1 — all members with contacts:envelope-summary) */
-export interface ContactSummary {
+interface ContactSummary {
   displayName: string
   notes: string
   languages: string[]
 }
 
 /** Contact PII fields (Tier 2 — per-field encrypted for contacts:envelope-full) */
-export interface ContactPIIBlob {
+interface ContactPIIBlob {
   emailAddresses: string[]
   address: string
   dateOfBirth: string
@@ -581,7 +581,7 @@ export interface GdprErasureRequest {
 
 export type { Hub } from '@shared/schemas/settings'
 
-export interface HubRoleAssignment {
+interface HubRoleAssignment {
   hubId: string
   roleIds: string[]
 }

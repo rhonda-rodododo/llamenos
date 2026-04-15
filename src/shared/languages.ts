@@ -12,7 +12,7 @@
  * 4. Add to site/src/i18n/config.ts and translations (common.ts, home.ts)
  */
 
-export interface LanguageConfig {
+interface LanguageConfig {
   /** ISO 639-1 code (e.g. 'en', 'es', 'fr') */
   code: string
   /** Native language name (e.g. 'Español', 'Français') */

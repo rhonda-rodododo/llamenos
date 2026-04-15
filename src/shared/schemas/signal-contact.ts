@@ -20,6 +20,6 @@ export const SignalContactRegisterSchema = z.object({
   plaintextIdentifier: z.string().min(3).max(64),
 })
 
-export type SignalContactResponse = z.infer<typeof SignalContactResponseSchema>
-export type SignalContactRegisterInput = z.infer<typeof SignalContactRegisterSchema>
-export type SignalIdentifierType = z.infer<typeof SignalIdentifierTypeSchema>
+type SignalContactResponse = z.infer<typeof SignalContactResponseSchema>
+type SignalContactRegisterInput = z.infer<typeof SignalContactRegisterSchema>
+type SignalIdentifierType = z.infer<typeof SignalIdentifierTypeSchema>

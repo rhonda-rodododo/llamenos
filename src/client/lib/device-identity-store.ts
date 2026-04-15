@@ -13,7 +13,7 @@ export class MultipleDeviceKeypairsError extends Error {
 
 // --- Storage backend interface ---
 
-export interface DeviceKeypairStorage {
+interface DeviceKeypairStorage {
   put(keypair: DeviceKeypair): Promise<void>
   getAll(): Promise<DeviceKeypair[]>
   clear(): Promise<void>

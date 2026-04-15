@@ -31,4 +31,4 @@ export const CallTokenSchema = z.object({
   expiresAt: z.iso.datetime(),
   createdAt: z.iso.datetime(),
 })
-export type CallToken = z.infer<typeof CallTokenSchema>
+type CallToken = z.infer<typeof CallTokenSchema>

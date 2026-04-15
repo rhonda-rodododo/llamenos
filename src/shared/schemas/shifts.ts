@@ -22,7 +22,7 @@ export const CreateShiftScheduleSchema = z.object({
   ringGroupId: z.string().optional(),
   hubId: z.string().optional(),
 })
-export type CreateShiftScheduleInput = z.infer<typeof CreateShiftScheduleSchema>
+type CreateShiftScheduleInput = z.infer<typeof CreateShiftScheduleSchema>
 
 export const UpdateShiftScheduleSchema = z.object({
   name: z.string().min(1).max(100).optional(),
@@ -39,7 +39,7 @@ export const UpdateShiftScheduleSchema = z.object({
   ringGroupId: z.string().optional(),
   hubId: z.string().optional(),
 })
-export type UpdateShiftScheduleInput = z.infer<typeof UpdateShiftScheduleSchema>
+type UpdateShiftScheduleInput = z.infer<typeof UpdateShiftScheduleSchema>
 
 export const RingGroupSchema = z.object({
   id: z.uuid(),
@@ -55,7 +55,7 @@ export const CreateRingGroupSchema = z.object({
   userPubkeys: z.array(z.string()),
   hubId: z.string().optional(),
 })
-export type CreateRingGroupInput = z.infer<typeof CreateRingGroupSchema>
+type CreateRingGroupInput = z.infer<typeof CreateRingGroupSchema>
 
 export const ActiveShiftSchema = z.object({
   pubkey: z.string(),

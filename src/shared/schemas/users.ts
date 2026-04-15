@@ -30,7 +30,7 @@ export const CreateUserSchema = z.object({
   roleIds: z.array(z.string()).default(['role-volunteer']),
   encryptedSecretKey: z.string().optional().default(''),
 })
-export type CreateUserInput = z.infer<typeof CreateUserSchema>
+type CreateUserInput = z.infer<typeof CreateUserSchema>
 
 export const UpdateUserSchema = z.object({
   name: z.string().min(1).max(100).optional(),
@@ -50,7 +50,7 @@ export const UpdateUserSchema = z.object({
   supportedMessagingChannels: z.array(z.string()).optional(),
   messagingEnabled: z.boolean().optional(),
 })
-export type UpdateUserInput = z.infer<typeof UpdateUserSchema>
+type UpdateUserInput = z.infer<typeof UpdateUserSchema>
 
 export const InviteCodeSchema = z.object({
   code: z.string(),
@@ -74,7 +74,7 @@ export const CreateInviteSchema = z.object({
     .or(z.literal('')),
   roleIds: z.array(z.string()).default(['role-volunteer']),
 })
-export type CreateInviteInput = z.infer<typeof CreateInviteSchema>
+type CreateInviteInput = z.infer<typeof CreateInviteSchema>
 
 export const ServerSessionSchema = z.object({
   token: z.string(),

@@ -51,7 +51,7 @@ export class SFrameWiringError extends Error {
 }
 
 /** Inputs for {@link buildSFrameCallHook}. */
-export interface BuildSFrameCallHookInputs {
+interface BuildSFrameCallHookInputs {
   /**
    * SFrame worker client. `null` signals feature-detect found the environment
    * cannot support SFrame (no `RTCRtpScriptTransform`, no Worker, etc.) — the

@@ -13,6 +13,6 @@ export const SecurityPrefsSchema = z.object({
 
 export const UpdateSecurityPrefsSchema = SecurityPrefsSchema.partial()
 
-export type SecurityPrefs = z.infer<typeof SecurityPrefsSchema>
+type SecurityPrefs = z.infer<typeof SecurityPrefsSchema>
 export type DigestCadence = z.infer<typeof DigestCadenceSchema>
-export type UpdateSecurityPrefsInput = z.infer<typeof UpdateSecurityPrefsSchema>
+type UpdateSecurityPrefsInput = z.infer<typeof UpdateSecurityPrefsSchema>

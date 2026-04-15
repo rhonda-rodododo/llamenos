@@ -15,7 +15,7 @@ export const CreateBanSchema = z.object({
   reason: z.string(),
   bannedBy: z.string(),
 })
-export type CreateBanInput = z.infer<typeof CreateBanSchema>
+type CreateBanInput = z.infer<typeof CreateBanSchema>
 
 export const AuditLogEntrySchema = z.object({
   id: z.uuid(),
@@ -63,7 +63,7 @@ export const CreateNoteSchema = z.object({
   authorEnvelope: RecipientEnvelopeSchema.optional(),
   adminEnvelopes: z.array(RecipientEnvelopeSchema),
 })
-export type CreateNoteInput = z.infer<typeof CreateNoteSchema>
+type CreateNoteInput = z.infer<typeof CreateNoteSchema>
 
 export const KeyEnvelopeSchema = z.object({
   wrappedKey: z.string(),

@@ -47,7 +47,7 @@ export const LinkContactSchema = z.object({
   type: z.enum(['call', 'conversation']),
   targetId: z.string().min(1),
 })
-export type LinkContactInput = z.infer<typeof LinkContactSchema>
+type LinkContactInput = z.infer<typeof LinkContactSchema>
 
 // ── Bulk Update Contacts ──
 export const BulkUpdateContactsSchema = z.object({
@@ -56,16 +56,16 @@ export const BulkUpdateContactsSchema = z.object({
   removeTags: z.array(z.string()).optional(),
   riskLevel: RiskLevelSchema.optional(),
 })
-export type BulkUpdateContactsInput = z.infer<typeof BulkUpdateContactsSchema>
+type BulkUpdateContactsInput = z.infer<typeof BulkUpdateContactsSchema>
 
 // ── Bulk Delete Contacts ──
 export const BulkDeleteContactsSchema = z.object({
   contactIds: z.array(z.string().min(1)).min(1),
 })
-export type BulkDeleteContactsInput = z.infer<typeof BulkDeleteContactsSchema>
+type BulkDeleteContactsInput = z.infer<typeof BulkDeleteContactsSchema>
 
 // ── Hash Phone ──
 export const HashPhoneSchema = z.object({
   phone: z.string().min(1),
 })
-export type HashPhoneInput = z.infer<typeof HashPhoneSchema>
+type HashPhoneInput = z.infer<typeof HashPhoneSchema>

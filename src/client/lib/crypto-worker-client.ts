@@ -71,7 +71,7 @@ interface ProvisionNsecResult {
   sas: string
 }
 
-export interface ExportSessionResult {
+interface ExportSessionResult {
   tokenHex: SessionToken
   encryptedNsecHex: EncryptedNsecHex
   capsuleNonceHex: CapsuleNonceHex

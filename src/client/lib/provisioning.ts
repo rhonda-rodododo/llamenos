@@ -118,7 +118,7 @@ export async function createProvisioningRoom(): Promise<ProvisioningSession> {
   }
 }
 
-export interface ProvisioningRoomStatus {
+interface ProvisioningRoomStatus {
   status: 'waiting' | 'ready' | 'expired'
   encryptedNsec?: string
   primaryPubkey?: string

@@ -34,6 +34,6 @@ export const RevokeOthersResponseSchema = z.object({
   revokedCount: z.number().int().min(0),
 })
 
-export type SessionResponse = z.infer<typeof SessionSchema>
-export type SessionListResponse = z.infer<typeof SessionListResponseSchema>
+type SessionResponse = z.infer<typeof SessionSchema>
+type SessionListResponse = z.infer<typeof SessionListResponseSchema>
 export type RevokeReason = z.infer<typeof RevokeReasonSchema>

@@ -19,7 +19,7 @@ interface SubscriberChannel {
   verified: boolean
 }
 
-export interface SubscriberPrefs {
+interface SubscriberPrefs {
   channels: SubscriberChannel[]
   language: string
   status: string

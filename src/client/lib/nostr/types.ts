@@ -11,7 +11,7 @@ export interface LlamenosEvent {
 }
 
 /** Call ring notification */
-export interface CallRingEvent extends LlamenosEvent {
+interface CallRingEvent extends LlamenosEvent {
   type: 'call:ring'
   callId: string
   callerLast4?: string
@@ -19,20 +19,20 @@ export interface CallRingEvent extends LlamenosEvent {
 }
 
 /** Call answered notification */
-export interface CallAnsweredEvent extends LlamenosEvent {
+interface CallAnsweredEvent extends LlamenosEvent {
   type: 'call:answered'
   callId: string
   userPubkey: string
 }
 
 /** Call ended notification */
-export interface CallEndedEvent extends LlamenosEvent {
+interface CallEndedEvent extends LlamenosEvent {
   type: 'call:ended'
   callId: string
 }
 
 /** Call update (status change) */
-export interface CallUpdateEvent extends LlamenosEvent {
+interface CallUpdateEvent extends LlamenosEvent {
   type: 'call:update'
   callId: string
   status: string
@@ -40,20 +40,20 @@ export interface CallUpdateEvent extends LlamenosEvent {
 }
 
 /** Voicemail notification */
-export interface VoicemailEvent extends LlamenosEvent {
+interface VoicemailEvent extends LlamenosEvent {
   type: 'voicemail:new'
   callId: string
   startedAt: string
 }
 
 /** Presence summary (all hub members) */
-export interface PresenceSummaryEvent extends LlamenosEvent {
+interface PresenceSummaryEvent extends LlamenosEvent {
   type: 'presence:summary'
   hasAvailable: boolean
 }
 
 /** Presence detail (admins only) */
-export interface PresenceDetailEvent extends LlamenosEvent {
+interface PresenceDetailEvent extends LlamenosEvent {
   type: 'presence:detail'
   available: number
   onCall: number
@@ -61,33 +61,33 @@ export interface PresenceDetailEvent extends LlamenosEvent {
 }
 
 /** New conversation message */
-export interface MessageNewEvent extends LlamenosEvent {
+interface MessageNewEvent extends LlamenosEvent {
   type: 'message:new'
   conversationId: string
   channelType: string
 }
 
 /** Conversation assigned */
-export interface ConversationAssignedEvent extends LlamenosEvent {
+interface ConversationAssignedEvent extends LlamenosEvent {
   type: 'conversation:assigned'
   conversationId: string
   assignedTo: string
 }
 
 /** Conversation closed */
-export interface ConversationClosedEvent extends LlamenosEvent {
+interface ConversationClosedEvent extends LlamenosEvent {
   type: 'conversation:closed'
   conversationId: string
 }
 
 /** New conversation */
-export interface ConversationNewEvent extends LlamenosEvent {
+interface ConversationNewEvent extends LlamenosEvent {
   type: 'conversation:new'
   conversationId: string
 }
 
 /** Message delivery status update */
-export interface MessageStatusEvent extends LlamenosEvent {
+interface MessageStatusEvent extends LlamenosEvent {
   type: 'message:status'
   conversationId: string
   messageId: string

@@ -67,4 +67,4 @@ export const CallModePayloadSchema = z.object({
   reason: z.string().optional(),
   hubId: z.string().min(1),
 })
-export type CallModeEvent = z.infer<typeof CallModePayloadSchema>
+type CallModeEvent = z.infer<typeof CallModePayloadSchema>

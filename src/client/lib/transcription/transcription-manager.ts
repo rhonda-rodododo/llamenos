@@ -27,7 +27,7 @@ export interface TranscriptionProgress {
   progress?: number
 }
 
-export interface TranscriptionManagerOptions {
+interface TranscriptionManagerOptions {
   model?: TranscriptionModel
   language?: string
   onStatusChange?: (status: TranscriptionStatus) => void

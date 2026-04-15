@@ -36,7 +36,7 @@ import {
 
 // ---- Keypair ---------------------------------------------------------------
 
-export interface EphemeralKeypair {
+interface EphemeralKeypair {
   readonly secretKey: Uint8Array
   readonly pubkeyHex: string
 }
@@ -118,7 +118,7 @@ export interface GossipTransport {
 
 // ---- Client ----------------------------------------------------------------
 
-export interface GossipClientConfig {
+interface GossipClientConfig {
   transport: GossipTransport
   /** Pre-computed bundle hash for the currently running SPA. */
   ownBundleHash: string
@@ -144,7 +144,7 @@ export interface FleetObservation {
   readonly divergent: boolean
 }
 
-export type FleetObserver = (obs: FleetObservation) => void
+type FleetObserver = (obs: FleetObservation) => void
 
 export class GossipVersionClient {
   private readonly keypair: EphemeralKeypair

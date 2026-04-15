@@ -38,7 +38,7 @@ export type { StateChangeHandler, WebRtcState }
  */
 export type E2eeStatus = 'unknown' | 'active' | 'unavailable'
 
-export type E2eeStatusHandler = (status: E2eeStatus, reason?: string) => void
+type E2eeStatusHandler = (status: E2eeStatus, reason?: string) => void
 
 /**
  * Injection seam for tests — lets them swap the worker-client factory and the
@@ -76,13 +76,13 @@ const e2eeDegradedHandlers = new Set<E2eeDegradedHandler>()
  * has exceeded threshold for the active call. Carries the rolling error rate
  * so the UI can render a yellow/warning indicator without polling getMetrics.
  */
-export interface E2eeDegradedEvent {
+interface E2eeDegradedEvent {
   callId: string
   errorRate: number
   consecutiveErrors: number
 }
 
-export type E2eeDegradedHandler = (ev: E2eeDegradedEvent | null) => void
+type E2eeDegradedHandler = (ev: E2eeDegradedEvent | null) => void
 
 /**
  * Override the SFrame worker-client factory and/or hook builder used by the

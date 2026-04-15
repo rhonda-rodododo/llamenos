@@ -28,7 +28,7 @@ import { useUsers } from './users'
 // Filter type (mirrors listAuditLog params)
 // ---------------------------------------------------------------------------
 
-export interface AuditLogFilters {
+interface AuditLogFilters {
   page?: number
   limit?: number
   actorPubkey?: string
@@ -125,7 +125,7 @@ export function deriveAuditTrustAnchorPubkeys(
   return set
 }
 
-export type ChainIntegrityStatus =
+type ChainIntegrityStatus =
   | { state: 'verified'; head: SignedAuditEntry | null }
   | { state: 'tampered'; error: ChainVerificationError }
 

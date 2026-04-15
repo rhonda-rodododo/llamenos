@@ -72,7 +72,7 @@ const log = createDebugLog('llamenos:sframe:orchestrator')
  * so the WebRTC manager (which runs outside React) can reach the relay and
  * key material without importing React.
  */
-export interface SFrameOrchestratorDeps {
+interface SFrameOrchestratorDeps {
   /** Live relay manager — `null` when the user isn't authenticated. */
   relay: RelayManager | null
   /** Hub symmetric key for encrypting Nostr event content under the hub scope. */

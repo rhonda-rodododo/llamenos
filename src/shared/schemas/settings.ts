@@ -23,7 +23,7 @@ export const CreateHubSchema = z.object({
   description: z.string().max(500).optional(),
   phoneNumber: z.string().optional(),
 })
-export type CreateHubInput = z.infer<typeof CreateHubSchema>
+type CreateHubInput = z.infer<typeof CreateHubSchema>
 
 export const UpdateHubSchema = z.object({
   name: z.string().min(1).max(100).optional(),
@@ -31,7 +31,7 @@ export const UpdateHubSchema = z.object({
   phoneNumber: z.string().optional(),
   status: z.enum(['active', 'suspended', 'archived']).optional(),
 })
-export type UpdateHubInput = z.infer<typeof UpdateHubSchema>
+type UpdateHubInput = z.infer<typeof UpdateHubSchema>
 
 export const RoleSchema = z.object({
   id: z.uuid(),
@@ -49,13 +49,13 @@ export const CreateRoleSchema = z.object({
   isDefault: z.boolean().optional(),
   hubId: z.string().optional(),
 })
-export type CreateRoleInput = z.infer<typeof CreateRoleSchema>
+type CreateRoleInput = z.infer<typeof CreateRoleSchema>
 
 export const UpdateRoleSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   permissions: z.array(z.string()).optional(),
 })
-export type UpdateRoleInput = z.infer<typeof UpdateRoleSchema>
+type UpdateRoleInput = z.infer<typeof UpdateRoleSchema>
 
 const LocationFieldSettingsSchema = z.object({
   maxPrecision: z.enum(['none', 'city', 'neighborhood', 'block', 'exact']),
@@ -129,17 +129,17 @@ export const TranscriptionSettingsSchema = z.object({
 export type TranscriptionSettings = z.infer<typeof TranscriptionSettingsSchema>
 
 export const IvrLanguagesSchema = z.array(z.string())
-export type IvrLanguages = z.infer<typeof IvrLanguagesSchema>
+type IvrLanguages = z.infer<typeof IvrLanguagesSchema>
 
 export const TelephonyConfigSchema = TelephonyProviderConfigSchema
-export type TelephonyConfig = z.infer<typeof TelephonyConfigSchema>
+type TelephonyConfig = z.infer<typeof TelephonyConfigSchema>
 
 export const MessagingChannelConfigSchema = z.object({
   channel: z.enum(['sms', 'whatsapp', 'signal', 'rcs', 'telegram']),
   enabled: z.boolean(),
   config: z.record(z.string(), z.unknown()).optional(),
 })
-export type MessagingChannelConfig = z.infer<typeof MessagingChannelConfigSchema>
+type MessagingChannelConfig = z.infer<typeof MessagingChannelConfigSchema>
 
 export const MessagingConfigSchema = z.object({
   channels: z.array(MessagingChannelConfigSchema),

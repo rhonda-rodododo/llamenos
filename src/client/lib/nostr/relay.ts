@@ -21,7 +21,7 @@ import type { LlamenosEvent, NostrEventHandler, RelayState } from './types'
 
 const log = createDebugLog('llamenos:nostr')
 
-export interface RelayManagerOptions {
+interface RelayManagerOptions {
   relayUrl: string
   serverPubkey: string
   /** Returns the user's Nostr x-only pubkey hex, or null if the worker is locked */

@@ -18,7 +18,7 @@ import {
   type CryptoRpcResponse,
 } from '@shared/schemas/crypto-rpc'
 
-export interface CryptoRpcRouterConfig {
+interface CryptoRpcRouterConfig {
   /**
    * The origin the iframe is embedded from. This must be set to the SPA's
    * origin (APP_ORIGIN). Any message whose ev.origin does not match is
@@ -27,7 +27,7 @@ export interface CryptoRpcRouterConfig {
   parentOrigin: string
 }
 
-export type CryptoRpcResponder = (res: CryptoRpcResponse) => void
+type CryptoRpcResponder = (res: CryptoRpcResponse) => void
 
 /** Placeholder the router uses when an invalid payload has no usable id. */
 const NIL_UUID = '00000000-0000-0000-0000-000000000000'

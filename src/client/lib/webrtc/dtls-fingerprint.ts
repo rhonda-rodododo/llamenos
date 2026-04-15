@@ -24,7 +24,7 @@ export function computeBindingHash(fingerprint: string, callId: string): string 
   return bytesToHex(sha256(input))
 }
 
-export interface AdvertisedBinding {
+interface AdvertisedBinding {
   fingerprint: string
   bindingHash: string
   callId: string

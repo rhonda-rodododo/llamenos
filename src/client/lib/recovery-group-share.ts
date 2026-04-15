@@ -91,7 +91,7 @@ export async function combineAndVerifyShares(
   return combine(shares)
 }
 
-export interface RecoveryGroupKeyPair {
+interface RecoveryGroupKeyPair {
   privateKey: Uint8Array /* 32 bytes, raw scalar */
   publicKey: Uint8Array /* 33 bytes, compressed */
 }

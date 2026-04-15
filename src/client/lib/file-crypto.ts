@@ -104,7 +104,7 @@ export async function decryptFileMetadata(
   }
 }
 
-export interface EncryptedFileUpload {
+interface EncryptedFileUpload {
   /** Raw bytes of the encrypted content (nonce+ciphertext from symmetricEncrypt, decoded from hex). */
   encryptedContent: Uint8Array
   /** Per-recipient key envelopes with pubkey tag. */

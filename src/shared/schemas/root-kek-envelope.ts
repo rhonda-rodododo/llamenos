@@ -13,7 +13,7 @@ import { z } from '@hono/zod-openapi'
  */
 
 export const FactorTypeSchema = z.enum(['prf', 'opaque', 'recoveryPhrase', 'recoveryGroup'])
-export type FactorType = z.infer<typeof FactorTypeSchema>
+type FactorType = z.infer<typeof FactorTypeSchema>
 
 const HexRegex = /^[0-9a-f]+$/
 
