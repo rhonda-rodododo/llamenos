@@ -118,10 +118,19 @@ describe('verifyAuditChain', () => {
       fetchEntriesSince: stubFetchFrom(entries),
       cacheStore: cache,
     })
-    expect(head.entryHash).toBe(entries[9].entryHash)
+    expect(head?.entryHash).toBe(entries[9].entryHash)
     const row = await cache.get(HUB_ID)
     expect(row?.lastVerifiedEntryHash).toBe(entries[9].entryHash)
     expect(row?.trustedDevicePubkeys).toContain(ADMIN_PUB)
+  })
+
+  test('empty chain verifies as null head (fresh hub, no signed entries)', async () => {
+    const head = await verifyAuditChain(HUB_ID, new Set([ADMIN_PUB]), {
+      fetchEntriesSince: stubFetchFrom([]),
+      cacheStore: cache,
+    })
+    expect(head).toBeNull()
+    expect(await cache.get(HUB_ID)).toBeNull()
   })
 
   test('rejects divergent prevEntryHash', async () => {
@@ -211,7 +220,7 @@ describe('verifyAuditChain', () => {
       fetchEntriesSince: stubFetchFrom([e1, e2]),
       cacheStore: cache,
     })
-    expect(head.entryHash).toBe(e2.entryHash)
+    expect(head?.entryHash).toBe(e2.entryHash)
     const row = await cache.get(HUB_ID)
     expect(row?.trustedDevicePubkeys).toContain(DEVICE_PUB)
   })
@@ -265,7 +274,7 @@ describe('verifyAuditChain', () => {
       fetchEntriesSince: fetchImpl,
       cacheStore: cache,
     })
-    expect(head1.entryHash).toBe(entries[4].entryHash)
+    expect(head1?.entryHash).toBe(entries[4].entryHash)
     expect(fetchCalls).toEqual([null])
 
     // Second call with no new entries — should fetch since head and get [].
@@ -275,7 +284,7 @@ describe('verifyAuditChain', () => {
       fetchEntriesSince: fetchImpl,
       cacheStore: cache,
     })
-    expect(head2.entryHash).toBe(entries[4].entryHash)
+    expect(head2?.entryHash).toBe(entries[4].entryHash)
     expect(fetchCalls).toEqual([entries[4].entryHash])
   })
 
@@ -371,18 +380,12 @@ describe('verifyAuditChain', () => {
     expect(fetchCalls).toEqual([entries[1].entryHash])
   })
 
-  test('empty chain throws before the cache is written (no cache poisoning)', async () => {
-    // First call: fetcher returns zero entries and there's no prior cached
-    // row. The verifier must throw empty_chain and NOT leave a row behind.
-    await expect(
-      verifyAuditChain(HUB_ID, new Set([ADMIN_PUB]), {
-        fetchEntriesSince: async () => [],
-        cacheStore: cache,
-      })
-    ).rejects.toMatchObject({
-      name: 'ChainVerificationError',
-      code: 'empty_chain',
+  test('empty chain returns null without writing cache (no cache poisoning)', async () => {
+    const head = await verifyAuditChain(HUB_ID, new Set([ADMIN_PUB]), {
+      fetchEntriesSince: async () => [],
+      cacheStore: cache,
     })
+    expect(head).toBeNull()
     expect(await cache.get(HUB_ID)).toBeNull()
   })
 })

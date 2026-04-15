@@ -16,6 +16,8 @@
  *      HPKE-wraps new key to remaining devices, computes commitment hashes
  */
 
+import { clearChainCache } from '@/lib/audit-chain-verifier'
+import { createDebugLog } from '@/lib/debug-log'
 import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex } from '@noble/hashes/utils.js'
@@ -24,6 +26,8 @@ import { symmetricDecrypt, symmetricEncrypt } from '@shared/crypto-primitives'
 import type { Ciphertext } from '@shared/crypto-types'
 import type { HpkeEnvelope } from '@shared/hpke-envelope'
 import { buildAad, hpkeOpen, hpkeSeal } from '@shared/hpke-primitives'
+
+const log = createDebugLog('llamenos:hub-key-manager')
 
 // ---- Random bytes helper ----
 
@@ -510,6 +514,21 @@ export async function rotateHubKeyClkr(params: {
     const hash = sha256(preimage)
     return { deviceId, commitmentHash: bytesToHex(hash) }
   })
+
+  // 5. Invalidate the Tier 0 signed audit chain cache for this hub. A
+  //    rotation can change the set of devices in the trust anchor (e.g. a
+  //    departing device is excluded from the new wrap set) so the next
+  //    verifyAuditChain call must re-walk from genesis against the fresh
+  //    trust anchor rather than trust the IDB-cached head.
+  try {
+    await clearChainCache(hubId)
+  } catch (err) {
+    log(
+      'clearChainCache failed after hub key rotation for %s: %s',
+      hubId,
+      err instanceof Error ? err.message : String(err)
+    )
+  }
 
   return {
     newHubKey,

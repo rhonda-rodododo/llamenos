@@ -149,11 +149,18 @@ export interface VerifyAuditChainOptions {
   cacheStore?: ChainCacheStore
 }
 
+/**
+ * Walk and verify a hub's signed audit chain. Returns the verified head
+ * entry, or `null` if the hub has no signed entries yet (fresh hubs and
+ * tests where no admin action has emitted a signed entry). An empty chain
+ * is a valid initial state, not tampering — callers that need to enforce
+ * non-empty (e.g. key-rotation gates) should check for null explicitly.
+ */
 export async function verifyAuditChain(
   hubId: string,
   trustAnchorDevicePubkeys: Set<string>,
   opts: VerifyAuditChainOptions = {}
-): Promise<SignedAuditEntry> {
+): Promise<SignedAuditEntry | null> {
   const fetcher = opts.fetchEntriesSince ?? defaultFetchEntriesSince
   const cache = opts.cacheStore ?? idbChainCacheStore
 
@@ -230,9 +237,7 @@ export async function verifyAuditChain(
 
   const effectiveHead = head ?? cachedRow?.headEntry ?? null
 
-  // Emptiness check precedes the cache write so a never-populated chain
-  // cannot poison the IDB row with a trust set from zero entries.
-  if (!effectiveHead) throw new ChainVerificationError('empty_chain')
+  if (!effectiveHead) return null
 
   const newRow: ChainCacheRow = {
     hubId,
