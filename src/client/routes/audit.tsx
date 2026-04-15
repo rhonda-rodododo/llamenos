@@ -163,7 +163,9 @@ function AuditPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-2">
         <ScrollText className="h-6 w-6 text-primary" />
-        <h1 className="text-xl font-bold sm:text-2xl">{t('auditLog.title')}</h1>
+        <h1 data-testid="audit-log-heading" className="text-xl font-bold sm:text-2xl">
+          {t('auditLog.title')}
+        </h1>
       </div>
 
       <ChainIntegrityBanner

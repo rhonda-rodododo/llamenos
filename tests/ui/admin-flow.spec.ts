@@ -172,7 +172,7 @@ test.describe('Admin flow', () => {
 
   test('audit log shows entries', async ({ adminPage }) => {
     await adminPage.getByRole('link', { name: 'Audit Log' }).click()
-    await expect(adminPage.getByRole('heading', { name: /audit log/i })).toBeVisible()
+    await expect(adminPage.getByTestId('audit-log-heading')).toBeVisible()
     // Wait for loading to finish, entries should appear
     await adminPage.waitForTimeout(1000)
   })
