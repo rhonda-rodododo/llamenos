@@ -20,8 +20,9 @@ fi
 #   sw.js                    — Alternate SW name
 #   registerSW.js            — vite-plugin-pwa SW registration shim
 #   assets/transcription-worker-*.js — @huggingface/transformers WASM bundle
+#   assets/crypto-worker-*.js        — @wireapp/core-crypto WASM bindings (vendored)
 HITS=$(grep -rEn 'console\.(log|warn|info|debug|error)\(' "$DIST" --include='*.js' \
-  | grep -vE 'assets/workbox-[^:]*\.js:|service-worker\.js:|sw\.js:|registerSW\.js:|assets/transcription-worker-[^:]*\.js:' || true)
+  | grep -vE 'assets/workbox-[^:]*\.js:|service-worker\.js:|sw\.js:|registerSW\.js:|assets/transcription-worker-[^:]*\.js:|assets/crypto-worker-[^:]*\.js:' || true)
 
 if [ -n "$HITS" ]; then
   echo "verify-no-console: FAIL — console.* found in production bundle:" >&2
