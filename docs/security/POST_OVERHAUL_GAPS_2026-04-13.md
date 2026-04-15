@@ -21,7 +21,7 @@ These override anything in the original tier plans:
 1. **No feature flags.** `VITE_LLAMENOS_MLS_ENABLED` was removed in PR #104.
    No new gating mechanism may be introduced for MLS or anything else.
 2. **MLS replaces HPKE for the message/note application layer.** Clean cut,
-   not coexistence. The HPKE primitives (`hpkeSeal`/`hpkeOpen`, `EnvelopeV3`)
+   not coexistence. The HPKE primitives (`hpkeSeal`/`hpkeOpen`, `HpkeEnvelope`)
    remain for other surfaces (hub-field encryption, session capsule wrapping,
    device enrollment, file encryption, provisioning), but note/message
    encryption moves fully to MLS group state.
@@ -99,9 +99,9 @@ persist. Source: `tier-carry-forward/tier-2-notes.md`.
   `resolveEncryptedFields`. Bundled with next wipe migration.
 - **Server note/file envelope paths.** Notes and files are still
   server-encrypted via the legacy `CryptoService` XChaCha20-Poly1305 primitive.
-  Convert to `EnvelopeV3` bodies with `buildAad(label, recordId, fieldName)`.
+  Convert to `HpkeEnvelope` bodies with `buildAad(label, recordId, fieldName)`.
   *Superseded for notes by Tier 6 PR #2 below (notes move to MLS, not
-  envelope-v3).* Files keep the envelope-v3 path.
+  `HpkeEnvelope`).* Files keep the `HpkeEnvelope` path.
 - **Worker-boundary AAD propagation.** `cryptoWorker.encrypt` /
   `cryptoWorker.decrypt` do not forward caller-supplied AAD into the inner
   AEAD. Add an `aad: Uint8Array` parameter, marshal across postMessage, thread

@@ -444,7 +444,7 @@ Tier 1 PR-A introduced an HPKE/AES-GCM wire format alongside the Tier 0 ECIES/XC
 
 What PR-A does put in place for the later column-by-column migration:
 
-- **Envelope v3 is the only forward target.** `src/shared/envelope-v3.ts` is the canonical wire format; `src/shared/hpke-primitives.ts#hpkeOpen` refuses envelopes whose embedded `labelId` does not match the caller's asserted label, before handing bytes to AEAD open.
+- **`HpkeEnvelope` is the only forward target.** `src/shared/hpke-envelope.ts` (originally `envelope-v3.ts`, renamed in PR #104) is the canonical wire format; `src/shared/hpke-primitives.ts#hpkeOpen` refuses envelopes whose embedded `labelId` does not match the caller's asserted label, before handing bytes to AEAD open.
 - **`buildAad(label, recordId, fieldName)`** is the canonical AAD helper; hub-field AES-GCM uses the existing `hubFieldAad` for parity. Column AAD will consistently be `${label}:${recordId}:${fieldName}` at PR-B migration time.
 - **Grep guardrails block regressions.** `Tier 1 — no NEW callers of legacy ECIES/XChaCha20 primitives` and `Tier 1 — HPKE opener never falls back to ECIES` in `.github/workflows/ci.yml` pin the allowlist and block silent downgrade primitives.
 - **Wire-format break is handled by a pre-prod wipe.** `drizzle/migrations/0053_tier1_hpke_envelope_v3.sql` `TRUNCATE hubs, users CASCADE` with a 1000-row safety rail. Acceptable because we ship HPKE *before* any production data exists; after Tier 1 PR-B lands we will not have this escape hatch.
@@ -472,7 +472,7 @@ Tier 1 PR-B migrates the *hub-field* call sites to the envelope v3 path, resolve
 - **Envelope-encrypted fields on `contacts`, `user_signal_contacts`, `conversations`, `call_records`, `bans`** — every `encryptedFoo` + `fooEnvelopes` pair currently encrypts with label-only AAD (`utf8ToBytes(label)`) via `cryptoWorker.envelopeEncryptField(...)`. Migrating these to per-record AAD requires:
   1. A coordinated encrypt-side change in every create/update dialog (contacts, conversations, bans, call records).
   2. A matching decrypt-side change in every `queryFn` that scans these objects, plus plumbing `recordId + fieldName` through `decryptObjectFields` / `decryptArrayFields` / `resolveEncryptedFields`.
-  3. A wire-format break for any stored ciphertext (same blast radius as PR-A's v2→v3 break). Acceptable pre-production but should be bundled with any other envelope-v3 column rewrites to minimise the number of TRUNCATE migrations.
+  3. A wire-format break for any stored ciphertext (same blast radius as PR-A's v2→v3 break). Acceptable pre-production but should be bundled with any other `HpkeEnvelope` column rewrites to minimise the number of TRUNCATE migrations.
   
   PR-B puts the API surface in place (`decryptFieldWithRecovery` now accepts an optional `aadOverride: Uint8Array`) so the follow-up can land without another signature change. The full migration is tracked as a follow-up in `docs/security/HPKE_MIGRATION_NOTES.md`.
 - **Server-side primitive family (`provider_config`, `ivr_audio`, `active_calls`, `call_legs`)** — these are encrypted/decrypted entirely server-side via `cryptoService.encrypt` / `decrypt` with the hub key. They already pass per-record AAD in most call sites (verified during Tier 0 audit); the remaining gap is that the underlying primitive is still XChaCha20-Poly1305 rather than HPKE/AES-GCM. Migrating the server primitive is deferred to the Tier 1 server work (Task 19 in the Tier 1 plan), not PR-B.
@@ -502,11 +502,11 @@ Six review agents were dispatched in parallel across the full Tier 1 diff (PR #7
 **IMPORTANT fixed in this review pass (documentation / comment accuracy):**
 
 - `HPKE_MIGRATION_NOTES.md` rewritten: retitled from "Tier 1 PR-A" to "Tier 1", split into PR-A / PR-B sections, corrected the false claim that `LABEL_SERVER_HPKE_KEY` was added to `LABEL_REGISTRY` (the wire index intentionally excludes server-only labels), clarified that `key-store-v3` is PIN-only KEK with multi-factor deferred (not "multi-factor" as originally written), reframed `native-curves-check` as telemetry/diagnostic (not a runtime gate), removed `items-key` from the deferred list (PR-B shipped it), reframed remaining deferrals as Tier 2+ carry-forward.
-- `src/shared/envelope-v3.ts` — corrected doc-ref pointing at non-existent `crypto-primitives.ts` → `hpke-primitives.ts`.
+- `src/shared/hpke-envelope.ts` (was `envelope-v3.ts`) — corrected doc-ref pointing at non-existent `crypto-primitives.ts` → `hpke-primitives.ts`.
 - `CLAUDE.md` — removed "PR-A, in progress" tag, documented the client-pre-generated-id requirement for hub-field creates as a first-class rule, listed the remaining carry-forward call sites explicitly.
-- `src/client/lib/hub-field-crypto-v3.ts` — removed stale NOTE claiming the module is not wired to call sites; replaced with the concrete list of wired callers.
+- `src/client/lib/hub-field-crypto.ts` (was `hub-field-crypto-v3.ts`) — removed stale NOTE claiming the module is not wired to call sites; replaced with the concrete list of wired callers.
 - `src/client/lib/crypto-worker.ts` — retitled "transition state (PR-A)" → "transition state", split `schnorr`/`secp256k1` signing from the X25519 HPKE KEM (they are independent — HPKE does not replace the signing key used by `signAuditEntry` + the Tier 0 audit chain), scoped the AAD warning on the legacy `decrypt` RPC explicitly to the envelope v2 path.
-- `src/shared/crypto-suite.ts` — corrected comment claiming `HPKE_SUITE_ID` is "persisted alongside envelopes"; it is a code-level constant. `EnvelopeV3` carries `v: 3` + `labelId`, not a suite id. Future suite migrations will rev `v`.
+- `src/shared/crypto-suite.ts` — corrected comment claiming `HPKE_SUITE_ID` is "persisted alongside envelopes"; it is a code-level constant. `HpkeEnvelope` carries `v: 3` + `labelId`, not a suite id. Future suite migrations will rev `v`.
 - `src/server/lib/hpke-service.ts` — reframed responsibilities block as "Responsibilities in Tier 1" with an explicit note that hub-key-manager integration is deferred; removed the aspirational claim that the class "acts as a recipient in hub-key-wrap envelopes" (it is only exercised by its own tests in Tier 1).
 - `AEAD_AUDIT_2026-04-10.md` PR-B section — corrected wrong paths: `src/client/lib/items-key.ts` → `src/shared/items-key.ts`, `unwrapItemsKey` / `rewrapItemsKeyForNewMaster` → `unwrapPerArtifactKey` / `rewrapItemsKey`, `tests/unit/items-key.test.ts` → `src/shared/items-key.test.ts`.
 
