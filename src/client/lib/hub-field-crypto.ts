@@ -222,10 +222,14 @@ export async function encryptHubField(
 }
 
 /**
- * Decrypt a hub-encrypted field. Returns `''` on ANY failure — missing
- * hub key, AEAD auth failure, or null/empty input. Never returns the raw server
- * value. On AEAD failure for a value that looks like a valid ciphertext envelope,
- * throws `HubFieldTamperError` for tamper detection.
+ * Decrypt a hub-encrypted field.
+ *
+ * 1. Null/empty → `''`.
+ * 2. Non-ciphertext-shaped (short or contains non-base64url chars) → pass
+ *    through unchanged (bootstrap-seeded plaintext).
+ * 3. Ciphertext-shaped + no hub key → `''` (can't decrypt yet).
+ * 4. Ciphertext-shaped + AEAD success → decrypted plaintext.
+ * 5. Ciphertext-shaped + AEAD failure → `HubFieldTamperError`.
  */
 export async function decryptHubField(
   encrypted: string | null | undefined,
@@ -234,14 +238,12 @@ export async function decryptHubField(
   fieldName: string
 ): Promise<string> {
   if (!encrypted) return ''
+  if (!looksLikeCiphertext(encrypted)) return encrypted
   const hubKey = getHubKeyCryptoKeyForId(hubId)
   if (!hubKey) return ''
   const decrypted = await decryptHubFieldAead(encrypted, hubKey, recordId, fieldName)
   if (decrypted !== null) return decrypted
-  if (looksLikeCiphertext(encrypted)) {
-    throw new HubFieldTamperError(hubId, recordId, fieldName)
-  }
-  return ''
+  throw new HubFieldTamperError(hubId, recordId, fieldName)
 }
 
 /**

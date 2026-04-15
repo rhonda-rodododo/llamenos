@@ -1812,5 +1812,35 @@
     "verified": "Verified",
     "unverified": "Unverified",
     "verifyButton": "Verify"
+  },
+  "defaultRoles": {
+    "superAdmin": {
+      "name": "Super Admin",
+      "description": "Full system access — creates hubs, manages all settings and users"
+    },
+    "hubAdmin": {
+      "name": "Hub Admin",
+      "description": "Full control within assigned hub(s) — manages users, shifts, settings"
+    },
+    "reviewer": {
+      "name": "Reviewer",
+      "description": "Reviews notes and reports from assigned users or shifts"
+    },
+    "caseManager": {
+      "name": "Case Manager",
+      "description": "Triages intake, manages assigned contact records, coordinates support networks"
+    },
+    "volunteer": {
+      "name": "Volunteer",
+      "description": "Answers calls, writes notes, handles assigned conversations"
+    },
+    "reporter": {
+      "name": "Reporter",
+      "description": "Submits reports and tracks their own submissions"
+    },
+    "voicemailReviewer": {
+      "name": "Voicemail Reviewer",
+      "description": "Triages voicemails — listens, reads transcripts, and receives notifications"
+    }
   }
 }
