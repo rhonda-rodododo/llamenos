@@ -482,3 +482,450 @@ device under `LABEL_HUB_KEY_WRAP`) is orthogonal to MLS.
    - (c) Serial queue per hub (e.g., a DB advisory lock keyed on hub ID)
    
    Recommendation: (a) — simplest, lets the DB enforce the invariant.
+
+---
+
+## 9. Recommendations — ready for approval
+
+Research conducted 2026-04-15 against `@wireapp/core-crypto@9.3.3` (vendored,
+SHA-256 `4573bd8d...`), RFC 9420 (MLS), and the llamenos codebase on `main`.
+
+**Summary of all 7 recommendations** (6 from §8 + 1 newly identified):
+
+- **Decision 1 — Ciphersuite:** CS 1 (`MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519`)
+- **Decision 2 — IDB encryption key derivation:** (a) HKDF from KEK with `LABEL_MLS_PROVISION`
+- **Decision 3 — MLS group ID format:** (a) `llamenos:hub:<hubId>` as UTF-8 bytes
+- **Decision 4 — Epoch retention policy:** (b) 5 epochs, server-managed via `mls_epoch_commits`
+- **Decision 5 — WASM loading strategy:** (c) Load in crypto-worker during worker init
+- **Decision 6 — Server-side Commit ordering:** (a) Optimistic locking with `UNIQUE(hub_id, epoch)`
+- **Decision 7 — Inbound webhook encryption** *(newly identified)*: Server-encrypt-then-client-claim pattern with server as external sender
+
+---
+
+### Decision 1: Ciphersuite selection
+
+**Question:** Should MLS groups use Ciphersuite 1 (X25519 + AES-128-GCM + SHA-256
++ Ed25519) or Ciphersuite 3 (X25519 + ChaCha20-Poly1305 + SHA-256 + Ed25519)?
+
+**Recommendation:** **Ciphersuite 1 (`MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519`)**
+
+**Rationale:** AES-128-GCM has hardware acceleration (AES-NI) on all modern x86
+and ARM platforms, which matters for the crypto-worker's decrypt-on-fetch pattern
+where batch decryption throughput is rate-limited to 100 ops/sec. CS 1 is
+core-crypto's default ciphersuite (returned by `ciphersuiteDefault()` at
+`corecrypto.d.ts:12`), which means it receives the most testing and optimization
+in the Wire codebase. Critically, CS 1 aligns with the existing HPKE suite
+(`DHKEM(X25519, HKDF-SHA256) + HKDF-SHA256 + AES-256-GCM`) used for hub-field
+encryption — same KEM, same hash family, same AEAD family. This reduces the
+cryptographic surface area an auditor must review: one AEAD family (AES-GCM)
+instead of two.
+
+**Alternatives considered:**
+- **CS 3 (ChaCha20-Poly1305):** Matches the legacy XChaCha20-Poly1305 primitive
+  being replaced, but that continuity is illusory — the MLS ratchet tree, not the
+  AEAD, is what provides forward secrecy. ChaCha20 is faster in software-only
+  contexts (no AES-NI), but all target browsers (Chrome, Firefox, Safari on
+  desktop and mobile) have had AES-NI-backed WebCrypto for years. ChaCha20 would
+  add a second AEAD family alongside AES-GCM (hub-field encryption), increasing
+  audit surface.
+- **CS 2 or CS 7 (P-256/P-384):** NIST curves have broader compliance
+  recognition, but the codebase is already committed to X25519/Ed25519 for
+  identity keys (`key-store.ts`, `crypto-worker.ts`). Switching KEM/sig curves
+  would break the identity model.
+
+**Security implications:** Both CS 1 and CS 3 provide 128-bit security. The
+choice between AES-GCM and ChaCha20-Poly1305 does not affect forward secrecy or
+post-compromise security — those properties come from the MLS ratchet tree, not
+the AEAD. AES-GCM's nonce-misuse vulnerability (catastrophic plaintext recovery
+on nonce reuse) is mitigated by MLS itself: the protocol derives nonces
+deterministically from the key schedule, so nonce reuse requires a broken
+implementation of MLS, not a random collision. For the llamenos threat model
+(nation-state adversaries, long-term traffic logging), AES-128-GCM's 128-bit key
+is adequate — upgrading to 256-bit is a post-quantum consideration deferred
+explicitly per §1 non-goals.
+
+**Sources:**
+- RFC 9420 §17.1 — MLS cipher suite registry (CS IDs 1–7)
+- `vendor/@wireapp/core-crypto/src/corecrypto.d.ts:29-57` — `Ciphersuite` enum
+- `vendor/@wireapp/core-crypto/src/corecrypto.d.ts:12` — `ciphersuiteDefault()` returns CS 1
+- `src/shared/hpke-primitives.ts` — HPKE suite is AES-256-GCM (same AEAD family)
+- `docs/security/HPKE_MIGRATION_NOTES.md:89-91` — canonical suite definition
+
+**Unlocks / blocks:** Ciphersuite choice must be finalized before Slice 1 (DB
+schema uses `ciphersuite INTEGER NOT NULL DEFAULT 1` in `mls_key_packages`) and
+Slice 2 (core-crypto init passes ciphersuite array to `mls_init`). Does not
+constrain any other decision.
+
+---
+
+### Decision 2: core-crypto IDB encryption key derivation
+
+**Question:** How should the 32-byte `DatabaseKey` for core-crypto's IndexedDB
+encryption be derived?
+
+**Recommendation:** **(a) HKDF from the user's KEK via `LABEL_MLS_PROVISION`**
+
+**Rationale:** The KEK (key encryption key) is the canonical root of the client
+key hierarchy, derived from PIN + IdP-bound value (+ optional WebAuthn PRF) via
+PBKDF2 + HKDF (see `key-store.ts:1-13`). Deriving the IDB key via HKDF with a
+domain-specific label (`LABEL_MLS_PROVISION` at `crypto-labels.ts:357`) produces
+a deterministic, reproducible key that survives lock/unlock cycles without any
+additional storage. On unlock, the crypto-worker reconstructs the KEK → derives
+the IDB key → opens core-crypto → MLS state is restored from IDB. No extra
+wrapping step, no extra storage, no race condition between key availability and
+IDB open.
+
+**Alternatives considered:**
+- **(b) Random 32-byte key, wrapped under KEK:** Adds a wrapping/unwrapping step
+  and requires persisting the wrapped key somewhere (localStorage or a new IDB
+  store). This creates a chicken-and-egg problem: you need the wrapped key to open
+  the IDB, but if the wrapped key is also in IDB, you can't get to it. It would
+  require a separate storage channel (localStorage), adding fragility.
+- **(c) Use nsec bytes directly:** Leaks the identity private key to the IDB
+  encryption layer. If the browser's IDB encryption has a vulnerability, the
+  attacker gets the identity key, compromising all signed audit entries, not just
+  MLS state. Violates the principle of minimal privilege.
+
+**Security implications:** HKDF derivation ensures the IDB key is
+cryptographically independent from the identity key (nsec) and the hub key — a
+compromise of the IDB encryption key does not reveal the identity key or any
+non-MLS secrets. The IDB key is only as strong as the KEK, which is the
+intentional security boundary: if the KEK is compromised (PIN + IdP value
+leaked), the attacker can derive all downstream keys anyway. For the
+server-compromise scenario, the IDB key is irrelevant — IDB lives on the client
+device, not the server. For the device-compromise scenario, the attacker has
+access to the browser's IDB regardless of the key derivation method.
+
+**Sources:**
+- `src/client/lib/key-store.ts:1-13` — KEK derivation chain
+- `src/shared/crypto-labels.ts:357` — `LABEL_MLS_PROVISION` already defined
+- `vendor/@wireapp/core-crypto/src/corecrypto.d.ts:667-673` — `DatabaseKey` constructor takes `Uint8Array`
+- core-crypto KEYSTORE_IMPLEMENTATION.md — IDB value-level AES-256-GCM encryption with consumer-provided 32-byte key
+
+**Unlocks / blocks:** Must be decided before Slice 2 (crypto-worker MLS init).
+The HKDF derivation uses `LABEL_MLS_PROVISION` which is already in the label
+registry, so no new label allocation needed.
+
+---
+
+### Decision 3: MLS group ID format
+
+**Question:** Should MLS group IDs be deterministic human-readable strings
+(`llamenos:hub:<hubId>`) or random opaque 32-byte values?
+
+**Recommendation:** **(a) `llamenos:hub:<hubId>` encoded as UTF-8 bytes**
+
+**Rationale:** Deterministic group IDs let any client compute the group ID from
+the hub ID alone, without a server round-trip. This matters for the decrypt-on-
+fetch pattern: when a React Query `queryFn` needs to decrypt a note, it needs the
+`conversationId` for `cc.decryptMessage()`. With deterministic IDs, the
+`conversationId` is derived locally from the hub ID already available in the
+query context (via `useConfig().currentHubId`). RFC 9420 defines `group_id` as
+`opaque group_id<V>` with no format constraints beyond the variable-length vector
+limit — any byte sequence is valid. The deterministic format also aids debugging
+and audit log readability.
+
+**Alternatives considered:**
+- **(b) Random 32-byte group ID:** Provides server opacity (the server cannot
+  infer which hub a group ID belongs to), but this is a weak privacy gain — the
+  server already knows the hub ID from the API route
+  (`/api/hubs/:hubId/mls/commits`), so hiding the group-ID-to-hub-ID mapping adds
+  no real confidentiality. Random IDs require an extra lookup table and a server
+  round-trip to map hub → group ID on first access.
+
+**Security implications:** The deterministic format leaks the hub ID to anyone
+who can observe the MLS group ID (e.g., within the ratchet tree). However, the
+hub ID is already present in every API request, every encrypted field's AAD (via
+`buildAad`), and every audit entry — it is not a secret. For the
+server-compromise scenario, the server already has the hub ID. For the
+device-compromise scenario, the hub ID is in the React Query cache. The
+deterministic format does not weaken forward secrecy or post-compromise security.
+
+**Sources:**
+- RFC 9420 — `opaque group_id<V>` is unconstrained
+- `vendor/@wireapp/core-crypto/src/corecrypto.d.ts:320-332` — `ConversationId` takes arbitrary `Uint8Array`
+- Epic plan `docs/epics/h4-mls-pr2-epic.md:7` — architecture already assumes deterministic format
+- `src/shared/hpke-primitives.ts` — `buildAad(label, recordId, fieldName)` already includes hub context
+
+**Unlocks / blocks:** Enables Slice 3 (`MlsConversation.groupIdForHub()` static
+method) and Slice 4 (hub creation bootstrap). No other decisions depend on this.
+
+---
+
+### Decision 4: Epoch retention policy
+
+**Question:** How many past epochs' key material should be retained for
+out-of-order message decryption?
+
+**Recommendation:** **(b) 5 epochs, managed server-side via `mls_epoch_commits` retention**
+
+**Rationale:** 5 epochs provides tolerance for slow clients (e.g., a volunteer's
+device on a poor mobile connection that is 2-3 Commits behind) without
+excessively weakening forward secrecy. Importantly, `@wireapp/core-crypto@9.3.3`
+does **not** expose an `out_of_order_tolerance` configuration parameter in its
+TypeScript API — there is no `CustomConfiguration` field for epoch retention
+(verified: `corecrypto.d.ts:628-655` has only `keyRotationSpan` and
+`wirePolicy`). Epoch key retention is handled internally by core-crypto based on
+which Commits have been processed. The "5 epochs" policy is therefore enforced
+**server-side**: the `mls_epoch_commits` table retains Commits for catch-up, and
+the server's `GET /api/hubs/:hubId/mls/commits?since_epoch=N` endpoint returns
+all Commits since epoch N. Clients that are more than 5 epochs behind must
+re-join via external commit (which is already the fallback path per §5.7).
+
+**Alternatives considered:**
+- **(a) 1 epoch (minimal):** Too aggressive for a crisis hotline where volunteers
+  may be on intermittent connectivity. A single epoch advance during a call
+  would make messages encrypted seconds ago unreadable if the volunteer's device
+  misses one Commit.
+- **(c) Configurable per-hub via `hubs.cs_profile`:** Adds UI and schema
+  complexity for a marginal benefit. The pre-production policy should ship with a
+  sensible default (5) and add configurability only if operational experience shows
+  it's needed. The `cs_profile` column is already planned — it can carry this
+  config in a future iteration.
+
+**Security implications:** Retaining 5 epochs means a compromised device can
+decrypt messages from the current epoch plus 4 prior epochs. This is a
+forward-secrecy tradeoff: tighter retention = faster key erasure = stronger FS,
+but at the cost of usability. For the llamenos threat model, 5 epochs is
+reasonable — epoch advances happen on membership changes (admin add/remove), not
+on a timer, so 5 epochs represents 5 membership changes, not 5 time intervals.
+In practice, this is hours to days of retention, not minutes. Server-side
+retention of Commit blobs does not weaken E2EE — the Commits are MLS handshake
+messages that the server already transits; retaining them longer does not give the
+server decryption capability.
+
+**Sources:**
+- `vendor/@wireapp/core-crypto/src/corecrypto.d.ts:628-655` — `CustomConfiguration` has no epoch retention field
+- `docs/epics/h4-mls-pr2-epic.md:113-127` — `mls_epoch_commits` table design
+- RFC 9420 §14 — Commit ordering is linear; clients process Commits sequentially
+- Brainstorm §5.7 — multi-device catch-up via sequential Commit processing
+- Brainstorm §5.10 — `decryptMessage` handles recent past epochs
+
+**Unlocks / blocks:** Affects Slice 1 (server-side retention policy in
+`mls_epoch_commits` cleanup job) and Slice 7 (epoch advance on membership
+change). A future enhancement (per-hub configurability via `cs_profile`) can be
+added without changing the MLS implementation.
+
+---
+
+### Decision 5: WASM loading strategy
+
+**Question:** How should the core-crypto WASM binary (~2-4 MB gzipped) be loaded?
+
+**Recommendation:** **(c) Load in the crypto-worker during worker initialization**
+
+**Rationale:** The crypto-worker is already the isolation boundary for all
+cryptographic operations (`crypto-worker.ts` holds the nsec, HPKE handles, and
+hub CryptoKey in closures). Loading WASM in the worker keeps the main thread
+responsive during the 2-4 MB download + compilation. The existing
+`core-crypto-loader.ts` uses dynamic `import()` which naturally works in worker
+context. The load happens during `unlockWithHandles` (after PIN entry), so it
+does not block initial page render — the user sees the login screen immediately,
+and WASM loads in parallel with the unlock flow. This is the same pattern used
+for the existing `@noble/*` imports in the worker.
+
+**Alternatives considered:**
+- **(a) Keep lazy dynamic import, load on first MLS operation:** Adds latency to
+  the first note decrypt after login — the user sees a loading state while WASM
+  compiles. This is the current skeleton behavior but suboptimal for UX.
+- **(b) Preload during SPA boot:** Wastes bandwidth for unauthenticated visitors
+  (login page loads 2-4 MB of WASM they may never use) and blocks the critical
+  rendering path. The WASM binary is only useful after authentication.
+
+**Security implications:** Loading WASM in the worker ensures the core-crypto
+memory space (ratchet tree, epoch keys, identity keypair) is isolated from the
+main thread's DOM. A main-thread XSS attack cannot directly read worker memory.
+This is consistent with the existing design where `_secretKey` is held in the
+worker closure, not in main-thread state. For the server-compromise scenario, the
+server serves the WASM binary — a compromised server could serve a malicious WASM.
+This is mitigated by Subresource Integrity (SRI) or a content hash check against
+`VENDOR.md`'s SHA-256. The load-in-worker strategy does not change this threat
+surface.
+
+**Sources:**
+- `src/client/lib/mls/core-crypto-loader.ts:1-27` — current lazy loader (dynamic import)
+- `src/client/lib/crypto-worker.ts` — existing worker isolation pattern
+- `docs/security/HPKE_MIGRATION_NOTES.md:112-115` — HPKE sidecar in crypto-worker
+- Epic plan Slice 2 — worker init sequence described at `h4-mls-pr2-epic.md:259-264`
+
+**Unlocks / blocks:** Directly shapes Slice 2 (crypto-worker bootstrap). Does not
+affect server-side decisions.
+
+---
+
+### Decision 6: Server-side Commit ordering
+
+**Question:** How should the server enforce epoch ordering for concurrent MLS
+Commits?
+
+**Recommendation:** **(a) Optimistic locking with `UNIQUE(hub_id, epoch)` constraint**
+
+**Rationale:** Optimistic locking is the simplest approach: the `mls_epoch_commits`
+table's `UNIQUE(hub_id, epoch)` constraint (defined in the epic plan at
+`h4-mls-pr2-epic.md:117-127`) causes a DB-level constraint violation when two
+Commits target the same epoch. The server catches the unique violation and returns
+HTTP 409 Conflict. The losing client fetches the winning Commit, processes it
+(advancing local state), and retries. This matches RFC 9420's linear epoch model:
+"The history of a group is divided into a linear sequence of epochs." Each epoch
+has exactly one Commit. The DB constraint is the single source of truth for this
+invariant.
+
+**Alternatives considered:**
+- **(b) Pessimistic locking (`SELECT FOR UPDATE`):** Requires holding a row lock
+  during the entire Commit validation + storage transaction. Under normal
+  operation, hub membership changes are rare (admin adds/removes, not per-message),
+  so contention is low. Pessimistic locking adds complexity (lock timeouts,
+  deadlock detection) for a contention rate that doesn't justify it.
+- **(c) Advisory lock per hub:** Adds application-level lock management (acquire
+  → process → release) that must handle crashes, timeouts, and stale locks. This
+  is appropriate for high-contention workflows but overkill for MLS Commits, which
+  happen at human-action frequency (membership changes), not machine frequency.
+
+**Security implications:** Optimistic locking ensures exactly-once epoch
+advancement — no Commit can be silently dropped or duplicated. For the
+server-compromise scenario, a compromised server could refuse to store a Commit
+(denial of service) or reorder Commits. But MLS Commits are signed by the
+committer's leaf key and include the epoch number — clients verify the signature
+and epoch chain on `decryptMessage`. A reordered or fabricated Commit is detected
+and rejected by core-crypto. The DB constraint prevents a subtler attack: the
+server accepting two different Commits for the same epoch (forking the group
+state). The `UNIQUE` constraint makes this impossible at the storage layer.
+
+**Sources:**
+- RFC 9420 §14 — linear epoch sequence, each epoch has exactly one Commit
+- `docs/epics/h4-mls-pr2-epic.md:117-127` — `mls_epoch_commits` table with `UNIQUE(hub_id, epoch)`
+- `docs/epics/h4-mls-pr2-epic.md:86-87` — `mls_hub_state` also has `UNIQUE(hub_id, epoch)`
+- Brainstorm §5.1 — epoch update race mitigation
+- Brainstorm §5.9 — server compromise / Commit injection
+
+**Unlocks / blocks:** Directly shapes Slice 1 (DB schema and server routes).
+Does not constrain client-side decisions.
+
+---
+
+### Decision 7: Inbound webhook encryption (newly identified)
+
+**Question:** After the MLS cutover, how should inbound SMS/WhatsApp/Signal
+messages be encrypted when the external sender is not an MLS group member?
+
+**Recommendation:** **Server-encrypt-then-client-claim: the server encrypts
+inbound message bodies using a server-held HPKE key, stores the ciphertext, and
+the assigned volunteer's client claims and re-encrypts into the MLS group.**
+
+**Rationale:** The current inbound webhook path (`src/server/messaging/router.ts:222-247`)
+uses server-side ECIES envelope encryption: the server receives plaintext from
+Twilio/Vonage/etc., encrypts it under the admin and assigned volunteer pubkeys,
+and discards the plaintext. With MLS, the server cannot encrypt into the MLS
+group because it is not a group member (and making the server a group member would
+violate the zero-knowledge property). The recommended pattern:
+
+1. Server receives inbound webhook with plaintext message body.
+2. Server encrypts the body using the existing `HpkeService.serverEncrypt()`
+   under `LABEL_MESSAGE` (server-held HPKE key, same pattern as ephemeral call
+   data at `src/server/services/calls.ts:212`).
+3. Server stores the HPKE-encrypted ciphertext with a `pending_mls_seal` flag.
+4. The assigned volunteer's client (or any online hub member) fetches pending
+   messages, decrypts the HPKE envelope using the server's public key (which
+   clients already have for session metadata decryption), and re-encrypts the
+   plaintext into the MLS group via `cc.encryptMessage()`.
+5. The MLS ciphertext replaces the HPKE ciphertext; the `pending_mls_seal` flag
+   is cleared.
+
+This is a **transit encryption** pattern: the server holds plaintext for the
+minimum time (the gap between webhook receipt and the next online client's claim).
+It is strictly better than the current pattern (which also has the server see
+plaintext momentarily) because it preserves the MLS epoch binding and forward
+secrecy for the stored-at-rest ciphertext.
+
+**Alternatives considered:**
+- **Make the server an MLS "external sender":** MLS External Senders (RFC 9420
+  §12.1.8) can propose changes but cannot encrypt application messages. MLS does
+  not have a concept of "external encrypter" — only group members can call
+  `encryptMessage`. This option is architecturally impossible.
+- **Leave inbound messages on the legacy ECIES path:** Violates the "no dual code
+  paths" directive from `POST_OVERHAUL_GAPS_2026-04-13.md`. Would require keeping
+  the ECIES sidecar alive indefinitely for a single call site.
+- **Client-side webhook processing:** Route webhooks to a connected client
+  instead of the server. This requires an always-on client (breaks offline
+  operation) and exposes the webhook endpoint to client availability, which is
+  unacceptable for a crisis hotline.
+
+**Security implications:** The server sees inbound message plaintext in transit —
+this is inherent to the architecture (external SMS/WhatsApp senders cannot do E2E
+encryption to the MLS group). The threat model already accepts this for inbound
+webhooks: the server is a trusted relay for external channel messages (see
+`src/server/messaging/router.ts:222` comment). The improvement over the current
+ECIES pattern is that stored-at-rest ciphertext gains MLS forward secrecy and
+post-compromise security after the client claim step. If a client is online, the
+transit window is seconds; if all clients are offline, the HPKE-encrypted
+ciphertext waits safely (the server HPKE key is AES-256-GCM, same security level
+as the MLS group). For the device-compromise scenario, only messages claimed
+after the compromise are at risk — unclaimed HPKE-encrypted messages remain safe
+because the server HPKE private key is server-side only.
+
+**Sources:**
+- `src/server/messaging/router.ts:222-247` — current server-side ECIES encryption of inbound messages
+- `src/server/lib/hpke-service.ts` — existing server-side HPKE seal/open capability
+- `docs/security/HPKE_MIGRATION_NOTES.md:108-109` — `LABEL_SERVER_HPKE_KEY` for server-held data
+- RFC 9420 §12.1.8 — External Senders can propose, not encrypt
+- PR #154 body — lists "Inbound webhook encryption" as decision #5 (not in brainstorm §8)
+
+**Unlocks / blocks:** Affects Slice 6 (messages path cutover). Must be designed
+before the messaging router is rewritten. Does not affect Slice 5 (notes path)
+since notes are always created by authenticated hub members who are in the MLS
+group.
+
+---
+
+### Discrepancy between PR body and §8
+
+The PR body for PR #154 lists 6 decisions:
+1. Ciphersuite ✓
+2. IDB key derivation ✓
+3. Group ID format ✓
+4. Epoch retention ✓
+5. **Inbound webhook encryption: server-encrypt+client-claim vs external sender**
+6. Server Commit ordering ✓
+
+The brainstorm §8 lists 6 decisions:
+1. Ciphersuite ✓
+2. IDB key derivation ✓
+3. Group ID format ✓
+4. Epoch retention ✓
+5. **WASM loading strategy (dynamic / preload / crypto-worker)**
+6. Server Commit ordering ✓
+
+**Resolution:** Both lists are partially correct. The PR body includes the
+inbound webhook encryption decision (which was identified during PR creation but
+not written into §8), while §8 includes the WASM loading strategy (which the PR
+body omitted). **There are actually 7 decisions**, not 6. Both the WASM loading
+strategy and the inbound webhook encryption are real, load-bearing decisions that
+must be resolved before implementation. This §9 covers all 7.
+
+The brainstorm §8 is the authoritative document for the 6 decisions it contains.
+The PR body's decision #5 (inbound webhook encryption) is a genuine gap in §8
+that was caught during PR summarization. Decision 7 above fills this gap.
+
+---
+
+### Validation of §8's existing recommendations
+
+The existing recommendations in §8 were validated against the current codebase
+and core-crypto 9.3.3 API. All 5 existing recommendations (decisions 2-6) are
+**confirmed correct**. No recommendation needed to be overridden.
+
+One nuance worth flagging: §8 decision 4 references `out_of_order_tolerance` as
+a configuration concept. **UNVERIFIED:** core-crypto 9.3.3's TypeScript API
+(`corecrypto.d.ts`) does not expose an `out_of_order_tolerance` parameter in
+`CustomConfiguration` or `ConversationConfiguration`. The epoch retention
+tolerance appears to be managed internally by core-crypto based on which Commits
+have been processed, not via an explicit client configuration. The "5 epochs"
+recommendation is therefore best enforced as a **server-side retention policy**
+(how many past Commits the server stores for catch-up) rather than a client-side
+decryption window. If a future core-crypto version exposes this parameter, it
+should be set to 5 for consistency.
+
+---
+
+**Ready for review — approve or override each recommendation, then Slice 1 can
+be dispatched.**
