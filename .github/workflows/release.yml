@@ -12,7 +12,9 @@
 #   6. Upload signed artifacts to the GitHub Release via gh CLI
 #   7. Call docker.yml to publish versioned Docker images
 #
-# auto-deploy-demo.yml fires on the resulting `release: published` event.
+# release.yml explicitly dispatches auto-deploy-demo.yml at the end, because
+# GitHub Releases created by GITHUB_TOKEN do NOT fire the `release: published`
+# event for downstream workflows (anti-recursion rule).
 
 name: Release
 
@@ -110,7 +112,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.merge_commit_sha }}
           fetch-depth: 0
-          token: ${{ secrets.RELEASE_PAT }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Configure git identity
         run: |
@@ -236,7 +238,7 @@ jobs:
 
       - name: Create tag and GitHub Release via knope
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: knope release --verbose
 
       - name: Upload signed artifacts to GitHub Release
@@ -258,6 +260,16 @@ jobs:
             [ -f "$f" ] && ARTIFACTS+=("$f")
           done
           gh release upload "v${NEW_VERSION}" "${ARTIFACTS[@]}" --clobber
+
+      - name: Dispatch demo VPS deploy
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEW_VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          gh workflow run auto-deploy-demo.yml \
+            --ref main \
+            -f tag="v${NEW_VERSION}"
+          echo "Dispatched auto-deploy-demo.yml for v${NEW_VERSION}"
 
   # ─── Docker Image Publish ─────────────────────────────────
   docker:
