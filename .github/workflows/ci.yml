@@ -9,8 +9,8 @@
 #   6. Dependency vulnerability scan
 #   7. Ansible validation (if ansible or app files changed)
 #
-# Docs-only changes (*.md and site/ files) skip tests.
-# UI E2E tests run but are non-blocking (continue-on-error) while being stabilized.
+# Docs-only changes (*.md and site/ files) skip lint, build, audit, and all tests.
+# UI E2E tests are blocking — a failing UI spec now blocks merge via ci-status.
 #
 # Releases are handled by release.yml (push to main).
 # Desktop app releases are handled by tauri-release.yml.
@@ -407,8 +407,6 @@ jobs:
     if: needs.changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 40
-    # Non-blocking while UI tests are being stabilized
-    continue-on-error: true
     permissions:
       contents: read
       checks: write
@@ -754,9 +752,10 @@ jobs:
         run: |
           FAILED=false
 
-          # These jobs may be legitimately skipped (docs-only or no ansible changes).
-          # For docs-only PRs every job except `changes` is skipped — treat skipped as OK.
-          for job_info in "lint:$LINT_RESULT" "build:$BUILD_RESULT" "audit:$AUDIT_RESULT" "unit-tests:$UNIT_TESTS_RESULT" "integration-tests:$INTEGRATION_TESTS_RESULT" "api-tests:$API_TESTS_RESULT" "ansible-validate:$ANSIBLE_RESULT" "grep-guardrails:$GUARDRAILS_RESULT"; do
+          # All jobs must succeed OR be legitimately skipped (docs-only / no
+          # ansible changes). E2E tests are now blocking — prior "informational"
+          # policy let PRs land with silently-failing UI specs.
+          for job_info in "lint:$LINT_RESULT" "build:$BUILD_RESULT" "audit:$AUDIT_RESULT" "unit-tests:$UNIT_TESTS_RESULT" "integration-tests:$INTEGRATION_TESTS_RESULT" "api-tests:$API_TESTS_RESULT" "e2e-tests:$E2E_TESTS_RESULT" "ansible-validate:$ANSIBLE_RESULT" "grep-guardrails:$GUARDRAILS_RESULT"; do
             job="${job_info%%:*}"
             result="${job_info#*:}"
             if [[ "$result" != "success" && "$result" != "skipped" ]]; then
@@ -766,9 +765,6 @@ jobs:
               echo ":: $job: $result (OK)"
             fi
           done
-
-          # E2E tests are informational while being stabilized (continue-on-error)
-          echo ":: e2e-tests: $E2E_TESTS_RESULT (informational)"
 
           if [[ "$FAILED" == "true" ]]; then
             echo "One or more required checks failed"
