@@ -142,6 +142,63 @@ export const CallSframeKeyRotationPayloadSchema = z.object({
   reason: z.enum(['member_added', 'member_removed', 'scheduled', 'manual']).optional(),
 })
 
+// --- Tier 6: MLS group lifecycle (2026-04) ---
+
+export const MlsGroupInitPayloadSchema = z.object({
+  type: z.literal('mls_group_init'),
+  hubId: z.string(),
+  groupId: z.string(),
+  ciphersuite: z.number().int(),
+  creatorDeviceId: z.string(),
+  epoch: z.literal(0),
+})
+
+export const MlsMembersAddedPayloadSchema = z.object({
+  type: z.literal('mls_members_added'),
+  hubId: z.string(),
+  addedDeviceIds: z.array(z.string()),
+  epoch: z.number().int(),
+  committerId: z.string(),
+})
+
+export const MlsMembersRemovedPayloadSchema = z.object({
+  type: z.literal('mls_members_removed'),
+  hubId: z.string(),
+  removedDeviceIds: z.array(z.string()),
+  epoch: z.number().int(),
+  committerId: z.string(),
+})
+
+export const MlsPathUpdatePayloadSchema = z.object({
+  type: z.literal('mls_path_update'),
+  hubId: z.string(),
+  epoch: z.number().int(),
+  updaterId: z.string(),
+})
+
+export const MlsEpochPurgePayloadSchema = z.object({
+  type: z.literal('mls_epoch_purge'),
+  hubId: z.string(),
+  purgedEpochRange: z.string(),
+  reason: z.string(),
+})
+
+export const MlsCiphersuiteUpgradePlannedPayloadSchema = z.object({
+  type: z.literal('mls_ciphersuite_upgrade_planned'),
+  hubId: z.string(),
+  fromCs: z.number().int(),
+  toCs: z.number().int(),
+  targetDate: z.string(),
+})
+
+export const MlsCiphersuiteUpgradeCompletedPayloadSchema = z.object({
+  type: z.literal('mls_ciphersuite_upgrade_completed'),
+  hubId: z.string(),
+  fromCs: z.number().int(),
+  toCs: z.number().int(),
+  epoch: z.number().int(),
+})
+
 export const AuditEntryPayloadSchema = z.discriminatedUnion('type', [
   MembershipAddPayloadSchema,
   MembershipRemovePayloadSchema,
@@ -170,6 +227,14 @@ export const AuditEntryPayloadSchema = z.discriminatedUnion('type', [
   // Tier 5: voice E2EE state + key rotation
   CallE2eeStateChangePayloadSchema,
   CallSframeKeyRotationPayloadSchema,
+  // Tier 6: MLS group lifecycle
+  MlsGroupInitPayloadSchema,
+  MlsMembersAddedPayloadSchema,
+  MlsMembersRemovedPayloadSchema,
+  MlsPathUpdatePayloadSchema,
+  MlsEpochPurgePayloadSchema,
+  MlsCiphersuiteUpgradePlannedPayloadSchema,
+  MlsCiphersuiteUpgradeCompletedPayloadSchema,
 ])
 export type AuditEntryPayload = z.infer<typeof AuditEntryPayloadSchema>
 
