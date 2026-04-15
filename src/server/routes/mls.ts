@@ -141,6 +141,40 @@ mlsRoutes.openapi(uploadKeyPackagesRoute, async (c) => {
   return c.json({ uploaded: rows.length }, 200)
 })
 
+// ── GET /hub/:hubId/key-packages/counts — key package counts per device ──
+// Registered before the :deviceId route so "counts" isn't captured as a deviceId param.
+
+const keyPackageCountsRoute = createRoute({
+  method: 'get',
+  path: '/hub/{hubId}/key-packages/counts',
+  tags: ['MLS'],
+  summary: 'Key package counts per device',
+  description: 'Returns the number of unconsumed key packages per device so clients can refill.',
+  request: { params: MlsHubIdParamSchema },
+  responses: {
+    200: {
+      description: 'Key package counts',
+      content: { 'application/json': { schema: MlsKeyPackageCountsResponseSchema } },
+    },
+  },
+})
+
+mlsRoutes.openapi(keyPackageCountsRoute, async (c) => {
+  const { hubId } = c.req.valid('param')
+  const db = getDb()
+
+  const rows = await db
+    .select({
+      deviceId: mlsKeyPackages.deviceId,
+      available: sql<number>`count(*)::int`,
+    })
+    .from(mlsKeyPackages)
+    .where(and(eq(mlsKeyPackages.hubId, hubId), isNull(mlsKeyPackages.consumedAt)))
+    .groupBy(mlsKeyPackages.deviceId)
+
+  return c.json({ counts: rows }, 200)
+})
+
 // ── GET /hub/:hubId/key-packages/:deviceId — fetch one unconsumed key package ──
 
 const fetchKeyPackageRoute = createRoute({
@@ -396,39 +430,6 @@ mlsRoutes.openapi(currentEpochRoute, async (c) => {
     },
     200
   )
-})
-
-// ── GET /hub/:hubId/key-packages/counts — key package counts per device ──
-
-const keyPackageCountsRoute = createRoute({
-  method: 'get',
-  path: '/hub/{hubId}/key-packages/counts',
-  tags: ['MLS'],
-  summary: 'Key package counts per device',
-  description: 'Returns the number of unconsumed key packages per device so clients can refill.',
-  request: { params: MlsHubIdParamSchema },
-  responses: {
-    200: {
-      description: 'Key package counts',
-      content: { 'application/json': { schema: MlsKeyPackageCountsResponseSchema } },
-    },
-  },
-})
-
-mlsRoutes.openapi(keyPackageCountsRoute, async (c) => {
-  const { hubId } = c.req.valid('param')
-  const db = getDb()
-
-  const rows = await db
-    .select({
-      deviceId: mlsKeyPackages.deviceId,
-      available: sql<number>`count(*)::int`,
-    })
-    .from(mlsKeyPackages)
-    .where(and(eq(mlsKeyPackages.hubId, hubId), isNull(mlsKeyPackages.consumedAt)))
-    .groupBy(mlsKeyPackages.deviceId)
-
-  return c.json({ counts: rows }, 200)
 })
 
 // ── POST /hub/:hubId/commits/purge — purge old epochs (admin-only) ──
