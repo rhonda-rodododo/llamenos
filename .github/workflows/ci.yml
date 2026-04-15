@@ -22,11 +22,10 @@ on:
   push:
     branches: [main]
 
-# Cancel in-progress PR runs when new commits are pushed.
-# For push-to-main, include run_id so main runs never cancel each other and
-# the notify-main-failure hook always gets a chance to fire.
+# Cancel in-progress runs when new commits are pushed. Both PR and main
+# runs collapse on the same ref so rapid merges don't burn CI minutes.
 concurrency:
-  group: ci-${{ github.ref }}-${{ github.event_name == 'push' && github.run_id || 'pr' }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -48,6 +47,10 @@ jobs:
   # ─── Detect Changed Files ─────────────────────────────────────
   changes:
     runs-on: ubuntu-latest
+    # Release-PR merge commits are handled by release.yml; skip CI for them.
+    if: >-
+      github.event_name != 'push' ||
+      !contains(github.event.head_commit.message, 'chore: prepare release')
 
     outputs:
       app: ${{ steps.filter.outputs.app }}
