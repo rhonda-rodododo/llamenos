@@ -101,7 +101,7 @@ CMD ["bun", "src/server/server.ts"]
 # process can serve app.* + api.* + crypto.* as three distinct origins.
 # The Caddyfile.production from deploy/docker/ is mounted at runtime so
 # operators can tune site blocks without rebuilding the image.
-FROM caddy:2-alpine AS static
+FROM caddy:2-alpine@sha256:fce4f15aad23222c0ac78a1220adf63bae7b94355d5ea28eee53910624acedfa AS static
 COPY --from=frontend /app/dist/client/ /srv/app/
 COPY --from=frontend /app/dist/crypto-sandbox/ /srv/crypto/
 # Baseline Caddyfile — overridden by docker-compose volume mount.
