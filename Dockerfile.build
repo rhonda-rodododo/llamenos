@@ -13,7 +13,7 @@
 # CI sets SOURCE_DATE_EPOCH from git commit time for deterministic timestamps.
 # Local builds default to epoch 0 (1970-01-01) for full reproducibility.
 
-FROM oven/bun:1@sha256:856da45d07aeb62eb38ea3e7f9e1794c0143a4ff63efb00e6c4491b627e2a521
+FROM oven/bun:1@sha256:8956c7667fa17beb6e3c664115e66bdacfe502da5d99603626e74c197bdef160
 
 # Consistent locale (prevents locale-dependent output differences)
 ENV LANG=C.UTF-8
@@ -46,7 +46,22 @@ COPY scripts/verify-no-console.sh scripts/verify-no-console.sh
 COPY index.html vite.config.ts tsconfig.json ./
 COPY tailwind.config.ts* ./
 
+# Upgrade OS packages to pick up security patches released after the base
+# image was built (mirrors the production Dockerfile pattern).
+RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
 # Build frontend (Vite + verify-no-console gate) — reads SOURCE_DATE_EPOCH and GITHUB_SHA
 RUN bun run build
+
+# Remove bun install cache — it contains Go binaries (esbuild, lefthook)
+# compiled with older Go toolchains that accumulate Trivy CVE alerts.
+# node_modules/ is used by the build; the cache is not.
+RUN rm -rf .bun/install/cache/
+
+# Switch away from root for the final image layer (Trivy DS-0002).
+# This is a build-only container — never deployed — but the scan flags it.
+USER 1000
 
 # Output: /build/dist/client/
