@@ -13,7 +13,7 @@ export class MultipleDeviceKeypairsError extends Error {
 
 // --- Storage backend interface ---
 
-export interface DeviceKeypairStorage {
+interface DeviceKeypairStorage {
   put(keypair: DeviceKeypair): Promise<void>
   getAll(): Promise<DeviceKeypair[]>
   clear(): Promise<void>
@@ -37,7 +37,7 @@ function openDb(): Promise<IDBDatabase> {
   })
 }
 
-export class IdbDeviceKeypairStorage implements DeviceKeypairStorage {
+class IdbDeviceKeypairStorage implements DeviceKeypairStorage {
   async put(keypair: DeviceKeypair): Promise<void> {
     const db = await openDb()
     return new Promise((resolve, reject) => {

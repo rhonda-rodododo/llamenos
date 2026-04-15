@@ -30,7 +30,7 @@ import { queryKeys } from './keys'
  * Fetch all firehose connections for the active hub.
  * Display names are decrypted here so the cache holds plaintext values.
  */
-export const firehoseConnectionsOptions = (hubId: string) =>
+const firehoseConnectionsOptions = (hubId: string) =>
   queryOptions({
     queryKey: queryKeys.firehose.list(),
     queryFn: async (): Promise<FirehoseConnection[]> => {
@@ -65,7 +65,7 @@ export function useFirehoseConnections(hubId: string) {
 /**
  * Poll firehose health status every 30 seconds.
  */
-export const firehoseStatusOptions = () =>
+const firehoseStatusOptions = () =>
   queryOptions({
     queryKey: queryKeys.firehose.status(),
     queryFn: async (): Promise<FirehoseConnectionHealth[]> => {

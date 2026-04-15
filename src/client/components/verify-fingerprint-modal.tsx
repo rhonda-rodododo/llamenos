@@ -5,7 +5,7 @@ import { deriveSasEmoji, deriveSasNamesEn } from '@/lib/mls/sas'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-export interface VerifyFingerprintModalProps {
+interface VerifyFingerprintModalProps {
   open: boolean
   /** The verifier's own device pubkey (the admin/user doing the verification). */
   verifierDevicePubkey: Uint8Array

@@ -1,6 +1,6 @@
 import { z } from 'zod/v4'
 
-export const BanEntrySchema = z.object({
+const BanEntrySchema = z.object({
   id: z.uuid(),
   hubId: z.string(),
   phone: z.string(),
@@ -10,12 +10,12 @@ export const BanEntrySchema = z.object({
 })
 export type BanEntry = z.infer<typeof BanEntrySchema>
 
-export const CreateBanSchema = z.object({
+const CreateBanSchema = z.object({
   phone: z.string(),
   reason: z.string(),
   bannedBy: z.string(),
 })
-export type CreateBanInput = z.infer<typeof CreateBanSchema>
+type CreateBanInput = z.infer<typeof CreateBanSchema>
 
 export const AuditLogEntrySchema = z.object({
   id: z.uuid(),
@@ -36,7 +36,7 @@ export const RecipientEnvelopeSchema = z.object({
 })
 export type RecipientEnvelope = z.infer<typeof RecipientEnvelopeSchema>
 
-export const EncryptedNoteSchema = z.object({
+const EncryptedNoteSchema = z.object({
   id: z.uuid(),
   hubId: z.string(),
   callId: z.string().optional(),
@@ -53,7 +53,7 @@ export const EncryptedNoteSchema = z.object({
 })
 export type EncryptedNote = z.infer<typeof EncryptedNoteSchema>
 
-export const CreateNoteSchema = z.object({
+const CreateNoteSchema = z.object({
   hubId: z.string().optional(),
   callId: z.string().optional(),
   conversationId: z.string().optional(),
@@ -63,7 +63,7 @@ export const CreateNoteSchema = z.object({
   authorEnvelope: RecipientEnvelopeSchema.optional(),
   adminEnvelopes: z.array(RecipientEnvelopeSchema),
 })
-export type CreateNoteInput = z.infer<typeof CreateNoteSchema>
+type CreateNoteInput = z.infer<typeof CreateNoteSchema>
 
 export const KeyEnvelopeSchema = z.object({
   wrappedKey: z.string(),
@@ -71,7 +71,7 @@ export const KeyEnvelopeSchema = z.object({
 })
 export type KeyEnvelope = z.infer<typeof KeyEnvelopeSchema>
 
-export const NotePayloadSchema = z.object({
+const NotePayloadSchema = z.object({
   text: z.string(),
   fields: z
     .record(
@@ -88,7 +88,7 @@ export const NotePayloadSchema = z.object({
 })
 export type NotePayload = z.infer<typeof NotePayloadSchema>
 
-export const EncryptedCallRecordSchema = z.object({
+const EncryptedCallRecordSchema = z.object({
   id: z.uuid(),
   hubId: z.string(),
   callerLast4: z.string().optional(),

@@ -16,7 +16,7 @@ export interface UserCallRecipient {
   devices?: Array<{ deviceId: string; publicKey: CryptoKey }>
 }
 
-export interface ResolvedRecipient {
+interface ResolvedRecipient {
   deviceId: string
   publicKey: CryptoKey
 }

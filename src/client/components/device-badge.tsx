@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge'
 import { useTranslation } from 'react-i18next'
 
-export interface DeviceBadgeProps {
+interface DeviceBadgeProps {
   verified: boolean
 }
 

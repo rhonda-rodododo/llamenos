@@ -32,7 +32,7 @@ import { VoicePromptsSection } from './voice-prompts-section'
  */
 const components: Record<string, ComponentType> = {}
 
-export function registerSection(slug: string, component: ComponentType) {
+function registerSection(slug: string, component: ComponentType) {
   components[slug] = component
 }
 

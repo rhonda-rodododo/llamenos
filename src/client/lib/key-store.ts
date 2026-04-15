@@ -228,7 +228,7 @@ export function deriveKekProof(pin: string): string {
   return bytesToHex(key)
 }
 
-export interface RewrapFactors {
+interface RewrapFactors {
   idpValue: Uint8Array
   prfOutput?: Uint8Array
 }

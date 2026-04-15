@@ -24,7 +24,7 @@ import { queryKeys } from './keys'
 // shiftsListOptions
 // ---------------------------------------------------------------------------
 
-export const shiftsListOptions = (hubId = 'global') =>
+const shiftsListOptions = (hubId = 'global') =>
   queryOptions({
     queryKey: queryKeys.shifts.list(),
     queryFn: async () => {
@@ -50,7 +50,7 @@ export function useShifts(hubId = 'global') {
 // fallbackGroupOptions
 // ---------------------------------------------------------------------------
 
-export const fallbackGroupOptions = () =>
+const fallbackGroupOptions = () =>
   queryOptions({
     queryKey: queryKeys.shifts.fallback(),
     queryFn: async () => {
@@ -71,7 +71,7 @@ export function useFallbackGroup() {
 // shiftStatusOptions
 // ---------------------------------------------------------------------------
 
-export const shiftStatusOptions = () =>
+const shiftStatusOptions = () =>
   queryOptions({
     queryKey: queryKeys.shifts.myStatus(),
     queryFn: getMyShiftStatus,

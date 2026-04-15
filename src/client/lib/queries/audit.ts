@@ -28,7 +28,7 @@ import { useUsers } from './users'
 // Filter type (mirrors listAuditLog params)
 // ---------------------------------------------------------------------------
 
-export interface AuditLogFilters {
+interface AuditLogFilters {
   page?: number
   limit?: number
   actorPubkey?: string
@@ -42,7 +42,7 @@ export interface AuditLogFilters {
 // auditLogOptions
 // ---------------------------------------------------------------------------
 
-export const auditLogOptions = (filters?: AuditLogFilters) =>
+const auditLogOptions = (filters?: AuditLogFilters) =>
   queryOptions({
     queryKey: queryKeys.audit.list(filters),
     queryFn: async () => {
@@ -76,7 +76,7 @@ export function useAuditLog(filters?: AuditLogFilters) {
 // on the server. A distinct query key from the hub-scoped list() so cache
 // writes don't cross-contaminate the two views.
 
-export const globalAuditLogOptions = (filters?: AuditLogFilters) =>
+const globalAuditLogOptions = (filters?: AuditLogFilters) =>
   queryOptions({
     queryKey: queryKeys.audit.globalList(filters),
     queryFn: async () => {
@@ -131,7 +131,7 @@ export function deriveAuditTrustAnchorPubkeys(
   return set
 }
 
-export type ChainIntegrityStatus =
+type ChainIntegrityStatus =
   | { state: 'verified'; head: SignedAuditEntry | null }
   | { state: 'tampered'; error: ChainVerificationError }
 

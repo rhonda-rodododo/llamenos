@@ -16,7 +16,7 @@ export const SFRAME_CIPHER_SUITE = {
   hash: 'SHA-256' as const,
 } as const
 
-export type SFrameCipherSuite = typeof SFRAME_CIPHER_SUITE
+type SFrameCipherSuite = typeof SFRAME_CIPHER_SUITE
 
 function utf8(s: string): Uint8Array {
   return new TextEncoder().encode(s)

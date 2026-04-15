@@ -7,7 +7,7 @@ import type {
 import { isSFrameSupported } from './feature-detect.js'
 
 export type { SFrameDegradedNotification }
-export type SFrameDegradedListener = (ev: SFrameDegradedNotification) => void
+type SFrameDegradedListener = (ev: SFrameDegradedNotification) => void
 
 /**
  * Tier 5 WS 5.4 — main-thread facade over the SFrame dedicated Web Worker.
@@ -27,7 +27,7 @@ export class SFrameWorkerError extends Error {
   }
 }
 
-export interface SFrameCallMetrics {
+interface SFrameCallMetrics {
   sealed: number
   opened: number
   errors: number

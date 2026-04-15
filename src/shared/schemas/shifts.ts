@@ -1,6 +1,6 @@
 import { z } from 'zod/v4'
 
-export const ShiftScheduleSchema = z.object({
+const ShiftScheduleSchema = z.object({
   id: z.uuid(),
   hubId: z.string(),
   name: z.string(),
@@ -13,7 +13,7 @@ export const ShiftScheduleSchema = z.object({
 })
 export type ShiftSchedule = z.infer<typeof ShiftScheduleSchema>
 
-export const CreateShiftScheduleSchema = z.object({
+const CreateShiftScheduleSchema = z.object({
   name: z.string().min(1).max(100),
   startTime: z.string().regex(/^\d{2}:\d{2}$/),
   endTime: z.string().regex(/^\d{2}:\d{2}$/),
@@ -22,9 +22,9 @@ export const CreateShiftScheduleSchema = z.object({
   ringGroupId: z.string().optional(),
   hubId: z.string().optional(),
 })
-export type CreateShiftScheduleInput = z.infer<typeof CreateShiftScheduleSchema>
+type CreateShiftScheduleInput = z.infer<typeof CreateShiftScheduleSchema>
 
-export const UpdateShiftScheduleSchema = z.object({
+const UpdateShiftScheduleSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   startTime: z
     .string()
@@ -39,9 +39,9 @@ export const UpdateShiftScheduleSchema = z.object({
   ringGroupId: z.string().optional(),
   hubId: z.string().optional(),
 })
-export type UpdateShiftScheduleInput = z.infer<typeof UpdateShiftScheduleSchema>
+type UpdateShiftScheduleInput = z.infer<typeof UpdateShiftScheduleSchema>
 
-export const RingGroupSchema = z.object({
+const RingGroupSchema = z.object({
   id: z.uuid(),
   hubId: z.string(),
   name: z.string(),
@@ -50,14 +50,14 @@ export const RingGroupSchema = z.object({
 })
 export type RingGroup = z.infer<typeof RingGroupSchema>
 
-export const CreateRingGroupSchema = z.object({
+const CreateRingGroupSchema = z.object({
   name: z.string().min(1).max(100),
   userPubkeys: z.array(z.string()),
   hubId: z.string().optional(),
 })
-export type CreateRingGroupInput = z.infer<typeof CreateRingGroupSchema>
+type CreateRingGroupInput = z.infer<typeof CreateRingGroupSchema>
 
-export const ActiveShiftSchema = z.object({
+const ActiveShiftSchema = z.object({
   pubkey: z.string(),
   hubId: z.string(),
   startedAt: z.iso.datetime(),
@@ -65,7 +65,7 @@ export const ActiveShiftSchema = z.object({
 })
 export type ActiveShift = z.infer<typeof ActiveShiftSchema>
 
-export const ShiftOverrideSchema = z.object({
+const ShiftOverrideSchema = z.object({
   id: z.uuid(),
   hubId: z.string(),
   scheduleId: z.string().optional(),

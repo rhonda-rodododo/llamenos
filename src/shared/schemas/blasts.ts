@@ -13,7 +13,7 @@ export const BlastStatsSchema = z.object({
 })
 export type BlastStats = z.infer<typeof BlastStatsSchema>
 
-export const BlastSchema = z.object({
+const BlastSchema = z.object({
   id: z.uuid(),
   hubId: z.string(),
   /** Plaintext name — populated client-side after hub-key decryption */
@@ -34,7 +34,7 @@ export const BlastSchema = z.object({
 })
 export type Blast = z.infer<typeof BlastSchema>
 
-export const CreateBlastSchema = z.object({
+const CreateBlastSchema = z.object({
   hubId: z.string().optional(),
   name: z.string().min(1).max(200),
   encryptedName: z.string().optional(),
@@ -43,9 +43,9 @@ export const CreateBlastSchema = z.object({
   targetChannels: z.array(BlastChannelEnum).min(1),
   scheduledAt: z.iso.datetime().optional(),
 })
-export type CreateBlastInput = z.infer<typeof CreateBlastSchema>
+type CreateBlastInput = z.infer<typeof CreateBlastSchema>
 
-export const SubscriberSchema = z.object({
+const SubscriberSchema = z.object({
   id: z.uuid(),
   hubId: z.string(),
   phoneNumber: z.string(),
@@ -57,16 +57,16 @@ export const SubscriberSchema = z.object({
 })
 export type Subscriber = z.infer<typeof SubscriberSchema>
 
-export const CreateSubscriberSchema = z.object({
+const CreateSubscriberSchema = z.object({
   hubId: z.string().optional(),
   phoneNumber: z.string(),
   channel: z.string(),
   token: z.string().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
 })
-export type CreateSubscriberInput = z.infer<typeof CreateSubscriberSchema>
+type CreateSubscriberInput = z.infer<typeof CreateSubscriberSchema>
 
-export const BlastDeliverySchema = z.object({
+const BlastDeliverySchema = z.object({
   id: z.uuid(),
   blastId: z.string(),
   subscriberId: z.string(),

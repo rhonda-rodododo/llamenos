@@ -72,7 +72,7 @@ export function CustomFieldInputs({
  * Validate custom field values. Returns a map of field ID -> error message.
  * Empty map means all valid.
  */
-export function validateCustomFields(
+function validateCustomFields(
   fields: CustomFieldDefinition[],
   values: Record<string, FieldValue>,
   t: (key: string, opts?: Record<string, unknown>) => string,

@@ -82,7 +82,7 @@ export function encryptForHub(plaintext: string, hubKey: Uint8Array, aad: Uint8A
  * it didn't". Callers that want to retry under a different key are free
  * to do so on `ok: false` without learning *why* it failed.
  */
-export type HubDecryptResult = { ok: true; value: string } | { ok: false; reason: 'decrypt_failed' }
+type HubDecryptResult = { ok: true; value: string } | { ok: false; reason: 'decrypt_failed' }
 
 /**
  * Strict form of hub-field decryption that returns a discriminated result.
@@ -178,7 +178,7 @@ export async function wrapHubKeyForDevice(
  *   if ALL devices fail (otherwise the result set would be empty and the
  *   new key would have no readers, which is always a bug).
  */
-export type WrapFailurePolicy = 'abort' | 'tolerate'
+type WrapFailurePolicy = 'abort' | 'tolerate'
 
 /**
  * Error thrown by {@link wrapHubKeyForDevices} when a wrap cannot produce a
@@ -427,7 +427,7 @@ export async function walkGenerationChain(params: GenerationWalkParams): Promise
 
 // ---- CLKR rotation (Task 25) ----
 
-export interface HubKeyRotationResult {
+interface HubKeyRotationResult {
   newHubKey: Uint8Array
   newGeneration: number
   oldGenWrappedUnderNew: string // hex
@@ -450,7 +450,7 @@ export interface HubKeyRotationResult {
  *   lock the failing device out of the new generation. Map to `'abort'`
  *   and let the caller rollback the sigchain entry.
  */
-export type RotationReason = 'revoke' | 'schedule' | 'add' | 'manual'
+type RotationReason = 'revoke' | 'schedule' | 'add' | 'manual'
 
 function policyForReason(reason: RotationReason): WrapFailurePolicy {
   return reason === 'revoke' ? 'tolerate' : 'abort'
@@ -541,7 +541,7 @@ export async function rotateHubKeyClkr(params: {
 
 // ---- Rotation cascade planning (Task 26) ----
 
-export interface RotationCascadePlan {
+interface RotationCascadePlan {
   triggerHub: string
   affectedHubs: string[]
   reason: 'member_removed' | 'device_removed' | 'scheduled' | 'manual'

@@ -30,7 +30,7 @@ import { queryKeys } from './keys'
 // teamsListOptions
 // ---------------------------------------------------------------------------
 
-export const teamsListOptions = (hubId = 'global') =>
+const teamsListOptions = (hubId = 'global') =>
   queryOptions({
     queryKey: queryKeys.teams.list(),
     queryFn: async () => {
@@ -63,7 +63,7 @@ export function useTeams(hubId = 'global') {
 // teamMembersOptions
 // ---------------------------------------------------------------------------
 
-export const teamMembersOptions = (teamId: string) =>
+const teamMembersOptions = (teamId: string) =>
   queryOptions({
     queryKey: queryKeys.teams.members(teamId),
     queryFn: async () => {
@@ -86,7 +86,7 @@ export function useTeamMembers(teamId: string) {
 // teamContactsOptions
 // ---------------------------------------------------------------------------
 
-export const teamContactsOptions = (teamId: string) =>
+const teamContactsOptions = (teamId: string) =>
   queryOptions({
     queryKey: queryKeys.teams.contacts(teamId),
     queryFn: async () => {

@@ -3,7 +3,7 @@ import { hp, request } from './client'
 
 // --- Types ---
 
-export interface ShiftStatus {
+interface ShiftStatus {
   onShift: boolean
   currentShift: { name: string; startTime: string; endTime: string } | null
   nextShift: { name: string; startTime: string; endTime: string; day: number } | null

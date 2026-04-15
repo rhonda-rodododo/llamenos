@@ -14,7 +14,7 @@
 
 export const TRAILER_LENGTH = 5 // 4 counter + 1 config
 
-export interface ParsedTrailer {
+interface ParsedTrailer {
   counter: number
   keyId: number
 }

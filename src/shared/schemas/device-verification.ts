@@ -21,12 +21,12 @@ export const DeviceVerificationParamsSchema = z.object({
     .string()
     .openapi({ param: { name: 'deviceId', in: 'path' }, example: 'device-abc123' }),
 })
-export type DeviceVerificationParams = z.infer<typeof DeviceVerificationParamsSchema>
+type DeviceVerificationParams = z.infer<typeof DeviceVerificationParamsSchema>
 
 export const DeviceVerificationRequestSchema = z.object({
   signedEntry: SignedAuditEntrySchema,
 })
-export type DeviceVerificationRequest = z.infer<typeof DeviceVerificationRequestSchema>
+type DeviceVerificationRequest = z.infer<typeof DeviceVerificationRequestSchema>
 
 export const DeviceVerificationSuccessSchema = z.object({
   entryHash: z.string().regex(/^[0-9a-f]{64}$/),
@@ -39,7 +39,7 @@ export type DeviceVerificationSuccess = z.infer<typeof DeviceVerificationSuccess
  * discriminate on these literals — DO NOT add or rename without updating
  * tests/api/device-fingerprint.spec.ts in lockstep.
  */
-export const DeviceVerificationErrorCodeSchema = z.enum([
+const DeviceVerificationErrorCodeSchema = z.enum([
   'parse_error',
   'validation_failed',
   'payload_type_mismatch',
@@ -55,10 +55,10 @@ export const DeviceVerificationErrorCodeSchema = z.enum([
   'signer_not_authorized_for_payload',
   'chain_conflict',
 ])
-export type DeviceVerificationErrorCode = z.infer<typeof DeviceVerificationErrorCodeSchema>
+type DeviceVerificationErrorCode = z.infer<typeof DeviceVerificationErrorCodeSchema>
 
 export const DeviceVerificationErrorSchema = z.object({
   error: z.string(),
   code: DeviceVerificationErrorCodeSchema.optional(),
 })
-export type DeviceVerificationError = z.infer<typeof DeviceVerificationErrorSchema>
+type DeviceVerificationError = z.infer<typeof DeviceVerificationErrorSchema>

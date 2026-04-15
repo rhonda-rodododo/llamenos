@@ -55,7 +55,7 @@ export function useNostrSubscription(
  * @param handler - Callback receiving (raw Nostr event, decrypted Llamenos event)
  * @param enabled - Set to false to disable all subscriptions (default: true)
  */
-export function useMultiHubNostrSubscription(
+function useMultiHubNostrSubscription(
   hubIds: string[] | undefined,
   kinds: number[],
   handler: NostrEventHandler,

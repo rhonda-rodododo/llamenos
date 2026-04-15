@@ -26,10 +26,7 @@ export async function buildSignedAuditEntry(params: {
   return { ...unsigned, entryHash, signature }
 }
 
-export async function appendSignedAuditEntry(
-  hubId: string,
-  entry: SignedAuditEntry
-): Promise<void> {
+async function appendSignedAuditEntry(hubId: string, entry: SignedAuditEntry): Promise<void> {
   const res = await fetch(`${API_BASE}/hubs/${encodeURIComponent(hubId)}/audit`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', ...getAuthHeaders() },

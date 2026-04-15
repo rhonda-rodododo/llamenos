@@ -13,7 +13,7 @@ import type { WebRTCAdapter, WebRtcEvent, WebRtcEventHandler } from '../types'
 const log = createDebugLog('llamenos:webrtc:twilio')
 
 /** Constructor options for {@link TwilioWebRTCAdapter}. */
-export type TwilioWebRTCAdapterOptions = SFrameCapableAdapterOptions
+type TwilioWebRTCAdapterOptions = SFrameCapableAdapterOptions
 
 // Minimal types we need from @twilio/voice-sdk
 interface TwilioDevice {

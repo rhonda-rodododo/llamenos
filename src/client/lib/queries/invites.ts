@@ -29,7 +29,7 @@ import { queryKeys } from './keys'
  * Fetch and decrypt the full pending invite list.
  * Invite name/phone fields are encrypted with LABEL_USER_PII.
  */
-export const invitesListOptions = () =>
+const invitesListOptions = () =>
   queryOptions({
     queryKey: queryKeys.invites.list(),
     queryFn: async () => {
@@ -62,7 +62,7 @@ export function useInvites() {
  * Fetch available invite delivery channels (Signal, WhatsApp, SMS).
  * Stale for 10 minutes since channel availability rarely changes.
  */
-export const inviteChannelsOptions = () =>
+const inviteChannelsOptions = () =>
   queryOptions({
     queryKey: queryKeys.invites.channels(),
     queryFn: () =>

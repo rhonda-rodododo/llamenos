@@ -26,7 +26,7 @@ import { queryKeys } from './keys'
 // bansListOptions
 // ---------------------------------------------------------------------------
 
-export const bansListOptions = () =>
+const bansListOptions = () =>
   queryOptions({
     queryKey: queryKeys.bans.list(),
     queryFn: async () => {
@@ -103,7 +103,7 @@ export function useRemoveBan() {
 // `hub_id = 'global'` on the server. A distinct query key from the hub-scoped
 // `list()` so cache writes don't cross-contaminate the two views.
 
-export const globalBansListOptions = () =>
+const globalBansListOptions = () =>
   queryOptions({
     queryKey: queryKeys.bans.globalList(),
     queryFn: async () => {

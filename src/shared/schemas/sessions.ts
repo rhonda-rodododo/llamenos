@@ -1,7 +1,7 @@
 import { z } from '@hono/zod-openapi'
 import { RecipientEnvelopeSchema } from './records'
 
-export const RevokeReasonSchema = z.enum([
+const RevokeReasonSchema = z.enum([
   'user',
   'lockdown_a',
   'lockdown_b',
@@ -11,7 +11,7 @@ export const RevokeReasonSchema = z.enum([
   'expired',
 ])
 
-export const SessionSchema = z.object({
+const SessionSchema = z.object({
   id: z.string(),
   createdAt: z.string(),
   lastSeenAt: z.string(),
@@ -22,18 +22,18 @@ export const SessionSchema = z.object({
   credentialId: z.string().nullable(),
 })
 
-export const SessionListResponseSchema = z.object({
+const SessionListResponseSchema = z.object({
   sessions: z.array(SessionSchema),
 })
 
-export const RevokeSessionParamsSchema = z.object({
+const RevokeSessionParamsSchema = z.object({
   id: z.string(),
 })
 
-export const RevokeOthersResponseSchema = z.object({
+const RevokeOthersResponseSchema = z.object({
   revokedCount: z.number().int().min(0),
 })
 
-export type SessionResponse = z.infer<typeof SessionSchema>
-export type SessionListResponse = z.infer<typeof SessionListResponseSchema>
+type SessionResponse = z.infer<typeof SessionSchema>
+type SessionListResponse = z.infer<typeof SessionListResponseSchema>
 export type RevokeReason = z.infer<typeof RevokeReasonSchema>

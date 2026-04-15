@@ -6,4 +6,4 @@ export const PinChangeSchema = z.object({
   newEncryptedSecretKey: z.string().min(1),
 })
 
-export type PinChangeInput = z.infer<typeof PinChangeSchema>
+type PinChangeInput = z.infer<typeof PinChangeSchema>

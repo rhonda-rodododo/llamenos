@@ -160,7 +160,7 @@ export async function listContactRelationships(): Promise<ContactRelationshipRec
   return data.relationships
 }
 
-export async function createContactRelationship(data: {
+async function createContactRelationship(data: {
   encryptedPayload: string
   payloadEnvelopes: RecipientEnvelope[]
 }): Promise<ContactRelationshipRecord> {
@@ -170,11 +170,11 @@ export async function createContactRelationship(data: {
   })
 }
 
-export async function deleteContactRelationship(id: string): Promise<void> {
+async function deleteContactRelationship(id: string): Promise<void> {
   return request(hp(`/contacts/relationships/${id}`), { method: 'DELETE' })
 }
 
-export async function createContactFromCall(
+async function createContactFromCall(
   callId: string,
   data: {
     contactType: string
@@ -207,7 +207,7 @@ export async function notifyContacts(
   })
 }
 
-export async function importContacts(data: {
+async function importContacts(data: {
   contacts: Array<{
     contactType: string
     riskLevel: string

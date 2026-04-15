@@ -32,10 +32,10 @@ import { SAS_EMOJI_NAMES_EN, SAS_EMOJI_TABLE } from './emoji-table'
  */
 
 /** 7-emoji SAS tuple — fixed length, compile-time enforced. */
-export type SasEmojiTuple = readonly [string, string, string, string, string, string, string]
+type SasEmojiTuple = readonly [string, string, string, string, string, string, string]
 
 /** 7-name SAS tuple (English, accessibility fallback for ambiguous emoji). */
-export type SasNamesTuple = readonly [string, string, string, string, string, string, string]
+type SasNamesTuple = readonly [string, string, string, string, string, string, string]
 
 /**
  * Derive the 7-emoji SAS that both parties in a fingerprint verification

@@ -67,7 +67,7 @@ let activeHubId: string | null = null
 export function setActiveHub(id: string | null) {
   activeHubId = id
 }
-export function getActiveHub(): string | null {
+function getActiveHub(): string | null {
   return activeHubId
 }
 

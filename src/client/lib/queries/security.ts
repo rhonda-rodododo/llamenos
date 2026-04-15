@@ -5,14 +5,14 @@ import * as api from '../api/security'
 import { decryptEnvelopeJson } from '../decrypt-fields'
 import { queryKeys } from './keys'
 
-export interface SessionMetaDecrypted {
+interface SessionMetaDecrypted {
   userAgent: string
   city: string
   region: string
   country: string
 }
 
-export interface SessionViewModel {
+interface SessionViewModel {
   id: string
   createdAt: string
   lastSeenAt: string
@@ -74,7 +74,7 @@ export function useRevokeOtherSessions() {
   })
 }
 
-export interface PasskeyViewModel {
+interface PasskeyViewModel {
   id: string
   label: string
   transports: string[]

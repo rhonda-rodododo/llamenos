@@ -2,16 +2,16 @@ import { z } from 'zod/v4'
 import { RecipientEnvelopeSchema } from './records'
 
 // ── Create Intake ──
-export const CreateIntakeSchema = z.object({
+const CreateIntakeSchema = z.object({
   contactId: z.string().optional(),
   callId: z.string().optional(),
   encryptedPayload: z.string().min(1),
   payloadEnvelopes: z.array(RecipientEnvelopeSchema),
 })
-export type CreateIntakeInput = z.infer<typeof CreateIntakeSchema>
+type CreateIntakeInput = z.infer<typeof CreateIntakeSchema>
 
 // ── Update Intake Status ──
-export const UpdateIntakeStatusSchema = z.object({
+const UpdateIntakeStatusSchema = z.object({
   status: z.enum(['reviewed', 'merged', 'dismissed']),
 })
-export type UpdateIntakeStatusInput = z.infer<typeof UpdateIntakeStatusSchema>
+type UpdateIntakeStatusInput = z.infer<typeof UpdateIntakeStatusSchema>

@@ -11,4 +11,4 @@ export const PasskeyRenameSchema = z
     message: 'Must provide either label or encryptedLabel',
   })
 
-export type PasskeyRenameInput = z.infer<typeof PasskeyRenameSchema>
+type PasskeyRenameInput = z.infer<typeof PasskeyRenameSchema>

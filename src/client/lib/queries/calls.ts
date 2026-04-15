@@ -40,7 +40,7 @@ type CallHistoryFilters = {
  * Fetch call history with optional filters. Decrypts encrypted call record
  * metadata (answeredBy, callerNumber) via admin ECIES envelopes when unlocked.
  */
-export const callHistoryOptions = (filters?: CallHistoryFilters) =>
+const callHistoryOptions = (filters?: CallHistoryFilters) =>
   queryOptions({
     queryKey: queryKeys.calls.history(filters),
     queryFn: async (): Promise<{ calls: CallRecord[]; total: number }> => {
@@ -89,7 +89,7 @@ export function useCallHistory(filters?: CallHistoryFilters) {
  * for real-time updates; this is the REST fallback/seed).
  * refetchInterval=30_000 polls every 30s as a safety net.
  */
-export const activeCallsOptions = () =>
+const activeCallsOptions = () =>
   queryOptions({
     queryKey: queryKeys.calls.active(),
     queryFn: async (): Promise<ActiveCall[]> => {
@@ -118,7 +118,7 @@ export function useActiveCalls() {
 /**
  * Refreshes every 60s — used by dashboard stats.
  */
-export const callsTodayCountOptions = () =>
+const callsTodayCountOptions = () =>
   queryOptions({
     queryKey: queryKeys.calls.todayCount(),
     queryFn: async (): Promise<number> => {
@@ -146,7 +146,7 @@ export function useCallsTodayCount() {
 /**
  * Refreshes every 15s to keep the dashboard sidebar current.
  */
-export const presenceOptions = () =>
+const presenceOptions = () =>
   queryOptions({
     queryKey: queryKeys.presence.list(),
     queryFn: async (): Promise<UserPresence[]> => {

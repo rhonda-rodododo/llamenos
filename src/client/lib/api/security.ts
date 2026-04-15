@@ -1,7 +1,7 @@
 import type { RecipientEnvelope } from '@shared/types'
 import { request } from './client'
 
-export interface SessionApiRow {
+interface SessionApiRow {
   id: string
   createdAt: string
   lastSeenAt: string
@@ -27,7 +27,7 @@ export async function revokeOtherSessions(): Promise<{ revokedCount: number }> {
   })
 }
 
-export interface PasskeyApiRow {
+interface PasskeyApiRow {
   id: string
   label: string
   transports: string[]

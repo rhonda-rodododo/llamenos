@@ -10,13 +10,13 @@ export const StartEnrollmentRequestSchema = z.object({
   candidateEncryptionPubkey: hexPubkey,
   enrollmentNonce: hexPubkey,
 })
-export type StartEnrollmentRequest = z.infer<typeof StartEnrollmentRequestSchema>
+type StartEnrollmentRequest = z.infer<typeof StartEnrollmentRequestSchema>
 
 export const StartEnrollmentResponseSchema = z.object({
   sessionId: z.string().uuid(),
   expiresAt: z.string().datetime(),
 })
-export type StartEnrollmentResponse = z.infer<typeof StartEnrollmentResponseSchema>
+type StartEnrollmentResponse = z.infer<typeof StartEnrollmentResponseSchema>
 
 // --- Finalize enrollment ---
 
@@ -47,13 +47,13 @@ export const FinalizeEnrollmentRequestSchema = z.object({
     envelope: z.string(),
   }),
 })
-export type FinalizeEnrollmentRequest = z.infer<typeof FinalizeEnrollmentRequestSchema>
+type FinalizeEnrollmentRequest = z.infer<typeof FinalizeEnrollmentRequestSchema>
 
-export const FinalizeEnrollmentResponseSchema = z.object({
+const FinalizeEnrollmentResponseSchema = z.object({
   deviceId: z.string(),
   userId: z.string().uuid(),
 })
-export type FinalizeEnrollmentResponse = z.infer<typeof FinalizeEnrollmentResponseSchema>
+type FinalizeEnrollmentResponse = z.infer<typeof FinalizeEnrollmentResponseSchema>
 
 // --- List devices ---
 
@@ -68,7 +68,7 @@ export const DeviceResponseSchema = z.object({
   revokedReason: z.string().nullable(),
   isCurrent: z.boolean(),
 })
-export type DeviceResponse = z.infer<typeof DeviceResponseSchema>
+type DeviceResponse = z.infer<typeof DeviceResponseSchema>
 
 export const DeviceListResponseSchema = z.object({
   devices: z.array(DeviceResponseSchema),
@@ -110,17 +110,17 @@ export const RevokeDeviceRequestSchema = z.object({
   /** Old PUK seed wrapped under new generation's SecretBox key (hex) */
   oldGenWrappedUnderNew: z.string(),
 })
-export type RevokeDeviceRequest = z.infer<typeof RevokeDeviceRequestSchema>
+type RevokeDeviceRequest = z.infer<typeof RevokeDeviceRequestSchema>
 
-export const RevokeDeviceResponseSchema = z.object({
+const RevokeDeviceResponseSchema = z.object({
   revokedDeviceId: z.string(),
   newPukGeneration: z.number().int(),
 })
-export type RevokeDeviceResponse = z.infer<typeof RevokeDeviceResponseSchema>
+type RevokeDeviceResponse = z.infer<typeof RevokeDeviceResponseSchema>
 
 // --- Revoke device path params ---
 
-export const RevokeDeviceParamsSchema = z.object({
+const RevokeDeviceParamsSchema = z.object({
   deviceId: z.string(),
 })
 export type RevokeDeviceParams = z.infer<typeof RevokeDeviceParamsSchema>

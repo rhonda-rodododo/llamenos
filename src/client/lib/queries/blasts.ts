@@ -26,7 +26,7 @@ import { queryKeys } from './keys'
 // Types
 // ---------------------------------------------------------------------------
 
-export type DecryptedBlastContent = Record<string, BlastContent | null>
+type DecryptedBlastContent = Record<string, BlastContent | null>
 
 interface SubscriberStatsData {
   total: number
@@ -43,7 +43,7 @@ interface SubscriberStatsData {
  * Fetch all blasts and decrypt their content when the key manager is unlocked.
  * Returns both the raw blast array and a map of decrypted content keyed by blast id.
  */
-export const blastsListOptions = (hubId = 'global') =>
+const blastsListOptions = (hubId = 'global') =>
   queryOptions({
     queryKey: queryKeys.blasts.list(),
     queryFn: async (): Promise<{ blasts: Blast[]; decryptedContent: DecryptedBlastContent }> => {
@@ -91,7 +91,7 @@ export function useBlasts(hubId = 'global') {
 /**
  * Fetch blast settings with a 10-minute stale window.
  */
-export const blastSettingsOptions = () =>
+const blastSettingsOptions = () =>
   queryOptions({
     queryKey: queryKeys.blasts.settings(),
     queryFn: (): Promise<BlastSettings> => getBlastSettings(),
@@ -113,7 +113,7 @@ export function useBlastSettings() {
 /**
  * Fetch the subscriber list.
  */
-export const subscribersListOptions = () =>
+const subscribersListOptions = () =>
   queryOptions({
     queryKey: queryKeys.blasts.subscribers(),
     queryFn: async (): Promise<Subscriber[]> => {
@@ -137,7 +137,7 @@ export function useSubscribers() {
 /**
  * Fetch aggregate subscriber statistics.
  */
-export const subscriberStatsOptions = () =>
+const subscriberStatsOptions = () =>
   queryOptions({
     queryKey: queryKeys.blasts.subscriberStats(),
     queryFn: (): Promise<SubscriberStatsData> => getSubscriberStats(),

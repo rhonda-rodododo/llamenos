@@ -18,7 +18,7 @@ export async function listFirehoseConnections(): Promise<{
   return request(hp('/firehose'))
 }
 
-export async function getFirehoseConnection(id: string): Promise<{
+async function getFirehoseConnection(id: string): Promise<{
   connection: FirehoseConnection
 }> {
   return request(hp(`/firehose/${id}`))

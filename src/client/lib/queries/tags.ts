@@ -16,7 +16,7 @@ import { queryKeys } from './keys'
 // tagsListOptions
 // ---------------------------------------------------------------------------
 
-export const tagsListOptions = (hubId = 'global') =>
+const tagsListOptions = (hubId = 'global') =>
   queryOptions({
     queryKey: queryKeys.tags.list(),
     queryFn: async () => {

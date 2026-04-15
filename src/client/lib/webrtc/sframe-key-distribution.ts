@@ -91,7 +91,7 @@ export async function buildKeyEvent(inputs: BuildKeyEventInputs): Promise<SFrame
   }
 }
 
-export interface ParseKeyEventInputs {
+interface ParseKeyEventInputs {
   event: SFrameKeyEvent
   localDeviceId: string
   privateKey: CryptoKey

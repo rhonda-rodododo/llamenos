@@ -161,6 +161,6 @@ export function stopRinging() {
   stopTitleFlash()
 }
 
-export function isCurrentlyRinging() {
+function isCurrentlyRinging() {
   return isRinging
 }

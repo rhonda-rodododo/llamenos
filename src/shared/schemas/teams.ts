@@ -1,27 +1,27 @@
 import { z } from 'zod/v4'
 
 // ── Create Team ──
-export const CreateTeamSchema = z.object({
+const CreateTeamSchema = z.object({
   encryptedName: z.string().min(1),
   encryptedDescription: z.string().optional(),
 })
-export type CreateTeamInput = z.infer<typeof CreateTeamSchema>
+type CreateTeamInput = z.infer<typeof CreateTeamSchema>
 
 // ── Update Team ──
-export const UpdateTeamSchema = z.object({
+const UpdateTeamSchema = z.object({
   encryptedName: z.string().optional(),
   encryptedDescription: z.string().nullable().optional(),
 })
-export type UpdateTeamInput = z.infer<typeof UpdateTeamSchema>
+type UpdateTeamInput = z.infer<typeof UpdateTeamSchema>
 
 // ── Add Members ──
-export const AddTeamMembersSchema = z.object({
+const AddTeamMembersSchema = z.object({
   pubkeys: z.array(z.string().min(1)).min(1),
 })
-export type AddTeamMembersInput = z.infer<typeof AddTeamMembersSchema>
+type AddTeamMembersInput = z.infer<typeof AddTeamMembersSchema>
 
 // ── Assign Contacts ──
-export const AssignTeamContactsSchema = z.object({
+const AssignTeamContactsSchema = z.object({
   contactIds: z.array(z.string().min(1)).min(1),
 })
-export type AssignTeamContactsInput = z.infer<typeof AssignTeamContactsSchema>
+type AssignTeamContactsInput = z.infer<typeof AssignTeamContactsSchema>

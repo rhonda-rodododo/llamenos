@@ -5,7 +5,7 @@ import * as api from '../api/auth-events'
 import { decryptEnvelopeJson } from '../decrypt-fields'
 import { queryKeys } from './keys'
 
-export interface AuthEventPayloadDecrypted {
+interface AuthEventPayloadDecrypted {
   sessionId?: string
   ipHash?: string
   city?: string
@@ -17,7 +17,7 @@ export interface AuthEventPayloadDecrypted {
   meta?: Record<string, unknown>
 }
 
-export interface AuthEventViewModel {
+interface AuthEventViewModel {
   id: string
   eventType: string
   createdAt: string

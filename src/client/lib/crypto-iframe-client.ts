@@ -59,7 +59,7 @@ type PendingCall = {
  * Minimal iframe host surface the client needs. Real production code creates
  * a real HTMLIFrameElement; tests inject a fake via `fakeIframeForTests`.
  */
-export interface IframeHost {
+interface IframeHost {
   contentWindow: {
     postMessage: (data: unknown, targetOrigin: string) => void
   } | null
@@ -77,7 +77,7 @@ function generateRequestNonceHex(): string {
   return out
 }
 
-export interface CryptoIframeClientConfig {
+interface CryptoIframeClientConfig {
   /** The origin serving /sandbox.html. Required; empty string throws. */
   cryptoOrigin: string
   /** Per-RPC timeout. Defaults to 30s. */
@@ -334,7 +334,7 @@ export function getCryptoIframeClient(): CryptoIframeClient {
 }
 
 /** Test hook: drop the singleton so the next call creates a fresh client. */
-export function _resetCryptoIframeClientForTests(): void {
+function _resetCryptoIframeClientForTests(): void {
   singleton?.destroy()
   singleton = null
 }

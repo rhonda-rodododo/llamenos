@@ -19,7 +19,7 @@ const Base64Url = z
   .regex(/^[A-Za-z0-9_-]+$/)
   .max(4096)
 
-export const OpaquePurposeSchema = z.enum(['root-kek', 'recovery-phrase', 'recovery-group'])
+const OpaquePurposeSchema = z.enum(['root-kek', 'recovery-phrase', 'recovery-group'])
 export type OpaquePurpose = z.infer<typeof OpaquePurposeSchema>
 
 // ---------------------------------------------------------------------------
@@ -33,7 +33,7 @@ export const OpaqueRegistrationStartRequestSchema = z
     registrationRequest: Base64Url,
   })
   .strict()
-export type OpaqueRegistrationStartRequest = z.infer<typeof OpaqueRegistrationStartRequestSchema>
+type OpaqueRegistrationStartRequest = z.infer<typeof OpaqueRegistrationStartRequestSchema>
 
 export const OpaqueRegistrationStartResponseSchema = z
   .object({
@@ -41,7 +41,7 @@ export const OpaqueRegistrationStartResponseSchema = z
     registrationResponse: Base64Url,
   })
   .strict()
-export type OpaqueRegistrationStartResponse = z.infer<typeof OpaqueRegistrationStartResponseSchema>
+type OpaqueRegistrationStartResponse = z.infer<typeof OpaqueRegistrationStartResponseSchema>
 
 export const OpaqueRegistrationFinishRequestSchema = z
   .object({
@@ -50,7 +50,7 @@ export const OpaqueRegistrationFinishRequestSchema = z
     registrationUpload: Base64Url,
   })
   .strict()
-export type OpaqueRegistrationFinishRequest = z.infer<typeof OpaqueRegistrationFinishRequestSchema>
+type OpaqueRegistrationFinishRequest = z.infer<typeof OpaqueRegistrationFinishRequestSchema>
 
 export const OpaqueRegistrationFinishResponseSchema = z
   .object({
@@ -58,9 +58,7 @@ export const OpaqueRegistrationFinishResponseSchema = z
     credentialIdentifier: z.string(),
   })
   .strict()
-export type OpaqueRegistrationFinishResponse = z.infer<
-  typeof OpaqueRegistrationFinishResponseSchema
->
+type OpaqueRegistrationFinishResponse = z.infer<typeof OpaqueRegistrationFinishResponseSchema>
 
 // ---------------------------------------------------------------------------
 // Login
@@ -73,7 +71,7 @@ export const OpaqueLoginStartRequestSchema = z
     credentialRequest: Base64Url,
   })
   .strict()
-export type OpaqueLoginStartRequest = z.infer<typeof OpaqueLoginStartRequestSchema>
+type OpaqueLoginStartRequest = z.infer<typeof OpaqueLoginStartRequestSchema>
 
 export const OpaqueLoginStartResponseSchema = z
   .object({
@@ -81,7 +79,7 @@ export const OpaqueLoginStartResponseSchema = z
     credentialResponse: Base64Url,
   })
   .strict()
-export type OpaqueLoginStartResponse = z.infer<typeof OpaqueLoginStartResponseSchema>
+type OpaqueLoginStartResponse = z.infer<typeof OpaqueLoginStartResponseSchema>
 
 export const OpaqueLoginFinishRequestSchema = z
   .object({
@@ -89,11 +87,11 @@ export const OpaqueLoginFinishRequestSchema = z
     credentialFinalization: Base64Url,
   })
   .strict()
-export type OpaqueLoginFinishRequest = z.infer<typeof OpaqueLoginFinishRequestSchema>
+type OpaqueLoginFinishRequest = z.infer<typeof OpaqueLoginFinishRequestSchema>
 
 export const OpaqueLoginFinishResponseSchema = z
   .object({
     ok: z.literal(true),
   })
   .strict()
-export type OpaqueLoginFinishResponse = z.infer<typeof OpaqueLoginFinishResponseSchema>
+type OpaqueLoginFinishResponse = z.infer<typeof OpaqueLoginFinishResponseSchema>

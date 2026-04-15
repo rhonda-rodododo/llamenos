@@ -10,7 +10,7 @@ import { AlertCircle, Loader2, Pause, Play, Voicemail } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-export interface VoicemailPlayerProps {
+interface VoicemailPlayerProps {
   fileId?: string | null
   callId: string
   canListen: boolean // voicemail:listen permission

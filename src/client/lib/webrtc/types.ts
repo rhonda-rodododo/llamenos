@@ -31,7 +31,7 @@ export interface WebRTCAdapter {
   destroy(): void
 }
 
-export interface WebRTCManagerConfig {
+interface WebRTCManagerConfig {
   provider: string
   token: string
   ttl: number // seconds

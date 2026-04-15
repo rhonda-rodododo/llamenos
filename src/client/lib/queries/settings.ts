@@ -54,18 +54,18 @@ const STALE_10_MIN = 10 * 60_000
 // spamSettingsOptions / useSpamSettings
 // ---------------------------------------------------------------------------
 
-export const spamSettingsOptions = () =>
+const spamSettingsOptions = () =>
   queryOptions({
     queryKey: queryKeys.settings.spam(),
     queryFn: (): Promise<SpamSettings> => getSpamSettings(),
     staleTime: STALE_10_MIN,
   })
 
-export function useSpamSettings() {
+function useSpamSettings() {
   return useQuery(spamSettingsOptions())
 }
 
-export function useUpdateSpamSettings() {
+function useUpdateSpamSettings() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (data: Partial<SpamSettings>) => updateSpamSettings(data),
@@ -79,18 +79,18 @@ export function useUpdateSpamSettings() {
 // callSettingsOptions / useCallSettings
 // ---------------------------------------------------------------------------
 
-export const callSettingsOptions = () =>
+const callSettingsOptions = () =>
   queryOptions({
     queryKey: queryKeys.settings.call(),
     queryFn: (): Promise<CallSettings> => getCallSettings(),
     staleTime: STALE_10_MIN,
   })
 
-export function useCallSettings() {
+function useCallSettings() {
   return useQuery(callSettingsOptions())
 }
 
-export function useUpdateCallSettings() {
+function useUpdateCallSettings() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (data: Partial<CallSettings>) => updateCallSettings(data),
@@ -109,18 +109,18 @@ interface TranscriptionSettings {
   allowUserOptOut: boolean
 }
 
-export const transcriptionSettingsOptions = () =>
+const transcriptionSettingsOptions = () =>
   queryOptions({
     queryKey: queryKeys.settings.transcription(),
     queryFn: (): Promise<TranscriptionSettings> => getTranscriptionSettings(),
     staleTime: STALE_10_MIN,
   })
 
-export function useTranscriptionSettings() {
+function useTranscriptionSettings() {
   return useQuery(transcriptionSettingsOptions())
 }
 
-export function useUpdateTranscriptionSettings() {
+function useUpdateTranscriptionSettings() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (data: { globalEnabled?: boolean; allowUserOptOut?: boolean }) =>
@@ -145,11 +145,11 @@ export const ivrLanguagesOptions = () =>
     staleTime: STALE_10_MIN,
   })
 
-export function useIvrLanguages() {
+function useIvrLanguages() {
   return useQuery(ivrLanguagesOptions())
 }
 
-export function useUpdateIvrLanguages() {
+function useUpdateIvrLanguages() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (enabledLanguages: string[]) => updateIvrLanguages({ enabledLanguages }),
@@ -173,7 +173,7 @@ export const ivrAudioOptions = () =>
     staleTime: STALE_10_MIN,
   })
 
-export function useIvrAudio() {
+function useIvrAudio() {
   return useQuery(ivrAudioOptions())
 }
 
@@ -181,18 +181,18 @@ export function useIvrAudio() {
 // webAuthnSettingsOptions / useWebAuthnSettings
 // ---------------------------------------------------------------------------
 
-export const webAuthnSettingsOptions = () =>
+const webAuthnSettingsOptions = () =>
   queryOptions({
     queryKey: queryKeys.settings.webauthn(),
     queryFn: (): Promise<WebAuthnSettings> => getWebAuthnSettings(),
     staleTime: STALE_10_MIN,
   })
 
-export function useWebAuthnSettings() {
+function useWebAuthnSettings() {
   return useQuery(webAuthnSettingsOptions())
 }
 
-export function useUpdateWebAuthnSettings() {
+function useUpdateWebAuthnSettings() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (data: Partial<WebAuthnSettings>) => updateWebAuthnSettings(data),
@@ -248,7 +248,7 @@ export function useCustomFields(hubId = 'global') {
   return useQuery(customFieldsOptions(hubId))
 }
 
-export function useUpdateCustomFields() {
+function useUpdateCustomFields() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (fields: CustomFieldDefinition[]) => updateCustomFields(fields),
@@ -262,18 +262,18 @@ export function useUpdateCustomFields() {
 // providerConfigOptions / useProviderConfig
 // ---------------------------------------------------------------------------
 
-export const providerConfigOptions = () =>
+const providerConfigOptions = () =>
   queryOptions({
     queryKey: queryKeys.settings.provider(),
     queryFn: (): Promise<TelephonyProviderConfig | null> => getTelephonyProvider(),
     staleTime: STALE_10_MIN,
   })
 
-export function useProviderConfig() {
+function useProviderConfig() {
   return useQuery(providerConfigOptions())
 }
 
-export function useUpdateProviderConfig() {
+function useUpdateProviderConfig() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (config: TelephonyProviderDraft) =>
@@ -288,18 +288,18 @@ export function useUpdateProviderConfig() {
 // messagingConfigOptions / useMessagingConfig
 // ---------------------------------------------------------------------------
 
-export const messagingConfigOptions = () =>
+const messagingConfigOptions = () =>
   queryOptions({
     queryKey: queryKeys.settings.messaging(),
     queryFn: (): Promise<MessagingConfig> => getMessagingConfig(),
     staleTime: STALE_10_MIN,
   })
 
-export function useMessagingConfig() {
+function useMessagingConfig() {
   return useQuery(messagingConfigOptions())
 }
 
-export function useUpdateMessagingConfig() {
+function useUpdateMessagingConfig() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (data: Partial<MessagingConfig>) => updateMessagingConfig(data),
@@ -313,18 +313,18 @@ export function useUpdateMessagingConfig() {
 // geocodingConfigOptions / useGeocodingConfig
 // ---------------------------------------------------------------------------
 
-export const geocodingConfigOptions = () =>
+const geocodingConfigOptions = () =>
   queryOptions({
     queryKey: queryKeys.settings.geocoding(),
     queryFn: (): Promise<GeocodingConfigAdmin> => getGeocodingSettings(),
     staleTime: STALE_10_MIN,
   })
 
-export function useGeocodingConfig() {
+function useGeocodingConfig() {
   return useQuery(geocodingConfigOptions())
 }
 
-export function useUpdateGeocodingConfig() {
+function useUpdateGeocodingConfig() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (data: Partial<GeocodingConfigAdmin>) => updateGeocodingSettings(data),
@@ -338,18 +338,18 @@ export function useUpdateGeocodingConfig() {
 // retentionSettingsOptions / useRetentionSettings
 // ---------------------------------------------------------------------------
 
-export const retentionSettingsOptions = () =>
+const retentionSettingsOptions = () =>
   queryOptions({
     queryKey: queryKeys.settings.retention(),
     queryFn: (): Promise<RetentionSettings> => getRetentionSettings(),
     staleTime: STALE_10_MIN,
   })
 
-export function useRetentionSettings() {
+function useRetentionSettings() {
   return useQuery(retentionSettingsOptions())
 }
 
-export function useUpdateRetentionSettings() {
+function useUpdateRetentionSettings() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (data: Partial<RetentionSettings>) => updateRetentionSettings(data),
@@ -367,7 +367,7 @@ export function useUpdateRetentionSettings() {
  * Fetch and decrypt the current user's WebAuthn credentials.
  * Label names (encryptedLabel → label) are encrypted with LABEL_USER_PII.
  */
-export const webAuthnCredsOptions = () =>
+const webAuthnCredsOptions = () =>
   queryOptions({
     queryKey: queryKeys.credentials.mine(),
     queryFn: async (): Promise<WebAuthnCredentialInfo[]> => {

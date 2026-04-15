@@ -5,19 +5,19 @@ export const WebAuthnLoginVerifySchema = z.object({
   assertion: z.unknown(),
   challengeId: z.string(),
 })
-export type WebAuthnLoginVerifyInput = z.infer<typeof WebAuthnLoginVerifySchema>
+type WebAuthnLoginVerifyInput = z.infer<typeof WebAuthnLoginVerifySchema>
 
 /** POST /api/auth/invite/accept */
 export const InviteAcceptSchema = z.object({
   code: z.string().min(1),
 })
-export type InviteAcceptInput = z.infer<typeof InviteAcceptSchema>
+type InviteAcceptInput = z.infer<typeof InviteAcceptSchema>
 
 /** POST /api/auth/demo-login */
 export const DemoLoginSchema = z.object({
   pubkey: z.string().length(64),
 })
-export type DemoLoginInput = z.infer<typeof DemoLoginSchema>
+type DemoLoginInput = z.infer<typeof DemoLoginSchema>
 
 /** POST /api/auth/webauthn/register-verify */
 export const WebAuthnRegisterVerifySchema = z.object({
@@ -25,4 +25,4 @@ export const WebAuthnRegisterVerifySchema = z.object({
   label: z.string().min(1).max(64),
   challengeId: z.string(),
 })
-export type WebAuthnRegisterVerifyInput = z.infer<typeof WebAuthnRegisterVerifySchema>
+type WebAuthnRegisterVerifyInput = z.infer<typeof WebAuthnRegisterVerifySchema>

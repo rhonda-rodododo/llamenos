@@ -29,7 +29,7 @@ import { TRAILER_LENGTH, parseTrailer, writeTrailer } from './trailer.js'
  * before calling openFrame — this module is intentionally key-store agnostic.
  */
 
-export interface SealContext {
+interface SealContext {
   callId: string
   senderId: string
   keyId: number
@@ -39,7 +39,7 @@ export interface SealContext {
   codecHeaderLength?: number
 }
 
-export interface OpenContext {
+interface OpenContext {
   callId: string
   senderId: string
   ssrc: number
@@ -47,7 +47,7 @@ export interface OpenContext {
   codecHeaderLength?: number
 }
 
-export interface OpenResult {
+interface OpenResult {
   plaintext: PlaintextBytes
   counter: number
   keyId: number

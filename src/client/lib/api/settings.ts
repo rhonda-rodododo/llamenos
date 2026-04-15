@@ -109,7 +109,7 @@ export interface OAuthStartResponse {
   docsUrl: string
 }
 
-export interface OAuthStatusResponse {
+interface OAuthStatusResponse {
   provider: string
   status: 'pending' | 'connected' | 'error' | 'expired'
   accountSid?: string
@@ -146,7 +146,7 @@ export interface ProviderCredentials {
 
 // --- Signal Registration ---
 
-export interface SignalRegistrationResponse {
+interface SignalRegistrationResponse {
   ok: boolean
   method: 'sms' | 'voice'
 }
@@ -437,7 +437,7 @@ export async function startProviderOAuth(provider: TelephonyProviderType) {
   })
 }
 
-export async function getProviderOAuthStatus(stateToken: string) {
+async function getProviderOAuthStatus(stateToken: string) {
   return request<OAuthStatusResponse>(`/setup/provider/oauth/status/${stateToken}`)
 }
 
@@ -522,7 +522,7 @@ export async function geocodingAutocomplete(query: string, limit = 5) {
   })
 }
 
-export async function geocodingGeocode(address: string) {
+async function geocodingGeocode(address: string) {
   return request<LocationResult | null>('/geocoding/geocode', {
     method: 'POST',
     body: JSON.stringify({ address }),

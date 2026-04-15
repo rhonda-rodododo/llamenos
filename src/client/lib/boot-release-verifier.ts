@@ -149,7 +149,7 @@ export function renderFailClosedScreen(result: VerifierResult | null, error: unk
 
 // ---- Boot entry point ------------------------------------------------------
 
-export interface BootReleaseVerifierOptions extends VerifierConfig {
+interface BootReleaseVerifierOptions extends VerifierConfig {
   /** Test seam: substitute the verifier implementation. */
   verifyFn?: (config: VerifierConfig) => Promise<VerifierResult>
   /**

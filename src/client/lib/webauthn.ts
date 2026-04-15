@@ -99,7 +99,7 @@ export async function registerCredential(label: string): Promise<void> {
  * support in the client extension results. Callers must treat this as a
  * hard failure for PRF-primary onboarding and fall back to OPAQUE.
  */
-export async function registerPrfCredential(label: string): Promise<void> {
+async function registerPrfCredential(label: string): Promise<void> {
   if (!isWebAuthnAvailable()) throw new PrfUnsupportedError('WebAuthn not available')
 
   const optionsResponse = await authFacadeClient.getRegisterOptions()

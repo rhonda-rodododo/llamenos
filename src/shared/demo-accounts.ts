@@ -54,4 +54,4 @@ export const DEMO_ACCOUNTS: DemoAccount[] = [
   },
 ]
 
-export const DEMO_ADMIN_PUBKEY = DEMO_ACCOUNTS[0].pubkey
+const DEMO_ADMIN_PUBKEY = DEMO_ACCOUNTS[0].pubkey

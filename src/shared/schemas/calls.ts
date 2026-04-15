@@ -1,6 +1,6 @@
 import { z } from 'zod/v4'
 
-export const ActiveCallSchema = z.object({
+const ActiveCallSchema = z.object({
   callSid: z.string(),
   hubId: z.string(),
   callerNumber: z.string(),
@@ -11,7 +11,7 @@ export const ActiveCallSchema = z.object({
 })
 export type ActiveCall = z.infer<typeof ActiveCallSchema>
 
-export const CallLegSchema = z.object({
+const CallLegSchema = z.object({
   legSid: z.string(),
   callSid: z.string(),
   hubId: z.string(),
@@ -23,7 +23,7 @@ export const CallLegSchema = z.object({
 })
 export type CallLeg = z.infer<typeof CallLegSchema>
 
-export const CallTokenSchema = z.object({
+const CallTokenSchema = z.object({
   token: z.string(),
   callSid: z.string(),
   hubId: z.string(),
@@ -31,4 +31,4 @@ export const CallTokenSchema = z.object({
   expiresAt: z.iso.datetime(),
   createdAt: z.iso.datetime(),
 })
-export type CallToken = z.infer<typeof CallTokenSchema>
+type CallToken = z.infer<typeof CallTokenSchema>

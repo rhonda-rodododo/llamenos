@@ -34,7 +34,7 @@ function decryptDebugEnabled(): boolean {
 // Decrypt mismatch notification
 // ---------------------------------------------------------------------------
 
-export interface DecryptMismatchInfo {
+interface DecryptMismatchInfo {
   field: string
   readerPubkey: string
   envelopePubkeys: string[]
@@ -223,7 +223,7 @@ async function decryptFieldWithRecovery(
 // ---------------------------------------------------------------------------
 
 /** Represents a resolved encrypted field pair ready for decryption. */
-export interface EncryptedFieldRef {
+interface EncryptedFieldRef {
   /** The destination key on the object, e.g. `"name"` for `encryptedName`. */
   plaintextKey: string
   /** Hex-encoded ciphertext from `encryptedFoo`. */

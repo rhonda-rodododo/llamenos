@@ -22,7 +22,7 @@ import { queryKeys } from './keys'
 // hubsListOptions
 // ---------------------------------------------------------------------------
 
-export const hubsListOptions = (_hubId = 'global') =>
+const hubsListOptions = (_hubId = 'global') =>
   queryOptions({
     queryKey: queryKeys.hubs.list(),
     queryFn: async () => {

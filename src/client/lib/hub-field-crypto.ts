@@ -251,6 +251,6 @@ export async function decryptHubField(
  * needs the 32-byte hub key. Removed once the Nostr path also moves to
  * CryptoKey-only (tracked in `HPKE_MIGRATION_NOTES.md`).
  */
-export function getHubKeyRawBytesForLegacyPath(hubId: string): Uint8Array | null {
+function getHubKeyRawBytesForLegacyPath(hubId: string): Uint8Array | null {
   return getHubKeyForId(hubId)
 }

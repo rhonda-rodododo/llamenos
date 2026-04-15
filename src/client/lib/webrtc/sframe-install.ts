@@ -5,11 +5,11 @@ import type { SFrameTransformOptions, SFrameWorkerClient } from './sframe-worker
  * full client is not required here — this lets tests inject a stub and lets
  * the installer work with any object exposing `buildTransform`.
  */
-export interface TransformFactory {
+interface TransformFactory {
   buildTransform: (options: SFrameTransformOptions) => unknown
 }
 
-export interface InstallSFrameInputs {
+interface InstallSFrameInputs {
   callId: string
   senderId: string
   /** null when feature-detect said SFrame is unsupported — the installer

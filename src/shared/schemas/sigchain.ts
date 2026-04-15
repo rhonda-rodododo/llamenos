@@ -18,7 +18,7 @@ export const UserInitPayloadSchema = z.object({
   pukSignPubkey: hexPubkey,
   pukDhPubkey: hexPubkey,
 })
-export type UserInitPayload = z.infer<typeof UserInitPayloadSchema>
+type UserInitPayload = z.infer<typeof UserInitPayloadSchema>
 
 /** A new device was added to a user's sigchain (Tier 3 version with richer metadata). */
 export const Tier3DeviceAddPayloadSchema = z.object({
@@ -55,7 +55,7 @@ export const PukRotatePayloadSchema = z.object({
   newPukDhPubkey: hexPubkey,
   signedByDeviceId: z.string(),
 })
-export type PukRotatePayload = z.infer<typeof PukRotatePayloadSchema>
+type PukRotatePayload = z.infer<typeof PukRotatePayloadSchema>
 
 /** Master signing key update (e.g. after recovery). */
 export const UserMasterSigningUpdatePayloadSchema = z.object({
@@ -64,7 +64,7 @@ export const UserMasterSigningUpdatePayloadSchema = z.object({
   newMasterSigningPubkey: hexPubkey,
   signedByDeviceId: z.string(),
 })
-export type UserMasterSigningUpdatePayload = z.infer<typeof UserMasterSigningUpdatePayloadSchema>
+type UserMasterSigningUpdatePayload = z.infer<typeof UserMasterSigningUpdatePayloadSchema>
 
 /** Cross-signature between two devices owned by the same user. */
 export const DeviceCrossSignPayloadSchema = z.object({
@@ -100,7 +100,7 @@ export const HubPtkRotatePayloadSchema = z.object({
   ),
   signedByDeviceId: z.string(),
 })
-export type HubPtkRotatePayload = z.infer<typeof HubPtkRotatePayloadSchema>
+type HubPtkRotatePayload = z.infer<typeof HubPtkRotatePayloadSchema>
 
 /** Account recovery process started. */
 export const RecoveryInitiatedPayloadSchema = z.object({
@@ -109,7 +109,7 @@ export const RecoveryInitiatedPayloadSchema = z.object({
   initiatorDeviceId: z.string(),
   recoveryType: recoveryTypeEnum,
 })
-export type RecoveryInitiatedPayload = z.infer<typeof RecoveryInitiatedPayloadSchema>
+type RecoveryInitiatedPayload = z.infer<typeof RecoveryInitiatedPayloadSchema>
 
 /** Account recovery completed — new device provisioned. */
 export const RecoveryCompletedPayloadSchema = z.object({
@@ -119,4 +119,4 @@ export const RecoveryCompletedPayloadSchema = z.object({
   recoveryType: recoveryTypeEnum,
   pukGeneration: z.number().int(),
 })
-export type RecoveryCompletedPayload = z.infer<typeof RecoveryCompletedPayloadSchema>
+type RecoveryCompletedPayload = z.infer<typeof RecoveryCompletedPayloadSchema>

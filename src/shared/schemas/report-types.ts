@@ -27,7 +27,7 @@ export const UpdateReportTypeSchema = z.object({
 export type UpdateReportTypeInput = z.infer<typeof UpdateReportTypeSchema>
 
 // ── Full Report Type entity ──
-export const ReportTypeSchema = z.object({
+const ReportTypeSchema = z.object({
   id: z.string(),
   hubId: z.string(),
   name: z.string(),

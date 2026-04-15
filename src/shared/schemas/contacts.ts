@@ -23,7 +23,7 @@ export const CreateContactSchema = z.object({
 export type CreateContactInput = z.infer<typeof CreateContactSchema>
 
 // ── Update Contact ──
-export const UpdateContactSchema = z.object({
+const UpdateContactSchema = z.object({
   contactType: ContactTypeSchema.optional(),
   riskLevel: RiskLevelSchema.optional(),
   tags: z.array(z.string()).optional(),
@@ -43,29 +43,29 @@ export const UpdateContactSchema = z.object({
 export type UpdateContactInput = z.infer<typeof UpdateContactSchema>
 
 // ── Link Contact ──
-export const LinkContactSchema = z.object({
+const LinkContactSchema = z.object({
   type: z.enum(['call', 'conversation']),
   targetId: z.string().min(1),
 })
-export type LinkContactInput = z.infer<typeof LinkContactSchema>
+type LinkContactInput = z.infer<typeof LinkContactSchema>
 
 // ── Bulk Update Contacts ──
-export const BulkUpdateContactsSchema = z.object({
+const BulkUpdateContactsSchema = z.object({
   contactIds: z.array(z.string().min(1)).min(1),
   addTags: z.array(z.string()).optional(),
   removeTags: z.array(z.string()).optional(),
   riskLevel: RiskLevelSchema.optional(),
 })
-export type BulkUpdateContactsInput = z.infer<typeof BulkUpdateContactsSchema>
+type BulkUpdateContactsInput = z.infer<typeof BulkUpdateContactsSchema>
 
 // ── Bulk Delete Contacts ──
-export const BulkDeleteContactsSchema = z.object({
+const BulkDeleteContactsSchema = z.object({
   contactIds: z.array(z.string().min(1)).min(1),
 })
-export type BulkDeleteContactsInput = z.infer<typeof BulkDeleteContactsSchema>
+type BulkDeleteContactsInput = z.infer<typeof BulkDeleteContactsSchema>
 
 // ── Hash Phone ──
-export const HashPhoneSchema = z.object({
+const HashPhoneSchema = z.object({
   phone: z.string().min(1),
 })
-export type HashPhoneInput = z.infer<typeof HashPhoneSchema>
+type HashPhoneInput = z.infer<typeof HashPhoneSchema>
