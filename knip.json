@@ -22,6 +22,8 @@
     "playwright.vm.config.ts"
   ],
   "ignoreDependencies": [
+    "@wireapp/core-crypto",
+    "fflate",
     "jssip",
     "plivo-browser-sdk",
     "sonner"
