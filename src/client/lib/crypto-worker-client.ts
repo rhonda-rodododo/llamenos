@@ -518,6 +518,51 @@ export class CryptoWorkerClient {
     return this.call<boolean>({ type: 'rootKekIsLoaded' })
   }
 
+  // ---- Tier 6 MLS sidecar ----
+
+  /**
+   * Initialize the MLS core-crypto client inside the worker. Derives the IDB
+   * encryption key from the stored KEK via HKDF + LABEL_MLS_PROVISION.
+   *
+   * @param clientId - MLS client identifier (e.g. `userId:deviceId`)
+   * @param kekHex - Optional KEK hex; if omitted, uses KEK stored from prior unlock
+   */
+  async mlsInit(clientId: string, kekHex?: string): Promise<void> {
+    await this.call({ type: 'mlsInit', clientId, ...(kekHex ? { kekHex } : {}) })
+  }
+
+  /**
+   * Generate MLS KeyPackages for upload to the server. Returns serialized
+   * KeyPackage byte arrays ready for POST /api/mls/hub/:hubId/key-packages.
+   */
+  async mlsGenerateKeyPackages(count: number): Promise<Uint8Array[]> {
+    return this.call<Uint8Array[]>({ type: 'mlsGenerateKeyPackages', count })
+  }
+
+  /**
+   * Return the current MLS epoch for a group, or null if the group doesn't
+   * exist locally yet.
+   */
+  async mlsCurrentEpoch(groupId: string): Promise<number | null> {
+    return this.call<number | null>({ type: 'mlsCurrentEpoch', groupId })
+  }
+
+  /**
+   * Close the core-crypto instance and clear MLS key material from the worker.
+   * Does not delete the IDB database — call mlsClearState for that.
+   */
+  async mlsLock(): Promise<void> {
+    await this.call({ type: 'mlsLock' })
+  }
+
+  /**
+   * Close core-crypto and delete the MLS IDB database entirely.
+   * Used for factory reset / recovery flows.
+   */
+  async mlsClearState(): Promise<void> {
+    await this.call({ type: 'mlsClearState' })
+  }
+
   /**
    * Terminate the current worker and create a fresh one.
    * Used when the worker is in a broken state (responding but not functioning).

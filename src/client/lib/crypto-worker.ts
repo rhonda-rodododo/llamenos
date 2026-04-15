@@ -38,6 +38,7 @@ import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import type { CryptoLabel } from '@shared/crypto-labels'
 import {
   LABEL_DEVICE_PROVISION,
+  LABEL_MLS_PROVISION,
   LABEL_ROOT_KEK_WRAP,
   SAS_INFO,
   SAS_SALT,
@@ -173,6 +174,12 @@ type WorkerRequest =
     }
   | { type: 'rootKekClear'; id: string }
   | { type: 'rootKekIsLoaded'; id: string }
+  // ---- Tier 6 MLS sidecar ----
+  | { type: 'mlsInit'; id: string; clientId: string; kekHex?: string }
+  | { type: 'mlsGenerateKeyPackages'; id: string; count: number }
+  | { type: 'mlsCurrentEpoch'; id: string; groupId: string }
+  | { type: 'mlsLock'; id: string }
+  | { type: 'mlsClearState'; id: string }
 
 interface WorkerSuccessResponse {
   type: 'success'
@@ -205,6 +212,15 @@ let hubKey: CryptoKey | null = null
 // worker and held only as a CryptoKey handle. Never posted back to the main
 // thread. Cleared by `autoLock()` alongside the Tier 1 handles.
 let rootKek: CryptoKey | null = null
+
+// Tier 6 MLS state. The KEK bytes are stored from the `handleUnlock` path so
+// the MLS IDB DatabaseKey can be derived via HKDF without a second round trip.
+// The `mlsInstance` holds the core-crypto `CoreCrypto` handle (from deferred or
+// full init). Both are cleared on `autoLock()`.
+let kekBytes: Uint8Array | null = null
+let mlsInstance: Awaited<
+  ReturnType<typeof import('@wireapp/core-crypto').CoreCrypto.deferredInit>
+> | null = null
 
 // ---- Rate limiting ----
 
@@ -266,6 +282,15 @@ function autoLock(): void {
   }
   // Tier 2 root KEK — drop the handle for GC.
   rootKek = null
+  // Tier 6 MLS — close core-crypto and zero KEK bytes.
+  if (kekBytes) {
+    kekBytes.fill(0)
+    kekBytes = null
+  }
+  if (mlsInstance) {
+    mlsInstance.close().catch(() => undefined)
+    mlsInstance = null
+  }
   resetRateLimits()
 }
 
@@ -366,6 +391,10 @@ function handleUnlock(kekHex: string, nonceHex: string, ciphertextHex: string): 
   secretKey = hexToBytes(nsecHex)
   // Derive x-only public key via schnorr (returns hex string)
   publicKeyHex = bytesToHex(schnorr.getPublicKey(secretKey))
+
+  // Store KEK for MLS IDB key derivation (Tier 6).
+  if (kekBytes) kekBytes.fill(0)
+  kekBytes = new Uint8Array(kek)
 
   resetRateLimits()
   return publicKeyHex
@@ -754,6 +783,87 @@ async function handleHpkePublicKeyRaw(): Promise<Uint8Array | null> {
   return null
 }
 
+// ---- Tier 6 MLS handlers ----
+
+const MLS_DATABASE_NAME = 'llamenos-mls'
+const MLS_DEFAULT_KEY_PACKAGE_COUNT = 100
+
+function deriveMlsIdbKey(kek: Uint8Array): Uint8Array {
+  const info = new TextEncoder().encode(LABEL_MLS_PROVISION)
+  return hkdf(sha256, kek, new Uint8Array(0), info, 32)
+}
+
+async function handleMlsInit(clientId: string, explicitKekHex?: string): Promise<void> {
+  const kek = explicitKekHex ? hexToBytes(explicitKekHex) : kekBytes
+  if (!kek) throw new Error('KEK not available — unlock first or provide kekHex')
+
+  const idbKey = deriveMlsIdbKey(kek)
+  try {
+    const { CoreCrypto, DatabaseKey, ClientId, Ciphersuite } = await (
+      await import('./mls/core-crypto-loader')
+    ).loadCoreCrypto()
+
+    if (mlsInstance) {
+      await mlsInstance.close()
+      mlsInstance = null
+    }
+
+    const dbKey = new DatabaseKey(idbKey)
+    const ccClientId = new ClientId(new TextEncoder().encode(clientId))
+    mlsInstance = await CoreCrypto.init({
+      databaseName: MLS_DATABASE_NAME,
+      key: dbKey,
+      clientId: ccClientId,
+      ciphersuites: [Ciphersuite.MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519],
+      nbKeyPackage: MLS_DEFAULT_KEY_PACKAGE_COUNT,
+    })
+  } finally {
+    idbKey.fill(0)
+  }
+}
+
+async function handleMlsGenerateKeyPackages(count: number): Promise<Uint8Array[]> {
+  if (!mlsInstance) throw new Error('MLS not initialized')
+  const { Ciphersuite, CredentialType } = await (
+    await import('./mls/core-crypto-loader')
+  ).loadCoreCrypto()
+  return mlsInstance.transaction((ctx) =>
+    ctx.clientKeypackages(
+      Ciphersuite.MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519,
+      CredentialType.Basic,
+      count
+    )
+  )
+}
+
+async function handleMlsCurrentEpoch(groupId: string): Promise<number | null> {
+  if (!mlsInstance) throw new Error('MLS not initialized')
+  const { ConversationId } = await (await import('./mls/core-crypto-loader')).loadCoreCrypto()
+  const convId = new ConversationId(new TextEncoder().encode(groupId))
+  return mlsInstance.transaction(async (ctx) => {
+    const exists = await ctx.conversationExists(convId)
+    if (!exists) return null
+    return ctx.conversationEpoch(convId)
+  })
+}
+
+async function handleMlsLock(): Promise<void> {
+  if (mlsInstance) {
+    await mlsInstance.close()
+    mlsInstance = null
+  }
+}
+
+async function handleMlsClearState(): Promise<void> {
+  if (mlsInstance) {
+    await mlsInstance.close()
+    mlsInstance = null
+  }
+  if (typeof indexedDB !== 'undefined') {
+    indexedDB.deleteDatabase(MLS_DATABASE_NAME)
+  }
+}
+
 // ---- Message handler ----
 
 self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
@@ -910,6 +1020,25 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       case 'signAuditEntry':
         result = handleSignAuditEntry(req.entryHashHex)
         break
+      // ---- Tier 6 MLS ----
+      case 'mlsInit':
+        await handleMlsInit(req.clientId, req.kekHex)
+        result = null
+        break
+      case 'mlsGenerateKeyPackages':
+        result = await handleMlsGenerateKeyPackages(req.count)
+        break
+      case 'mlsCurrentEpoch':
+        result = await handleMlsCurrentEpoch(req.groupId)
+        break
+      case 'mlsLock':
+        await handleMlsLock()
+        result = null
+        break
+      case 'mlsClearState':
+        await handleMlsClearState()
+        result = null
+        break
       default: {
         // Exhaustive check — if we get here, the type is never
         const _exhaustive: never = req
@@ -971,4 +1100,31 @@ export {
   handleRootKekUnwrap as _test_handleRootKekUnwrap,
   handleRootKekClear as _test_handleRootKekClear,
   handleRootKekIsLoaded as _test_handleRootKekIsLoaded,
+}
+
+/** @internal Test only — direct access to the Tier 6 MLS handlers. */
+export {
+  deriveMlsIdbKey as _test_deriveMlsIdbKey,
+  handleMlsInit as _test_handleMlsInit,
+  handleMlsGenerateKeyPackages as _test_handleMlsGenerateKeyPackages,
+  handleMlsCurrentEpoch as _test_handleMlsCurrentEpoch,
+  handleMlsLock as _test_handleMlsLock,
+  handleMlsClearState as _test_handleMlsClearState,
+}
+
+/** @internal Test only — access and clear MLS closure state. */
+export function _test_getMlsInstance(): typeof mlsInstance {
+  return mlsInstance
+}
+
+export function _test_setKekBytes(kek: Uint8Array): void {
+  kekBytes = kek
+}
+
+export function _test_clearMlsState(): void {
+  if (kekBytes) {
+    kekBytes.fill(0)
+    kekBytes = null
+  }
+  mlsInstance = null
 }

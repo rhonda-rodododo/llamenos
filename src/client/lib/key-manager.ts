@@ -469,6 +469,14 @@ export async function unlock(pin: string): Promise<UnlockResult> {
   resetAutoLockTimer()
   notifyCallbacks(unlockCallbacks)
 
+  // Initialize MLS core-crypto (non-fatal — unlock must succeed even if MLS fails).
+  // The worker stored the KEK during unlock; mlsInit derives the IDB key internally.
+  try {
+    await cryptoWorker.mlsInit(pubkey)
+  } catch (err) {
+    log('MLS init failed (non-fatal):', err instanceof Error ? err.message : 'unknown')
+  }
+
   // Export a session capsule so subsequent reloads can skip PBKDF2.
   // Fire-and-forget — capsule persistence is an optimisation, not a
   // correctness requirement — but surface failures because this path
@@ -552,6 +560,12 @@ export async function importKey(
 
   resetAutoLockTimer()
   notifyCallbacks(unlockCallbacks)
+
+  try {
+    await cryptoWorker.mlsInit(workerPubkey)
+  } catch (err) {
+    log('MLS init failed (non-fatal):', err instanceof Error ? err.message : 'unknown')
+  }
 
   return workerPubkey
 }
