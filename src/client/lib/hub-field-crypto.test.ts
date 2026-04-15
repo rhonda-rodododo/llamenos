@@ -9,7 +9,6 @@ import {
 } from './hub-field-crypto'
 import { clearHubKeyCache, setHubKeyForTest } from './hub-key-cache'
 
-// Ensure the module-level hub key cache is empty so the "no key" branch runs.
 clearHubKeyCache()
 
 const HUB_ID = 'test-hub'
@@ -38,21 +37,23 @@ describe('decryptHubField — missing input returns empty string', () => {
 })
 
 describe('decryptHubField — hub key not loaded', () => {
-  test('ciphertext-shaped value with no hub key → empty string (cannot verify without key)', async () => {
+  test('ciphertext-shaped value with no hub key → empty string', async () => {
     clearHubKeyCache()
-    // 60 base64url chars — indistinguishable from a real envelope. Without
-    // the hub key we cannot authenticate it, so we must not leak it to the UI.
     const looksCipher = 'A'.repeat(60)
     const result = await decryptHubField(looksCipher, HUB_ID, 'row-1', 'encrypted_name')
     expect(result).toBe('')
   })
 
-  test('plaintext-shaped value with no hub key → returned as-is (bootstrap seed)', async () => {
+  test('server plaintext with no hub key → empty string, never leaks (H1)', async () => {
     clearHubKeyCache()
-    // Short values with spaces cannot be confused with a ciphertext envelope,
-    // so they pass through as legitimate pre-encryption bootstrap seeds.
     const result = await decryptHubField('Hub Admin', HUB_ID, 'row-1', 'encrypted_name')
-    expect(result).toBe('Hub Admin')
+    expect(result).toBe('')
+  })
+
+  test('short base64url string with no hub key → empty string, never leaks (H1)', async () => {
+    clearHubKeyCache()
+    const result = await decryptHubField('deadbeef', HUB_ID, 'row-1', 'encrypted_name')
+    expect(result).toBe('')
   })
 })
 
@@ -93,8 +94,6 @@ describe('decryptHubField — AEAD failure on ciphertext-shaped values throws', 
     await setHubKeyForTest(HUB_ID, randomHubKey())
     const ct = await encryptHubField('value', HUB_ID, 'row-1', 'encrypted_name')
     expect(ct).toBeDefined()
-    // Replace the hub key underneath — the ciphertext was sealed under the
-    // previous key, so decrypt must fail with a tamper error.
     clearHubKeyCache()
     await setHubKeyForTest(HUB_ID, randomHubKey())
     await expect(decryptHubField(ct!, HUB_ID, 'row-1', 'encrypted_name')).rejects.toBeInstanceOf(
@@ -105,9 +104,6 @@ describe('decryptHubField — AEAD failure on ciphertext-shaped values throws', 
   test('ciphertext-shaped garbage with key loaded throws (tamper rejected)', async () => {
     clearHubKeyCache()
     await setHubKeyForTest(HUB_ID, randomHubKey())
-    // A 60-char base64url string that is NOT a valid envelope: this is the
-    // exact attack shape — a malicious server replacing a real ciphertext
-    // with ciphertext-looking garbage. Must throw, not leak.
     const fake = 'A'.repeat(60)
     await expect(decryptHubField(fake, HUB_ID, 'row-1', 'encrypted_name')).rejects.toBeInstanceOf(
       HubFieldTamperError
@@ -130,16 +126,12 @@ describe('decryptHubField — AEAD failure on ciphertext-shaped values throws', 
   })
 })
 
-describe('decryptHubField — plaintext-shaped seeds pass through with key loaded', () => {
-  test('plaintext-shaped value with key loaded → returned as-is (bootstrap row)', async () => {
+describe('decryptHubField — plaintext-shaped AEAD failure returns empty string (H1)', () => {
+  test('plaintext-shaped value with key loaded → empty string, never leaks (H1)', async () => {
     clearHubKeyCache()
     await setHubKeyForTest(HUB_ID, randomHubKey())
-    // Default roles are seeded as plaintext before a hub key exists. Once the
-    // client unlocks, those rows must still render — they were never encrypted,
-    // not tampered. Short values containing spaces cannot masquerade as a
-    // ciphertext envelope, so the passthrough is safe.
     const result = await decryptHubField('Hub Admin', HUB_ID, 'role-hub-admin', 'encrypted_name')
-    expect(result).toBe('Hub Admin')
+    expect(result).toBe('')
   })
 })
 

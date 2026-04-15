@@ -222,24 +222,10 @@ export async function encryptHubField(
 }
 
 /**
- * Decrypt a hub-encrypted field.
- *
- * Semantics:
- * - `null`/`undefined`/empty → `''`.
- * - Hub key not loaded and value looks like a ciphertext envelope → `''`
- *   (we cannot verify it; the caller will re-run once the key is loaded).
- * - Hub key not loaded and value is NOT ciphertext-shaped → value as-is
- *   (legitimate bootstrap-seeded plaintext).
- * - Hub key loaded, AEAD success → decrypted plaintext.
- * - Hub key loaded, AEAD failure on a ciphertext-shaped value → throws
- *   `HubFieldTamperError`. This is the key tamper-detection guarantee.
- * - Hub key loaded, AEAD failure on a plaintext-shaped value → value as-is
- *   (bootstrap seed that was never encrypted).
- *
- * The AAD `(recordId, fieldName)` must match what was used at encrypt
- * time. Any mismatch on a real ciphertext causes AES-GCM authentication
- * failure and surfaces as `HubFieldTamperError` — never as attacker-
- * controlled plaintext.
+ * Decrypt a hub-encrypted field. Returns `''` on ANY failure — missing
+ * hub key, AEAD auth failure, or null/empty input. Never returns the raw server
+ * value. On AEAD failure for a value that looks like a valid ciphertext envelope,
+ * throws `HubFieldTamperError` for tamper detection.
  */
 export async function decryptHubField(
   encrypted: string | null | undefined,
@@ -249,15 +235,13 @@ export async function decryptHubField(
 ): Promise<string> {
   if (!encrypted) return ''
   const hubKey = getHubKeyCryptoKeyForId(hubId)
-  if (!hubKey) {
-    return looksLikeCiphertext(encrypted) ? '' : encrypted
-  }
+  if (!hubKey) return ''
   const decrypted = await decryptHubFieldAead(encrypted, hubKey, recordId, fieldName)
   if (decrypted !== null) return decrypted
   if (looksLikeCiphertext(encrypted)) {
     throw new HubFieldTamperError(hubId, recordId, fieldName)
   }
-  return encrypted
+  return ''
 }
 
 /**
