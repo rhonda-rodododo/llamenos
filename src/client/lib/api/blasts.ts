@@ -79,7 +79,7 @@ export async function sendBlast(id: string) {
   return request<{ blast: Blast }>(hp(`/blasts/${id}/send`), { method: 'POST' })
 }
 
-export async function scheduleBlast(id: string, scheduledAt: string) {
+async function scheduleBlast(id: string, scheduledAt: string) {
   return request<{ blast: Blast }>(hp(`/blasts/${id}/schedule`), {
     method: 'POST',
     body: JSON.stringify({ scheduledAt }),

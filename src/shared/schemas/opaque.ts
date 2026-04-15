@@ -19,7 +19,7 @@ const Base64Url = z
   .regex(/^[A-Za-z0-9_-]+$/)
   .max(4096)
 
-export const OpaquePurposeSchema = z.enum(['root-kek', 'recovery-phrase', 'recovery-group'])
+const OpaquePurposeSchema = z.enum(['root-kek', 'recovery-phrase', 'recovery-group'])
 export type OpaquePurpose = z.infer<typeof OpaquePurposeSchema>
 
 // ---------------------------------------------------------------------------

@@ -50,7 +50,7 @@ type ConversationMessagesAuth = {
  * staleTime=0: Nostr is primary for real-time updates; REST is the fallback/seed.
  * refetchInterval=30_000 polls every 30s as safety net.
  */
-export const conversationsListOptions = () =>
+const conversationsListOptions = () =>
   queryOptions({
     queryKey: queryKeys.conversations.list(),
     queryFn: async (): Promise<Conversation[]> => {
@@ -85,7 +85,7 @@ export function useConversationsList() {
  * queryOptions factory for conversation messages.
  * auth values must be passed explicitly since queryOptions cannot call React hooks.
  */
-export const conversationMessagesOptions = (
+const conversationMessagesOptions = (
   conversationId: string | null,
   auth: ConversationMessagesAuth
 ) =>

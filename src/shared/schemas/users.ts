@@ -19,7 +19,7 @@ export const UserSchema = z.object({
 })
 export type User = z.infer<typeof UserSchema>
 
-export const CreateUserSchema = z.object({
+const CreateUserSchema = z.object({
   pubkey: z.string().length(64),
   name: z.string().min(1).max(100),
   phone: z
@@ -32,7 +32,7 @@ export const CreateUserSchema = z.object({
 })
 type CreateUserInput = z.infer<typeof CreateUserSchema>
 
-export const UpdateUserSchema = z.object({
+const UpdateUserSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   phone: z
     .string()
@@ -52,7 +52,7 @@ export const UpdateUserSchema = z.object({
 })
 type UpdateUserInput = z.infer<typeof UpdateUserSchema>
 
-export const InviteCodeSchema = z.object({
+const InviteCodeSchema = z.object({
   code: z.string(),
   name: z.string(),
   phone: z.string(),
@@ -65,7 +65,7 @@ export const InviteCodeSchema = z.object({
 })
 export type InviteCode = z.infer<typeof InviteCodeSchema>
 
-export const CreateInviteSchema = z.object({
+const CreateInviteSchema = z.object({
   name: z.string().min(1).max(100),
   phone: z
     .string()
@@ -76,7 +76,7 @@ export const CreateInviteSchema = z.object({
 })
 type CreateInviteInput = z.infer<typeof CreateInviteSchema>
 
-export const ServerSessionSchema = z.object({
+const ServerSessionSchema = z.object({
   token: z.string(),
   pubkey: z.string(),
   createdAt: z.iso.datetime(),

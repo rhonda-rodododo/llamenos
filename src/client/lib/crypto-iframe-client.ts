@@ -334,7 +334,7 @@ export function getCryptoIframeClient(): CryptoIframeClient {
 }
 
 /** Test hook: drop the singleton so the next call creates a fresh client. */
-export function _resetCryptoIframeClientForTests(): void {
+function _resetCryptoIframeClientForTests(): void {
   singleton?.destroy()
   singleton = null
 }

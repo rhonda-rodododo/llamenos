@@ -59,7 +59,7 @@ type NotesAuth = {
  * auth values must be passed explicitly (extracted from useAuth() in the hook wrapper)
  * since queryOptions cannot call React hooks.
  */
-export const notesListOptions = (filters: NoteFilters | undefined, auth: NotesAuth) =>
+const notesListOptions = (filters: NoteFilters | undefined, auth: NotesAuth) =>
   queryOptions({
     queryKey: queryKeys.notes.list(filters),
     queryFn: async (): Promise<{ notes: DecryptedNote[]; total: number }> => {
@@ -137,7 +137,7 @@ export function useNotes(filters?: NoteFilters) {
  * Fetches the note + custom field definitions and decrypts the note content
  * in the queryFn — per the decrypt-on-fetch architecture.
  */
-export const noteDetailOptions = (noteId: string, auth: NotesAuth) =>
+const noteDetailOptions = (noteId: string, auth: NotesAuth) =>
   queryOptions({
     queryKey: queryKeys.notes.detail(noteId),
     queryFn: async (): Promise<{

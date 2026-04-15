@@ -15,51 +15,51 @@ import {
 const hexPubkey = z.string().regex(/^[0-9a-f]{64}$/)
 const roleEnum = z.enum(['volunteer', 'admin', 'super_admin'])
 
-export const MembershipAddPayloadSchema = z.object({
+const MembershipAddPayloadSchema = z.object({
   type: z.literal('membership_add'),
   userId: z.string().uuid(),
   pubkey: hexPubkey,
   role: roleEnum,
 })
 
-export const MembershipRemovePayloadSchema = z.object({
+const MembershipRemovePayloadSchema = z.object({
   type: z.literal('membership_remove'),
   userId: z.string().uuid(),
 })
 
-export const RoleChangePayloadSchema = z.object({
+const RoleChangePayloadSchema = z.object({
   type: z.literal('role_change'),
   userId: z.string().uuid(),
   oldRole: roleEnum,
   newRole: roleEnum,
 })
 
-export const HubKeyRotatePayloadSchema = z.object({
+const HubKeyRotatePayloadSchema = z.object({
   type: z.literal('hub_key_rotate'),
   keyId: z.string().uuid(),
   memberPubkeys: z.array(hexPubkey),
   reason: z.enum(['member_added', 'member_removed', 'role_changed', 'scheduled', 'manual']),
 })
 
-export const HubCreatePayloadSchema = z.object({
+const HubCreatePayloadSchema = z.object({
   type: z.literal('hub_create'),
   hubId: z.string().uuid(),
   founderPubkey: hexPubkey,
 })
 
-export const HubDeletePayloadSchema = z.object({
+const HubDeletePayloadSchema = z.object({
   type: z.literal('hub_delete'),
   hubId: z.string().uuid(),
 })
 
-export const DeviceAddPayloadSchema = z.object({
+const DeviceAddPayloadSchema = z.object({
   type: z.literal('device_add'),
   userId: z.string().uuid(),
   devicePubkey: hexPubkey,
   label: z.string().optional(),
 })
 
-export const DeviceRevokePayloadSchema = z.object({
+const DeviceRevokePayloadSchema = z.object({
   type: z.literal('device_revoke'),
   userId: z.string().uuid(),
   devicePubkey: hexPubkey,
@@ -74,7 +74,7 @@ const factorTypeEnum = z.enum(['prf', 'opaque', 'recoveryPhrase', 'recoveryGroup
  * Emitted alongside every successful `appendEnvelope()` on the client,
  * then mirrored into the hub audit log.
  */
-export const FactorAddPayloadSchema = z.object({
+const FactorAddPayloadSchema = z.object({
   type: z.literal('factor_add'),
   userId: z.string().uuid(),
   rootKeyId: z.string().uuid(),
@@ -85,7 +85,7 @@ export const FactorAddPayloadSchema = z.object({
 /**
  * A new unlock factor was removed from the user's root-KEK bundle.
  */
-export const FactorRemovePayloadSchema = z.object({
+const FactorRemovePayloadSchema = z.object({
   type: z.literal('factor_remove'),
   userId: z.string().uuid(),
   rootKeyId: z.string().uuid(),
@@ -97,7 +97,7 @@ export const FactorRemovePayloadSchema = z.object({
  * The root KEK itself was rotated (all existing envelopes invalidated,
  * fresh ones enrolled). Emitted on every `rotateBundle()` call.
  */
-export const RootKekRotatePayloadSchema = z.object({
+const RootKekRotatePayloadSchema = z.object({
   type: z.literal('root_kek_rotate'),
   userId: z.string().uuid(),
   oldRootKeyId: z.string().uuid().nullable(),
@@ -123,7 +123,7 @@ const callE2eeStateEnum = z.enum(['unknown', 'active', 'unavailable'])
  * Emitted whenever the per-call E2EE status transitions (e.g. SFrame install
  * succeeds, hook fails, or the call ends and returns to unknown).
  */
-export const CallE2eeStateChangePayloadSchema = z.object({
+const CallE2eeStateChangePayloadSchema = z.object({
   type: z.literal('call_e2ee_state_change'),
   callId: z.string().min(1).max(256),
   oldState: callE2eeStateEnum,
@@ -135,7 +135,7 @@ export const CallE2eeStateChangePayloadSchema = z.object({
  * Emitted whenever the SFrame sender key for an active call is rotated
  * (member join/leave inside the call ring, manual rotation, scheduled).
  */
-export const CallSframeKeyRotationPayloadSchema = z.object({
+const CallSframeKeyRotationPayloadSchema = z.object({
   type: z.literal('call_sframe_key_rotation'),
   callId: z.string().min(1).max(256),
   newKeyId: z.number().int().min(0).max(127),

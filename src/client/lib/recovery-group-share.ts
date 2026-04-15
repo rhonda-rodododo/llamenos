@@ -22,7 +22,7 @@ import { bytesToHex } from '@noble/hashes/utils.js'
  */
 import { combine, split } from 'shamir-secret-sharing'
 
-export class ShareCommitmentError extends Error {
+class ShareCommitmentError extends Error {
   constructor(detail: string) {
     super(`Share commitment error: ${detail}`)
     this.name = 'ShareCommitmentError'
@@ -70,7 +70,7 @@ export async function verifyShareCommitment(
  * `combineRecoveryGroupShares` returns garbage for below-threshold or
  * tampered shares with no error.
  */
-export async function combineAndVerifyShares(
+async function combineAndVerifyShares(
   shares: Uint8Array[],
   commitments: string[]
 ): Promise<Uint8Array> {

@@ -29,7 +29,7 @@ const STALE_5_MIN = 5 * 60_000
  * Fetch call volume data for the given number of days.
  * Pass enabled=false to defer loading (e.g. until analytics panel opens).
  */
-export const callAnalyticsOptions = (days: 7 | 30 = 7, enabled = true) =>
+const callAnalyticsOptions = (days: 7 | 30 = 7, enabled = true) =>
   queryOptions({
     queryKey: queryKeys.analytics.callVolume(days),
     queryFn: async (): Promise<CallVolumeDay[]> => {
@@ -56,7 +56,7 @@ export function useCallAnalytics(days: 7 | 30 = 7, enabled = true) {
  * Fetch peak-hours distribution data.
  * Pass enabled=false to defer loading.
  */
-export const callHoursAnalyticsOptions = (enabled = true) =>
+const callHoursAnalyticsOptions = (enabled = true) =>
   queryOptions({
     queryKey: queryKeys.analytics.callHours(),
     queryFn: async (): Promise<CallHourBucket[]> => {
@@ -83,7 +83,7 @@ export function useCallHoursAnalytics(enabled = true) {
  * Fetch user performance stats.
  * Pass enabled=false to defer loading.
  */
-export const userStatsAnalyticsOptions = (enabled = true) =>
+const userStatsAnalyticsOptions = (enabled = true) =>
   queryOptions({
     queryKey: queryKeys.analytics.userStats(),
     queryFn: async (): Promise<UserStatEntry[]> => {
@@ -110,7 +110,7 @@ export function useUserStatsAnalytics(enabled = true) {
 // Distinct query keys from the hub-scoped versions so cache writes don't
 // cross-contaminate.
 
-export const globalCallAnalyticsOptions = (days: 7 | 30 = 7, enabled = true) =>
+const globalCallAnalyticsOptions = (days: 7 | 30 = 7, enabled = true) =>
   queryOptions({
     queryKey: queryKeys.analytics.globalCallVolume(days),
     queryFn: async (): Promise<CallVolumeDay[]> => {
@@ -125,7 +125,7 @@ export function useGlobalCallAnalytics(days: 7 | 30 = 7, enabled = true) {
   return useQuery(globalCallAnalyticsOptions(days, enabled))
 }
 
-export const globalCallHoursAnalyticsOptions = (enabled = true) =>
+const globalCallHoursAnalyticsOptions = (enabled = true) =>
   queryOptions({
     queryKey: queryKeys.analytics.globalCallHours(),
     queryFn: async (): Promise<CallHourBucket[]> => {
@@ -140,7 +140,7 @@ export function useGlobalCallHoursAnalytics(enabled = true) {
   return useQuery(globalCallHoursAnalyticsOptions(enabled))
 }
 
-export const globalUserStatsAnalyticsOptions = (enabled = true) =>
+const globalUserStatsAnalyticsOptions = (enabled = true) =>
   queryOptions({
     queryKey: queryKeys.analytics.globalUserStats(),
     queryFn: async (): Promise<UserStatEntry[]> => {

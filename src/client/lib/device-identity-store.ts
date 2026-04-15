@@ -37,7 +37,7 @@ function openDb(): Promise<IDBDatabase> {
   })
 }
 
-export class IdbDeviceKeypairStorage implements DeviceKeypairStorage {
+class IdbDeviceKeypairStorage implements DeviceKeypairStorage {
   async put(keypair: DeviceKeypair): Promise<void> {
     const db = await openDb()
     return new Promise((resolve, reject) => {

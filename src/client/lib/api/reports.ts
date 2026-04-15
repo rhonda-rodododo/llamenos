@@ -47,7 +47,7 @@ export async function createReport(data: {
   })
 }
 
-export async function getReport(id: string) {
+async function getReport(id: string) {
   return request<Report>(hp(`/reports/${id}`))
 }
 
@@ -92,7 +92,7 @@ export async function getReportCategories() {
   return request<{ categories: string[] }>(hp('/reports/categories'))
 }
 
-export async function getReportFiles(id: string) {
+async function getReportFiles(id: string) {
   return request<{ files: import('@shared/types').FileRecord[] }>(hp(`/reports/${id}/files`))
 }
 

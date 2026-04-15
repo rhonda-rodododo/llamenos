@@ -1,9 +1,9 @@
 import { z } from '@hono/zod-openapi'
 import { RecipientEnvelopeSchema } from './records'
 
-export const SignalIdentifierTypeSchema = z.enum(['phone', 'username'])
+const SignalIdentifierTypeSchema = z.enum(['phone', 'username'])
 
-export const SignalContactResponseSchema = z.object({
+const SignalContactResponseSchema = z.object({
   identifierHash: z.string(),
   identifierCiphertext: z.string(),
   identifierEnvelope: z.array(RecipientEnvelopeSchema),

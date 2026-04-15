@@ -55,7 +55,7 @@ const CONTACT_RELATIONSHIP_FIELDS = ['encryptedPayload'] as const
  * Fetch and decrypt the contact list with optional filters.
  * Decrypts encryptedDisplayName -> displayName via LABEL_CONTACT_SUMMARY.
  */
-export const contactsListOptions = (filters?: ContactFilters) =>
+const contactsListOptions = (filters?: ContactFilters) =>
   queryOptions({
     queryKey: queryKeys.contacts.list(filters),
     queryFn: async () => {
@@ -101,7 +101,7 @@ export function useCreateContact() {
 // useUpdateContact
 // ---------------------------------------------------------------------------
 
-export function useUpdateContact() {
+function useUpdateContact() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) =>
@@ -120,7 +120,7 @@ export function useUpdateContact() {
  * Fetch and decrypt a single contact. Decrypts both summary-tier and PII-tier
  * encrypted fields via separate ECIES labels.
  */
-export const contactDetailOptions = (id: string) =>
+const contactDetailOptions = (id: string) =>
   queryOptions({
     queryKey: queryKeys.contacts.detail(id),
     queryFn: async () => {
@@ -152,7 +152,7 @@ export function useContact(id: string) {
 // contactTimelineOptions
 // ---------------------------------------------------------------------------
 
-export const contactTimelineOptions = (id: string) =>
+const contactTimelineOptions = (id: string) =>
   queryOptions({
     queryKey: queryKeys.contacts.timeline(id),
     queryFn: () => getContactTimeline(id),
@@ -175,7 +175,7 @@ export function useContactTimeline(id: string) {
  * Fetch and decrypt all contact relationships.
  * Payload field is encrypted with LABEL_CONTACT_RELATIONSHIP.
  */
-export const contactRelationshipsOptions = () =>
+const contactRelationshipsOptions = () =>
   queryOptions({
     queryKey: queryKeys.contacts.relationships(),
     queryFn: async () => {

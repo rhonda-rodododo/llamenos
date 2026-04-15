@@ -40,7 +40,7 @@ const Hex = (lenSpec?: { exactHex?: number }) =>
  */
 const RequestNonceHex = Hex({ exactHex: 64 })
 
-export const CryptoRpcEnvelopeSchema = z.object({
+const CryptoRpcEnvelopeSchema = z.object({
   v: z.literal(2),
   labelId: z.number().int().min(0).max(255),
   wrappedKey: Hex(),

@@ -29,10 +29,10 @@ export const KIND_MESSAGE_NEW = 1010
 export const KIND_CONVERSATION_ASSIGNED = 1011
 
 /** Shift schedule changed */
-export const KIND_SHIFT_UPDATE = 1020
+const KIND_SHIFT_UPDATE = 1020
 
 /** Settings changed (global or hub-scoped) */
-export const KIND_SETTINGS_CHANGED = 1030
+const KIND_SETTINGS_CHANGED = 1030
 
 /** New firehose message received (for agent subscription) */
 export const KIND_FIREHOSE_MESSAGE = 1040
@@ -59,4 +59,4 @@ export const KIND_DTLS_BINDING = 20005
 // --- NIP-42 Auth (standard) ---
 
 /** NIP-42 authentication event kind */
-export const KIND_NIP42_AUTH = 22242
+const KIND_NIP42_AUTH = 22242

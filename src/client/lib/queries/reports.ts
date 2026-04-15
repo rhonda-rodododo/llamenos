@@ -51,7 +51,7 @@ type ReportMessagesAuth = {
  * Fetch the list of reports with optional filters.
  * Polls every 30s as a safety net alongside Nostr real-time events.
  */
-export const reportsListOptions = (filters?: ReportFilters) => {
+const reportsListOptions = (filters?: ReportFilters) => {
   const normalizedFilters: { status?: string; category?: string } = {}
   if (filters?.status && filters.status !== 'all') normalizedFilters.status = filters.status
   if (filters?.category && filters.category !== 'all') normalizedFilters.category = filters.category
@@ -83,7 +83,7 @@ export function useReports(filters?: ReportFilters) {
  * queryOptions factory for report messages.
  * auth values must be passed explicitly since queryOptions cannot call React hooks.
  */
-export const reportMessagesOptions = (reportId: string | null, auth: ReportMessagesAuth) =>
+const reportMessagesOptions = (reportId: string | null, auth: ReportMessagesAuth) =>
   queryOptions({
     queryKey: reportId ? queryKeys.reports.messages(reportId) : ['reports', 'messages', null],
     enabled: !!reportId,
@@ -214,7 +214,7 @@ export function useAssignReport() {
  * Fetch available report category strings.
  * Used by ReportForm to populate the category select.
  */
-export const reportCategoriesOptions = () =>
+const reportCategoriesOptions = () =>
   queryOptions({
     queryKey: ['reports', 'categories'] as const,
     queryFn: async (): Promise<string[]> => {
@@ -240,7 +240,7 @@ export function useReportCategories() {
  * Fetch report type definitions (admin-configured).
  * Used by ReportForm to populate the report type select.
  */
-export const reportTypesOptions = (hubId = 'global') =>
+const reportTypesOptions = (hubId = 'global') =>
   queryOptions({
     queryKey: queryKeys.settings.reportTypes(),
     queryFn: async (): Promise<ReportType[]> => {

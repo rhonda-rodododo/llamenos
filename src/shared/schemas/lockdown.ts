@@ -1,6 +1,6 @@
 import { z } from '@hono/zod-openapi'
 
-export const LockdownTierSchema = z.enum(['A', 'B', 'C'])
+const LockdownTierSchema = z.enum(['A', 'B', 'C'])
 
 export const LockdownRequestSchema = z.object({
   tier: LockdownTierSchema,
@@ -8,7 +8,7 @@ export const LockdownRequestSchema = z.object({
   pinProof: z.string().min(1),
 })
 
-export const LockdownResponseSchema = z.object({
+const LockdownResponseSchema = z.object({
   tier: LockdownTierSchema,
   revokedSessions: z.number().int().min(0),
   deletedPasskeys: z.number().int().min(0),

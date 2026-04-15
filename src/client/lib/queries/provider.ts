@@ -20,7 +20,7 @@ import { queryKeys } from './keys'
  * Poll provider health every 15 seconds. staleTime matches the poll interval
  * so health data is always refetched from the server on each cycle.
  */
-export const providerHealthOptions = () =>
+const providerHealthOptions = () =>
   queryOptions({
     queryKey: queryKeys.provider.health(),
     queryFn: (): Promise<ProviderHealthStatus> => getProviderHealth(),
@@ -40,7 +40,7 @@ export function useProviderHealth() {
 // systemHealthOptions — poll `/api/health` for DB / storage / relay status
 // ---------------------------------------------------------------------------
 
-export const systemHealthOptions = () =>
+const systemHealthOptions = () =>
   queryOptions({
     queryKey: queryKeys.provider.system(),
     queryFn: (): Promise<SystemHealthStatus> => getSystemHealth(),

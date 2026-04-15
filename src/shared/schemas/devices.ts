@@ -49,7 +49,7 @@ export const FinalizeEnrollmentRequestSchema = z.object({
 })
 type FinalizeEnrollmentRequest = z.infer<typeof FinalizeEnrollmentRequestSchema>
 
-export const FinalizeEnrollmentResponseSchema = z.object({
+const FinalizeEnrollmentResponseSchema = z.object({
   deviceId: z.string(),
   userId: z.string().uuid(),
 })
@@ -112,7 +112,7 @@ export const RevokeDeviceRequestSchema = z.object({
 })
 type RevokeDeviceRequest = z.infer<typeof RevokeDeviceRequestSchema>
 
-export const RevokeDeviceResponseSchema = z.object({
+const RevokeDeviceResponseSchema = z.object({
   revokedDeviceId: z.string(),
   newPukGeneration: z.number().int(),
 })
@@ -120,7 +120,7 @@ type RevokeDeviceResponse = z.infer<typeof RevokeDeviceResponseSchema>
 
 // --- Revoke device path params ---
 
-export const RevokeDeviceParamsSchema = z.object({
+const RevokeDeviceParamsSchema = z.object({
   deviceId: z.string(),
 })
 export type RevokeDeviceParams = z.infer<typeof RevokeDeviceParamsSchema>

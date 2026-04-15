@@ -24,7 +24,7 @@ import { queryKeys } from './keys'
 // usersListOptions
 // ---------------------------------------------------------------------------
 
-export const usersListOptions = () =>
+const usersListOptions = () =>
   queryOptions({
     queryKey: queryKeys.users.list(),
     queryFn: async () => {
@@ -58,7 +58,7 @@ export function useUsers() {
 // userDetailOptions
 // ---------------------------------------------------------------------------
 
-export const userDetailOptions = (pubkey: string) =>
+const userDetailOptions = (pubkey: string) =>
   queryOptions({
     queryKey: queryKeys.users.detail(pubkey),
     queryFn: async () => {

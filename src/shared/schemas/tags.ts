@@ -16,7 +16,7 @@ export const CreateTagSchema = z
 type CreateTagInput = z.infer<typeof CreateTagSchema>
 
 // ── Update Tag ──
-export const UpdateTagSchema = z.object({
+const UpdateTagSchema = z.object({
   encryptedLabel: z.string().optional(),
   color: z.string().optional(),
   encryptedCategory: z.string().nullable().optional(),

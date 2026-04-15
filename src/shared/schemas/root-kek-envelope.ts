@@ -12,7 +12,7 @@ import { z } from '@hono/zod-openapi'
  * so losing a single factor never bricks the account.
  */
 
-export const FactorTypeSchema = z.enum(['prf', 'opaque', 'recoveryPhrase', 'recoveryGroup'])
+const FactorTypeSchema = z.enum(['prf', 'opaque', 'recoveryPhrase', 'recoveryGroup'])
 type FactorType = z.infer<typeof FactorTypeSchema>
 
 const HexRegex = /^[0-9a-f]+$/

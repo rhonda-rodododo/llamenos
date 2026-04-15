@@ -15,7 +15,7 @@ import { queryKeys } from './keys'
 // intakesListOptions
 // ---------------------------------------------------------------------------
 
-export const intakesListOptions = (status?: string) =>
+const intakesListOptions = (status?: string) =>
   queryOptions({
     queryKey: queryKeys.intakes.list(status),
     queryFn: async () => {
@@ -37,7 +37,7 @@ export function useIntakes(status?: string) {
 // useSubmitIntake
 // ---------------------------------------------------------------------------
 
-export function useSubmitIntake() {
+function useSubmitIntake() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (data: {

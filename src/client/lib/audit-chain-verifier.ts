@@ -97,7 +97,7 @@ function openDb(): Promise<IDBDatabase> {
   })
 }
 
-export const idbChainCacheStore: ChainCacheStore = {
+const idbChainCacheStore: ChainCacheStore = {
   async get(hubId) {
     const db = await openDb()
     return new Promise((resolve, reject) => {

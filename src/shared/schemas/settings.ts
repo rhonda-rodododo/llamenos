@@ -18,14 +18,14 @@ export const HubSchema = z.object({
 })
 export type Hub = z.infer<typeof HubSchema>
 
-export const CreateHubSchema = z.object({
+const CreateHubSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().max(500).optional(),
   phoneNumber: z.string().optional(),
 })
 type CreateHubInput = z.infer<typeof CreateHubSchema>
 
-export const UpdateHubSchema = z.object({
+const UpdateHubSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   description: z.string().max(500).optional(),
   phoneNumber: z.string().optional(),
@@ -33,7 +33,7 @@ export const UpdateHubSchema = z.object({
 })
 type UpdateHubInput = z.infer<typeof UpdateHubSchema>
 
-export const RoleSchema = z.object({
+const RoleSchema = z.object({
   id: z.uuid(),
   hubId: z.string().optional(),
   name: z.string(),
@@ -43,7 +43,7 @@ export const RoleSchema = z.object({
 })
 export type Role = z.infer<typeof RoleSchema>
 
-export const CreateRoleSchema = z.object({
+const CreateRoleSchema = z.object({
   name: z.string().min(1).max(100),
   permissions: z.array(z.string()),
   isDefault: z.boolean().optional(),
@@ -51,7 +51,7 @@ export const CreateRoleSchema = z.object({
 })
 type CreateRoleInput = z.infer<typeof CreateRoleSchema>
 
-export const UpdateRoleSchema = z.object({
+const UpdateRoleSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   permissions: z.array(z.string()).optional(),
 })
@@ -69,7 +69,7 @@ const CustomFieldValidationSchema = z.object({
   max: z.number().optional(),
 })
 
-export const CustomFieldDefinitionSchema = z.object({
+const CustomFieldDefinitionSchema = z.object({
   id: z.uuid(),
   name: z.string(),
   label: z.string(),
@@ -102,7 +102,7 @@ export const CustomFieldDefinitionSchema = z.object({
 })
 export type CustomFieldDefinition = z.infer<typeof CustomFieldDefinitionSchema>
 
-export const SpamSettingsSchema = z.object({
+const SpamSettingsSchema = z.object({
   voiceCaptchaEnabled: z.boolean(),
   rateLimitEnabled: z.boolean(),
   maxCallsPerMinute: z.number().int().positive(),
@@ -110,7 +110,7 @@ export const SpamSettingsSchema = z.object({
 })
 export type SpamSettings = z.infer<typeof SpamSettingsSchema>
 
-export const CallSettingsSchema = z.object({
+const CallSettingsSchema = z.object({
   queueTimeoutSeconds: z.number().int().positive(),
   voicemailMaxSeconds: z.number().int().positive(),
   voicemailMaxBytes: z.number().int().positive(),
@@ -122,26 +122,26 @@ export const CallSettingsSchema = z.object({
 })
 export type CallSettings = z.infer<typeof CallSettingsSchema>
 
-export const TranscriptionSettingsSchema = z.object({
+const TranscriptionSettingsSchema = z.object({
   globalEnabled: z.boolean(),
   allowUserOptOut: z.boolean(),
 })
 export type TranscriptionSettings = z.infer<typeof TranscriptionSettingsSchema>
 
-export const IvrLanguagesSchema = z.array(z.string())
+const IvrLanguagesSchema = z.array(z.string())
 type IvrLanguages = z.infer<typeof IvrLanguagesSchema>
 
-export const TelephonyConfigSchema = TelephonyProviderConfigSchema
+const TelephonyConfigSchema = TelephonyProviderConfigSchema
 type TelephonyConfig = z.infer<typeof TelephonyConfigSchema>
 
-export const MessagingChannelConfigSchema = z.object({
+const MessagingChannelConfigSchema = z.object({
   channel: z.enum(['sms', 'whatsapp', 'signal', 'rcs', 'telegram']),
   enabled: z.boolean(),
   config: z.record(z.string(), z.unknown()).optional(),
 })
 type MessagingChannelConfig = z.infer<typeof MessagingChannelConfigSchema>
 
-export const MessagingConfigSchema = z.object({
+const MessagingConfigSchema = z.object({
   channels: z.array(MessagingChannelConfigSchema),
 })
 export type MessagingConfig = z.infer<typeof MessagingConfigSchema>

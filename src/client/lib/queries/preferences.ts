@@ -34,7 +34,7 @@ interface SubscriberPrefs {
  * Uses staleTime Infinity — preferences don't change in the background;
  * the user updates them manually.
  */
-export const preferencesOptions = (token: string) =>
+const preferencesOptions = (token: string) =>
   queryOptions({
     queryKey: queryKeys.preferences.mine(),
     queryFn: async (): Promise<SubscriberPrefs> => {

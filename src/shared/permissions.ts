@@ -869,7 +869,7 @@ export function getPrimaryRole(roleIds: string[], roles: Role[]): Role | undefin
  * Super-admin (global '*' permission) bypasses hub checks.
  * Otherwise, checks hub-specific role assignments.
  */
-export function hasHubPermission(
+function hasHubPermission(
   globalRoles: string[],
   hubRoles: { hubId: string; roleIds: string[] }[],
   allRoleDefs: Role[],
@@ -917,7 +917,7 @@ export function resolveHubPermissions(
  * Get all hub IDs a user has access to (any role assignment).
  * Super-admin has access to all hubs (returns null = all).
  */
-export function getUserHubIds(
+function getUserHubIds(
   globalRoles: string[],
   hubRoles: { hubId: string; roleIds: string[] }[],
   allRoleDefs: Role[]
@@ -930,7 +930,7 @@ export function getUserHubIds(
 // --- Channel Permission Helpers ---
 
 /** Map of channel types to their claim permission */
-export const CHANNEL_CLAIM_PERMISSIONS: Record<string, string> = {
+const CHANNEL_CLAIM_PERMISSIONS: Record<string, string> = {
   sms: 'conversations:claim-sms',
   whatsapp: 'conversations:claim-whatsapp',
   signal: 'conversations:claim-signal',

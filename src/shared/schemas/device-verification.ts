@@ -39,7 +39,7 @@ export type DeviceVerificationSuccess = z.infer<typeof DeviceVerificationSuccess
  * discriminate on these literals — DO NOT add or rename without updating
  * tests/api/device-fingerprint.spec.ts in lockstep.
  */
-export const DeviceVerificationErrorCodeSchema = z.enum([
+const DeviceVerificationErrorCodeSchema = z.enum([
   'parse_error',
   'validation_failed',
   'payload_type_mismatch',

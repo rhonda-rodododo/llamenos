@@ -213,7 +213,7 @@ export const adminNavConfig: AdminNavConfig = {
 }
 
 /** Flat list of all items across all groups. */
-export function allNavItems() {
+function allNavItems() {
   return adminNavConfig.groups.flatMap((g) => g.items)
 }
 

@@ -31,7 +31,7 @@ import { queryKeys } from './keys'
  * in the queryFn so consumers get `name` and `description` populated.
  * Stale for 5 minutes since roles change infrequently.
  */
-export const rolesListOptions = (hubId = 'global') =>
+const rolesListOptions = (hubId = 'global') =>
   queryOptions({
     queryKey: queryKeys.roles.list(),
     queryFn: async () => {
@@ -71,7 +71,7 @@ export function useRoles(hubId = 'global') {
 // permissionsCatalogOptions
 // ---------------------------------------------------------------------------
 
-export const permissionsCatalogOptions = () =>
+const permissionsCatalogOptions = () =>
   queryOptions({
     queryKey: queryKeys.roles.permissions(),
     queryFn: getPermissionsCatalog,

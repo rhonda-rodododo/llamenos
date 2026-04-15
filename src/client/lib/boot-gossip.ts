@@ -56,7 +56,7 @@ async function fetchRelayUrl(apiOrigin: string, fetchFn: typeof fetch): Promise<
  * up to `timeoutMs` for an `OK` response, then closes. Never throws — all
  * failures resolve quietly so boot gossip cannot leak into the boot path.
  */
-export function publishOneShot(
+function publishOneShot(
   relayUrl: string,
   event: GossipNostrEvent,
   timeoutMs = 3000,

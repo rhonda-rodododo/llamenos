@@ -18,7 +18,7 @@ export function isPushSupported(): boolean {
 }
 
 /** Converts a base64url VAPID public key to Uint8Array backed by ArrayBuffer for PushManager.subscribe() */
-export function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
+function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
   const rawData = atob(base64)
@@ -33,7 +33,7 @@ export function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuf
  * Derives a simplified device label from the user agent.
  * Returns e.g. "Chrome/Linux", "Firefox/Android", "Safari/iOS"
  */
-export function getDeviceLabel(): string {
+function getDeviceLabel(): string {
   const ua = navigator.userAgent
 
   // OS detection

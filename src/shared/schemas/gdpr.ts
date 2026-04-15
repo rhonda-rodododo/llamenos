@@ -1,7 +1,7 @@
 import { z } from 'zod/v4'
 
 // ── Consent ──
-export const GdprConsentSchema = z.object({
+const GdprConsentSchema = z.object({
   version: z.string().optional(),
 })
 type GdprConsentInput = z.infer<typeof GdprConsentSchema>

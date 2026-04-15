@@ -1,6 +1,6 @@
 import { z } from 'zod/v4'
 
-export const EncryptedFileMetadataSchema = z.object({
+const EncryptedFileMetadataSchema = z.object({
   originalName: z.string(),
   mimeType: z.string(),
   size: z.number().int(),
@@ -30,12 +30,12 @@ export const EncryptedMetaItemSchema = z.object({
 })
 export type EncryptedMetaItem = z.infer<typeof EncryptedMetaItemSchema>
 
-export const FileFieldValueSchema = z.object({
+const FileFieldValueSchema = z.object({
   fileId: z.string(),
 })
 export type FileFieldValue = z.infer<typeof FileFieldValueSchema>
 
-export const FileRecordSchema = z.object({
+const FileRecordSchema = z.object({
   id: z.string(),
   hubId: z.string(),
   conversationId: z.string().nullable(),
@@ -54,7 +54,7 @@ export const FileRecordSchema = z.object({
 })
 export type FileRecord = z.infer<typeof FileRecordSchema>
 
-export const UploadInitSchema = z.object({
+const UploadInitSchema = z.object({
   totalSize: z.number().int(),
   totalChunks: z.number().int(),
   conversationId: z.string(),

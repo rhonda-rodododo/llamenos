@@ -1,7 +1,7 @@
 import { z } from '@hono/zod-openapi'
 import { RecipientEnvelopeSchema } from './records'
 
-export const AuthEventTypeSchema = z.enum([
+const AuthEventTypeSchema = z.enum([
   'login',
   'login_failed',
   'logout',
@@ -17,7 +17,7 @@ export const AuthEventTypeSchema = z.enum([
   'signal_contact_changed',
 ])
 
-export const AuthEventSchema = z.object({
+const AuthEventSchema = z.object({
   id: z.string(),
   eventType: AuthEventTypeSchema,
   encryptedPayload: z.string(),
@@ -31,19 +31,19 @@ export const AuthEventListQuerySchema = z.object({
   since: z.string().datetime().optional(),
 })
 
-export const AuthEventListResponseSchema = z.object({
+const AuthEventListResponseSchema = z.object({
   events: z.array(AuthEventSchema),
 })
 
-export const ReportEventParamsSchema = z.object({
+const ReportEventParamsSchema = z.object({
   id: z.string().uuid(),
 })
 
-export const ReportEventResponseSchema = z.object({
+const ReportEventResponseSchema = z.object({
   ok: z.boolean(),
 })
 
-export const AuthEventExportResponseSchema = z.object({
+const AuthEventExportResponseSchema = z.object({
   userPubkey: z.string(),
   exportedAt: z.string(),
   events: z.array(AuthEventSchema),

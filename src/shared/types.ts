@@ -189,7 +189,7 @@ export const GEOCODING_PROVIDER_LABELS: Record<GeocodingProvider, string> = {
   geoapify: 'Geoapify',
 }
 
-export const DEFAULT_GEOCODING_CONFIG: GeocodingConfigAdmin = {
+const DEFAULT_GEOCODING_CONFIG: GeocodingConfigAdmin = {
   provider: null,
   apiKey: '',
   countries: [],
@@ -218,7 +218,7 @@ export const CONTACT_TYPE_LABELS: Record<ContactType, string> = {
   other: 'Other',
 }
 
-export const RISK_LEVEL_LABELS: Record<RiskLevel, string> = {
+const RISK_LEVEL_LABELS: Record<RiskLevel, string> = {
   low: 'Low',
   medium: 'Medium',
   high: 'High',
@@ -398,10 +398,10 @@ export interface NotePayload {
 
 export const MAX_CUSTOM_FIELDS = 20
 export const MAX_SELECT_OPTIONS = 50
-export const MAX_FIELD_NAME_LENGTH = 50
-export const MAX_FIELD_LABEL_LENGTH = 200
-export const MAX_OPTION_LENGTH = 200
-export const FIELD_NAME_REGEX = /^[a-zA-Z0-9_]+$/
+const MAX_FIELD_NAME_LENGTH = 50
+const MAX_FIELD_LABEL_LENGTH = 200
+const MAX_OPTION_LENGTH = 200
+const FIELD_NAME_REGEX = /^[a-zA-Z0-9_]+$/
 
 /** Check if a custom field should appear in a given context */
 export function fieldMatchesContext(
@@ -411,7 +411,7 @@ export function fieldMatchesContext(
   return field.context === context || field.context === 'all'
 }
 
-export const CUSTOM_FIELD_CONTEXT_LABELS: Record<CustomFieldContext, string> = {
+const CUSTOM_FIELD_CONTEXT_LABELS: Record<CustomFieldContext, string> = {
   'call-notes': 'Call Notes',
   'conversation-notes': 'Conversation Notes',
   reports: 'Reports',
