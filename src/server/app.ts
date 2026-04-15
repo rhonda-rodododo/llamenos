@@ -41,6 +41,7 @@ import { ivrAudioRoutes } from './routes/ivr-audio'
 import { preferencesRoutes } from './routes/messaging/preferences'
 import signalRegistrationRoutes from './routes/messaging/signal-registration'
 import metricsRoutes, { httpMetrics } from './routes/metrics'
+import mlsRoutes from './routes/mls'
 import notesRoutes from './routes/notes'
 import notificationsRoutes from './routes/notifications'
 import { notificationsPublic } from './routes/notifications-public'
@@ -290,6 +291,7 @@ authenticated.route('/gdpr', gdprRoutes)
 authenticated.route('/geocoding', geocodingRoutes)
 authenticated.route('/notifications', notificationsRoutes)
 authenticated.route('/opaque', opaqueRoutes)
+authenticated.route('/mls', mlsRoutes)
 
 // Hub-scoped authenticated routes
 const hubScoped = new OpenAPIHono<AppEnv>()
@@ -358,6 +360,7 @@ const KNOWN_API_PREFIXES = new Set([
   'geocoding',
   'firehose',
   'opaque',
+  'mls',
 ])
 api.use('*', async (c, next) => {
   // Extract first path segment after /api/

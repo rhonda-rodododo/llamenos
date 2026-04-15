@@ -449,6 +449,13 @@
       "when": 1776470400000,
       "tag": "0062_recovery_participants_dedup",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1776556800000,
+      "tag": "0063_mls_tables",
+      "breakpoints": true
     }
   ]
 }
