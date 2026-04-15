@@ -33,6 +33,9 @@ WORKDIR /build
 
 # Install dependencies first (layer caching)
 COPY package.json bun.lockb ./
+# The @wireapp/core-crypto dependency is vendored as a `file:` dep; bun must
+# be able to resolve it at install time or the whole install fails.
+COPY vendor/ vendor/
 RUN bun install --frozen-lockfile --ignore-scripts
 
 # Copy source
