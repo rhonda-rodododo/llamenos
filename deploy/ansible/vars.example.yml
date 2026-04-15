@@ -53,7 +53,7 @@ deploy_group: deploy
 llamenos_image: ghcr.io/rhonda-rodododo/llamenos-hotline:latest
 
 # OPTIONAL: Docker image for Caddy reverse proxy
-caddy_image: caddy:2.9-alpine
+caddy_image: caddy:2-alpine
 
 # OPTIONAL: Docker image for PostgreSQL
 postgres_image: postgres:17-alpine
