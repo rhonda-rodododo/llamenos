@@ -294,23 +294,14 @@ async function createRoleAccount(
   await adminPage.locator('#invite-phone').blur()
   await adminPage.waitForTimeout(500)
 
-  // Select role from dropdown (shadcn Select with id="invite-role")
-  const roleDisplayNames: Record<string, string> = {
-    'hub-admin': 'Hub Admin',
-    volunteer: 'Volunteer',
-    reviewer: 'Reviewer',
-    reporter: 'Reporter',
-  }
+  // Select role from dropdown by testid (not display text — role names are hub-key encrypted)
+  const roleId = `role-${opts.roleName}`
   const roleTrigger = adminPage.locator('#invite-role')
   if (await roleTrigger.isVisible({ timeout: 2000 }).catch(() => false)) {
     await roleTrigger.click()
     await adminPage.waitForTimeout(500)
-    const displayName = roleDisplayNames[opts.roleName]
-    if (displayName) {
-      // Radix Select options have role="option" — filter by exact text within options only
-      const option = adminPage.locator('[role="option"]').getByText(displayName, { exact: true })
-      await option.click({ timeout: 5000 })
-    }
+    const option = adminPage.getByTestId(`invite-role-option-${roleId}`)
+    await option.click({ timeout: 5000 })
   }
 
   // Create invite

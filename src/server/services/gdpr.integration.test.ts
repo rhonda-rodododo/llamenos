@@ -59,6 +59,7 @@ afterAll(async () => {
   }
   await db.delete(conversations).where(sql`${conversations.hubId} IN (${HUB_A}, ${HUB_B})`)
   await db.delete(callLegs).where(sql`${callLegs.hubId} IN (${HUB_A}, ${HUB_B})`)
+  db.$client.close()
 })
 
 describe('GdprService.purgeExpiredData hub scoping', () => {

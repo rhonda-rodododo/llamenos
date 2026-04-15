@@ -16,6 +16,7 @@
  *      HPKE-wraps new key to remaining devices, computes commitment hashes
  */
 
+import { clearChainCache } from '@/lib/audit-chain-verifier'
 import { createDebugLog } from '@/lib/debug-log'
 import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import { sha256 } from '@noble/hashes/sha2.js'
@@ -165,16 +166,69 @@ export async function wrapHubKeyForDevice(
 }
 
 /**
+ * Failure handling policy for {@link wrapHubKeyForDevices}.
+ *
+ * - `'abort'` — every device MUST wrap successfully. A single failure throws
+ *   {@link HubKeyWrapError} and the caller discards the new hub key; no
+ *   device is half-committed to a generation it cannot decrypt.
+ * - `'tolerate'` — failures are logged via `console.error`, excluded from the
+ *   result, and the remaining devices still receive their envelope. Only
+ *   safe on the revoke path where the caller has already decided some
+ *   devices will be intentionally excluded. Throws {@link HubKeyWrapError}
+ *   if ALL devices fail (otherwise the result set would be empty and the
+ *   new key would have no readers, which is always a bug).
+ */
+export type WrapFailurePolicy = 'abort' | 'tolerate'
+
+/**
+ * Error thrown by {@link wrapHubKeyForDevices} when a wrap cannot produce a
+ * safe-to-commit envelope set for the configured policy.
+ *
+ * `failedDevices` names every device whose HPKE seal rejected the new key
+ * (typically: corrupted X25519 pubkey, KEM internal failure, or a CryptoKey
+ * handle for a key that is not `deriveBits`-capable). Callers that want to
+ * rollback a rotation sigchain entry can use this list to flag the devices
+ * that would be excluded.
+ */
+export class HubKeyWrapError extends Error {
+  readonly failedDevices: ReadonlyArray<{ deviceId: string; error: string }>
+  readonly hubId: string
+  readonly policy: WrapFailurePolicy
+  constructor(
+    message: string,
+    failedDevices: ReadonlyArray<{ deviceId: string; error: string }>,
+    hubId: string,
+    policy: WrapFailurePolicy
+  ) {
+    super(message)
+    this.name = 'HubKeyWrapError'
+    this.failedDevices = failedDevices
+    this.hubId = hubId
+    this.policy = policy
+  }
+}
+
+/**
  * HPKE-wrap a hub key for multiple devices in parallel.
  *
- * Uses Promise.allSettled so a single device with a corrupted public key
- * cannot block wrapping for all other devices. Failed devices are logged
- * and excluded from the result. Throws if ALL devices fail.
+ * The failure policy controls whether partial success is acceptable. The
+ * default — `'abort'` — is the safe choice for any caller that doesn't have
+ * a specific reason to tolerate missing envelopes: if even one device can't
+ * receive the new key, we must not commit the rotation, or that device will
+ * silently be unable to read hub data going forward. Only callers that are
+ * intentionally dropping devices (rotate-on-revoke) should pass `'tolerate'`.
+ *
+ * `HubKeyWrapError` carries the list of failed devices so the caller can
+ * surface a usable UI / rollback a sigchain entry. Logging goes to
+ * `console.error` (genuine failure, dropped from the prod bundle by Vite's
+ * `dropConsole: true`) rather than `createDebugLog`, which strips to a no-op
+ * at build time and would silently hide the condition in production.
  */
 export async function wrapHubKeyForDevices(
   hubKey: Uint8Array,
   devices: Array<{ deviceId: string; encPubkey: CryptoKey }>,
-  hubId: string
+  hubId: string,
+  failurePolicy: WrapFailurePolicy = 'abort'
 ): Promise<Array<{ deviceId: string; envelope: HpkeEnvelope }>> {
   const settled = await Promise.allSettled(
     devices.map(async (d) => ({
@@ -184,23 +238,42 @@ export async function wrapHubKeyForDevices(
   )
 
   const results: Array<{ deviceId: string; envelope: HpkeEnvelope }> = []
+  const failures: Array<{ deviceId: string; error: string }> = []
   for (let i = 0; i < settled.length; i++) {
     const outcome = settled[i]
     if (outcome.status === 'fulfilled') {
       results.push(outcome.value)
     } else {
       const deviceId = devices[i].deviceId
-      log(
-        'HPKE wrap failed for device %s in hub %s: %s',
+      const error =
+        outcome.reason instanceof Error ? outcome.reason.message : String(outcome.reason)
+      failures.push({ deviceId, error })
+      // biome-ignore lint/suspicious/noConsole: genuine failure in catch — stripped from prod bundle by Vite dropConsole
+      console.error('[hub-key-manager] HPKE wrap failed for device', {
         deviceId,
         hubId,
-        outcome.reason instanceof Error ? outcome.reason.message : String(outcome.reason)
-      )
+        error,
+        policy: failurePolicy,
+      })
     }
   }
 
+  if (failures.length > 0 && failurePolicy === 'abort') {
+    throw new HubKeyWrapError(
+      `HPKE wrapping failed for ${failures.length}/${devices.length} devices in hub ${hubId} — aborting rotation (no partial commit)`,
+      failures,
+      hubId,
+      'abort'
+    )
+  }
+
   if (results.length === 0 && devices.length > 0) {
-    throw new Error(`HPKE wrapping failed for all ${devices.length} devices in hub ${hubId}`)
+    throw new HubKeyWrapError(
+      `HPKE wrapping failed for all ${devices.length} devices in hub ${hubId}`,
+      failures,
+      hubId,
+      failurePolicy
+    )
   }
 
   return results
@@ -363,11 +436,41 @@ export interface HubKeyRotationResult {
 }
 
 /**
+ * Why the rotation is happening. Drives the {@link WrapFailurePolicy} the
+ * rotation passes into `wrapHubKeyForDevices`:
+ *
+ * - `revoke` — one or more devices were just removed from `remainingDevices`.
+ *   The caller has already decided who's in the new generation, so residual
+ *   wrap failures on stragglers are tolerable: the new key has at least one
+ *   reader and the dropped device was going to lose access anyway.
+ *   Maps to `'tolerate'` — partial wrap OK, logged loudly.
+ *
+ * - `schedule`, `add`, `manual` — every device in `remainingDevices` is
+ *   expected to receive the new key. A partial wrap here would silently
+ *   lock the failing device out of the new generation. Map to `'abort'`
+ *   and let the caller rollback the sigchain entry.
+ */
+export type RotationReason = 'revoke' | 'schedule' | 'add' | 'manual'
+
+function policyForReason(reason: RotationReason): WrapFailurePolicy {
+  return reason === 'revoke' ? 'tolerate' : 'abort'
+}
+
+/**
  * Perform a CLKR hub key rotation.
  *
  * Generates a new random hub key, wraps the old key under the new one for
  * chain continuity, HPKE-wraps the new key to each remaining device, and
  * computes per-device commitment hashes for the sigchain entry.
+ *
+ * `rotationReason` controls the wrap failure policy — non-revoke rotations
+ * (`schedule`, `add`, `manual`) abort the whole rotation if any device's
+ * HPKE wrap fails, so the caller can rollback instead of half-committing a
+ * new generation that locks the failing device out. Revoke rotations
+ * tolerate wrap failures for intentionally-excluded devices and still
+ * return a valid result for the remaining set. The thrown
+ * {@link HubKeyWrapError} carries the failing device list so the caller
+ * can surface them in the rollback audit entry.
  *
  * Commitment hash: SHA-256(deviceId || envelope.ct) as hex. This binds the
  * envelope to the device identity without revealing the key material, and is
@@ -378,8 +481,9 @@ export async function rotateHubKeyClkr(params: {
   currentHubKey: Uint8Array
   currentGen: number
   remainingDevices: Array<{ deviceId: string; encPubkey: CryptoKey }>
+  rotationReason: RotationReason
 }): Promise<HubKeyRotationResult> {
-  const { hubId, currentHubKey, currentGen, remainingDevices } = params
+  const { hubId, currentHubKey, currentGen, remainingDevices, rotationReason } = params
   const newGen = currentGen + 1
 
   // 1. Generate new hub key
@@ -388,8 +492,17 @@ export async function rotateHubKeyClkr(params: {
   // 2. Wrap old key under new key for chain continuity
   const oldGenWrappedUnderNew = await wrapOldGenUnderNew(currentHubKey, newHubKey, hubId, newGen)
 
-  // 3. HPKE-wrap new key to each remaining device
-  const deviceEnvelopes = await wrapHubKeyForDevices(newHubKey, remainingDevices, hubId)
+  // 3. HPKE-wrap new key to each remaining device. The failure policy is
+  //    derived from the rotation reason: revoke rotations tolerate wrap
+  //    failures (some devices may have been intentionally dropped), while
+  //    schedule/add/manual rotations abort so the sigchain entry is never
+  //    half-committed with a device silently locked out of the new gen.
+  const deviceEnvelopes = await wrapHubKeyForDevices(
+    newHubKey,
+    remainingDevices,
+    hubId,
+    policyForReason(rotationReason)
+  )
 
   // 4. Compute commitment hashes: SHA-256(deviceId || envelope.ct) as hex
   const deviceCommitments = deviceEnvelopes.map(({ deviceId, envelope }) => {
@@ -401,6 +514,21 @@ export async function rotateHubKeyClkr(params: {
     const hash = sha256(preimage)
     return { deviceId, commitmentHash: bytesToHex(hash) }
   })
+
+  // 5. Invalidate the Tier 0 signed audit chain cache for this hub. A
+  //    rotation can change the set of devices in the trust anchor (e.g. a
+  //    departing device is excluded from the new wrap set) so the next
+  //    verifyAuditChain call must re-walk from genesis against the fresh
+  //    trust anchor rather than trust the IDB-cached head.
+  try {
+    await clearChainCache(hubId)
+  } catch (err) {
+    log(
+      'clearChainCache failed after hub key rotation for %s: %s',
+      hubId,
+      err instanceof Error ? err.message : String(err)
+    )
+  }
 
   return {
     newHubKey,

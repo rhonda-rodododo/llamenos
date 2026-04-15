@@ -79,11 +79,14 @@ async function decryptNote(
   return new TextDecoder().decode(pt)
 }
 
+const ART_A = 'note-42'
+const ART_B = 'note-99'
+
 describe('items_key indirection', () => {
-  test('generateItemsKey produces a non-extractable AES-KW CryptoKey', async () => {
+  test('generateItemsKey produces a non-extractable HKDF CryptoKey', async () => {
     const master = randomBytes(32)
     const key = await generateItemsKey(master, 1)
-    expect(key.algorithm.name).toBe('AES-KW')
+    expect(key.algorithm.name).toBe('HKDF')
     expect(key.extractable).toBe(false)
     await expect(crypto.subtle.exportKey('raw', key)).rejects.toThrow()
   })
@@ -98,23 +101,23 @@ describe('items_key indirection', () => {
     await expect(generateItemsKey(m, 1.5)).rejects.toThrow()
   })
 
-  test('same (master, generation) yields the same items_key (deterministic)', async () => {
+  test('same (master, generation, artifactId) yields the same wrapped bytes (deterministic)', async () => {
     const master = new Uint8Array(32).fill(7)
     const a = await generateItemsKey(master, 1)
     const b = await generateItemsKey(master, 1)
     const inner = randomBytes(32)
-    const wa = await wrapPerArtifactKey(inner, a)
-    const wb = await wrapPerArtifactKey(inner, b)
+    const wa = await wrapPerArtifactKey(inner, a, ART_A)
+    const wb = await wrapPerArtifactKey(inner, b, ART_A)
     expect(wa).toEqual(wb)
   })
 
-  test('different generations yield different items_keys', async () => {
+  test('different generations yield different wrapped bytes', async () => {
     const master = new Uint8Array(32).fill(9)
     const g1 = await generateItemsKey(master, 1)
     const g2 = await generateItemsKey(master, 2)
     const inner = randomBytes(32)
-    const w1 = await wrapPerArtifactKey(inner, g1)
-    const w2 = await wrapPerArtifactKey(inner, g2)
+    const w1 = await wrapPerArtifactKey(inner, g1, ART_A)
+    const w2 = await wrapPerArtifactKey(inner, g2, ART_A)
     expect(w1).not.toEqual(w2)
   })
 
@@ -122,16 +125,24 @@ describe('items_key indirection', () => {
     const master = randomBytes(32)
     const itemsKey = await generateItemsKey(master, 1)
     const inner = randomBytes(32)
-    const wrapped = await wrapPerArtifactKey(inner, itemsKey)
+    const wrapped = await wrapPerArtifactKey(inner, itemsKey, ART_A)
     expect(wrapped.length).toBe(40)
-    const unwrapped = await unwrapPerArtifactKey(wrapped, itemsKey)
+    const unwrapped = await unwrapPerArtifactKey(wrapped, itemsKey, ART_A)
     expect(unwrapped).toEqual(inner)
   })
 
   test('wrapPerArtifactKey rejects non-32-byte inner', async () => {
     const master = randomBytes(32)
     const itemsKey = await generateItemsKey(master, 1)
-    await expect(wrapPerArtifactKey(new Uint8Array(16), itemsKey)).rejects.toThrow(/32 bytes/)
+    await expect(wrapPerArtifactKey(new Uint8Array(16), itemsKey, ART_A)).rejects.toThrow(
+      /32 bytes/
+    )
+  })
+
+  test('wrapPerArtifactKey rejects empty artifactId', async () => {
+    const master = randomBytes(32)
+    const itemsKey = await generateItemsKey(master, 1)
+    await expect(wrapPerArtifactKey(randomBytes(32), itemsKey, '')).rejects.toThrow(/non-empty/)
   })
 
   test('cross-user isolation: different masters cannot unwrap each other', async () => {
@@ -140,28 +151,51 @@ describe('items_key indirection', () => {
     const keyA = await generateItemsKey(masterA, 1)
     const keyB = await generateItemsKey(masterB, 1)
     const inner = randomBytes(32)
-    const wrappedForA = await wrapPerArtifactKey(inner, keyA)
-    await expect(unwrapPerArtifactKey(wrappedForA, keyB)).rejects.toThrow()
+    const wrappedForA = await wrapPerArtifactKey(inner, keyA, ART_A)
+    await expect(unwrapPerArtifactKey(wrappedForA, keyB, ART_A)).rejects.toThrow()
+  })
+
+  test('cross-artifact binding: blob wrapped for artifact A cannot be unwrapped as artifact B', async () => {
+    // Swap-detection: storage-layer attacker who swaps two wrapped keys under
+    // the same items_key must be rejected at the wrap layer, not deferred
+    // into the outer artifact AEAD.
+    const master = randomBytes(32)
+    const itemsKey = await generateItemsKey(master, 1)
+    const innerA = randomBytes(32)
+    const innerB = randomBytes(32)
+    const wrappedA = await wrapPerArtifactKey(innerA, itemsKey, ART_A)
+    const wrappedB = await wrapPerArtifactKey(innerB, itemsKey, ART_B)
+
+    // Same items_key, two different artifactIds => two different wrapped
+    // blobs (different AES-KW subkeys).
+    expect(wrappedA).not.toEqual(wrappedB)
+
+    // Neither blob can be unwrapped under the other artifact's id.
+    await expect(unwrapPerArtifactKey(wrappedA, itemsKey, ART_B)).rejects.toThrow()
+    await expect(unwrapPerArtifactKey(wrappedB, itemsKey, ART_A)).rejects.toThrow()
+
+    // But both still unwrap correctly under their own id.
+    expect(await unwrapPerArtifactKey(wrappedA, itemsKey, ART_A)).toEqual(innerA)
+    expect(await unwrapPerArtifactKey(wrappedB, itemsKey, ART_B)).toEqual(innerB)
   })
 
   test('per-note ciphertext is byte-identical across items_key rotation', async () => {
     const master = randomBytes(32)
     const itemsKeyV1 = await generateItemsKey(master, 1)
     const perNoteKey = randomBytes(32)
-    const wrappedV1 = await wrapPerArtifactKey(perNoteKey, itemsKeyV1)
+    const wrappedV1 = await wrapPerArtifactKey(perNoteKey, itemsKeyV1, ART_A)
 
-    const noteId = 'note-42'
-    const { iv, ct } = await encryptNote(perNoteKey, noteId, 'hello world')
+    const { iv, ct } = await encryptNote(perNoteKey, ART_A, 'hello world')
     const ctBefore = new Uint8Array(ct)
 
     const itemsKeyV2 = await generateItemsKey(master, 2)
-    const wrappedV2 = await rewrapItemsKey(wrappedV1, itemsKeyV1, itemsKeyV2)
+    const wrappedV2 = await rewrapItemsKey(wrappedV1, itemsKeyV1, itemsKeyV2, ART_A)
     expect(wrappedV2).not.toEqual(wrappedV1)
 
-    const unwrapped = await unwrapPerArtifactKey(wrappedV2, itemsKeyV2)
+    const unwrapped = await unwrapPerArtifactKey(wrappedV2, itemsKeyV2, ART_A)
     expect(unwrapped).toEqual(perNoteKey)
 
-    const pt = await decryptNote(unwrapped, noteId, iv, ctBefore)
+    const pt = await decryptNote(unwrapped, ART_A, iv, ctBefore)
     expect(pt).toBe('hello world')
     expect(Array.from(ctBefore)).toEqual(Array.from(ct))
   })
@@ -172,7 +206,16 @@ describe('items_key indirection', () => {
     const wrong = await generateItemsKey(master, 2)
     const next = await generateItemsKey(master, 3)
     const inner = randomBytes(32)
-    const wrapped = await wrapPerArtifactKey(inner, right)
-    await expect(rewrapItemsKey(wrapped, wrong, next)).rejects.toThrow()
+    const wrapped = await wrapPerArtifactKey(inner, right, ART_A)
+    await expect(rewrapItemsKey(wrapped, wrong, next, ART_A)).rejects.toThrow()
+  })
+
+  test('rewrap fails when artifactId diverges between sides', async () => {
+    const master = randomBytes(32)
+    const v1 = await generateItemsKey(master, 1)
+    const v2 = await generateItemsKey(master, 2)
+    const inner = randomBytes(32)
+    const wrapped = await wrapPerArtifactKey(inner, v1, ART_A)
+    await expect(rewrapItemsKey(wrapped, v1, v2, ART_B)).rejects.toThrow()
   })
 })

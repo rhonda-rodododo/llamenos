@@ -91,6 +91,13 @@ export const queryKeys = {
       dateTo?: string
       search?: string
     }) => ['audit', 'global', 'list', filters ?? {}] as const,
+    /**
+     * Tier 0 signed-chain integrity status for a given hub. Populated by
+     * `useAuditChainIntegrity` which walks the chain through the client-side
+     * `verifyAuditChain` verifier and caches the last-verified head in IDB.
+     */
+    chainIntegrity: (hubId: string | undefined) =>
+      ['audit', 'chainIntegrity', hubId ?? 'none'] as const,
   },
 
   reports: {

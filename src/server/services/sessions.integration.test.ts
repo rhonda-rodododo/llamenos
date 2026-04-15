@@ -32,7 +32,10 @@ async function cleanup(): Promise<void> {
 }
 
 beforeEach(cleanup)
-afterAll(cleanup)
+afterAll(async () => {
+  await cleanup()
+  db.$client.close()
+})
 
 function createInput(id: string, userPubkey: string, tokenHash: string) {
   return {

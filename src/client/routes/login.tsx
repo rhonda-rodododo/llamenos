@@ -89,8 +89,8 @@ function LoginPage() {
   async function handlePinUnlock(pin: string): Promise<boolean> {
     setValidationError('')
     try {
-      const success = await unlockWithPin(pin)
-      if (success) {
+      const result = await unlockWithPin(pin)
+      if (result.ok) {
         // Return to the page the user was on before the lock, or default to dashboard
         const returnTo = sessionStorage.getItem('returnTo')
         sessionStorage.removeItem('returnTo')
@@ -99,7 +99,36 @@ function LoginPage() {
         navigate({ to: safePath })
         return true
       }
-      return false
+      // Surface the specific reason so transient failures (PRF cancel, IdP
+      // session expired) don't render as "wrong PIN" — which would push
+      // the user toward unnecessary lockout/recovery.
+      switch (result.reason) {
+        case 'prf-unavailable':
+          setValidationError(
+            t('lock.prfUnavailable', {
+              defaultValue:
+                'WebAuthn authenticator unavailable — reconnect your security key or use the recovery phrase.',
+            })
+          )
+          return false
+        case 'idp-unavailable':
+          setValidationError(
+            t('lock.idpUnavailable', {
+              defaultValue: 'Your session expired. Sign in again and retry.',
+            })
+          )
+          return false
+        case 'no-blob':
+          setValidationError(
+            t('lock.noStoredKey', {
+              defaultValue: 'No stored key on this device. Use recovery or sign in with a passkey.',
+            })
+          )
+          return false
+        default:
+          // wrong-pin — fall through so PinInput's own wrong-PIN counter runs.
+          return false
+      }
     } catch (err) {
       // Lockout or wipe error from PIN tracking
       const msg = err instanceof Error ? err.message : String(err)

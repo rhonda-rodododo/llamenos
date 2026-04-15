@@ -354,13 +354,46 @@ export async function trySessionRestore(): Promise<boolean> {
 }
 
 /**
+ * Discriminated result of `unlock`. The legacy `Promise<string | null>`
+ * shape collapsed four distinct failure modes into a single `null` and
+ * every caller treated `null` as "wrong PIN" — which silently burned the
+ * user's 3-attempt lockout budget whenever the real problem was that
+ * WebAuthn PRF was unavailable or the IdP session had expired. Callers
+ * MUST branch on `reason` before incrementing a wrong-PIN counter or
+ * wiping the key.
+ *
+ * - `ok`: unlock succeeded, `pubkey` is the hex-encoded Nostr pubkey.
+ * - `no-blob`: no stored encrypted key — caller should send user through
+ *   initial setup, not retry the PIN.
+ * - `idp-unavailable`: facade could not resolve a real IdP value
+ *   (session expired, network down). Fatal for this attempt but the user
+ *   can retry once the session is restored — do NOT count as a PIN miss.
+ * - `prf-unavailable`: the stored blob was sealed with a WebAuthn PRF
+ *   factor but the authenticator/browser did not return a PRF output on
+ *   this attempt (user cancelled the prompt, hardware missing, different
+ *   browser). Do NOT count as a PIN miss — the PIN may be correct.
+ * - `wrong-pin`: KEK derivation succeeded but AEAD authentication in the
+ *   worker failed. This is the ONLY case that should increment the
+ *   PIN-attempt counter and trigger key wipe after max attempts.
+ */
+export type UnlockResult =
+  | { ok: true; pubkey: string }
+  | { ok: false; reason: 'no-blob' }
+  | { ok: false; reason: 'idp-unavailable' }
+  | { ok: false; reason: 'prf-unavailable' }
+  | { ok: false; reason: 'wrong-pin' }
+
+/**
  * Unlock the key store by decrypting the nsec with multi-factor authentication.
  * Factors: PIN + IdP-bound value + optional WebAuthn PRF output.
- * Returns the hex pubkey on success, null on wrong PIN / missing factors.
+ *
+ * See `UnlockResult` for the full failure taxonomy. Callers must branch on
+ * `reason` — treating any failure as "wrong PIN" leaks lockout budget to
+ * transient PRF/IdP failures and can wipe keys on correct PINs.
  */
-export async function unlock(pin: string): Promise<string | null> {
+export async function unlock(pin: string): Promise<UnlockResult> {
   const blob = loadEncryptedKey()
-  if (!blob) return null
+  if (!blob) return { ok: false, reason: 'no-blob' }
 
   // 1. Determine if blob was encrypted with a synthetic IdP value
   const isSynthetic = (SYNTHETIC_ISSUERS as readonly string[]).includes(blob.idpIssuer)
@@ -389,7 +422,7 @@ export async function unlock(pin: string): Promise<string | null> {
     }
     if (!userInfo) {
       log('no userInfo available — cannot derive KEK')
-      return null
+      return { ok: false, reason: 'idp-unavailable' }
     }
     idpValue = userInfo.nsecSecret
   }
@@ -397,15 +430,23 @@ export async function unlock(pin: string): Promise<string | null> {
   // 3. Request PRF if this device uses it
   let prfOutput: Uint8Array | undefined
   if (blob.prfUsed) {
-    // requestWebAuthnPRF is Task 12 — dynamically import to handle absence
+    // Dynamically imported so a worker bundle without webauthn still links.
     try {
       const webauthnModule = await import('./webauthn')
       if ('requestWebAuthnPRF' in webauthnModule) {
         const requestPRF = webauthnModule.requestWebAuthnPRF as () => Promise<Uint8Array | null>
         prfOutput = (await requestPRF()) ?? undefined
       }
-    } catch {
-      // PRF not available yet
+    } catch (err) {
+      log('webauthn module import failed', { err })
+    }
+    // Blob was sealed with a PRF factor, but we could not obtain PRF bytes
+    // on this attempt. Deriving a KEK without the PRF factor would always
+    // produce a wrong-pin indication to the worker, burning the user's
+    // lockout budget even though the PIN is likely correct.
+    if (!prfOutput) {
+      log('prf-required blob but PRF output unavailable')
+      return { ok: false, reason: 'prf-unavailable' }
     }
   }
 
@@ -414,49 +455,54 @@ export async function unlock(pin: string): Promise<string | null> {
   const kek = deriveKEK({ pin, idpValue, prfOutput, salt })
 
   // 5. Send to worker for decryption
+  let pubkey: string | null
   try {
-    const pubkey = await cryptoWorker.unlock(bytesToHex(kek), blob.nonce, blob.ciphertext)
-    if (pubkey) {
-      resetAutoLockTimer()
-      notifyCallbacks(unlockCallbacks)
-      // Export a session capsule so subsequent reloads can skip PBKDF2.
-      // Fire-and-forget — capsule persistence is an optimisation, not a
-      // correctness requirement — but surface failures because this path
-      // should succeed (the worker was just unlocked).
-      try {
-        const session = await cryptoWorker.exportSession()
-        await storeCapsule(session.tokenHex, {
-          encryptedNsec: session.encryptedNsecHex,
-          capsuleNonce: session.capsuleNonceHex,
-          autoLockExpiresAt: Date.now() + getAutoLock(),
-          pubkeyHash: asPubkeyHash16(blob.pubkeyHash),
-        })
-      } catch (err) {
-        log('session capsule export failed', { err })
-      }
-
-      // Handle idp_value rotation if pending (real IdP changed)
-      if (userInfo?.pendingRotation) {
-        await handleRotation(pin, blob, userInfo, prfOutput)
-      }
-
-      // Auto-rotate synthetic issuer to real IdP value (silent, no user interaction)
-      if (isSynthetic) {
-        await rotateSyntheticToReal(pin, blob, prfOutput)
-      }
-
-      // NOTE: Server-side KEK proof seeding is handled on-demand: when the user
-      // attempts a security action (PIN change, recovery rotate, lockdown) and
-      // the server has no hash stored, it returns 409 and the client re-POSTs
-      // the proof then retries. We used to auto-sync during unlock, but that
-      // introduced an extra fetch on a hot path that could affect timing in
-      // parallel Playwright workers. On-demand is sufficient.
-    }
-    return pubkey
+    pubkey = await cryptoWorker.unlock(bytesToHex(kek), blob.nonce, blob.ciphertext)
   } catch (err) {
     log('unlock failed:', err instanceof Error ? err.message : 'unknown')
-    return null
+    return { ok: false, reason: 'wrong-pin' }
   }
+  if (!pubkey) {
+    return { ok: false, reason: 'wrong-pin' }
+  }
+
+  resetAutoLockTimer()
+  notifyCallbacks(unlockCallbacks)
+
+  // Export a session capsule so subsequent reloads can skip PBKDF2.
+  // Fire-and-forget — capsule persistence is an optimisation, not a
+  // correctness requirement — but surface failures because this path
+  // should succeed (the worker was just unlocked).
+  try {
+    const session = await cryptoWorker.exportSession()
+    await storeCapsule(session.tokenHex, {
+      encryptedNsec: session.encryptedNsecHex,
+      capsuleNonce: session.capsuleNonceHex,
+      autoLockExpiresAt: Date.now() + getAutoLock(),
+      pubkeyHash: asPubkeyHash16(blob.pubkeyHash),
+    })
+  } catch (err) {
+    log('session capsule export failed', { err })
+  }
+
+  // Handle idp_value rotation if pending (real IdP changed)
+  if (userInfo?.pendingRotation) {
+    await handleRotation(pin, blob, userInfo, prfOutput)
+  }
+
+  // Auto-rotate synthetic issuer to real IdP value (silent, no user interaction)
+  if (isSynthetic) {
+    await rotateSyntheticToReal(pin, blob, prfOutput)
+  }
+
+  // NOTE: Server-side KEK proof seeding is handled on-demand: when the user
+  // attempts a security action (PIN change, recovery rotate, lockdown) and
+  // the server has no hash stored, it returns 409 and the client re-POSTs
+  // the proof then retries. We used to auto-sync during unlock, but that
+  // introduced an extra fetch on a hot path that could affect timing in
+  // parallel Playwright workers. On-demand is sufficient.
+
+  return { ok: true, pubkey }
 }
 
 /**

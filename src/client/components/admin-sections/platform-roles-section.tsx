@@ -125,8 +125,7 @@ export function PlatformRolesSection() {
     // Platform roles are hubId=null — they must be readable by every
     // super-admin regardless of which hub is active, so they are NOT
     // encrypted with any hub key. Send plaintext only; the server's
-    // fallback path stores it in the encryptedName column as plaintext,
-    // and decryptHubField returns plaintext-looking values as-is.
+    // fallback path stores it in the encryptedName column as plaintext.
     if (dialogMode === 'create') {
       createRole.mutate(
         {

@@ -43,6 +43,7 @@ const HUB_ROLE_TEST_PUBKEY = `test-hubrole-user-${crypto.randomUUID().slice(0, 8
 afterAll(async () => {
   await db.delete(webauthnCredentials).where(eq(webauthnCredentials.id, TEST_CRED_ID))
   await db.delete(users).where(eq(users.pubkey, HUB_ROLE_TEST_PUBKEY))
+  db.$client.close()
 })
 
 describe('webauthn-counter', () => {

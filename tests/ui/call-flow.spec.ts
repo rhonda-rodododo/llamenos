@@ -75,37 +75,16 @@ test.describe('Call flow', () => {
   const CALL_SID = `CA_flow_${Date.now()}`
   const CALLER_FROM = '+15550001111'
   const HOTLINE_TO = '+15559998888'
-  let relayAvailable = false
 
   test.beforeAll(async ({ request }) => {
-    // Check relay availability using ws package (Node-compatible)
-    const WS = (await import('ws')).default
-    try {
-      const ws = new WS('ws://localhost:7778')
-      await new Promise<void>((resolve, reject) => {
-        ws.on('open', () => {
-          ws.close()
-          resolve()
-        })
-        ws.on('error', () => reject(new Error('unreachable')))
-        setTimeout(() => reject(new Error('timeout')), 3000)
-      })
-      relayAvailable = true
-    } catch {
-      relayAvailable = false
-    }
     // Set admin as fallback ring group so calls trigger ringing + Nostr events
-    if (relayAvailable) {
-      const adminApi = createAdminApiFromStorageState(request)
-      await adminApi.put('/api/settings/fallback-group', { pubkeys: [adminApi.pubkey] })
-    }
+    const adminApi = createAdminApiFromStorageState(request)
+    await adminApi.put('/api/settings/fallback-group', { pubkeys: [adminApi.pubkey] })
   })
 
   // ── 2.1: Inbound call appears in dashboard ────────────────────────────────
 
   test('inbound call appears in dashboard as ringing', async ({ adminPage, request }) => {
-    test.skip(!relayAvailable, 'Nostr relay not running — call events require relay for dashboard')
-
     const adminApi = createAdminApiFromStorageState(request)
 
     // Ensure admin is in the fallback ring group so the call routes to them
@@ -154,8 +133,6 @@ test.describe('Call flow', () => {
   // ── 2.2: User answers the call ──────────────────────────────────────
 
   test('user answers call and sees active call panel', async ({ adminPage, request }) => {
-    test.skip(!relayAvailable, 'Nostr relay not running — call events require relay for dashboard')
-
     const adminApi = createAdminApiFromStorageState(request)
     await navigateAfterLogin(adminPage, '/')
     await waitForActiveCall(adminApi, CALL_SID, 'ringing')
@@ -173,8 +150,6 @@ test.describe('Call flow', () => {
   // ── 2.3: Write a note during the call ────────────────────────────────────
 
   test('can write and save a note during an active call', async ({ adminPage, request }) => {
-    test.skip(!relayAvailable, 'Nostr relay not running — call events require relay for dashboard')
-
     const adminApi = createAdminApiFromStorageState(request)
 
     // Set up a fresh call for this test (self-contained)
@@ -227,7 +202,6 @@ test.describe('Call flow', () => {
   // ── 2.4: Note persists after call ends ───────────────────────────────────
 
   test('note persists in call history after call ends', async ({ adminPage, request }) => {
-    test.skip(!relayAvailable, 'Nostr relay not running — call events require relay for dashboard')
     // Simulate call hangup
     const hangupRes = await request.post('/telephony/call-status', {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -258,8 +232,6 @@ test.describe('Call flow', () => {
   // ── 2.5: User ends call manually ────────────────────────────────────
 
   test('user can end active call via hang up button', async ({ adminPage, request }) => {
-    test.skip(!relayAvailable, 'Nostr relay not running — call events require relay for dashboard')
-
     const adminApi = createAdminApiFromStorageState(request)
     const hangupCallSid = `CA_hangup_${Date.now()}`
 

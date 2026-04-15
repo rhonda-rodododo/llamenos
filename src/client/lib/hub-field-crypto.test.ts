@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import {
+  HubFieldTamperError,
   decryptHubField,
   decryptHubFieldAead,
   encryptHubField,
@@ -8,7 +9,6 @@ import {
 } from './hub-field-crypto'
 import { clearHubKeyCache, setHubKeyForTest } from './hub-key-cache'
 
-// Ensure the module-level hub key cache is empty so the "no key" branch runs.
 clearHubKeyCache()
 
 const HUB_ID = 'test-hub'
@@ -19,69 +19,45 @@ function randomHubKey(): Uint8Array {
   return b
 }
 
-describe('decryptHubField ciphertext detection (no hub key)', () => {
-  test('ciphertext-shaped base64url → returns placeholder', async () => {
+describe('decryptHubField — missing input returns empty string', () => {
+  test('null → empty string', async () => {
     clearHubKeyCache()
-    const looksCipher = `${'A'.repeat(40)}`
-    const result = await decryptHubField(
-      looksCipher,
-      HUB_ID,
-      'row-1',
-      'encrypted_name',
-      'PLACEHOLDER'
-    )
-    expect(result).toBe('PLACEHOLDER')
+    expect(await decryptHubField(null, HUB_ID, 'row-1', 'encrypted_name')).toBe('')
   })
 
-  test('plaintext "Hub Admin" → returns input (not ciphertext-shaped)', async () => {
+  test('undefined → empty string', async () => {
     clearHubKeyCache()
-    const result = await decryptHubField(
-      'Hub Admin',
-      HUB_ID,
-      'row-1',
-      'encrypted_name',
-      'PLACEHOLDER'
-    )
-    expect(result).toBe('Hub Admin')
+    expect(await decryptHubField(undefined, HUB_ID, 'row-1', 'encrypted_name')).toBe('')
   })
 
-  test('short base64url-alphabet string → treated as plaintext', async () => {
+  test('empty string → empty string', async () => {
     clearHubKeyCache()
-    const short = 'deadbeef' // 8 chars, below ciphertext min length
-    const result = await decryptHubField(short, HUB_ID, 'row-1', 'encrypted_name', 'PLACEHOLDER')
-    expect(result).toBe(short)
-  })
-
-  test('non-alphabet string → treated as plaintext', async () => {
-    clearHubKeyCache()
-    const bogus = `hello world ${'!'.repeat(40)}`
-    const result = await decryptHubField(bogus, HUB_ID, 'row-1', 'encrypted_name', 'PLACEHOLDER')
-    expect(result).toBe(bogus)
-  })
-
-  test('null → returns placeholder', async () => {
-    clearHubKeyCache()
-    expect(await decryptHubField(null, HUB_ID, 'row-1', 'encrypted_name', 'PLACEHOLDER')).toBe(
-      'PLACEHOLDER'
-    )
-  })
-
-  test('undefined → returns placeholder', async () => {
-    clearHubKeyCache()
-    expect(await decryptHubField(undefined, HUB_ID, 'row-1', 'encrypted_name', 'PLACEHOLDER')).toBe(
-      'PLACEHOLDER'
-    )
-  })
-
-  test('empty string → returns placeholder', async () => {
-    clearHubKeyCache()
-    expect(await decryptHubField('', HUB_ID, 'row-1', 'encrypted_name', 'PLACEHOLDER')).toBe(
-      'PLACEHOLDER'
-    )
+    expect(await decryptHubField('', HUB_ID, 'row-1', 'encrypted_name')).toBe('')
   })
 })
 
-describe('hub-field AAD binding (high-level wrapper)', () => {
+describe('decryptHubField — hub key not loaded', () => {
+  test('ciphertext-shaped value with no hub key → empty string', async () => {
+    clearHubKeyCache()
+    const looksCipher = 'A'.repeat(60)
+    const result = await decryptHubField(looksCipher, HUB_ID, 'row-1', 'encrypted_name')
+    expect(result).toBe('')
+  })
+
+  test('server plaintext with no hub key → empty string, never leaks (H1)', async () => {
+    clearHubKeyCache()
+    const result = await decryptHubField('Hub Admin', HUB_ID, 'row-1', 'encrypted_name')
+    expect(result).toBe('')
+  })
+
+  test('short base64url string with no hub key → empty string, never leaks (H1)', async () => {
+    clearHubKeyCache()
+    const result = await decryptHubField('deadbeef', HUB_ID, 'row-1', 'encrypted_name')
+    expect(result).toBe('')
+  })
+})
+
+describe('decryptHubField — AEAD success returns plaintext', () => {
   test('encrypt+decrypt round-trip', async () => {
     clearHubKeyCache()
     await setHubKeyForTest(HUB_ID, randomHubKey())
@@ -90,36 +66,77 @@ describe('hub-field AAD binding (high-level wrapper)', () => {
     const pt = await decryptHubField(ct!, HUB_ID, 'row-42', 'encrypted_name')
     expect(pt).toBe('value')
   })
+})
 
-  test('mismatched recordId returns placeholder (not plaintext)', async () => {
+describe('decryptHubField — AEAD failure on ciphertext-shaped values throws', () => {
+  test('mismatched recordId throws (row swap rejected)', async () => {
     clearHubKeyCache()
     await setHubKeyForTest(HUB_ID, randomHubKey())
     const ct = await encryptHubField('value', HUB_ID, 'row-A', 'encrypted_name')
     expect(ct).toBeDefined()
-    const pt = await decryptHubField(ct!, HUB_ID, 'row-B', 'encrypted_name', '[locked]')
-    expect(pt).toBe('[locked]')
+    await expect(decryptHubField(ct!, HUB_ID, 'row-B', 'encrypted_name')).rejects.toBeInstanceOf(
+      HubFieldTamperError
+    )
   })
 
-  test('mismatched fieldName returns placeholder (not plaintext)', async () => {
+  test('mismatched fieldName throws (column swap rejected)', async () => {
     clearHubKeyCache()
     await setHubKeyForTest(HUB_ID, randomHubKey())
     const ct = await encryptHubField('value', HUB_ID, 'row-42', 'encrypted_name')
     expect(ct).toBeDefined()
-    const pt = await decryptHubField(ct!, HUB_ID, 'row-42', 'encrypted_description', '[locked]')
-    expect(pt).toBe('[locked]')
+    await expect(
+      decryptHubField(ct!, HUB_ID, 'row-42', 'encrypted_description')
+    ).rejects.toBeInstanceOf(HubFieldTamperError)
   })
 
-  test('hub key absent after encrypt returns placeholder for ciphertext', async () => {
+  test('wrong hub key throws (cross-hub ciphertext rejected)', async () => {
     clearHubKeyCache()
-    await setHubKeyForTest('hub-with-key', randomHubKey())
-    const ct = await encryptHubField('value', 'hub-with-key', 'row-1', 'encrypted_name')
+    await setHubKeyForTest(HUB_ID, randomHubKey())
+    const ct = await encryptHubField('value', HUB_ID, 'row-1', 'encrypted_name')
     expect(ct).toBeDefined()
     clearHubKeyCache()
-    const pt = await decryptHubField(ct!, 'hub-with-key', 'row-1', 'encrypted_name', '[locked]')
-    expect(pt).toBe('[locked]')
+    await setHubKeyForTest(HUB_ID, randomHubKey())
+    await expect(decryptHubField(ct!, HUB_ID, 'row-1', 'encrypted_name')).rejects.toBeInstanceOf(
+      HubFieldTamperError
+    )
   })
 
-  test('encryptHubField returns undefined when hub key absent', async () => {
+  test('ciphertext-shaped garbage with key loaded throws (tamper rejected)', async () => {
+    clearHubKeyCache()
+    await setHubKeyForTest(HUB_ID, randomHubKey())
+    const fake = 'A'.repeat(60)
+    await expect(decryptHubField(fake, HUB_ID, 'row-1', 'encrypted_name')).rejects.toBeInstanceOf(
+      HubFieldTamperError
+    )
+  })
+
+  test('HubFieldTamperError carries hubId/recordId/fieldName for diagnostics', async () => {
+    clearHubKeyCache()
+    await setHubKeyForTest(HUB_ID, randomHubKey())
+    try {
+      await decryptHubField('A'.repeat(60), HUB_ID, 'row-42', 'encrypted_name')
+      throw new Error('expected tamper error')
+    } catch (err) {
+      expect(err).toBeInstanceOf(HubFieldTamperError)
+      const tamper = err as HubFieldTamperError
+      expect(tamper.hubId).toBe(HUB_ID)
+      expect(tamper.recordId).toBe('row-42')
+      expect(tamper.fieldName).toBe('encrypted_name')
+    }
+  })
+})
+
+describe('decryptHubField — plaintext-shaped AEAD failure returns empty string (H1)', () => {
+  test('plaintext-shaped value with key loaded → empty string, never leaks (H1)', async () => {
+    clearHubKeyCache()
+    await setHubKeyForTest(HUB_ID, randomHubKey())
+    const result = await decryptHubField('Hub Admin', HUB_ID, 'role-hub-admin', 'encrypted_name')
+    expect(result).toBe('')
+  })
+})
+
+describe('encryptHubField', () => {
+  test('returns undefined when hub key absent', async () => {
     clearHubKeyCache()
     const ct = await encryptHubField('value', 'no-such-hub', 'row-1', 'encrypted_name')
     expect(ct).toBeUndefined()

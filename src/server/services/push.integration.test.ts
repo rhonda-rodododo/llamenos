@@ -41,6 +41,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await db.delete(pushSubscriptions).where(eq(pushSubscriptions.pubkey, PUBKEY_A))
   await db.delete(pushSubscriptions).where(eq(pushSubscriptions.pubkey, PUBKEY_B))
+  db.$client.close()
 })
 
 /** Helper: count subscriptions by endpointHash lookup */

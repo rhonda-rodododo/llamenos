@@ -62,6 +62,14 @@ export interface ChainCacheRow {
    * fetch. Null iff `lastVerifiedEntryHash` is null.
    */
   headEntry: SignedAuditEntry | null
+  /**
+   * Caller-supplied bootstrap trust anchor at the time the row was written.
+   * On every subsequent verify the caller's current anchor is compared
+   * against this; mismatch discards the cache and re-verifies from genesis.
+   * Prevents a stale cache from pinning a now-revoked admin device as a
+   * trust anchor after the caller rotates its bootstrap set.
+   */
+  bootstrapTrustAnchor: string[]
 }
 
 export interface ChainCacheStore {
@@ -141,15 +149,34 @@ export interface VerifyAuditChainOptions {
   cacheStore?: ChainCacheStore
 }
 
+/**
+ * Walk and verify a hub's signed audit chain. Returns the verified head
+ * entry, or `null` if the hub has no signed entries yet (fresh hubs and
+ * tests where no admin action has emitted a signed entry). An empty chain
+ * is a valid initial state, not tampering — callers that need to enforce
+ * non-empty (e.g. key-rotation gates) should check for null explicitly.
+ */
 export async function verifyAuditChain(
   hubId: string,
   trustAnchorDevicePubkeys: Set<string>,
   opts: VerifyAuditChainOptions = {}
-): Promise<SignedAuditEntry> {
+): Promise<SignedAuditEntry | null> {
   const fetcher = opts.fetchEntriesSince ?? defaultFetchEntriesSince
   const cache = opts.cacheStore ?? idbChainCacheStore
 
-  const cachedRow = await cache.get(hubId)
+  // Trust-anchor drift detection: if the caller now supplies a different
+  // bootstrap set than the one recorded alongside the cached row, the
+  // cache is stale (e.g. an admin device was rotated out of band). Drop
+  // it and re-walk from genesis rather than trusting the pinned set.
+  const cachedRaw = await cache.get(hubId)
+  const cachedRow =
+    cachedRaw && anchorsEqual(cachedRaw.bootstrapTrustAnchor, trustAnchorDevicePubkeys)
+      ? cachedRaw
+      : null
+  if (cachedRaw && !cachedRow) {
+    await cache.delete(hubId)
+  }
+
   const since = cachedRow?.lastVerifiedEntryHash ?? null
   const trusted = new Set(cachedRow?.trustedDevicePubkeys ?? [...trustAnchorDevicePubkeys])
 
@@ -210,17 +237,32 @@ export async function verifyAuditChain(
 
   const effectiveHead = head ?? cachedRow?.headEntry ?? null
 
+  if (!effectiveHead) return null
+
   const newRow: ChainCacheRow = {
     hubId,
     lastVerifiedEntryHash: prev,
     lastVerifiedIndex: (cachedRow?.lastVerifiedIndex ?? 0) + entries.length,
     trustedDevicePubkeys: [...trusted],
     headEntry: effectiveHead,
+    bootstrapTrustAnchor: [...trustAnchorDevicePubkeys].sort(),
   }
   await cache.put(newRow)
 
-  if (!effectiveHead) throw new ChainVerificationError('empty_chain')
   return effectiveHead
+}
+
+/**
+ * Set-equality for caller-supplied vs cached trust anchors. Insensitive to
+ * element order.
+ */
+function anchorsEqual(cached: string[] | undefined, current: Set<string>): boolean {
+  if (!cached) return false
+  if (cached.length !== current.size) return false
+  for (const pk of cached) {
+    if (!current.has(pk)) return false
+  }
+  return true
 }
 
 /**

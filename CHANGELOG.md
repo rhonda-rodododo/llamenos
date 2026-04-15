@@ -5,7 +5,103 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 0.50.0 (2026-04-14)
+## [0.51.1] - 2026-04-15
+
+### Bug Fixes
+
+- remove decryptHubField server-plaintext fallback (H1/H2) (#151)
+
+### Miscellaneous
+
+- v0.51.1 [skip ci]
+
+## [0.51.0] - 2026-04-15
+
+### Features
+
+- wire audit-chain-verifier into audit UI + rotation (#130)
+
+### Miscellaneous
+
+- v0.51.0 [skip ci]
+
+## [0.50.6] - 2026-04-14
+
+### Miscellaneous
+
+- v0.50.6 [skip ci]
+
+### Testing
+
+- remove defensive nostr-relay skips (#135)
+
+## [0.50.5] - 2026-04-14
+
+### Bug Fixes
+
+- Tier 3 — recovery-participant dedup via junction table (#142)
+
+### Miscellaneous
+
+- v0.50.5 [skip ci]
+
+## [0.50.4] - 2026-04-14
+
+### Bug Fixes
+
+- per-artifact HKDF subkey binding (#150)
+
+### Miscellaneous
+
+- v0.50.4 [skip ci]
+
+### Testing
+
+- delete skipped device-fingerprint SAS interaction tests (#136)
+- remove defensive sealKey/telephony skips (#134)
+
+## [0.50.3] - 2026-04-14
+
+### Miscellaneous
+
+- v0.50.3 [skip ci]
+
+### Testing
+
+- remove defensive 'Server not reachable' skips (#139)
+- remove dead non-Chromium skip branches (#138)
+- unskip getting-started + delete brittle hub-switcher test (#137)
+
+## [0.50.2] - 2026-04-14
+
+### Bug Fixes
+
+- abort rotation on wrap failure unless revoke (#147)
+
+### Documentation
+
+- add INTENTIONAL_SKIPS.md registry (#140)
+
+### Miscellaneous
+
+- v0.50.2 [skip ci]
+
+## [0.50.1] - 2026-04-14
+
+### Bug Fixes
+
+- filter revoked devices in findDeviceBySigningPubkey (#146)
+- inline HPKE label+AAD binding in key-distribution (#149)
+- hard-gate SFrame call hook + adversarial tests (#145)
+- distinguish PRF-unavailable from wrong-PIN (#144)
+- throw HubFieldTamperError instead of attacker-controlled fallback (#143)
+- discard chain cache on trust-anchor drift + empty-chain poison (#148)
+
+### Miscellaneous
+
+- v0.50.1 [skip ci]
+
+## [0.50.0] - 2026-04-14
 
 ### Documentation
 
@@ -14,6 +110,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Features
 
 - wire sframe key-distribution, recipients, rotation, DTLS (#131)
+- wire device-identity bootstrap into setup + unlock (#129)
 
 ### Miscellaneous
 
