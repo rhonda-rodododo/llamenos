@@ -44,16 +44,16 @@ describe('decryptHubField — hub key not loaded', () => {
     expect(result).toBe('')
   })
 
-  test('server plaintext with no hub key → empty string, never leaks (H1)', async () => {
+  test('bootstrap plaintext with no hub key → passthrough (contains spaces)', async () => {
     clearHubKeyCache()
     const result = await decryptHubField('Hub Admin', HUB_ID, 'row-1', 'encrypted_name')
-    expect(result).toBe('')
+    expect(result).toBe('Hub Admin')
   })
 
-  test('short base64url string with no hub key → empty string, never leaks (H1)', async () => {
+  test('short base64url string with no hub key → passthrough (below min ciphertext length)', async () => {
     clearHubKeyCache()
     const result = await decryptHubField('deadbeef', HUB_ID, 'row-1', 'encrypted_name')
-    expect(result).toBe('')
+    expect(result).toBe('deadbeef')
   })
 })
 
@@ -126,12 +126,28 @@ describe('decryptHubField — AEAD failure on ciphertext-shaped values throws', 
   })
 })
 
-describe('decryptHubField — plaintext-shaped AEAD failure returns empty string (H1)', () => {
-  test('plaintext-shaped value with key loaded → empty string, never leaks (H1)', async () => {
+describe('decryptHubField — bootstrap plaintext passthrough (hub key loaded or not)', () => {
+  test('plaintext with spaces passes through even with key loaded', async () => {
     clearHubKeyCache()
     await setHubKeyForTest(HUB_ID, randomHubKey())
     const result = await decryptHubField('Hub Admin', HUB_ID, 'role-hub-admin', 'encrypted_name')
-    expect(result).toBe('')
+    expect(result).toBe('Hub Admin')
+  })
+
+  test('short plaintext passes through even with key loaded', async () => {
+    clearHubKeyCache()
+    await setHubKeyForTest(HUB_ID, randomHubKey())
+    const result = await decryptHubField('Morning', HUB_ID, 'shift-1', 'encrypted_name')
+    expect(result).toBe('Morning')
+  })
+
+  test('ciphertext-shaped value with key loaded still requires AEAD', async () => {
+    clearHubKeyCache()
+    await setHubKeyForTest(HUB_ID, randomHubKey())
+    const fake = 'A'.repeat(60)
+    await expect(decryptHubField(fake, HUB_ID, 'row-1', 'encrypted_name')).rejects.toBeInstanceOf(
+      HubFieldTamperError
+    )
   })
 })
 
@@ -196,5 +212,53 @@ describe('hub-field AEAD primitive', () => {
     expect(a).not.toBe(b)
     expect(await decryptHubFieldAead(a, k, 'r', 'f')).toBe('same')
     expect(await decryptHubFieldAead(b, k, 'r', 'f')).toBe('same')
+  })
+})
+
+describe('regression: default seed rows render without hub key (#151)', () => {
+  const DEFAULT_ROLE_NAMES = [
+    'Super Admin',
+    'Hub Admin',
+    'Reviewer',
+    'Case Manager',
+    'Volunteer',
+    'Reporter',
+    'Voicemail Reviewer',
+  ]
+
+  for (const name of DEFAULT_ROLE_NAMES) {
+    test(`default role "${name}" passes through without hub key`, async () => {
+      clearHubKeyCache()
+      const result = await decryptHubField(name, 'global', 'role-test', 'encrypted_name')
+      expect(result).toBe(name)
+    })
+  }
+
+  for (const name of DEFAULT_ROLE_NAMES) {
+    test(`default role "${name}" passes through WITH hub key loaded`, async () => {
+      clearHubKeyCache()
+      await setHubKeyForTest(HUB_ID, randomHubKey())
+      const result = await decryptHubField(name, HUB_ID, 'role-test', 'encrypted_name')
+      expect(result).toBe(name)
+    })
+  }
+
+  test('real ciphertext still decrypts correctly after passthrough fix', async () => {
+    clearHubKeyCache()
+    await setHubKeyForTest(HUB_ID, randomHubKey())
+    const ct = await encryptHubField('Encrypted Role', HUB_ID, 'role-1', 'encrypted_name')
+    expect(ct).toBeDefined()
+    const pt = await decryptHubField(ct!, HUB_ID, 'role-1', 'encrypted_name')
+    expect(pt).toBe('Encrypted Role')
+  })
+
+  test('tampered ciphertext still throws after passthrough fix', async () => {
+    clearHubKeyCache()
+    await setHubKeyForTest(HUB_ID, randomHubKey())
+    const ct = await encryptHubField('Original', HUB_ID, 'role-1', 'encrypted_name')
+    expect(ct).toBeDefined()
+    await expect(decryptHubField(ct!, HUB_ID, 'role-2', 'encrypted_name')).rejects.toBeInstanceOf(
+      HubFieldTamperError
+    )
   })
 })

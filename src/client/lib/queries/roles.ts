@@ -15,7 +15,9 @@ import {
   updateRole,
 } from '@/lib/api'
 import { decryptHubField } from '@/lib/hub-field-crypto'
+import i18n from '@/lib/i18n'
 import type { Ciphertext } from '@shared/crypto-types'
+import { DEFAULT_ROLE_I18N_KEYS } from '@shared/permissions'
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from './keys'
 
@@ -35,16 +37,23 @@ export const rolesListOptions = (hubId = 'global') =>
     queryFn: async () => {
       const { roles } = await listRoles()
       return Promise.all(
-        roles.map(async (role) => ({
-          ...role,
-          name: await decryptHubField(role.encryptedName, hubId, role.id, 'encrypted_name'),
-          description: await decryptHubField(
-            role.encryptedDescription,
-            hubId,
-            role.id,
-            'encrypted_description'
-          ),
-        }))
+        roles.map(async (role) => {
+          const i18nKeys = DEFAULT_ROLE_I18N_KEYS[role.id]
+          return {
+            ...role,
+            name: i18nKeys
+              ? i18n.t(i18nKeys.name)
+              : await decryptHubField(role.encryptedName, hubId, role.id, 'encrypted_name'),
+            description: i18nKeys
+              ? i18n.t(i18nKeys.description)
+              : await decryptHubField(
+                  role.encryptedDescription,
+                  hubId,
+                  role.id,
+                  'encrypted_description'
+                ),
+          }
+        })
       )
     },
     staleTime: 5 * 60 * 1000,

@@ -706,6 +706,37 @@ export const DEFAULT_ROLES: Omit<Role, 'createdAt' | 'updatedAt'>[] = [
   },
 ]
 
+export const DEFAULT_ROLE_I18N_KEYS: Record<string, { name: string; description: string }> = {
+  'role-super-admin': {
+    name: 'defaultRoles.superAdmin.name',
+    description: 'defaultRoles.superAdmin.description',
+  },
+  'role-hub-admin': {
+    name: 'defaultRoles.hubAdmin.name',
+    description: 'defaultRoles.hubAdmin.description',
+  },
+  'role-reviewer': {
+    name: 'defaultRoles.reviewer.name',
+    description: 'defaultRoles.reviewer.description',
+  },
+  'role-case-manager': {
+    name: 'defaultRoles.caseManager.name',
+    description: 'defaultRoles.caseManager.description',
+  },
+  'role-volunteer': {
+    name: 'defaultRoles.volunteer.name',
+    description: 'defaultRoles.volunteer.description',
+  },
+  'role-reporter': {
+    name: 'defaultRoles.reporter.name',
+    description: 'defaultRoles.reporter.description',
+  },
+  'role-voicemail-reviewer': {
+    name: 'defaultRoles.voicemailReviewer.name',
+    description: 'defaultRoles.voicemailReviewer.description',
+  },
+}
+
 // --- Permission Resolution ---
 
 const SCOPE_LEVELS: Record<string, number> = {
