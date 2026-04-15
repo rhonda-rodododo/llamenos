@@ -1971,3 +1971,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - add E2E tests for device linking and fix /link-device public path
 
 
+## 0.51.2 (2026-04-15)
+
+### Features
+
+- knope-maintained release PR flow (#152)
+- Slice 2 — core-crypto WASM bootstrap in crypto-worker (Tier 6 PR #2, H4) (#164)
+- Slice 1 — DB schema + server routes (Tier 6 PR #2, H4) (#165)
+
+### Fixes
+
+- copy vendor/ before bun install so file: dep resolves (#156)
+- default seed rows render via i18n + bootstrap plaintext passthrough (#151 regression) (#157)
+- switch knope workflows from RELEASE_PAT to GITHUB_TOKEN (#158)
+- audit page crash + e2e test regressions from roleIds double-encoding (#162)
+- nostr-relay — disambiguate CALL_RING events by callSid (#168)
