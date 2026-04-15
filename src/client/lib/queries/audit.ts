@@ -117,9 +117,15 @@ export function deriveAuditTrustAnchorPubkeys(
   const set = new Set<string>()
   for (const u of users) {
     const globalAdmin = u.roles.some((r) => ADMIN_ROLE_IDS.includes(r))
-    const hubAdmin = (u.hubRoles ?? []).some(
-      (hr) => hr.hubId === hubId && hr.roleIds.some((r) => ADMIN_ROLE_IDS.includes(r))
-    )
+    const hubAdmin = (u.hubRoles ?? []).some((hr) => {
+      if (hr.hubId !== hubId) return false
+      const ids = Array.isArray(hr.roleIds)
+        ? hr.roleIds
+        : typeof hr.roleIds === 'string'
+          ? (JSON.parse(hr.roleIds) as string[])
+          : []
+      return ids.some((r) => ADMIN_ROLE_IDS.includes(r))
+    })
     if (globalAdmin || hubAdmin) set.add(u.pubkey)
   }
   return set

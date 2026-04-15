@@ -521,6 +521,8 @@ jobs:
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:3000
           JWT_SECRET: ${{ env.TEST_JWT_SECRET }}
+          NOSTR_RELAY_URL: ws://localhost:7777
+          SERVER_NOSTR_SECRET: ${{ env.TEST_SERVER_NOSTR_SECRET }}
         run: bunx playwright test --project=setup --project=ui --project=bootstrap --project=mobile
 
       - name: E2E test report

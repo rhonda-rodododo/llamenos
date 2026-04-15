@@ -17,7 +17,7 @@ test.describe('Multi-hub architecture — UI', () => {
     await expect(adminPage.getByRole('heading', { name: /ban list/i })).toBeVisible()
 
     await adminPage.getByRole('link', { name: 'Audit Log' }).click()
-    await expect(adminPage.getByRole('heading', { name: /audit log/i })).toBeVisible()
+    await expect(adminPage.getByTestId('audit-log-heading')).toBeVisible()
 
     await adminPage.getByRole('link', { name: 'Dashboard' }).click()
     await expect(adminPage.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible()
