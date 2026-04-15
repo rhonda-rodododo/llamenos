@@ -111,6 +111,7 @@ jobs:
   # ─── Lint ──────────────────────────────────────────────────
   lint:
     needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -125,6 +126,7 @@ jobs:
   # ─── Build & Validate ──────────────────────────────────────
   build:
     needs: [changes, lint]
+    if: needs.changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -556,6 +558,7 @@ jobs:
   # ─── Dependency Vulnerability Scan ───────────────────────────
   audit:
     needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -751,20 +754,9 @@ jobs:
         run: |
           FAILED=false
 
-          # These jobs must succeed
-          for job_info in "lint:$LINT_RESULT" "build:$BUILD_RESULT" "audit:$AUDIT_RESULT"; do
-            job="${job_info%%:*}"
-            result="${job_info#*:}"
-            if [[ "$result" != "success" ]]; then
-              echo ":: $job: $result (FAILED)"
-              FAILED=true
-            else
-              echo ":: $job: $result (OK)"
-            fi
-          done
-
-          # These jobs may be legitimately skipped (docs-only or no ansible changes)
-          for job_info in "unit-tests:$UNIT_TESTS_RESULT" "integration-tests:$INTEGRATION_TESTS_RESULT" "api-tests:$API_TESTS_RESULT" "ansible-validate:$ANSIBLE_RESULT" "grep-guardrails:$GUARDRAILS_RESULT"; do
+          # These jobs may be legitimately skipped (docs-only or no ansible changes).
+          # For docs-only PRs every job except `changes` is skipped — treat skipped as OK.
+          for job_info in "lint:$LINT_RESULT" "build:$BUILD_RESULT" "audit:$AUDIT_RESULT" "unit-tests:$UNIT_TESTS_RESULT" "integration-tests:$INTEGRATION_TESTS_RESULT" "api-tests:$API_TESTS_RESULT" "ansible-validate:$ANSIBLE_RESULT" "grep-guardrails:$GUARDRAILS_RESULT"; do
             job="${job_info%%:*}"
             result="${job_info#*:}"
             if [[ "$result" != "success" && "$result" != "skipped" ]]; then
