@@ -1,0 +1,58 @@
+# Maintain the release PR by re-running `knope prepare-release` on every
+# push to main. Knope opens or force-updates a PR on the `release` branch
+# with the next version bump and a CHANGELOG.md entry. Merging that PR
+# triggers release.yml to cut the actual release.
+#
+# Requires a fine-grained Personal Access Token in `secrets.RELEASE_PAT`
+# with `contents: write` and `pull-requests: write` on this repo. A PAT
+# is required (not GITHUB_TOKEN) so that the resulting release PR triggers
+# downstream workflows like ci.yml — GitHub's anti-recursion rule blocks
+# workflow triggers from PRs opened with GITHUB_TOKEN.
+
+name: Knope — Prepare Release PR
+
+on:
+  push:
+    branches: [main]
+
+# Rapid-fire main merges collapse into a single recomputation.
+concurrency:
+  group: knope-prepare
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  prepare-release:
+    # Skip the merge commit produced by merging the release PR itself,
+    # otherwise we'd recursively try to prepare a release of the release.
+    # The head_commit.message is consumed only by the Actions expression
+    # engine, never by a shell, so this is safe from injection.
+    if: "!contains(github.event.head_commit.message, 'chore: prepare release')"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_PAT }}
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Install knope
+        uses: knope-dev/action@19617851f9f13ab2f27a05989c55efb18aca3675 # v2.1.2
+        with:
+          version: 0.22.4
+          github-token: ${{ secrets.RELEASE_PAT }}
+
+      - name: Prepare release PR
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PAT }}
+        # continue-on-error so this job passes when there are no
+        # version-bumping commits since the last release (knope errors
+        # out when PrepareRelease finds nothing to release).
+        continue-on-error: true
+        run: knope prepare-release --verbose

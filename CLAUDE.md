@@ -254,6 +254,23 @@ Pipe-separated, **case-insensitive** `grep -iE` syntax — write patterns in low
 
 The hook is wired up automatically by the `prepare` npm lifecycle script (`"prepare": "lefthook install"` in `package.json`) which runs on every `bun install`. Every new clone and every new sibling worktree inherits the same hook after one `bun install`. The hook is shared across all git worktrees via `core.hooksPath`, so installing in any one worktree covers all of them. **If you see `Can't find lefthook in PATH` when committing**, run `bun install` in the main repo worktree to populate `node_modules/@evilmartians/lefthook/` — the dispatcher hook finds lefthook there via an absolute path.
 
+## Releases
+
+Releases are cut by merging the **release PR**, not by every push to main. The flow is owned by [knope](https://knope.tech) and lives in `knope.toml` + `.github/workflows/knope-release-pr.yml` + `.github/workflows/release.yml`.
+
+**The lifecycle:**
+1. Every push to `main` triggers `knope-release-pr.yml`, which runs `knope prepare-release`. Knope opens (or force-updates) a PR titled `chore: prepare release vX.Y.Z` on branch `release`. The PR contains a `package.json` version bump + a new `CHANGELOG.md` section, both computed from conventional commits since the last tag.
+2. The release PR accumulates as more commits land on main. CI runs on it like any PR.
+3. **A human merges the release PR when it's time to ship.** That merge triggers `release.yml`, which runs `knope release` (creates the git tag + GitHub Release), attaches signed artifacts (CHECKSUMS, SBOM, cosign keyless, GPG, SLSA build provenance), calls `docker.yml` to publish versioned images to GHCR, and indirectly fires `auto-deploy-demo.yml` to deploy the demo VPS via Ansible.
+
+**Rules for working with the release flow:**
+- **Never manually bump `package.json` version, never tag commits by hand, never run `knope` locally** unless you're debugging the workflow itself. Knope is the single source of truth.
+- **Never edit `CHANGELOG.md` by hand** — knope owns it and will overwrite changes. Older entries may still be in the historical Keep-a-Changelog format (`## [VERSION] - DATE`); leave them. New entries use knope's format (`## VERSION (DATE)`).
+- **Release PR merging is human-gated.** Don't merge the release PR autonomously — even when it's green and up-to-date. A release is a deliberate ship decision the user makes. When the user asks you to cut a release, verify all three of: **(a)** every required check on the release PR is green (no `failure`, no `cancelled`, no `pending`); **(b)** it's up-to-date with main (`gh pr view <N> --json mergeStateStatus` should report `CLEAN`, not `BEHIND` or `BLOCKED`); **(c)** the `CHANGELOG.md` diff content looks reasonable for a real release. Only then merge. If any of (a)/(b)/(c) is missing, fix the cause or report — never merge an "almost green" release. No flake excuses, no "the failing check is unrelated" rationalizations.
+- **PR titles for normal feature work should be conventional commits** (`feat:`, `fix:`, `feat!:`, etc.) so knope picks them up after squash-merge. `chore:`, `docs:`, `ci:` PRs land on main without bumping the version, which is fine — the release PR just won't update.
+- **`RELEASE_PAT` is required infrastructure.** If `knope-release-pr.yml` fails to open a PR, the most likely cause is a missing or expired `RELEASE_PAT` repository secret (fine-grained PAT scoped to this repo with `Contents: read+write` and `Pull requests: read+write`). A default `GITHUB_TOKEN` will not work — PRs opened by `GITHUB_TOKEN` don't trigger downstream workflows, so CI wouldn't run on the release PR.
+- **CI cancellation:** `ci.yml` cancels older in-progress runs when a newer push lands on the same ref (including main). Don't be surprised when an old main run shows "cancelled" — that's expected. Release commits (commit message starting with `chore: prepare release`) skip CI entirely; `release.yml` handles them.
+
 ## Claude Code Working Style
 
 - **Always run `bun run typecheck` and `bun run build` before committing and pushing.** Never push code that doesn't build. If typecheck or build fails, fix it before committing.
