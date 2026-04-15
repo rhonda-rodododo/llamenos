@@ -297,14 +297,18 @@ See [DEVELOPMENT.md](DEVELOPMENT.md) for the full development guide.
 
 ## CI/CD
 
-Every push to `main` triggers the CI pipeline (`.github/workflows/ci.yml`):
+Every push to `main` triggers two workflows:
 
-1. **Build & validate** — typecheck, Vite build, esbuild (Node.js), Astro site build
-2. **Auto-version** — determines `major`/`minor`/`patch` bump from conventional commit messages
-3. **Changelog** — generates via [git-cliff](https://git-cliff.org) from commit history
-4. **Deploy** — parallel deploy to staging
-5. **Release** — creates GitHub Release with changelog notes
-6. **Docker** — the created tag triggers `docker.yml` to build + push images to GHCR
+1. **CI** (`.github/workflows/ci.yml`) — typecheck, Vite build, Astro site build, unit/API/E2E tests. Cancels older in-progress runs when a newer push lands.
+2. **Knope release PR** (`.github/workflows/knope-release-pr.yml`) — runs [knope](https://knope.tech) `prepare-release` to open or force-update a release PR on branch `release`. The PR contains the next version bump and an updated `CHANGELOG.md`, computed from conventional commits since the last tag.
+
+A release is cut **only when the release PR is merged**, not on every main push. Merging the release PR triggers `release.yml`, which:
+
+1. Builds the app and computes `CHECKSUMS.txt`
+2. Generates a CycloneDX SBOM, signs artifacts with cosign keyless, GPG-signs the checksums, attaches SLSA build provenance
+3. Runs `knope release` to create the git tag + GitHub Release
+4. Calls `docker.yml` to build and push versioned Docker images to GHCR
+5. Triggers `auto-deploy-demo.yml` (via the `release: published` event) to deploy to the demo VPS
 
 ### Versioning
 

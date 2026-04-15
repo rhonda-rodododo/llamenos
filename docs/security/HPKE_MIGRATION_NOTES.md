@@ -87,10 +87,10 @@ target and has not been wired anywhere.
 ### New modules
 - `src/shared/crypto-suite.ts` — Factory for the canonical HPKE suite.
   `DHKEM(X25519, HKDF-SHA256) + HKDF-SHA256 + AES-256-GCM`.
-- `src/shared/envelope-v3.ts` — `EnvelopeV3 = { v: 3, labelId, enc, ct }` with zod schema.
+- `src/shared/hpke-envelope.ts` (originally `envelope-v3.ts`, renamed in PR #104) — `HpkeEnvelope = { v: 3, labelId, enc, ct }` with zod schema.
 - `src/shared/hpke-primitives.ts` — `hpkeSeal` / `hpkeOpen` / `buildAad` / `HpkeLabelMismatchError`.
   Never falls back; label ID is cross-checked before AEAD open.
-- `src/client/lib/hub-field-crypto-v3.ts` — AES-GCM hub-field field crypto with `hubFieldAad` binding.
+- `src/client/lib/hub-field-crypto.ts` (originally `hub-field-crypto-v3.ts`, renamed in PR #104) — AES-GCM hub-field field crypto with `hubFieldAad` binding.
 - `src/client/lib/key-store.ts` (originally landed as `key-store-v3.ts`; renamed in PR #104) —
   PBKDF2-SHA256, 600k iterations. Multi-factor inputs (PIN + IdP-bound value + optional WebAuthn
   PRF output) combined via HKDF-SHA256. Holds the hub AES-GCM key as a non-extractable
@@ -116,7 +116,7 @@ target and has not been wired anywhere.
 - `src/client/lib/crypto-worker-client.ts` — Client-side RPC wrappers for the new handlers.
 - `src/shared/crypto-labels.ts` — Added `LABEL_SERVER_HPKE_KEY` + `LABEL_SERVER_HPKE_KEY_INFO`.
   These are domain labels used by `HpkeService`; they are intentionally **not** in `LABEL_REGISTRY`
-  because the server HPKE key is not sealed into an on-the-wire `EnvelopeV3` (which is what
+  because the server HPKE key is not sealed into an on-the-wire `HpkeEnvelope` (which is what
   `LABEL_REGISTRY` indexes for the `labelId` wire field).
 - `drizzle/migrations/0053_tier1_hpke_envelope_v3.sql` — TRUNCATE `hubs` + `users` CASCADE with a
   1000-row safety rail. One-way knife — this is a pre-prod wipe, not a data migration.
@@ -174,7 +174,7 @@ Original deferral list, annotated with current status on `main`:
   signal-contacts). Tracked as Tier 1 P0 in `POST_OVERHAUL_GAPS_2026-04-13.md`.
 - **Server note/file envelope paths** — **PARTIAL.** Files migrated via the items-key
   indirection. Notes stay on the legacy server-side `CryptoService` XChaCha20-Poly1305 primitive
-  and are explicitly **not** being promoted to envelope-v3 because Tier 6 PR #2 moves them to
+  and are explicitly **not** being promoted to `HpkeEnvelope` because Tier 6 PR #2 moves them to
   MLS instead (see top-level directive in `POST_OVERHAUL_GAPS_2026-04-13.md`).
 - **Multi-factor KEK support in `key-store.ts`** — **PARTIAL.** 2-factor (PIN + IdP-bound
   value) and 3-factor (PIN + IdP-bound value + WebAuthn PRF) are wired. The canonical Tier 2
@@ -187,7 +187,7 @@ Original deferral list, annotated with current status on `main`:
 ## Verification checklist (Tier 1)
 
 - [x] `bun run typecheck` clean on the branch tip.
-- [x] Tier 1 unit tests pass (`hpke-primitives`, `crypto-suite`, `envelope-v3`, `hub-field-crypto-v3`,
+- [x] Tier 1 unit tests pass (`hpke-primitives`, `crypto-suite`, `hpke-envelope`, `hub-field-crypto`,
       `key-store` (post-rename), `native-curves-check`, `crypto-worker-client` HPKE sidecar).
 - [x] Migration 0053 is idempotent; safety rail refuses to run on populated DBs.
 - [x] CI grep guardrails pass on the current tree (allowlist matches exactly the set of legacy

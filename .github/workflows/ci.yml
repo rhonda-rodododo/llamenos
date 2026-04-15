@@ -22,11 +22,10 @@ on:
   push:
     branches: [main]
 
-# Cancel in-progress PR runs when new commits are pushed.
-# For push-to-main, include run_id so main runs never cancel each other and
-# the notify-main-failure hook always gets a chance to fire.
+# Cancel in-progress runs when new commits are pushed. Both PR and main
+# runs collapse on the same ref so rapid merges don't burn CI minutes.
 concurrency:
-  group: ci-${{ github.ref }}-${{ github.event_name == 'push' && github.run_id || 'pr' }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -48,6 +47,10 @@ jobs:
   # ─── Detect Changed Files ─────────────────────────────────────
   changes:
     runs-on: ubuntu-latest
+    # Release-PR merge commits are handled by release.yml; skip CI for them.
+    if: >-
+      github.event_name != 'push' ||
+      !contains(github.event.head_commit.message, 'chore: prepare release')
 
     outputs:
       app: ${{ steps.filter.outputs.app }}
@@ -108,6 +111,7 @@ jobs:
   # ─── Lint ──────────────────────────────────────────────────
   lint:
     needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -122,6 +126,7 @@ jobs:
   # ─── Build & Validate ──────────────────────────────────────
   build:
     needs: [changes, lint]
+    if: needs.changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -553,6 +558,7 @@ jobs:
   # ─── Dependency Vulnerability Scan ───────────────────────────
   audit:
     needs: changes
+    if: needs.changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -748,20 +754,9 @@ jobs:
         run: |
           FAILED=false
 
-          # These jobs must succeed
-          for job_info in "lint:$LINT_RESULT" "build:$BUILD_RESULT" "audit:$AUDIT_RESULT"; do
-            job="${job_info%%:*}"
-            result="${job_info#*:}"
-            if [[ "$result" != "success" ]]; then
-              echo ":: $job: $result (FAILED)"
-              FAILED=true
-            else
-              echo ":: $job: $result (OK)"
-            fi
-          done
-
-          # These jobs may be legitimately skipped (docs-only or no ansible changes)
-          for job_info in "unit-tests:$UNIT_TESTS_RESULT" "integration-tests:$INTEGRATION_TESTS_RESULT" "api-tests:$API_TESTS_RESULT" "ansible-validate:$ANSIBLE_RESULT" "grep-guardrails:$GUARDRAILS_RESULT"; do
+          # These jobs may be legitimately skipped (docs-only or no ansible changes).
+          # For docs-only PRs every job except `changes` is skipped — treat skipped as OK.
+          for job_info in "lint:$LINT_RESULT" "build:$BUILD_RESULT" "audit:$AUDIT_RESULT" "unit-tests:$UNIT_TESTS_RESULT" "integration-tests:$INTEGRATION_TESTS_RESULT" "api-tests:$API_TESTS_RESULT" "ansible-validate:$ANSIBLE_RESULT" "grep-guardrails:$GUARDRAILS_RESULT"; do
             job="${job_info%%:*}"
             result="${job_info#*:}"
             if [[ "$result" != "success" && "$result" != "skipped" ]]; then

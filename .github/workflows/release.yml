@@ -1,25 +1,27 @@
-# Release Workflow — Main Branch Only
+# Release workflow — runs when the release PR (branch `release`,
+# maintained by knope-release-pr.yml) is merged to main. Knope creates
+# the tag + GitHub Release; this workflow attaches signed artifacts
+# and triggers the Docker build.
 #
-# Triggered on push to main (after CI passes via branch protection):
-#   1. Detect changed files — skip release for docs-only changes
-#   2. Build app (needed for CHECKSUMS and attestation)
-#   3. Auto-determine version bump from conventional commits
-#   4. Bump version, generate changelog, commit + tag
-#   5. Generate CycloneDX SBOM
-#   6. Cosign keyless signing + SBOM attestation
-#   7. GPG sign checksums
-#   8. Create GitHub Release with changelog, checksums, provenance, SBOM
+# Steps:
+#   1. Gate on release-PR merge (head_ref == 'release', merged == true)
+#   2. Read the new version from package.json (knope already bumped it)
+#   3. Build the app (needed for CHECKSUMS and attestation)
+#   4. Generate SBOM, sign with cosign keyless, GPG sign checksums
+#   5. Run `knope release` to create the git tag + GitHub Release
+#   6. Upload signed artifacts to the GitHub Release via gh CLI
+#   7. Call docker.yml to publish versioned Docker images
 #
-# The created tag also triggers docker.yml for Docker image builds.
-# The release event triggers auto-deploy-demo.yml and deploy-site.yml.
+# auto-deploy-demo.yml fires on the resulting `release: published` event.
 
 name: Release
 
 on:
-  push:
+  pull_request:
+    types: [closed]
     branches: [main]
 
-# Never cancel a release in progress
+# Never cancel a release in progress.
 concurrency:
   group: release
   cancel-in-progress: false
@@ -28,69 +30,37 @@ env:
   BUN_VERSION: "1.3.11"
 
 jobs:
-  # ─── Detect Changed Files ─────────────────────────────────────
-  changes:
+  # ─── Gate + version read ───────────────────────────────────
+  check:
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.head_ref == 'release'
     runs-on: ubuntu-latest
-    if: "!startsWith(github.event.head_commit.message, 'chore(release):')"
-
     outputs:
-      app: ${{ steps.filter.outputs.app }}
-      site: ${{ steps.filter.outputs.site }}
-      docs_only: ${{ steps.filter.outputs.docs_only }}
-
+      version: ${{ steps.read.outputs.version }}
     steps:
-      - name: Checkout
+      - name: Checkout merge commit
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          fetch-depth: 2
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
 
-      - name: Detect changes
-        id: filter
+      - name: Read new version from package.json
+        id: read
         run: |
-          # Get changed files between HEAD^ and HEAD
-          CHANGED=$(git diff --name-only HEAD^ HEAD 2>/dev/null || git diff --name-only HEAD)
-
-          echo "Changed files:"
-          echo "$CHANGED"
-
-          # Patterns for files that DON'T need a release (inverted logic)
-          # Only markdown files and site/ files can skip release.
-          SKIP_PATTERN="\.md$|^site/"
-
-          # Check if ALL changed files match the skip pattern
-          DOCS_ONLY="true"
-          SITE_CHANGED="false"
-          while IFS= read -r file; do
-            [[ -z "$file" ]] && continue
-            if [[ "$file" == site/* ]]; then
-              SITE_CHANGED="true"
-            fi
-            if ! echo "$file" | grep -qE "$SKIP_PATTERN"; then
-              DOCS_ONLY="false"
-              echo "Non-docs file changed: $file"
-            fi
-          done <<< "$CHANGED"
-
-          {
-            echo "app=$([ "$DOCS_ONLY" = "false" ] && echo true || echo false)"
-            echo "site=$SITE_CHANGED"
-            echo "docs_only=$DOCS_ONLY"
-          } >> "$GITHUB_OUTPUT"
-
-          if [[ "$DOCS_ONLY" == "true" ]]; then
-            echo "Only docs/site files changed — release will be skipped"
-          else
-            echo "App/infra files changed — release required"
-          fi
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Releasing v$VERSION"
 
   # ─── Build (needed for CHECKSUMS and attestation) ─────────────
   build:
-    needs: changes
-    if: needs.changes.outputs.docs_only != 'true'
+    needs: check
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
       - uses: ./.github/actions/setup-bun
         with:
           bun-version: ${{ env.BUN_VERSION }}
@@ -110,7 +80,6 @@ jobs:
           sha256sum bun.lockb >> CHECKSUMS.txt
           echo "$(wc -l < CHECKSUMS.txt) files checksummed"
 
-      # Upload build artifacts for release job
       - name: Upload app build
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -125,138 +94,28 @@ jobs:
           path: CHECKSUMS.txt
           retention-days: 7
 
-  # ─── Version Bump & Changelog ──────────────────────────────
-  version:
-    needs: [changes, build]
-    if: needs.changes.outputs.docs_only != 'true'
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: write
-
-    outputs:
-      new_version: ${{ steps.version.outputs.new_version }}
-      old_version: ${{ steps.version.outputs.old_version }}
-      bump_type: ${{ steps.version.outputs.bump_type }}
-      should_release: ${{ steps.version.outputs.should_release }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Determine version bump from commits
-        id: version
-        run: |
-          # Get the latest tag
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-
-          if [ -z "$LATEST_TAG" ]; then
-            COMMITS=$(git log --oneline --format="%s")
-          else
-            COMMITS=$(git log "${LATEST_TAG}..HEAD" --oneline --format="%s")
-          fi
-
-          # No commits since last tag means this IS the tag commit — skip
-          if [ -z "$COMMITS" ]; then
-            echo "should_release=false" >> "$GITHUB_OUTPUT"
-            echo "No new commits since last tag. Skipping release."
-            exit 0
-          fi
-
-          echo "Commits since ${LATEST_TAG:-beginning}:"
-          echo "$COMMITS"
-
-          # Determine bump type from conventional commits
-          BUMP="patch"
-          if echo "$COMMITS" | grep -qiE "^feat(\(.*\))?!:|BREAKING CHANGE"; then
-            BUMP="major"
-          elif echo "$COMMITS" | grep -qE "^feat(\(.*\))?:"; then
-            BUMP="minor"
-          fi
-
-          # Read current version
-          OLD_VERSION=$(node -p "require('./package.json').version")
-
-          # Calculate new version
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$OLD_VERSION"
-          case "$BUMP" in
-            major) NEW_VERSION="$((MAJOR + 1)).0.0" ;;
-            minor) NEW_VERSION="${MAJOR}.$((MINOR + 1)).0" ;;
-            patch) NEW_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))" ;;
-          esac
-
-          {
-            echo "bump_type=$BUMP"
-            echo "old_version=$OLD_VERSION"
-            echo "new_version=$NEW_VERSION"
-            echo "should_release=true"
-          } >> "$GITHUB_OUTPUT"
-          echo "Version: $OLD_VERSION → $NEW_VERSION ($BUMP)"
-
-      - uses: ./.github/actions/install-git-cliff
-        if: steps.version.outputs.should_release == 'true'
-
-      - name: Bump version in package.json
-        if: steps.version.outputs.should_release == 'true'
-        run: |
-          NEW_VERSION="${{ steps.version.outputs.new_version }}"
-          node -e "
-            const pkg = require('./package.json');
-            pkg.version = '$NEW_VERSION';
-            require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-          "
-
-      - name: Generate changelog and commit release
-        if: steps.version.outputs.should_release == 'true'
-        run: |
-          NEW_VERSION="${{ steps.version.outputs.new_version }}"
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          # Stage version files
-          git add package.json
-
-          # Create tag so git-cliff can generate notes for this version
-          git commit -m "chore(release): v${NEW_VERSION} [skip ci]"
-          git tag -a "v${NEW_VERSION}" -m "Release v${NEW_VERSION}"
-
-          # Generate full CHANGELOG.md (includes the new tag)
-          git-cliff --output CHANGELOG.md
-
-          # Amend the release commit to include the changelog
-          git add CHANGELOG.md
-          git commit --amend --no-edit
-
-          # Move the tag to the amended commit
-          git tag -f -a "v${NEW_VERSION}" -m "Release v${NEW_VERSION}"
-
-      - name: Push release
-        if: steps.version.outputs.should_release == 'true'
-        run: |
-          # Rebase onto any commits pushed during tests
-          git pull --rebase origin main
-          git push origin main --follow-tags
-
-  # ─── Create GitHub Release ──────────────────────────────────
+  # ─── Tag + GitHub Release via knope, then attach artifacts ─
   release:
-    needs: [version]
-    if: needs.version.outputs.should_release == 'true'
+    needs: [check, build]
     runs-on: ubuntu-latest
 
     permissions:
       contents: write
-      id-token: write  # Required for SLSA attestation
+      id-token: write       # OIDC for cosign keyless + attestations
       attestations: write
 
     steps:
-      - name: Checkout
+      - name: Checkout merge commit
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
           fetch-depth: 0
+          token: ${{ secrets.RELEASE_PAT }}
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Download checksums
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -279,7 +138,9 @@ jobs:
 
       - name: Generate provenance metadata JSON (Epic 79)
         env:
-          NEW_VERSION: ${{ needs.version.outputs.new_version }}
+          NEW_VERSION: ${{ needs.check.outputs.version }}
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          REPO: ${{ github.repository }}
         run: |
           cat > provenance.json <<PROVEOF
           {
@@ -287,13 +148,13 @@ jobs:
             "buildType": "https://github.com/slsa-framework/slsa/blob/main/docs/spec/v1.0/levels.md",
             "invocation": {
               "configSource": {
-                "uri": "git+https://github.com/${{ github.repository }}@refs/tags/v${NEW_VERSION}",
-                "digest": { "sha1": "${{ github.sha }}" },
+                "uri": "git+https://github.com/${REPO}@refs/tags/v${NEW_VERSION}",
+                "digest": { "sha1": "${MERGE_SHA}" },
                 "entryPoint": ".github/workflows/release.yml"
               },
               "parameters": {
                 "SOURCE_DATE_EPOCH": "$(git log -1 --format=%ct)",
-                "bunVersion": "${{ env.BUN_VERSION }}"
+                "bunVersion": "${BUN_VERSION}"
               }
             },
             "buildConfig": {
@@ -308,15 +169,14 @@ jobs:
             },
             "materials": [
               {
-                "uri": "git+https://github.com/${{ github.repository }}@refs/tags/v${NEW_VERSION}",
-                "digest": { "sha1": "${{ github.sha }}" }
+                "uri": "git+https://github.com/${REPO}@refs/tags/v${NEW_VERSION}",
+                "digest": { "sha1": "${MERGE_SHA}" }
               }
             ]
           }
           PROVEOF
-          # Clean up leading whitespace from heredoc indentation
           python3 -c "
-          import json, sys
+          import json
           with open('provenance.json') as f:
               data = json.load(f)
           with open('provenance.json', 'w') as f:
@@ -368,45 +228,44 @@ jobs:
           gpg --verify CHECKSUMS.txt.asc CHECKSUMS.txt
           echo "GPG signature verified successfully"
 
-      - uses: ./.github/actions/install-git-cliff
-
-      - name: Generate release notes
-        run: |
-          git-cliff --latest --strip header > RELEASE_NOTES.md
-          echo "--- Release notes ---"
-          cat RELEASE_NOTES.md
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
+      - name: Install knope
+        uses: knope-dev/action@19617851f9f13ab2f27a05989c55efb18aca3675 # v2.1.2
         with:
-          tag_name: v${{ needs.version.outputs.new_version }}
-          name: v${{ needs.version.outputs.new_version }}
-          body_path: RELEASE_NOTES.md
-          draft: false
-          prerelease: false
-          fail_on_unmatched_files: false
-          files: |
-            CHECKSUMS.txt
-            CHECKSUMS.txt.asc
-            CHECKSUMS.txt.cosign.sig
-            CHECKSUMS.txt.cosign.pem
-            provenance.json
-            provenance.json.cosign.sig
-            provenance.json.cosign.pem
-            sbom.cdx.json
-            sbom.cdx.json.att
+          version: 0.22.4
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create tag and GitHub Release via knope
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PAT }}
+        run: knope release --verbose
+
+      - name: Upload signed artifacts to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEW_VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          ARTIFACTS=()
+          for f in \
+            CHECKSUMS.txt \
+            CHECKSUMS.txt.asc \
+            CHECKSUMS.txt.cosign.sig \
+            CHECKSUMS.txt.cosign.pem \
+            provenance.json \
+            provenance.json.cosign.sig \
+            provenance.json.cosign.pem \
+            sbom.cdx.json \
+            sbom.cdx.json.att; do
+            [ -f "$f" ] && ARTIFACTS+=("$f")
+          done
+          gh release upload "v${NEW_VERSION}" "${ARTIFACTS[@]}" --clobber
 
   # ─── Docker Image Publish ─────────────────────────────────
-  # Calls the reusable docker.yml workflow. workflow_call runs in the same
-  # logical chain as the caller, so it is NOT subject to the GITHUB_TOKEN
-  # downstream-trigger suppression rule that blocks `on: push: tags`.
   docker:
-    needs: [version, release]
-    if: needs.version.outputs.should_release == 'true'
+    needs: [check, release]
     uses: ./.github/workflows/docker.yml
     with:
-      version: ${{ needs.version.outputs.new_version }}
-      ref: refs/tags/v${{ needs.version.outputs.new_version }}
+      version: ${{ needs.check.outputs.version }}
+      ref: refs/tags/v${{ needs.check.outputs.version }}
     permissions:
       contents: read
       packages: write

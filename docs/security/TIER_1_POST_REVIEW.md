@@ -75,11 +75,11 @@ binding, and the AEAD tag, the envelope has five independent defense layers.
 | # | Location | Issue | Fix |
 |---|---|---|---|
 | I-1 | `docs/security/HPKE_MIGRATION_NOTES.md` | Title `Tier 1 PR-A`, claimed `LABEL_SERVER_HPKE_KEY` was added to `LABEL_REGISTRY` (false), claimed `key-store-v3` is "multi-factor KEK" (is PIN-only), claimed `native-curves-check` "gates" runtime (it is telemetry only). `Deferred` list included items-key which PR-B delivered. | Retitled to `Tier 1`, split into PR-A / PR-B sections, corrected registry claim, clarified PIN-only-with-deferred-multi-factor, clarified native-curves-check as telemetry-not-switch, removed items-key from deferred, reframed remaining deferrals as Tier 2+ carry-forward. |
-| I-2 | `src/shared/envelope-v3.ts:24` | Doc-ref points at non-existent `crypto-primitives.ts` | Corrected to `hpke-primitives.ts`. |
+| I-2 | `src/shared/hpke-envelope.ts:24` (was `envelope-v3.ts`) | Doc-ref points at non-existent `crypto-primitives.ts` | Corrected to `hpke-primitives.ts`. |
 | I-3 | `CLAUDE.md:106` | `**Tier 1 HPKE (PR-A, in progress)**` tag with stale "20+ unmigrated call sites" | Removed in-progress tag, documented client-pre-generated-id requirement for hub-field creates, listed remaining carry-forward call sites (notes/files/hub-key-manager/provisioning). |
-| I-4 | `src/client/lib/hub-field-crypto-v3.ts:17–20` | NOTE claimed module is not wired to call sites | Replaced with the concrete list of wired call sites (queries/*.ts + routes/shifts.tsx) and pointer to `items-key.ts`. |
+| I-4 | `src/client/lib/hub-field-crypto.ts:17–20` (was `hub-field-crypto-v3.ts`) | NOTE claimed module is not wired to call sites | Replaced with the concrete list of wired call sites (queries/*.ts + routes/shifts.tsx) and pointer to `items-key.ts`. |
 | I-5 | `src/client/lib/crypto-worker.ts` | Header comment said "Tier 1 transition state (PR-A)" and conflated schnorr signing with HPKE KEM. AAD comment on the ECIES `decrypt` RPC was ambiguous about whether the warning applied to the legacy v2 path. | Retitled to "Tier 1 transition state", split responsibilities, clarified that `schnorr`/`secp256k1` signing is independent of the X25519 HPKE KEM, scoped the AAD warning explicitly to the legacy v2 path. |
-| I-6 | `src/shared/crypto-suite.ts` | Comment claimed `HPKE_SUITE_ID` was "persisted alongside envelopes" | Corrected — `HPKE_SUITE_ID` is a code-level constant, `EnvelopeV3` carries `v: 3` + `labelId`, not a suite id. |
+| I-6 | `src/shared/crypto-suite.ts` | Comment claimed `HPKE_SUITE_ID` was "persisted alongside envelopes" | Corrected — `HPKE_SUITE_ID` is a code-level constant, `HpkeEnvelope` carries `v: 3` + `labelId`, not a suite id. |
 | I-7 | `src/server/lib/hpke-service.ts` | Responsibilities section claimed `HpkeService` "acts as a recipient in hub-key-wrap envelopes" (aspirational — the class is only exercised by its own tests in Tier 1). | Reframed as "Responsibilities in Tier 1" with an explicit note that hub-key-manager integration is deferred. |
 | I-8 | `docs/security/AEAD_AUDIT_2026-04-10.md` | PR-B section referenced `src/client/lib/items-key.ts` + `unwrapItemsKey`/`rewrapItemsKeyForNewMaster` + `tests/unit/items-key.test.ts` — all wrong. | Corrected to `src/shared/items-key.ts` + `unwrapPerArtifactKey` + `rewrapItemsKey` + `src/shared/items-key.test.ts`. |
 
@@ -118,9 +118,9 @@ Tracked in `~/tier-carry-forward/tier-2-notes.md`. Highlights:
 - `src/client/components/admin-sections/firehose-section.tsx` — C1 (pass pre-generated id).
 - `src/shared/schemas/firehose.ts` — C1 (schema accepts id).
 - `docs/security/HPKE_MIGRATION_NOTES.md` — I-1.
-- `src/shared/envelope-v3.ts` — I-2.
+- `src/shared/hpke-envelope.ts` (was `envelope-v3.ts`) — I-2.
 - `CLAUDE.md` — I-3.
-- `src/client/lib/hub-field-crypto-v3.ts` — I-4.
+- `src/client/lib/hub-field-crypto.ts` (was `hub-field-crypto-v3.ts`) — I-4.
 - `src/client/lib/crypto-worker.ts` — I-5.
 - `src/shared/crypto-suite.ts` — I-6.
 - `src/server/lib/hpke-service.ts` — I-7.

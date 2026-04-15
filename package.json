@@ -36,9 +36,6 @@
     "test:all": "bun run test:unit && bun run test:integration && bun run test:api && bun run test:e2e",
     "site:dev": "cd site && bun run dev",
     "site:build": "cd site && bun run build",
-    "changelog": "git-cliff --output CHANGELOG.md",
-    "changelog:preview": "git-cliff --unreleased",
-    "version:bump": "bun run scripts/bump-version.ts",
     "prepare": "lefthook install"
   },
   "dependencies": {
