@@ -84,6 +84,41 @@ function formEncode(params: Record<string, string>): string {
   return new URLSearchParams(params).toString()
 }
 
+/**
+ * Find the KIND_CALL_RING event in the collector whose decrypted plaintext
+ * `callSid` equals `expectedCallSid`.
+ *
+ * Why this exists: KIND_CALL_RING (1000) is in the NIP-01 *regular* range, so
+ * strfry persists every ring event. The subscription `since` filter in
+ * {@link subscribeToRelay} has 1-second resolution, so a subscription opened
+ * in the same wall-clock second as a previous test's event will have that
+ * previous event replayed to it. Under the shared test server, other spec
+ * files that hit `/telephony/incoming` also publish ring events into the same
+ * relay. The reliable way to pick "this test's event" out of the collector is
+ * to decrypt each candidate and match on the plaintext callSid — a stable
+ * per-test discriminator that can never collide.
+ *
+ * Returns `undefined` if no event with the matching callSid is present.
+ */
+type CollectedEvent = { kind: number; content: string; tags: string[][] }
+type DecryptedCallRing = { event: CollectedEvent; plaintext: Record<string, unknown> }
+
+function findOwnCallRingEvent(
+  events: CollectedEvent[],
+  eventKey: Uint8Array,
+  expectedCallSid: string,
+  decryptFn: (ct: string, key: Uint8Array) => Record<string, unknown> | null
+): DecryptedCallRing | undefined {
+  for (const event of events) {
+    if (event.kind !== KIND_CALL_RING) continue
+    const plaintext = decryptFn(event.content, eventKey)
+    if (plaintext && plaintext.callSid === expectedCallSid) {
+      return { event, plaintext }
+    }
+  }
+  return undefined
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Call ring event publishing
 // ─────────────────────────────────────────────────────────────────────────────
@@ -172,9 +207,13 @@ test.describe('Call ring Nostr events', () => {
     expect(langRes.status()).toBe(200)
 
     // Wait up to 3s for event to arrive
+    const { deriveServerEventKey, decryptHubEvent } = await import(
+      '../../src/server/lib/hub-event-crypto'
+    )
+    const eventKey = deriveServerEventKey(SERVER_NOSTR_SECRET)
     const deadline = Date.now() + 3000
     while (
-      collectedEvents.filter((e) => e.kind === KIND_CALL_RING).length === 0 &&
+      findOwnCallRingEvent(collectedEvents, eventKey, callSid, decryptHubEvent) === undefined &&
       Date.now() < deadline
     ) {
       await new Promise((r) => setTimeout(r, 100))
@@ -182,11 +221,11 @@ test.describe('Call ring Nostr events', () => {
 
     ws.close()
 
-    const ringEvents = collectedEvents.filter((e) => e.kind === KIND_CALL_RING)
+    const own = findOwnCallRingEvent(collectedEvents, eventKey, callSid, decryptHubEvent)
     expect(
-      ringEvents.length,
-      'Expected at least one KIND_CALL_RING event on relay after inbound call'
-    ).toBeGreaterThan(0)
+      own,
+      `Expected a KIND_CALL_RING event matching this test's callSid (${callSid}) on relay after inbound call`
+    ).toBeDefined()
   })
 
   test('call ring event content is ciphertext (not plaintext)', async ({ request }) => {
@@ -222,9 +261,14 @@ test.describe('Call ring Nostr events', () => {
       }),
     })
 
+    const { deriveServerEventKey, decryptHubEvent } = await import(
+      '../../src/server/lib/hub-event-crypto'
+    )
+    const eventKey = deriveServerEventKey(SERVER_NOSTR_SECRET)
+
     const deadline = Date.now() + 3000
     while (
-      collectedEvents.filter((e) => e.kind === KIND_CALL_RING).length === 0 &&
+      findOwnCallRingEvent(collectedEvents, eventKey, callSid, decryptHubEvent) === undefined &&
       Date.now() < deadline
     ) {
       await new Promise((r) => setTimeout(r, 100))
@@ -232,13 +276,13 @@ test.describe('Call ring Nostr events', () => {
 
     ws.close()
 
-    const ringEvent = collectedEvents.find((e) => e.kind === KIND_CALL_RING)
-    expect(ringEvent, 'Expected a KIND_CALL_RING event on relay').toBeDefined()
+    const own = findOwnCallRingEvent(collectedEvents, eventKey, callSid, decryptHubEvent)
+    expect(own, `Expected a KIND_CALL_RING event matching callSid ${callSid}`).toBeDefined()
 
     // Content must NOT be parseable as JSON (it's hex-encoded ciphertext)
     let isPlaintext = false
     try {
-      JSON.parse(ringEvent!.content)
+      JSON.parse(own!.event.content)
       isPlaintext = true
     } catch {
       // Good — not JSON
@@ -247,8 +291,8 @@ test.describe('Call ring Nostr events', () => {
 
     // Content should be valid hex (XChaCha20 nonce || ciphertext)
     expect(
-      isValidHex(ringEvent!.content),
-      `Expected hex ciphertext, got: ${ringEvent!.content.slice(0, 40)}...`
+      isValidHex(own!.event.content),
+      `Expected hex ciphertext, got: ${own!.event.content.slice(0, 40)}...`
     ).toBe(true)
   })
 
@@ -285,9 +329,14 @@ test.describe('Call ring Nostr events', () => {
       }),
     })
 
+    const { deriveServerEventKey, decryptHubEvent } = await import(
+      '../../src/server/lib/hub-event-crypto'
+    )
+    const eventKey = deriveServerEventKey(SERVER_NOSTR_SECRET)
+
     const deadline = Date.now() + 3000
     while (
-      collectedEvents.filter((e) => e.kind === KIND_CALL_RING).length === 0 &&
+      findOwnCallRingEvent(collectedEvents, eventKey, callSid, decryptHubEvent) === undefined &&
       Date.now() < deadline
     ) {
       await new Promise((r) => setTimeout(r, 100))
@@ -295,10 +344,10 @@ test.describe('Call ring Nostr events', () => {
 
     ws.close()
 
-    const ringEvent = collectedEvents.find((e) => e.kind === KIND_CALL_RING)
-    expect(ringEvent, 'Expected a KIND_CALL_RING event on relay').toBeDefined()
+    const own = findOwnCallRingEvent(collectedEvents, eventKey, callSid, decryptHubEvent)
+    expect(own, `Expected a KIND_CALL_RING event matching callSid ${callSid}`).toBeDefined()
 
-    const tagMap = Object.fromEntries(ringEvent!.tags.map((t) => [t[0], t[1]]))
+    const tagMap = Object.fromEntries(own!.event.tags.map((t) => [t[0], t[1]]))
     expect(tagMap.t, 'Expected "llamenos:event" tag').toBe('llamenos:event')
     // Hub ID is either "global" (no hub setup) or "default-hub" (after test-reset creates default hub)
     expect(tagMap.d, 'Expected hub ID in d tag').toBeTruthy()
@@ -337,9 +386,14 @@ test.describe('Call ring Nostr events', () => {
       }),
     })
 
+    const { deriveServerEventKey, decryptHubEvent } = await import(
+      '../../src/server/lib/hub-event-crypto'
+    )
+    const eventKey = deriveServerEventKey(SERVER_NOSTR_SECRET)
+
     const deadline = Date.now() + 3000
     while (
-      collectedEvents.filter((e) => e.kind === KIND_CALL_RING).length === 0 &&
+      findOwnCallRingEvent(collectedEvents, eventKey, callSid, decryptHubEvent) === undefined &&
       Date.now() < deadline
     ) {
       await new Promise((r) => setTimeout(r, 100))
@@ -347,19 +401,10 @@ test.describe('Call ring Nostr events', () => {
 
     ws.close()
 
-    const ringEvent = collectedEvents.find((e) => e.kind === KIND_CALL_RING)
-    expect(ringEvent, 'Expected a KIND_CALL_RING event on relay').toBeDefined()
-
-    // Derive server event key and decrypt
-    const { deriveServerEventKey, decryptHubEvent } = await import(
-      '../../src/server/lib/hub-event-crypto'
-    )
-    const eventKey = deriveServerEventKey(SERVER_NOSTR_SECRET)
-    const decrypted = decryptHubEvent(ringEvent!.content, eventKey)
-
-    expect(decrypted, 'Event content must decrypt to a valid object').not.toBeNull()
-    expect(decrypted?.type, 'Decrypted event must have type "call:ring"').toBe('call:ring')
-    expect(decrypted?.callSid, 'Decrypted event must contain the callSid').toBe(callSid)
+    const own = findOwnCallRingEvent(collectedEvents, eventKey, callSid, decryptHubEvent)
+    expect(own, `Expected a decryptable CALL_RING event matching callSid ${callSid}`).toBeDefined()
+    expect(own!.plaintext.type, 'Decrypted event must have type "call:ring"').toBe('call:ring')
+    expect(own!.plaintext.callSid, 'Decrypted event must contain the callSid').toBe(callSid)
   })
 
   test('unauthenticated subscriber cannot determine event type from content', async ({
@@ -397,9 +442,14 @@ test.describe('Call ring Nostr events', () => {
       }),
     })
 
+    const { deriveServerEventKey, decryptHubEvent } = await import(
+      '../../src/server/lib/hub-event-crypto'
+    )
+    const eventKey = deriveServerEventKey(SERVER_NOSTR_SECRET)
+
     const deadline = Date.now() + 3000
     while (
-      collectedEvents.filter((e) => e.kind === KIND_CALL_RING).length === 0 &&
+      findOwnCallRingEvent(collectedEvents, eventKey, callSid, decryptHubEvent) === undefined &&
       Date.now() < deadline
     ) {
       await new Promise((r) => setTimeout(r, 100))
@@ -407,16 +457,16 @@ test.describe('Call ring Nostr events', () => {
 
     ws.close()
 
-    const ringEvent = collectedEvents.find((e) => e.kind === KIND_CALL_RING)
-    expect(ringEvent, 'Expected a KIND_CALL_RING event on relay').toBeDefined()
+    const own = findOwnCallRingEvent(collectedEvents, eventKey, callSid, decryptHubEvent)
+    expect(own, `Expected a KIND_CALL_RING event matching callSid ${callSid}`).toBeDefined()
 
     // Without the key, content must not contain any semantic information
-    expect(ringEvent!.content).not.toContain('call:ring')
-    expect(ringEvent!.content).not.toContain('callSid')
-    expect(ringEvent!.content).not.toContain(callSid)
+    expect(own!.event.content).not.toContain('call:ring')
+    expect(own!.event.content).not.toContain('callSid')
+    expect(own!.event.content).not.toContain(callSid)
 
     // All events carry the same generic tag — cannot distinguish types
-    const tTag = ringEvent!.tags.find((t) => t[0] === 't')
+    const tTag = own!.event.tags.find((t) => t[0] === 't')
     expect(tTag?.[1]).toBe('llamenos:event')
   })
 })
