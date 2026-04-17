@@ -314,6 +314,124 @@ class AuthFacadeClient {
   }
 
   // ---------------------------------------------------------------------------
+  // Signal contact endpoints
+  // ---------------------------------------------------------------------------
+
+  async getSignalContact(): Promise<{
+    contact: {
+      identifierHash: string
+      identifierCiphertext: string
+      identifierEnvelope: import('@shared/types').RecipientEnvelope[]
+      identifierType: 'phone' | 'username'
+      verifiedAt: string | null
+      updatedAt: string
+    } | null
+  }> {
+    const res = await this.authedFetch('/api/auth/signal-contact')
+    await AuthFacadeClient.assertOk(res, 'Failed to get signal contact')
+    return res.json() as Promise<{
+      contact: {
+        identifierHash: string
+        identifierCiphertext: string
+        identifierEnvelope: import('@shared/types').RecipientEnvelope[]
+        identifierType: 'phone' | 'username'
+        verifiedAt: string | null
+        updatedAt: string
+      } | null
+    }>
+  }
+
+  async getSignalContactHmacKey(): Promise<{ key: string }> {
+    const res = await this.authedFetch('/api/auth/signal-contact/hmac-key')
+    await AuthFacadeClient.assertOk(res, 'Failed to get HMAC key')
+    return res.json() as Promise<{ key: string }>
+  }
+
+  async registerSignalContact(body: {
+    identifierHash: string
+    identifierCiphertext: string
+    identifierEnvelope: import('@shared/types').RecipientEnvelope[]
+    identifierType: 'phone' | 'username'
+    plaintextIdentifier: string
+  }): Promise<{ ok: true }> {
+    const res = await this.authedFetch('/api/auth/signal-contact', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+    await AuthFacadeClient.assertOk(res, 'Failed to register signal contact')
+    return res.json() as Promise<{ ok: true }>
+  }
+
+  async deleteSignalContact(): Promise<{ ok: true }> {
+    const res = await this.authedFetch('/api/auth/signal-contact', {
+      method: 'DELETE',
+    })
+    await AuthFacadeClient.assertOk(res, 'Failed to delete signal contact')
+    return res.json() as Promise<{ ok: true }>
+  }
+
+  // ---------------------------------------------------------------------------
+  // Security prefs endpoints
+  // ---------------------------------------------------------------------------
+
+  async getSecurityPrefs(): Promise<{
+    autoLockMs: number
+    disappearingTimerDays: number
+    digestCadence: string
+    alertOnNewDevice: boolean
+    alertOnPasskeyChange: boolean
+    alertOnPinChange: boolean
+    notificationChannel: string
+  }> {
+    const res = await this.authedFetch('/api/auth/security-prefs')
+    await AuthFacadeClient.assertOk(res, 'Failed to get security prefs')
+    return res.json() as Promise<{
+      autoLockMs: number
+      disappearingTimerDays: number
+      digestCadence: string
+      alertOnNewDevice: boolean
+      alertOnPasskeyChange: boolean
+      alertOnPinChange: boolean
+      notificationChannel: string
+    }>
+  }
+
+  async updateSecurityPrefs(
+    patch: Partial<{
+      autoLockMs: number
+      disappearingTimerDays: number
+      digestCadence: string
+      alertOnNewDevice: boolean
+      alertOnPasskeyChange: boolean
+      alertOnPinChange: boolean
+      notificationChannel: string
+    }>
+  ): Promise<{
+    autoLockMs: number
+    disappearingTimerDays: number
+    digestCadence: string
+    alertOnNewDevice: boolean
+    alertOnPasskeyChange: boolean
+    alertOnPinChange: boolean
+    notificationChannel: string
+  }> {
+    const res = await this.authedFetch('/api/auth/security-prefs', {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    })
+    await AuthFacadeClient.assertOk(res, 'Failed to update security prefs')
+    return res.json() as Promise<{
+      autoLockMs: number
+      disappearingTimerDays: number
+      digestCadence: string
+      alertOnNewDevice: boolean
+      alertOnPasskeyChange: boolean
+      alertOnPinChange: boolean
+      notificationChannel: string
+    }>
+  }
+
+  // ---------------------------------------------------------------------------
   // OPAQUE endpoints (Tier 2)
   //
   // Routes live under /api/opaque/* (authenticated router), NOT /api/auth/*.

@@ -8,6 +8,7 @@ export const userSecurityPrefs = pgTable('user_security_prefs', {
   alertOnNewDevice: boolean('alert_on_new_device').notNull().default(true),
   alertOnPasskeyChange: boolean('alert_on_passkey_change').notNull().default(true),
   alertOnPinChange: boolean('alert_on_pin_change').notNull().default(true),
+  notificationChannel: text('notification_channel').notNull().default('web_push'),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
