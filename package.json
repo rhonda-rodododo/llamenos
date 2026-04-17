@@ -116,6 +116,7 @@
     "vite-plugin-pwa": "^1.2.0"
   },
   "overrides": {
-    "axios": "^1.15.0"
+    "axios": "^1.15.0",
+    "protobufjs": "^7.5.5"
   }
 }
