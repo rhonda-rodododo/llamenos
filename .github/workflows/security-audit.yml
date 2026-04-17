@@ -21,14 +21,14 @@ on:
     branches: [main]
     paths:
       - 'package.json'
-      - 'bun.lockb'
+      - 'bun.lock'
       - '**/Dockerfile*'
       - 'deploy/docker/**'
       - '.github/workflows/security-audit.yml'
   pull_request:
     paths:
       - 'package.json'
-      - 'bun.lockb'
+      - 'bun.lock'
       - '**/Dockerfile*'
       - 'deploy/docker/**'
   workflow_dispatch:

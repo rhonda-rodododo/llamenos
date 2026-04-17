@@ -14,7 +14,7 @@ ARG BUILD_TIME=
 # Stage 1: Install dependencies
 FROM oven/bun:1@sha256:8956c7667fa17beb6e3c664115e66bdacfe502da5d99603626e74c197bdef160 AS deps
 WORKDIR /app
-COPY package.json bun.lockb ./
+COPY package.json bun.lock ./
 # The @wireapp/core-crypto dependency is vendored as a `file:` dep; bun must
 # be able to resolve it at install time or the whole install fails.
 COPY vendor/ vendor/
@@ -23,7 +23,7 @@ RUN bun install --frozen-lockfile --ignore-scripts
 # Stage 2: Build frontend SPA
 FROM oven/bun:1@sha256:8956c7667fa17beb6e3c664115e66bdacfe502da5d99603626e74c197bdef160 AS frontend
 WORKDIR /app
-COPY package.json bun.lockb ./
+COPY package.json bun.lock ./
 COPY --from=deps /app/node_modules/ node_modules/
 COPY src/ src/
 COPY public/ public/

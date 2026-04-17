@@ -153,7 +153,7 @@ jobs:
           cd dist
           find client -type f -exec sha256sum {} \; | sort > ../CHECKSUMS.txt
           cd ..
-          sha256sum bun.lockb >> CHECKSUMS.txt
+          sha256sum bun.lock >> CHECKSUMS.txt
           echo "$(wc -l < CHECKSUMS.txt) files checksummed"
 
       - name: Build marketing site

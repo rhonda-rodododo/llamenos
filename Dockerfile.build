@@ -32,7 +32,7 @@ ENV GITHUB_SHA=${GITHUB_SHA}
 WORKDIR /build
 
 # Install dependencies first (layer caching)
-COPY package.json bun.lockb ./
+COPY package.json bun.lock ./
 # The @wireapp/core-crypto dependency is vendored as a `file:` dep; bun must
 # be able to resolve it at install time or the whole install fails.
 COPY vendor/ vendor/
