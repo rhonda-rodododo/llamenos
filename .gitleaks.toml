@@ -23,6 +23,8 @@ paths = [
   "tests/.*\\.snap",
   # Plan documents contain code snippets with variable names that look like keys
   "docs/superpowers/plans/.*\\.md",
+  # Epic plan documents contain cryptographic type names that trigger generic-api-key
+  "docs/epics/.*\\.md",
   # Security docs describe cryptographic primitives by name (XChaCha20-Poly1305,
   # Ed25519, etc.); the generic-api-key regex occasionally flags those phrases.
   "docs/security/.*\\.md",
