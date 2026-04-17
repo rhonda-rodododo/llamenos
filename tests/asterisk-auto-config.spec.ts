@@ -254,7 +254,8 @@ test('PJSIP auto-config is idempotent across restarts', async () => {
 // ================================================================
 
 test.describe('real Asterisk ARI', () => {
-  test.beforeEach(async (_fixtures, testInfo: TestInfo) => {
+  // biome-ignore lint/correctness/noEmptyPattern: Playwright requires object destructuring for fixtures
+  test.beforeEach(async ({}, testInfo: TestInfo) => {
     const available = await isAsteriskAvailable()
     if (!available) {
       testInfo.skip(true, 'Asterisk not available (run bun run dev:docker)')
