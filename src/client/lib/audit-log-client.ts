@@ -1,7 +1,23 @@
 import { computeEntryHash } from '@shared/lib/audit-entry-hash'
-import type { AuditEntryPayload, SignedAuditEntry } from '@shared/schemas/audit-entries'
+import type {
+  AuditEntryPayload,
+  SignedAuditEntry,
+  UnsignedAuditEntry,
+} from '@shared/schemas/audit-entries'
 import { API_BASE, getAuthHeaders } from './api/client'
 import { cryptoWorker } from './crypto-worker-client'
+
+/**
+ * Signs an {@link UnsignedAuditEntry}, producing the only valid
+ * {@link SignedAuditEntry}. This is the sole transition between the two
+ * types — no other code path may construct a `SignedAuditEntry` from an
+ * `UnsignedAuditEntry`.
+ */
+export async function signAuditEntry(unsigned: UnsignedAuditEntry): Promise<SignedAuditEntry> {
+  const entryHash = computeEntryHash(unsigned)
+  const signature = await cryptoWorker.signAuditEntry(entryHash)
+  return { ...unsigned, entryHash, signature }
+}
 
 export async function buildSignedAuditEntry(params: {
   hubId: string
@@ -12,7 +28,7 @@ export async function buildSignedAuditEntry(params: {
   const pubkey = await cryptoWorker.getPublicKey()
   if (!pubkey) throw new Error('Crypto worker not unlocked')
 
-  const unsigned = {
+  const unsigned: UnsignedAuditEntry = {
     id: crypto.randomUUID(),
     hubId: params.hubId,
     payload: params.payload,
@@ -21,9 +37,7 @@ export async function buildSignedAuditEntry(params: {
     signerDeviceId: params.signerDeviceId,
     signerPubkey: pubkey,
   }
-  const entryHash = computeEntryHash(unsigned)
-  const signature = await cryptoWorker.signAuditEntry(entryHash)
-  return { ...unsigned, entryHash, signature }
+  return signAuditEntry(unsigned)
 }
 
 async function appendSignedAuditEntry(hubId: string, entry: SignedAuditEntry): Promise<void> {

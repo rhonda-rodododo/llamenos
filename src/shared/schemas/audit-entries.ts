@@ -253,3 +253,15 @@ export const SignedAuditEntrySchema = z.object({
   createdAt: z.string().datetime(),
 })
 export type SignedAuditEntry = z.infer<typeof SignedAuditEntrySchema>
+
+/**
+ * Pre-signing audit entry. Contains every field needed to compute the
+ * `entryHash` but does NOT carry `entryHash` or `signature` — those are
+ * added by `signAuditEntry()`, which is the sole transition to
+ * `SignedAuditEntry`.
+ */
+export const UnsignedAuditEntrySchema = SignedAuditEntrySchema.omit({
+  entryHash: true,
+  signature: true,
+})
+export type UnsignedAuditEntry = z.infer<typeof UnsignedAuditEntrySchema>

@@ -8,7 +8,11 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { schnorr } from '@noble/curves/secp256k1.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { computeEntryHash } from '@shared/lib/audit-entry-hash'
-import type { AuditEntryPayload, SignedAuditEntry } from '@shared/schemas/audit-entries'
+import type {
+  AuditEntryPayload,
+  SignedAuditEntry,
+  UnsignedAuditEntry,
+} from '@shared/schemas/audit-entries'
 import { AuditChainError, AuditLogService, type AuditSignerLookup } from './audit-log-service'
 
 // ---- fixtures ----
@@ -21,10 +25,7 @@ const VOLUNTEER_PUBKEY = bytesToHex(schnorr.getPublicKey(hexToBytes(VOLUNTEER_PR
 const HUB_ID = '11111111-1111-4111-8111-111111111111'
 const USER_UUID = '22222222-2222-4222-8222-222222222222'
 
-function signEntry(
-  privkeyHex: string,
-  base: Omit<SignedAuditEntry, 'entryHash' | 'signature'>
-): SignedAuditEntry {
+function signEntry(privkeyHex: string, base: UnsignedAuditEntry): SignedAuditEntry {
   const entryHash = computeEntryHash(base)
   const signature = bytesToHex(schnorr.sign(hexToBytes(entryHash), hexToBytes(privkeyHex)))
   return { ...base, entryHash, signature }
@@ -187,7 +188,7 @@ describe('AuditLogService.appendSigned', () => {
 
   test('rejects admin trying to append hub_create (super_admin only)', async () => {
     const service = makeService(store, signerLookup)
-    const base: Omit<SignedAuditEntry, 'entryHash' | 'signature'> = {
+    const base: UnsignedAuditEntry = {
       id: crypto.randomUUID(),
       hubId: HUB_ID,
       payload: { type: 'hub_create', hubId: HUB_ID, founderPubkey: '00'.repeat(32) },

@@ -9,7 +9,11 @@ import { beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import { schnorr } from '@noble/curves/secp256k1.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { computeEntryHash } from '@shared/lib/audit-entry-hash'
-import type { AuditEntryPayload, SignedAuditEntry } from '@shared/schemas/audit-entries'
+import type {
+  AuditEntryPayload,
+  SignedAuditEntry,
+  UnsignedAuditEntry,
+} from '@shared/schemas/audit-entries'
 import {
   type ChainCacheRow,
   type ChainCacheStore,
@@ -30,10 +34,7 @@ const STRANGER_PUB = bytesToHex(schnorr.getPublicKey(hexToBytes(STRANGER_PRIV)))
 const DEVICE_PRIV = 'dd'.repeat(32)
 const DEVICE_PUB = bytesToHex(schnorr.getPublicKey(hexToBytes(DEVICE_PRIV)))
 
-function signEntry(
-  privHex: string,
-  base: Omit<SignedAuditEntry, 'entryHash' | 'signature'>
-): SignedAuditEntry {
+function signEntry(privHex: string, base: UnsignedAuditEntry): SignedAuditEntry {
   const entryHash = computeEntryHash(base)
   const signature = bytesToHex(schnorr.sign(hexToBytes(entryHash), hexToBytes(privHex)))
   return { ...base, entryHash, signature }
