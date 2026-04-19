@@ -1536,6 +1536,7 @@
     },
     "groups": {
       "general": "General",
+      "operations": "运营",
       "people": "People",
       "intake": "Intake",
       "callsVoice": "Calls & Voice",

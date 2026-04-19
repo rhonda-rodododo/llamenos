@@ -1609,6 +1609,7 @@
     },
     "groups": {
       "general": "General",
+      "operations": "Operasyonlar",
       "people": "People",
       "intake": "Intake",
       "callsVoice": "Calls & Voice",

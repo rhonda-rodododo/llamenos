@@ -1609,6 +1609,7 @@
     },
     "groups": {
       "general": "General",
+      "operations": "ኦፕሬሽኖች",
       "people": "People",
       "intake": "Intake",
       "callsVoice": "Calls & Voice",

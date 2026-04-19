@@ -1536,6 +1536,7 @@
     },
     "groups": {
       "general": "General",
+      "operations": "Opérations",
       "people": "People",
       "intake": "Intake",
       "callsVoice": "Calls & Voice",

@@ -25,7 +25,6 @@ export function AdminSidebar({ onNavigate }: Props) {
   }
 
   function canSeeGroup(group: AdminNavGroup): boolean {
-    if (group.scope === 'platform' && !auth.roles.includes('role-super-admin')) return false
     return group.items.some(canSee)
   }
 
