@@ -230,4 +230,16 @@ export const queryKeys = {
     all: ['gdpr'] as const,
     myErasureRequest: () => ['gdpr', 'myErasureRequest'] as const,
   },
+
+  // Provider setup wizard — operational metadata (status, webhook URLs, A2P state).
+  // Not encrypted at rest. Classified as PLAINTEXT in query-client.ts.
+  providerSetup: {
+    all: ['providerSetup'] as const,
+    webhooks: () => ['providerSetup', 'webhooks'] as const,
+    a2pStatus: () => ['providerSetup', 'a2pStatus'] as const,
+    oauthStatus: (stateToken: string) => ['providerSetup', 'oauthStatus', stateToken] as const,
+    phoneNumbers: () => ['providerSetup', 'phoneNumbers'] as const,
+    searchNumbers: (params: { country: string; areaCode?: string; contains?: string }) =>
+      ['providerSetup', 'searchNumbers', params] as const,
+  },
 } as const

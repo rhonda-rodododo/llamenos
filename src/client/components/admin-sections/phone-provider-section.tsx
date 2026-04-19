@@ -8,6 +8,7 @@ import {
   SectionField,
   SectionToggleField,
 } from '@/components/section-layout'
+import { ProviderSetupWizard } from '@/components/settings/provider-setup-wizard'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -29,7 +30,7 @@ import { queryKeys } from '@/lib/queries/keys'
 import { useToast } from '@/lib/toast'
 import { TELEPHONY_PROVIDER_LABELS, type TelephonyProviderDraft } from '@shared/types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Wand2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -44,6 +45,7 @@ export function PhoneProviderSection() {
     queryFn: getTelephonyProvider,
   })
 
+  const [wizardOpen, setWizardOpen] = useState(false)
   const [draft, setDraft] = useState<TelephonyProviderDraft | null>(null)
   // When true, draft holds a loading placeholder (not yet seeded from real server
   // data). The next resolved config value will overwrite it.
@@ -105,7 +107,27 @@ export function PhoneProviderSection() {
 
   return (
     <SectionBody>
-      <SectionDescription>{t('telephonyProvider.description')}</SectionDescription>
+      <div className="flex items-center justify-between gap-4">
+        <SectionDescription>{t('telephonyProvider.description')}</SectionDescription>
+        <Button
+          variant="outline"
+          size="sm"
+          className="shrink-0"
+          data-testid={`admin-${SLUG}-wizard-button`}
+          onClick={() => setWizardOpen(true)}
+        >
+          <Wand2 className="mr-2 h-4 w-4" />
+          {t('telephonyProvider.setupWizard')}
+        </Button>
+      </div>
+
+      <ProviderSetupWizard
+        open={wizardOpen}
+        onOpenChange={setWizardOpen}
+        onComplete={() => {
+          void queryClient.invalidateQueries({ queryKey: queryKeys.settings.provider() })
+        }}
+      />
 
       {config ? (
         <SectionBanner data-testid={`admin-${SLUG}-current-provider-banner`}>

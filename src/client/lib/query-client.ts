@@ -59,6 +59,8 @@ const PLAINTEXT_QUERY_KEYS: QueryKeyDomain[] = [
   'devices',
   // GDPR erasure request status — status + timestamps, not encrypted.
   'gdpr',
+  // Provider setup wizard — operational status data, not encrypted at rest.
+  'providerSetup',
 ]
 
 // Compile-time exhaustiveness: if a new domain is added to queryKeys but not
