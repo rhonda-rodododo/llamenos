@@ -563,6 +563,112 @@ export class CryptoWorkerClient {
     await this.call({ type: 'mlsClearState' })
   }
 
+  // ---- Tier 6 MLS group management (Slice 3) ----
+
+  /**
+   * Create a new MLS group (conversation) for the given group ID.
+   * Uses CS 1 (MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519) and Basic credentials.
+   *
+   * @param groupId - MLS group identifier (e.g. `llamenos:hub:<hubId>`)
+   */
+  async mlsCreateGroup(groupId: string): Promise<void> {
+    await this.call({ type: 'mlsCreateGroup', groupId })
+  }
+
+  /**
+   * Join an existing MLS group via a Welcome message received from the server.
+   * Returns the conversation ID (group ID) as a UTF-8 string.
+   */
+  async mlsProcessWelcome(welcomeBytes: Uint8Array): Promise<string> {
+    return this.call<string>({ type: 'mlsProcessWelcome', welcomeBytes })
+  }
+
+  /**
+   * Join an existing MLS group via external commit using GroupInfo.
+   * Used for re-enrollment when the original KeyPackage was consumed.
+   * Returns the conversation ID (group ID) as a UTF-8 string.
+   */
+  async mlsExternalJoin(groupInfoBytes: Uint8Array): Promise<string> {
+    return this.call<string>({ type: 'mlsExternalJoin', groupInfoBytes })
+  }
+
+  /**
+   * Encrypt a plaintext message for the MLS group.
+   * Returns the TLS-serialized MLS ciphertext to fan out to members.
+   */
+  async mlsEncryptMessage(groupId: string, plaintext: Uint8Array): Promise<Uint8Array> {
+    return this.call<Uint8Array>({ type: 'mlsEncryptMessage', groupId, plaintext })
+  }
+
+  /**
+   * Decrypt an incoming MLS message (application message or handshake).
+   * For application messages, `message` contains the plaintext.
+   * For commits/proposals, `message` is undefined and `hasEpochChanged` may be true.
+   */
+  async mlsDecryptMessage(
+    groupId: string,
+    ciphertext: Uint8Array
+  ): Promise<{
+    message: Uint8Array | undefined
+    senderClientId: string | undefined
+    hasEpochChanged: boolean
+    isActive: boolean
+  }> {
+    return this.call<{
+      message: Uint8Array | undefined
+      senderClientId: string | undefined
+      hasEpochChanged: boolean
+      isActive: boolean
+    }>({ type: 'mlsDecryptMessage', groupId, ciphertext })
+  }
+
+  /**
+   * Add members to an MLS group by their KeyPackages.
+   * Returns the captured commit bundle (commit + optional welcome + groupInfo)
+   * that the caller must submit to the server.
+   */
+  async mlsAddMembers(
+    groupId: string,
+    keyPackages: Uint8Array[]
+  ): Promise<{
+    commit: Uint8Array
+    welcome: Uint8Array | undefined
+    groupInfo: Uint8Array | undefined
+  }> {
+    return this.call<{
+      commit: Uint8Array
+      welcome: Uint8Array | undefined
+      groupInfo: Uint8Array | undefined
+    }>({ type: 'mlsAddMembers', groupId, keyPackages })
+  }
+
+  /**
+   * Remove members from an MLS group by their client IDs.
+   * Returns the captured commit bundle that the caller must submit to the server.
+   */
+  async mlsRemoveMembers(
+    groupId: string,
+    clientIds: string[]
+  ): Promise<{
+    commit: Uint8Array
+    welcome: Uint8Array | undefined
+    groupInfo: Uint8Array | undefined
+  }> {
+    return this.call<{
+      commit: Uint8Array
+      welcome: Uint8Array | undefined
+      groupInfo: Uint8Array | undefined
+    }>({ type: 'mlsRemoveMembers', groupId, clientIds })
+  }
+
+  /**
+   * Wipe a local MLS group. Removes all local state for the group.
+   * Does not affect the server — used for cleanup after removal or reset.
+   */
+  async mlsWipeGroup(groupId: string): Promise<void> {
+    await this.call({ type: 'mlsWipeGroup', groupId })
+  }
+
   /**
    * Terminate the current worker and create a fresh one.
    * Used when the worker is in a broken state (responding but not functioning).
