@@ -15,6 +15,8 @@ import type { Report } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import {
   useAssignReport,
+  useReport,
+  useReportFiles,
   useReportMessages,
   useReports,
   useSendReportMessage,
@@ -252,8 +254,14 @@ function ReportDetail({
 
   const [replyText, setReplyText] = useState('')
   const [showFileUpload, setShowFileUpload] = useState(false)
+  const [showFiles, setShowFiles] = useState(false)
 
-  const messagesQuery = useReportMessages(report.id)
+  // Fetch fresh report detail + file list
+  const { data: freshReport } = useReport(report.id)
+  const activeReport = freshReport ?? report
+  const { data: reportFiles = [] } = useReportFiles(report.id)
+
+  const messagesQuery = useReportMessages(activeReport.id)
   const { messages = [], decryptedContent = new Map() } = messagesQuery.data ?? {}
   const messagesLoading = messagesQuery.isLoading
 
@@ -335,47 +343,86 @@ function ReportDetail({
   )
 
   const isReporter = hasPermission('reports:create') && !hasPermission('calls:answer')
-  const canReply = report.status === 'active' || isReporter
+  const canReply = activeReport.status === 'active' || isReporter
   const sending = sendMutation.isPending
 
   return (
     <>
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+      <div
+        className="flex items-center justify-between border-b border-border px-4 py-3"
+        data-testid="report-detail-header"
+      >
         <div className="min-w-0 flex-1">
           <p className="truncate font-medium">
-            {report.metadata?.reportTitle ||
+            {activeReport.metadata?.reportTitle ||
               t('reports.untitled', { defaultValue: 'Untitled Report' })}
           </p>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Lock className="h-3 w-3" />
             {t('reports.e2ee', { defaultValue: 'End-to-end encrypted' })}
-            {report.metadata?.reportCategory && (
+            {activeReport.metadata?.reportCategory && (
               <>
                 <span className="mx-1">·</span>
                 <Badge variant="secondary" className="text-[10px]">
-                  {report.metadata.reportCategory}
+                  {activeReport.metadata.reportCategory}
                 </Badge>
+              </>
+            )}
+            {reportFiles.length > 0 && (
+              <>
+                <span className="mx-1">·</span>
+                <button
+                  type="button"
+                  className="flex items-center gap-1 hover:text-foreground transition-colors"
+                  onClick={() => setShowFiles((v) => !v)}
+                  data-testid="report-files-toggle"
+                >
+                  <Paperclip className="h-3 w-3" />
+                  {reportFiles.length}{' '}
+                  {t('reports.filesCount', {
+                    defaultValue: '{{count}} file(s)',
+                    count: reportFiles.length,
+                  })}
+                </button>
               </>
             )}
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0 ml-3">
-          {report.status === 'waiting' && (isAdmin || hasPermission('calls:answer')) && (
+          {activeReport.status === 'waiting' && (isAdmin || hasPermission('calls:answer')) && (
             <Button size="sm" onClick={handleAssign}>
               <UserCheck className="h-3.5 w-3.5" />
               {t('reports.claim', { defaultValue: 'Claim' })}
             </Button>
           )}
-          {report.status === 'active' && isAdmin && (
+          {activeReport.status === 'active' && isAdmin && (
             <Button size="sm" variant="outline" data-testid="close-report" onClick={handleClose}>
               <X className="h-3.5 w-3.5" />
               {t('reports.closeReport', { defaultValue: 'Close' })}
             </Button>
           )}
-          <ReportStatusBadge status={report.status} />
+          <ReportStatusBadge status={activeReport.status} />
         </div>
       </div>
+
+      {/* Files panel */}
+      {showFiles && reportFiles.length > 0 && (
+        <div
+          className="border-b border-border bg-muted/30 px-4 py-2 space-y-1"
+          data-testid="report-files-panel"
+        >
+          <p className="text-xs font-medium text-muted-foreground mb-1">
+            {t('reports.attachments', { defaultValue: 'Attachments' })}
+          </p>
+          {reportFiles.map((file) => (
+            <div key={file.id} className="flex items-center gap-2">
+              <Paperclip className="h-3 w-3 text-muted-foreground shrink-0" />
+              <FilePreview fileId={file.id} />
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Messages thread */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
@@ -439,7 +486,7 @@ function ReportDetail({
       {showFileUpload && hasNsec && publicKey && (
         <div className="border-t border-border px-4 py-3">
           <FileUpload
-            conversationId={report.id}
+            conversationId={activeReport.id}
             recipientPubkeys={[
               publicKey,
               ...(adminDecryptionPubkey && adminDecryptionPubkey !== publicKey
