@@ -139,7 +139,7 @@ describe('OPAQUE timing oracle — startLogin constant-time properties', () => {
    * dummy record so the attacker cannot distinguish absence from presence.
    */
   test('startLogin with real file vs dummy file has similar timing (within 3x mean ratio)', async () => {
-    const password = 'hunter2-correct-horse-battery-staple'
+    const password = 'correct horse battery staple for timing test'
     const credentialIdentifier = `${crypto.randomUUID()}:root-kek`
 
     // Register a real user.
@@ -149,7 +149,7 @@ describe('OPAQUE timing oracle — startLogin constant-time properties', () => {
     // constant-time "not found" mitigation. The dummy uses a random password;
     // startLogin with it and a mismatched credential request will throw —
     // but the WASM computation still runs.
-    const dummyPassword = 'dummy-password-for-timing-blinding'
+    const dummyPassword = 'dummy blinding password for timing test'
     const dummyCred = `${crypto.randomUUID()}:root-kek`
     const { passwordFile: dummyPasswordFile } = await registerOpaque(dummyPassword)
 
@@ -192,7 +192,7 @@ describe('OPAQUE timing oracle — startLogin constant-time properties', () => {
    * If it completes in < 0.05 ms, the WASM wasn't invoked.
    */
   test('startLogin with dummy file actually invokes WASM (does not fast-exit)', async () => {
-    const dummyPassword = 'timing-check-dummy'
+    const dummyPassword = 'timing check dummy phrase'
     const { setup, passwordFile: dummyFile } = await registerOpaque(dummyPassword)
     const dummyCred = `${crypto.randomUUID()}:root-kek`
 
@@ -220,11 +220,11 @@ describe('OPAQUE timing oracle — startLogin constant-time properties', () => {
    */
   test('WASM computation is the bottleneck, not record lookup (timing oracle is at route level)', async () => {
     // Register two users with the same setup.
-    const { setup, passwordFile } = await registerOpaque('password-user-a')
+    const { setup, passwordFile } = await registerOpaque('password for user a timing oracle test')
     const credA = `${crypto.randomUUID()}:root-kek`
 
     // Measure startLogin with the real file (wrong-password attempt).
-    const wrongPwdStart = await opaqueClient.loginStart('wrong-password')
+    const wrongPwdStart = await opaqueClient.loginStart('wrong password attempt')
     const t0 = performance.now()
     try {
       await opaqueServer.startLogin({
