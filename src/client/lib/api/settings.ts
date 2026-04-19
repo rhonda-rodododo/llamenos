@@ -489,6 +489,72 @@ export async function getWebhookUrls() {
   }>('/setup/provider/webhooks')
 }
 
+export async function configureProviderWebhooks(
+  credentials: ProviderCredentials & { phoneNumber: string }
+) {
+  return request<{ ok: boolean; error?: string }>('/setup/provider/configure-webhooks', {
+    method: 'POST',
+    body: JSON.stringify(credentials),
+  })
+}
+
+export interface A2PBrandInput {
+  companyName: string
+  ein: string
+  website: string
+  vertical: string
+  address: string
+  city: string
+  state: string
+  postalCode: string
+  country: string
+  contactEmail: string
+  contactPhone: string
+}
+
+export interface A2PCampaignInput {
+  brandSid: string
+  description: string
+  messageFlow: string
+  useCaseCategories: string[]
+  sampleMessages: string[]
+  optInKeywords?: string[]
+  optOutKeywords?: string[]
+  helpKeywords?: string[]
+}
+
+export interface A2PStatus {
+  status: 'not_started' | 'pending' | 'approved' | 'failed' | 'skipped'
+  brandSid?: string
+  campaignSid?: string
+  error?: string
+}
+
+export async function submitA2PBrand(data: A2PBrandInput) {
+  return request<{ ok: boolean; brandSid?: string; error?: string }>('/setup/provider/a2p/brand', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function submitA2PCampaign(data: A2PCampaignInput) {
+  return request<{ ok: boolean; campaignSid?: string; error?: string }>(
+    '/setup/provider/a2p/campaign',
+    {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }
+  )
+}
+
+export async function getA2PStatus() {
+  return request<A2PStatus>('/setup/provider/a2p/status')
+}
+
+export async function skipA2P() {
+  return request<{ ok: boolean }>('/setup/provider/a2p/skip', { method: 'POST' })
+}
+
 // --- Signal Registration ---
 
 export async function startSignalRegistration(data: {

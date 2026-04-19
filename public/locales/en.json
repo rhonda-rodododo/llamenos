@@ -839,7 +839,66 @@
     "apiKeySidHelp": "Generate an API Key in your Twilio/SignalWire console",
     "apiKeySecret": "API Key Secret",
     "twimlAppSid": "TwiML App SID",
-    "twimlAppSidHelp": "Create a TwiML App with voice URL pointing to your webhook"
+    "twimlAppSidHelp": "Create a TwiML App with voice URL pointing to your webhook",
+    "setupWizard": "Setup Wizard"
+  },
+  "providerWizard": {
+    "stepsLabel": "Setup steps",
+    "steps": {
+      "credentials": "Connect Provider",
+      "credentialsDesc": "Select your telephony provider and enter credentials.",
+      "a2p": "A2P Registration",
+      "a2pDesc": "Register your brand and campaign for US SMS messaging (Twilio only).",
+      "numbers": "Phone Number",
+      "numbersDesc": "Choose or provision the phone number callers will dial.",
+      "webhooks": "Webhooks",
+      "webhooksDesc": "Configure webhook URLs so your provider can route calls and messages."
+    },
+    "credentials": {
+      "validate": "Validate Credentials",
+      "validSuccess": "{{provider}} credentials verified successfully.",
+      "validFailed": "Credential validation failed.",
+      "connectOAuth": "Connect {{provider}} via OAuth",
+      "oauthOpened": "OAuth page opened in new tab. Complete authorization and return here."
+    },
+    "a2p": {
+      "description": "A2P 10DLC registration is required for US SMS with Twilio. You can skip this and complete it later in your Twilio console.",
+      "notApplicable": "A2P registration is not required for {{provider}}.",
+      "approved": "A2P registration is complete and approved.",
+      "skip": "Skip for now",
+      "skipped": "A2P registration skipped.",
+      "brandTitle": "Brand Registration",
+      "companyName": "Company Name",
+      "ein": "EIN / Tax ID",
+      "website": "Website",
+      "contactEmail": "Contact Email",
+      "brandSubmit": "Submit Brand",
+      "brandResubmit": "Update Brand",
+      "brandSid": "Brand SID",
+      "brandSubmitted": "Brand submitted successfully.",
+      "campaignTitle": "Campaign Registration",
+      "campaignDescription": "Use Case Description",
+      "campaignDescriptionPlaceholder": "Crisis support hotline providing mental health resources to callers in need.",
+      "campaignSubmit": "Submit Campaign",
+      "campaignSubmitted": "Campaign submitted. Approval may take 1–3 business days.",
+      "sampleMessage": "You have reached our crisis support hotline. A volunteer will be with you shortly."
+    },
+    "numbers": {
+      "tab": {
+        "existing": "My Numbers",
+        "search": "Find New",
+        "manual": "Enter Manually"
+      },
+      "selected": "Selected",
+      "useNumber": "Use This Number"
+    },
+    "webhooks": {
+      "autoConfigure": "Auto-Configure Webhooks",
+      "autoConfigured": "Webhooks configured automatically.",
+      "autoConfigFailed": "Auto-configuration failed. Copy the URLs and configure them in your provider dashboard.",
+      "configured": "Webhooks configured.",
+      "saveAndFinish": "Save & Finish"
+    }
   },
   "customFields": {
     "title": "Custom Note Fields",
