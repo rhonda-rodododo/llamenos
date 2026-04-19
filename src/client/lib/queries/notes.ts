@@ -15,8 +15,10 @@ import {
   type CustomFieldDefinition,
   type EncryptedNote,
   createNote,
+  createNoteReply,
   getCustomFields,
   getNote,
+  getNoteReplies,
   listNotes,
   updateNote,
 } from '@/lib/api'
@@ -285,6 +287,75 @@ export function useUpdateNote() {
 }
 
 // ---------------------------------------------------------------------------
+// noteRepliesOptions
+// ---------------------------------------------------------------------------
+
+/**
+ * queryOptions factory for a note's reply thread.
+ * Replies share the same ECIES encryption shape as notes.
+ * Decryption deferred to the component via auth context.
+ */
+const noteRepliesOptions = (noteId: string, auth: NotesAuth) =>
+  queryOptions({
+    queryKey: queryKeys.notes.replies(noteId),
+    queryFn: async (): Promise<DecryptedNote[]> => {
+      const { isAdmin, publicKey, hasNsec } = auth
+      const { replies } = await getNoteReplies(noteId)
+      const unlocked = await keyManager.isUnlocked()
+
+      const decryptedReplies: DecryptedNote[] = []
+      for (const reply of replies) {
+        const isTranscription = reply.authorPubkey.startsWith('system:transcription')
+        let payload: NotePayload
+
+        if (hasNsec && unlocked && publicKey) {
+          const envelope = isAdmin
+            ? (reply.adminEnvelopes?.find((e) => e.pubkey === publicKey) ??
+              reply.adminEnvelopes?.[0])
+            : reply.authorEnvelope
+          if (envelope) {
+            payload = (await decryptNote(reply.encryptedContent, envelope)) || {
+              text: '[Decryption failed]',
+            }
+          } else {
+            payload = { text: '[Decryption failed]' }
+          }
+        } else {
+          payload = { text: '[No key]' }
+        }
+
+        decryptedReplies.push({ ...reply, decrypted: payload.text, payload, isTranscription })
+      }
+      return decryptedReplies
+    },
+    staleTime: 2 * 60 * 1000,
+    enabled: !!noteId,
+  })
+
+// ---------------------------------------------------------------------------
+// useNoteReplies
+// ---------------------------------------------------------------------------
+
+export function useNoteReplies(noteId: string) {
+  const { hasNsec, publicKey, isAdmin } = useAuth()
+  return useQuery(noteRepliesOptions(noteId, { isAdmin, publicKey, hasNsec }))
+}
+
+// ---------------------------------------------------------------------------
+// useCreateNoteReply
+// ---------------------------------------------------------------------------
+
+export function useCreateNoteReply(noteId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Parameters<typeof createNoteReply>[1]) => createNoteReply(noteId, data),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.notes.replies(noteId) })
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
 // Re-export types for convenience
 // ---------------------------------------------------------------------------
-export type { CustomFieldDefinition, EncryptedNote }
+export type { CustomFieldDefinition, DecryptedNote, EncryptedNote }

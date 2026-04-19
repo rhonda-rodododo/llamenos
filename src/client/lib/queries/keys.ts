@@ -41,6 +41,7 @@ export const queryKeys = {
     list: (filters?: { callId?: string; page?: number; limit?: number }) =>
       ['notes', 'list', filters ?? {}] as const,
     detail: (id: string) => ['notes', 'detail', id] as const,
+    replies: (noteId: string) => ['notes', 'replies', noteId] as const,
   },
 
   calls: {
