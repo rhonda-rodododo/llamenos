@@ -223,4 +223,11 @@ export const queryKeys = {
     all: ['devices'] as const,
     list: (hubId?: string) => ['devices', 'list', hubId ?? ''] as const,
   },
+
+  // GDPR erasure request status — status metadata, not encrypted at rest.
+  // Classified as PLAINTEXT in query-client.ts.
+  gdpr: {
+    all: ['gdpr'] as const,
+    myErasureRequest: () => ['gdpr', 'myErasureRequest'] as const,
+  },
 } as const

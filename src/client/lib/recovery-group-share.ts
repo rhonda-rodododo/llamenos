@@ -66,7 +66,7 @@ export async function splitRecoveryGroupSecret(
   return raw as ShamirShare[]
 }
 
-async function combineRecoveryGroupShares(shares: VerifiedShare[]): Promise<Uint8Array> {
+export async function combineRecoveryGroupShares(shares: Uint8Array[]): Promise<Uint8Array> {
   if (shares.length < 2) {
     throw new Error(`combine requires at least 2 shares, got ${shares.length}`)
   }
