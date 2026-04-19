@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test'
+import type { X25519EncryptionKey } from '@shared/types'
 import { resolveCallRecipients } from './sframe-recipients.js'
 
-const fakeKey = {} as CryptoKey
+const fakeKey = {} as X25519EncryptionKey
 
 describe('resolveCallRecipients', () => {
   test('pre-Tier-3 fallback: one recipient per user', () => {

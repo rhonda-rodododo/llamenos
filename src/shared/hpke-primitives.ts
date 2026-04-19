@@ -1,6 +1,7 @@
 import { type CryptoLabel, idToLabel, labelToId } from './crypto-labels.js'
 import { createHpkeSuite } from './crypto-suite.js'
 import { type HpkeEnvelope, HpkeEnvelopeSchema } from './hpke-envelope.js'
+import type { X25519EncryptionKey } from './types.js'
 
 /**
  * Thrown when an HpkeEnvelope's embedded labelId does not match the caller's
@@ -63,7 +64,7 @@ function b64decode(s: string): Uint8Array {
  */
 export async function hpkeSeal(
   plaintext: Uint8Array,
-  recipientPublicKey: CryptoKey,
+  recipientPublicKey: X25519EncryptionKey,
   label: CryptoLabel,
   aad: Uint8Array
 ): Promise<HpkeEnvelope> {
@@ -101,7 +102,7 @@ export async function hpkeSeal(
  */
 export async function hpkeOpen(
   envelope: HpkeEnvelope,
-  recipientPrivateKey: CryptoKey,
+  recipientPrivateKey: X25519EncryptionKey,
   expectedLabel: CryptoLabel,
   aad: Uint8Array
 ): Promise<Uint8Array> {
@@ -131,7 +132,7 @@ export async function hpkeOpen(
  */
 export async function decryptHpkeEnvelope(
   envelope: unknown,
-  recipientPrivateKey: CryptoKey,
+  recipientPrivateKey: X25519EncryptionKey,
   expectedLabel: CryptoLabel,
   aad: Uint8Array
 ): Promise<Uint8Array> {

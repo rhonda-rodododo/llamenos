@@ -14,6 +14,7 @@ import {
 } from '@shared/crypto-labels'
 import type { HpkeEnvelope } from '@shared/hpke-envelope'
 import { buildAad, hpkeOpen, hpkeSeal } from '@shared/hpke-primitives'
+import type { X25519EncryptionKey } from '@shared/types'
 
 /** Both seeds HPKE-wrapped for the Recovery Group. */
 export interface RecoveryGroupWrappedSecrets {
@@ -25,7 +26,7 @@ export interface RecoveryGroupWrappedSecrets {
 export interface WrapSecretsInput {
   masterSeed: Uint8Array
   pukSeed: Uint8Array
-  recoveryGroupPubkey: CryptoKey
+  recoveryGroupPubkey: X25519EncryptionKey
   userId: string
 }
 
@@ -33,7 +34,7 @@ export interface WrapSecretsInput {
 export interface UnwrapSecretsInput {
   masterSeedEnvelope: HpkeEnvelope
   pukSeedEnvelope: HpkeEnvelope
-  recoveryGroupPrivateKey: CryptoKey
+  recoveryGroupPrivateKey: X25519EncryptionKey
   userId: string
 }
 

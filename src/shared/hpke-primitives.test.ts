@@ -8,10 +8,18 @@ import {
   hpkeOpen,
   hpkeSeal,
 } from './hpke-primitives.js'
+import { type X25519EncryptionKey, asX25519EncryptionKey } from './types.js'
 
-async function genRecipient(): Promise<CryptoKeyPair> {
+async function genRecipient(): Promise<{
+  privateKey: X25519EncryptionKey
+  publicKey: X25519EncryptionKey
+}> {
   const suite = createHpkeSuite()
-  return (await suite.kem.generateKeyPair()) as CryptoKeyPair
+  const kp = (await suite.kem.generateKeyPair()) as CryptoKeyPair
+  return {
+    privateKey: asX25519EncryptionKey(kp.privateKey),
+    publicKey: asX25519EncryptionKey(kp.publicKey),
+  }
 }
 
 const te = new TextEncoder()

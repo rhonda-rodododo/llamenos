@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { bytesToHex } from '@noble/hashes/utils.js'
+import { type AesGcmKey, asAesGcmKey } from '@shared/types'
 import {
   computeDeviceFingerprint,
   createMasterKey,
@@ -12,8 +13,10 @@ import {
 } from './cross-signing'
 
 /** Create a fresh AES-GCM-256 key for PUK SecretBox wrapping. */
-async function makeSecretBoxKey(): Promise<CryptoKey> {
-  return crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt'])
+async function makeSecretBoxKey(): Promise<AesGcmKey> {
+  return asAesGcmKey(
+    await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt'])
+  )
 }
 
 /** Generate a fresh Ed25519 keypair for testing. */

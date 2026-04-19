@@ -3,6 +3,7 @@ import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import { LABEL_HUB_FIELD } from '@shared/crypto-labels'
 import { createHpkeSuite } from '@shared/crypto-suite'
 import type { Ciphertext } from '@shared/crypto-types'
+import { type X25519EncryptionKey, asX25519EncryptionKey } from '@shared/types'
 import {
   HubKeyWrapError,
   decryptFromHub,
@@ -25,8 +26,8 @@ async function generateDeviceKeypair() {
   const suite = createHpkeSuite()
   const kp = await suite.kem.generateKeyPair()
   return {
-    privateKey: kp.privateKey,
-    publicKey: kp.publicKey,
+    privateKey: asX25519EncryptionKey(kp.privateKey as CryptoKey),
+    publicKey: asX25519EncryptionKey(kp.publicKey as CryptoKey),
   }
 }
 
@@ -225,8 +226,11 @@ describe('wrapHubKeyForDevice + unwrapHubKeyForDevice', () => {
  * symmetric key here) makes the KEM encap step throw. That gives us a
  * deterministic failure injection without having to mock `hpkeSeal`.
  */
-async function generateBrokenDevicePubkey(): Promise<CryptoKey> {
-  return crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt'])
+async function generateBrokenDevicePubkey(): Promise<X25519EncryptionKey> {
+  // Intentionally cast an AES-GCM key as X25519EncryptionKey to trigger HPKE failures
+  return asX25519EncryptionKey(
+    await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt'])
+  )
 }
 
 describe('wrapHubKeyForDevices — failure policies', () => {

@@ -1,10 +1,18 @@
 import { describe, expect, test } from 'bun:test'
 import { createHpkeSuite } from '@shared/crypto-suite'
+import { type X25519EncryptionKey, asX25519EncryptionKey } from '@shared/types'
 import { unwrapSecretsFromRecoveryGroup, wrapSecretsForRecoveryGroup } from './recovery-group-tier3'
 
-async function generateHpkeKeypair() {
+async function generateHpkeKeypair(): Promise<{
+  privateKey: X25519EncryptionKey
+  publicKey: X25519EncryptionKey
+}> {
   const suite = createHpkeSuite()
-  return suite.kem.generateKeyPair()
+  const kp = await suite.kem.generateKeyPair()
+  return {
+    privateKey: asX25519EncryptionKey(kp.privateKey as CryptoKey),
+    publicKey: asX25519EncryptionKey(kp.publicKey as CryptoKey),
+  }
 }
 
 function randomBytes(n: number): Uint8Array {

@@ -9,16 +9,18 @@
  * does NOT perform that transformation and will produce schema-invalid
  * deviceIds in that case. That hashing is the caller's responsibility.
  */
+import type { X25519EncryptionKey } from '@shared/types'
+
 export interface UserCallRecipient {
   userId: string
-  identityPublicKey: CryptoKey
+  identityPublicKey: X25519EncryptionKey
   /** Present post-Tier-3; empty or undefined pre-Tier-3. */
-  devices?: Array<{ deviceId: string; publicKey: CryptoKey }>
+  devices?: Array<{ deviceId: string; publicKey: X25519EncryptionKey }>
 }
 
 interface ResolvedRecipient {
   deviceId: string
-  publicKey: CryptoKey
+  publicKey: X25519EncryptionKey
 }
 
 export function resolveCallRecipients(users: UserCallRecipient[]): ResolvedRecipient[] {

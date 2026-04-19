@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { LABEL_HUB_KEY_WRAP, LABEL_MESSAGE, LABEL_NOTE_KEY } from '@shared/crypto-labels'
 import { createHpkeSuite } from '@shared/crypto-suite'
+import { asX25519EncryptionKey } from '@shared/types'
 import { HpkeService } from './hpke-service.js'
 
 const SERVER_SECRET_HEX = 'a'.repeat(64)
@@ -12,7 +13,13 @@ async function makeMemberKeyPair() {
   const suite = createHpkeSuite()
   const kp = (await suite.kem.generateKeyPair()) as CryptoKeyPair
   const pubBytes = new Uint8Array(await suite.kem.serializePublicKey(kp.publicKey))
-  return { kp, pubBytes }
+  return {
+    kp: {
+      privateKey: asX25519EncryptionKey(kp.privateKey),
+      publicKey: asX25519EncryptionKey(kp.publicKey),
+    },
+    pubBytes,
+  }
 }
 
 describe('HpkeService', () => {

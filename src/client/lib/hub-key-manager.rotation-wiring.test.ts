@@ -12,6 +12,7 @@ import { describe, expect, mock, test } from 'bun:test'
 // tests that import `verifyAuditChain` / `ChainVerificationError`.
 import * as realVerifier from '@/lib/audit-chain-verifier'
 import { createHpkeSuite } from '@shared/crypto-suite'
+import { asX25519EncryptionKey } from '@shared/types'
 
 const clearCalls: string[] = []
 const mockClearChainCache = mock(async (hubId: string) => {
@@ -30,7 +31,10 @@ const HUB_ID = '11111111-1111-4111-8111-111111111111'
 async function generateDeviceKeypair() {
   const suite = createHpkeSuite()
   const kp = await suite.kem.generateKeyPair()
-  return { privateKey: kp.privateKey, publicKey: kp.publicKey }
+  return {
+    privateKey: asX25519EncryptionKey(kp.privateKey as CryptoKey),
+    publicKey: asX25519EncryptionKey(kp.publicKey as CryptoKey),
+  }
 }
 
 describe('rotateHubKeyClkr — audit chain cache invalidation', () => {

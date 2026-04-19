@@ -3,6 +3,7 @@ import { LABEL_SFRAME_CALL_SECRET, labelToId } from '@shared/crypto-labels.js'
 import type { HpkeEnvelope } from '@shared/hpke-envelope.js'
 import { buildAad, hpkeOpen, hpkeSeal } from '@shared/hpke-primitives.js'
 import type { SFrameKeyEvent } from '@shared/schemas/nostr-events.js'
+import type { X25519EncryptionKey } from '@shared/types'
 
 /**
  * Build / parse SFrame call-secret distribution events.
@@ -19,7 +20,7 @@ import type { SFrameKeyEvent } from '@shared/schemas/nostr-events.js'
 export interface CallRecipient {
   deviceId: string
   /** X25519 HPKE public key, non-extractable CryptoKey. */
-  publicKey: CryptoKey
+  publicKey: X25519EncryptionKey
 }
 
 export interface BuildKeyEventInputs {
@@ -94,7 +95,7 @@ export async function buildKeyEvent(inputs: BuildKeyEventInputs): Promise<SFrame
 interface ParseKeyEventInputs {
   event: SFrameKeyEvent
   localDeviceId: string
-  privateKey: CryptoKey
+  privateKey: X25519EncryptionKey
 }
 
 /**

@@ -14,7 +14,13 @@ import { generateMnemonic, mnemonicToSeedSync, validateMnemonic } from '@scure/b
 import { wordlist } from '@scure/bip39/wordlists/english.js'
 import { LABEL_PAPER_KEY_ENCRYPTION, LABEL_PAPER_KEY_SIGNING } from '@shared/crypto-labels'
 import type { Tier3DeviceAddPayload, Tier3DeviceRemovePayload } from '@shared/schemas/sigchain'
-import type { DeviceKeypair } from '@shared/types'
+import {
+  type DeviceKeypair,
+  type Ed25519SigningKey,
+  type X25519EncryptionKey,
+  asEd25519SigningKey,
+  asX25519EncryptionKey,
+} from '@shared/types'
 import { generateDeviceKeypair, pubkeyToHex } from './device-identity'
 
 // ---- PKCS8 DER headers for raw 32-byte seed import ----
@@ -46,11 +52,11 @@ export interface PaperKeyResult {
 export interface DerivedPaperKey {
   deviceId: string
   signing: {
-    privateKey: CryptoKey // non-extractable Ed25519
+    privateKey: Ed25519SigningKey // non-extractable Ed25519
     publicKey: Uint8Array // raw 32 bytes
   }
   encryption: {
-    privateKey: CryptoKey // non-extractable X25519
+    privateKey: X25519EncryptionKey // non-extractable X25519
     publicKey: Uint8Array // raw 32 bytes
   }
 }
@@ -66,7 +72,7 @@ export interface PaperKeyRecoveryResult {
 
 async function importEd25519FromSeed(
   seed: Uint8Array
-): Promise<{ privateKey: CryptoKey; publicKey: Uint8Array }> {
+): Promise<{ privateKey: Ed25519SigningKey; publicKey: Uint8Array }> {
   const pkcs8 = buildPkcs8(ED25519_PKCS8_HEADER, seed)
 
   // Import extractable to get JWK with public key component
@@ -76,9 +82,9 @@ async function importEd25519FromSeed(
   const jwk = await crypto.subtle.exportKey('jwk', extractable)
 
   // Import non-extractable private key
-  const privateKey = await crypto.subtle.importKey('pkcs8', pkcs8, { name: 'Ed25519' }, false, [
-    'sign',
-  ])
+  const privateKey = asEd25519SigningKey(
+    await crypto.subtle.importKey('pkcs8', pkcs8, { name: 'Ed25519' }, false, ['sign'])
+  )
 
   // Extract raw public key from JWK
   const publicKey = new Uint8Array(
@@ -99,7 +105,7 @@ async function importEd25519FromSeed(
 
 async function importX25519FromSeed(
   seed: Uint8Array
-): Promise<{ privateKey: CryptoKey; publicKey: Uint8Array }> {
+): Promise<{ privateKey: X25519EncryptionKey; publicKey: Uint8Array }> {
   const pkcs8 = buildPkcs8(X25519_PKCS8_HEADER, seed)
 
   // Import extractable to get JWK with public key component
@@ -109,9 +115,9 @@ async function importX25519FromSeed(
   const jwk = await crypto.subtle.exportKey('jwk', extractable)
 
   // Import non-extractable private key
-  const privateKey = await crypto.subtle.importKey('pkcs8', pkcs8, { name: 'X25519' }, false, [
-    'deriveBits',
-  ])
+  const privateKey = asX25519EncryptionKey(
+    await crypto.subtle.importKey('pkcs8', pkcs8, { name: 'X25519' }, false, ['deriveBits'])
+  )
 
   // Extract raw public key from JWK
   const publicKey = new Uint8Array(

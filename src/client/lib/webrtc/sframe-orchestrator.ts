@@ -46,6 +46,7 @@
 import { createHpkeSuite } from '@shared/crypto-suite.js'
 import { KIND_DTLS_BINDING, KIND_SFRAME_KEY } from '@shared/nostr-events.js'
 import type { DtlsBindingEvent, SFrameKeyEvent } from '@shared/schemas/nostr-events.js'
+import { type X25519EncryptionKey, asX25519EncryptionKey } from '@shared/types'
 import { createDebugLog } from '../debug-log.js'
 import { encryptForHub } from '../hub-key-manager.js'
 import { createHubEvent } from '../nostr/events.js'
@@ -117,7 +118,7 @@ interface CallState {
   /** Current keyId for contiguity checking. */
   currentKeyId: number
   /** Ephemeral HPKE keypair the orchestrator uses for this call's own inbox. */
-  hpkeKeypair: CryptoKeyPair
+  hpkeKeypair: { privateKey: X25519EncryptionKey; publicKey: X25519EncryptionKey }
   /** Hex x-only pubkey used as initiator + sender id in published events. */
   initiatorPubkeyHex: string
   /** Hub id the events are scoped to. */
@@ -137,7 +138,7 @@ const calls = new Map<string, CallState>()
  */
 function buildInitialRecipients(
   localDeviceId: string,
-  localPublicKey: CryptoKey,
+  localPublicKey: X25519EncryptionKey,
   extraUsers: UserCallRecipient[]
 ): ReturnType<typeof resolveCallRecipients> {
   const self: UserCallRecipient = {
@@ -338,7 +339,11 @@ export function createSFrameOrchestrator(ctx: StartCallCtx): SFrameOrchestrator 
     // orchestrator closure for the lifetime of the call and is dropped on
     // releaseCall — tight forward-secrecy window.
     const suite = createHpkeSuite()
-    const hpkeKeypair = (await suite.kem.generateKeyPair()) as CryptoKeyPair
+    const rawKp = (await suite.kem.generateKeyPair()) as CryptoKeyPair
+    const hpkeKeypair = {
+      privateKey: asX25519EncryptionKey(rawKp.privateKey),
+      publicKey: asX25519EncryptionKey(rawKp.publicKey),
+    }
 
     // Schema requires UUID callId; provider SIDs may not be UUIDs, so mint a
     // fresh UUID per call and map it to the provider id in state.

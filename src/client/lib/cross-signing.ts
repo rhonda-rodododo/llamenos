@@ -20,6 +20,12 @@ import {
   LABEL_MASTER_USER_SIGNING,
 } from '@shared/crypto-labels'
 import type { DeviceCrossSignPayload, UserCrossSignPayload } from '@shared/schemas/sigchain'
+import {
+  type AesGcmKey,
+  type Ed25519SigningKey,
+  asAesGcmKey,
+  asEd25519SigningKey,
+} from '@shared/types'
 
 // ---- PKCS8 DER wrapper (same as puk.ts) ----
 
@@ -38,9 +44,11 @@ function buildPkcs8(header: Uint8Array, seed: Uint8Array): ArrayBuffer {
  * Import Ed25519 from seed bytes -> non-extractable private + extractable public CryptoKey.
  * Returns raw 32-byte public key alongside the CryptoKey handles.
  */
-async function importEd25519FromSeed(
-  seed: Uint8Array
-): Promise<{ privateKey: CryptoKey; publicKey: CryptoKey; publicKeyRaw: Uint8Array }> {
+async function importEd25519FromSeed(seed: Uint8Array): Promise<{
+  privateKey: Ed25519SigningKey
+  publicKey: Ed25519SigningKey
+  publicKeyRaw: Uint8Array
+}> {
   const pkcs8 = buildPkcs8(ED25519_PKCS8_HEADER, seed)
 
   // Import extractable to get JWK with public key component
@@ -50,17 +58,19 @@ async function importEd25519FromSeed(
   const jwk = await crypto.subtle.exportKey('jwk', extractable)
 
   // Import non-extractable private key
-  const privateKey = await crypto.subtle.importKey('pkcs8', pkcs8, { name: 'Ed25519' }, false, [
-    'sign',
-  ])
+  const privateKey = asEd25519SigningKey(
+    await crypto.subtle.importKey('pkcs8', pkcs8, { name: 'Ed25519' }, false, ['sign'])
+  )
 
   // Import public-only from JWK (extractable for raw export)
-  const publicKey = await crypto.subtle.importKey(
-    'jwk',
-    { kty: jwk.kty, crv: jwk.crv, x: jwk.x },
-    { name: 'Ed25519' },
-    true,
-    ['verify']
+  const publicKey = asEd25519SigningKey(
+    await crypto.subtle.importKey(
+      'jwk',
+      { kty: jwk.kty, crv: jwk.crv, x: jwk.x },
+      { name: 'Ed25519' },
+      true,
+      ['verify']
+    )
   )
 
   const publicKeyRaw = new Uint8Array(await crypto.subtle.exportKey('raw', publicKey))
@@ -82,7 +92,7 @@ function hexToBytes(hex: string): Uint8Array {
 
 async function aesGcmEncrypt(
   plaintext: Uint8Array,
-  key: CryptoKey,
+  key: AesGcmKey,
   aadString: string
 ): Promise<Uint8Array> {
   const iv = crypto.getRandomValues(new Uint8Array(12))
@@ -100,7 +110,7 @@ async function aesGcmEncrypt(
 
 async function aesGcmDecrypt(
   packed: Uint8Array,
-  key: CryptoKey,
+  key: AesGcmKey,
   aadString: string
 ): Promise<Uint8Array> {
   const iv = packed.slice(0, 12)
@@ -124,8 +134,8 @@ export interface MasterKeyResult {
    */
   masterSeed: Uint8Array
   masterSeedWrappedUnderPuk: string // hex
-  selfSigningPrivate: CryptoKey
-  userSigningPrivate: CryptoKey
+  selfSigningPrivate: Ed25519SigningKey
+  userSigningPrivate: Ed25519SigningKey
 }
 
 /**
@@ -153,9 +163,21 @@ export function deriveSelfSigningPubFromMasterSeed(masterSeed: Uint8Array): Uint
  * Returns the three pubkeys + two private CryptoKey handles.
  */
 async function deriveMasterSubkeys(masterSeed: Uint8Array): Promise<{
-  masterPub: { privateKey: CryptoKey; publicKey: CryptoKey; publicKeyRaw: Uint8Array }
-  selfSigning: { privateKey: CryptoKey; publicKey: CryptoKey; publicKeyRaw: Uint8Array }
-  userSigning: { privateKey: CryptoKey; publicKey: CryptoKey; publicKeyRaw: Uint8Array }
+  masterPub: {
+    privateKey: Ed25519SigningKey
+    publicKey: Ed25519SigningKey
+    publicKeyRaw: Uint8Array
+  }
+  selfSigning: {
+    privateKey: Ed25519SigningKey
+    publicKey: Ed25519SigningKey
+    publicKeyRaw: Uint8Array
+  }
+  userSigning: {
+    privateKey: Ed25519SigningKey
+    publicKey: Ed25519SigningKey
+    publicKeyRaw: Uint8Array
+  }
 }> {
   // Master pubkey is derived directly from the master seed as Ed25519
   const masterPub = await importEd25519FromSeed(masterSeed)
@@ -182,7 +204,7 @@ async function deriveMasterSubkeys(masterSeed: Uint8Array): Promise<{
 export async function createMasterKey({
   pukSecretBoxKey,
 }: {
-  pukSecretBoxKey: CryptoKey
+  pukSecretBoxKey: AesGcmKey
 }): Promise<MasterKeyResult> {
   const masterSeed = crypto.getRandomValues(new Uint8Array(32))
 
@@ -212,7 +234,7 @@ export async function deriveMasterFromWrapped({
   pukSecretBoxKey,
 }: {
   wrapped: string
-  pukSecretBoxKey: CryptoKey
+  pukSecretBoxKey: AesGcmKey
 }): Promise<MasterKeyResult> {
   const packed = hexToBytes(wrapped)
   const masterSeed = await aesGcmDecrypt(packed, pukSecretBoxKey, LABEL_MASTER_KEY_WRAP)
@@ -248,7 +270,7 @@ export async function crossSignOwnDevice({
   targetDeviceId,
 }: {
   deviceSigningPubkey: Uint8Array
-  selfSigningPrivate: CryptoKey
+  selfSigningPrivate: Ed25519SigningKey
   signerDeviceId: string
   targetDeviceId: string
 }): Promise<DeviceCrossSignPayload> {
@@ -278,7 +300,7 @@ export async function crossSignOtherUser({
   targetUserId,
 }: {
   targetMasterPubkey: Uint8Array
-  userSigningPrivate: CryptoKey
+  userSigningPrivate: Ed25519SigningKey
   signerUserId: string
   targetUserId: string
 }): Promise<UserCrossSignPayload> {

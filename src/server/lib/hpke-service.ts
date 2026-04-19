@@ -9,6 +9,7 @@ import { hkdfDerive } from '@shared/crypto-primitives'
 import { createHpkeSuite } from '@shared/crypto-suite'
 import type { HpkeEnvelope } from '@shared/hpke-envelope'
 import { buildAad, hpkeOpen, hpkeSeal } from '@shared/hpke-primitives'
+import { type X25519EncryptionKey, asX25519EncryptionKey } from '@shared/types'
 
 /**
  * Server-side HPKE operations.
@@ -40,8 +41,8 @@ import { buildAad, hpkeOpen, hpkeSeal } from '@shared/hpke-primitives'
  * All seal/open operations MUST be bound with AAD via `buildAad(label, recordId, fieldName)`.
  */
 export class HpkeService {
-  private cachedPrivateKey: CryptoKey | null = null
-  private cachedPublicKey: CryptoKey | null = null
+  private cachedPrivateKey: X25519EncryptionKey | null = null
+  private cachedPublicKey: X25519EncryptionKey | null = null
   private cachedPublicKeyBytes: Uint8Array | null = null
 
   constructor(private readonly serverSecretHex: string) {}
@@ -51,7 +52,10 @@ export class HpkeService {
    * Uses HKDF(secret, salt=LABEL_SERVER_HPKE_KEY, info=LABEL_SERVER_HPKE_KEY_INFO, len=32)
    * as the IKM for `suite.kem.deriveKeyPair`, which is deterministic per RFC 9180.
    */
-  private async getKeyPair(): Promise<{ privateKey: CryptoKey; publicKey: CryptoKey }> {
+  private async getKeyPair(): Promise<{
+    privateKey: X25519EncryptionKey
+    publicKey: X25519EncryptionKey
+  }> {
     if (this.cachedPrivateKey && this.cachedPublicKey) {
       return { privateKey: this.cachedPrivateKey, publicKey: this.cachedPublicKey }
     }
@@ -63,16 +67,16 @@ export class HpkeService {
     )
     const suite = createHpkeSuite()
     const kp = (await suite.kem.deriveKeyPair(ikm)) as CryptoKeyPair
-    this.cachedPrivateKey = kp.privateKey
-    this.cachedPublicKey = kp.publicKey
-    return kp
+    this.cachedPrivateKey = asX25519EncryptionKey(kp.privateKey)
+    this.cachedPublicKey = asX25519EncryptionKey(kp.publicKey)
+    return { privateKey: this.cachedPrivateKey, publicKey: this.cachedPublicKey }
   }
 
-  async getPrivateKey(): Promise<CryptoKey> {
+  async getPrivateKey(): Promise<X25519EncryptionKey> {
     return (await this.getKeyPair()).privateKey
   }
 
-  async getPublicKey(): Promise<CryptoKey> {
+  async getPublicKey(): Promise<X25519EncryptionKey> {
     return (await this.getKeyPair()).publicKey
   }
 
@@ -95,9 +99,9 @@ export class HpkeService {
    * `hpkeSeal`. Used when the server wraps a hub key for a member given
    * only the member's raw public key bytes.
    */
-  async importRecipientPublicKey(raw: Uint8Array): Promise<CryptoKey> {
+  async importRecipientPublicKey(raw: Uint8Array): Promise<X25519EncryptionKey> {
     const suite = createHpkeSuite()
-    return suite.kem.deserializePublicKey(raw)
+    return asX25519EncryptionKey((await suite.kem.deserializePublicKey(raw)) as CryptoKey)
   }
 
   /**
@@ -106,7 +110,7 @@ export class HpkeService {
    */
   async sealFor(
     plaintext: Uint8Array,
-    recipientPublicKey: CryptoKey | Uint8Array,
+    recipientPublicKey: X25519EncryptionKey | Uint8Array,
     label: CryptoLabel,
     recordId: string,
     fieldName: string

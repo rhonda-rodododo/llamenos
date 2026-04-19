@@ -1,4 +1,4 @@
-import type { DeviceKeypair } from '@shared/types'
+import { type DeviceKeypair, asEd25519SigningKey, asX25519EncryptionKey } from '@shared/types'
 
 interface GenerateOptions {
   isPaperKey: boolean
@@ -27,8 +27,11 @@ export async function generateDeviceKeypair(opts: GenerateOptions): Promise<Devi
 
   return {
     deviceId: crypto.randomUUID(),
-    signing: { privateKey: signingPair.privateKey, publicKey: signingPub },
-    encryption: { privateKey: encryptionPair.privateKey, publicKey: encryptionPub },
+    signing: { privateKey: asEd25519SigningKey(signingPair.privateKey), publicKey: signingPub },
+    encryption: {
+      privateKey: asX25519EncryptionKey(encryptionPair.privateKey),
+      publicKey: encryptionPub,
+    },
     createdAt: new Date().toISOString(),
     isPaperKey: opts.isPaperKey,
   }

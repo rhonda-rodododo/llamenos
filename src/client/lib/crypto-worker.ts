@@ -46,6 +46,7 @@ import {
 import { unbiasedSixDigitCode } from '@shared/crypto-primitives'
 import type { HpkeEnvelope } from '@shared/hpke-envelope'
 import { buildAad, hpkeOpen, hpkeSeal } from '@shared/hpke-primitives'
+import type { AesGcmKey, X25519EncryptionKey } from '@shared/types'
 
 // ---- Message protocol types ----
 
@@ -144,8 +145,8 @@ type WorkerRequest =
       type: 'unlockWithHandles'
       id: string
       nsecRaw: Uint8Array
-      hpkePrivateKey: CryptoKey
-      hubKey: CryptoKey
+      hpkePrivateKey: X25519EncryptionKey
+      hubKey: AesGcmKey
     }
   | { type: 'hpkePublicKeyRaw'; id: string }
   // ---- Tier 2 root-KEK handlers ----
@@ -218,9 +219,9 @@ let publicKeyHex: string | null = null
 // `lock()`. These are non-extractable CryptoKey objects when the runtime
 // supports native X25519 wrapKey; otherwise the private key is an @hpke/*
 // key object wrapping a raw-byte view (see `native-curves-check.ts`).
-let hpkePrivateKey: CryptoKey | null = null
+let hpkePrivateKey: X25519EncryptionKey | null = null
 let hpkePublicKeyRawCache: Uint8Array | null = null
-let hubKey: CryptoKey | null = null
+let hubKey: AesGcmKey | null = null
 
 // Tier 2 root KEK. A 256-bit AES-KW key generated or unwrapped inside the
 // worker and held only as a CryptoKey handle. Never posted back to the main
@@ -627,7 +628,11 @@ function handleImportSession(
  * `publicKeyHex` identically so `signAuditEntry` and `sign` keep working
  * without caring which path was used.
  */
-function handleUnlockWithHandles(nsecRaw: Uint8Array, hpkePriv: CryptoKey, hub: CryptoKey): string {
+function handleUnlockWithHandles(
+  nsecRaw: Uint8Array,
+  hpkePriv: X25519EncryptionKey,
+  hub: AesGcmKey
+): string {
   if (nsecRaw.byteLength !== 32) {
     throw new Error(`unlockWithHandles nsec must be 32 bytes, got ${nsecRaw.byteLength}`)
   }
@@ -654,8 +659,11 @@ async function handleHpkeSeal(
     throw new Error('Rate limit exceeded — worker auto-locked')
   }
   const { createHpkeSuite } = await import('@shared/crypto-suite')
+  const { asX25519EncryptionKey: asX25519 } = await import('@shared/types')
   const suite = createHpkeSuite()
-  const recipientKey = await suite.kem.deserializePublicKey(recipientPublicKeyRaw)
+  const recipientKey = asX25519(
+    (await suite.kem.deserializePublicKey(recipientPublicKeyRaw)) as CryptoKey
+  )
   const aad = buildAad(label, recordId, fieldName)
   return hpkeSeal(new TextEncoder().encode(plaintext), recipientKey, label, aad)
 }

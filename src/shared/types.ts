@@ -20,16 +20,49 @@ import type {
 import type { EnabledChannels, SetupState } from '@shared/schemas/settings'
 import type { Ciphertext } from './crypto-types'
 
+// --- Branded CryptoKey types (P2 Slice 3) ---
+// Phantom-symbol brands prevent passing the wrong algorithm's CryptoKey
+// to functions expecting a specific key type. Brands are applied ONLY at
+// importKey/generateKey/deserializeKey boundaries — downstream functions
+// accept the branded type and never cast.
+
+declare const __Ed25519SigningKeyBrand: unique symbol
+/** Ed25519 CryptoKey (signing or verification). */
+export type Ed25519SigningKey = CryptoKey & { readonly [__Ed25519SigningKeyBrand]: never }
+
+declare const __X25519EncryptionKeyBrand: unique symbol
+/** X25519 CryptoKey (HPKE KEM / key agreement). */
+export type X25519EncryptionKey = CryptoKey & { readonly [__X25519EncryptionKeyBrand]: never }
+
+declare const __AesGcmKeyBrand: unique symbol
+/** AES-GCM-256 CryptoKey (symmetric encrypt/decrypt). */
+export type AesGcmKey = CryptoKey & { readonly [__AesGcmKeyBrand]: never }
+
+/** Cast a CryptoKey to Ed25519SigningKey at an import/generate boundary. */
+export function asEd25519SigningKey(key: CryptoKey): Ed25519SigningKey {
+  return key as Ed25519SigningKey
+}
+
+/** Cast a CryptoKey to X25519EncryptionKey at an import/generate/deserialize boundary. */
+export function asX25519EncryptionKey(key: CryptoKey): X25519EncryptionKey {
+  return key as X25519EncryptionKey
+}
+
+/** Cast a CryptoKey to AesGcmKey at an import/generate boundary. */
+export function asAesGcmKey(key: CryptoKey): AesGcmKey {
+  return key as AesGcmKey
+}
+
 // --- Device Identity (Tier 3) ---
 
 export interface DeviceKeypair {
   deviceId: string
   signing: {
-    privateKey: CryptoKey // non-extractable Ed25519
+    privateKey: Ed25519SigningKey // non-extractable Ed25519
     publicKey: Uint8Array // raw 32 bytes
   }
   encryption: {
-    privateKey: CryptoKey // non-extractable X25519
+    privateKey: X25519EncryptionKey // non-extractable X25519
     publicKey: Uint8Array // raw 32 bytes
   }
   createdAt: string // ISO 8601
