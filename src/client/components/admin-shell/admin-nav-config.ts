@@ -214,6 +214,13 @@ export const adminNavConfig: AdminNavConfig = {
           requiredRole: 'role-super-admin',
           testid: 'admin-sidebar-item-gdpr-erasure',
         },
+        {
+          slug: 'retention',
+          labelKey: 'adminNav.items.retention',
+          requiredPermissions: ['settings:read'],
+          requiredRole: 'role-super-admin',
+          testid: 'admin-sidebar-item-retention',
+        },
       ],
     },
   ],
