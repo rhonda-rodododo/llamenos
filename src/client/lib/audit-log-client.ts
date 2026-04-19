@@ -70,3 +70,194 @@ export async function fetchAuditHead(hubId: string): Promise<string | null> {
   const body = (await res.json()) as { entryHash: string | null }
   return body.entryHash ?? null
 }
+
+// ---- Tier 6: MLS group lifecycle helpers ----
+
+/**
+ * Emit an `mls_group_init` audit entry.
+ * Call after successfully creating an MLS group for a hub.
+ */
+export async function logMlsGroupInit(params: {
+  hubId: string
+  groupId: string
+  ciphersuite: number
+  creatorDeviceId: string
+}): Promise<SignedAuditEntry> {
+  const prevEntryHash = await fetchAuditHead(params.hubId)
+  const entry = await buildSignedAuditEntry({
+    hubId: params.hubId,
+    payload: {
+      type: 'mls_group_init',
+      hubId: params.hubId,
+      groupId: params.groupId,
+      ciphersuite: params.ciphersuite,
+      creatorDeviceId: params.creatorDeviceId,
+      epoch: 0,
+    },
+    prevEntryHash,
+    signerDeviceId: params.creatorDeviceId,
+  })
+  await appendSignedAuditEntry(params.hubId, entry)
+  return entry
+}
+
+/**
+ * Emit an `mls_members_added` audit entry.
+ * Call after successfully adding members to an MLS group.
+ */
+export async function logMlsMembersAdded(params: {
+  hubId: string
+  addedDeviceIds: string[]
+  epoch: number
+  committerId: string
+}): Promise<SignedAuditEntry> {
+  const prevEntryHash = await fetchAuditHead(params.hubId)
+  const entry = await buildSignedAuditEntry({
+    hubId: params.hubId,
+    payload: {
+      type: 'mls_members_added',
+      hubId: params.hubId,
+      addedDeviceIds: params.addedDeviceIds,
+      epoch: params.epoch,
+      committerId: params.committerId,
+    },
+    prevEntryHash,
+    signerDeviceId: params.committerId,
+  })
+  await appendSignedAuditEntry(params.hubId, entry)
+  return entry
+}
+
+/**
+ * Emit an `mls_members_removed` audit entry.
+ * Call after successfully removing members from an MLS group.
+ */
+export async function logMlsMembersRemoved(params: {
+  hubId: string
+  removedDeviceIds: string[]
+  epoch: number
+  committerId: string
+}): Promise<SignedAuditEntry> {
+  const prevEntryHash = await fetchAuditHead(params.hubId)
+  const entry = await buildSignedAuditEntry({
+    hubId: params.hubId,
+    payload: {
+      type: 'mls_members_removed',
+      hubId: params.hubId,
+      removedDeviceIds: params.removedDeviceIds,
+      epoch: params.epoch,
+      committerId: params.committerId,
+    },
+    prevEntryHash,
+    signerDeviceId: params.committerId,
+  })
+  await appendSignedAuditEntry(params.hubId, entry)
+  return entry
+}
+
+/**
+ * Emit an `mls_path_update` audit entry.
+ * Call after a self-update (path refresh) in an MLS group.
+ */
+export async function logMlsPathUpdate(params: {
+  hubId: string
+  epoch: number
+  updaterId: string
+}): Promise<SignedAuditEntry> {
+  const prevEntryHash = await fetchAuditHead(params.hubId)
+  const entry = await buildSignedAuditEntry({
+    hubId: params.hubId,
+    payload: {
+      type: 'mls_path_update',
+      hubId: params.hubId,
+      epoch: params.epoch,
+      updaterId: params.updaterId,
+    },
+    prevEntryHash,
+    signerDeviceId: params.updaterId,
+  })
+  await appendSignedAuditEntry(params.hubId, entry)
+  return entry
+}
+
+/**
+ * Emit an `mls_epoch_purge` audit entry.
+ * Call after purging old epoch commits from the server.
+ */
+export async function logMlsEpochPurge(params: {
+  hubId: string
+  purgedEpochRange: string
+  reason: string
+  signerDeviceId: string
+}): Promise<SignedAuditEntry> {
+  const prevEntryHash = await fetchAuditHead(params.hubId)
+  const entry = await buildSignedAuditEntry({
+    hubId: params.hubId,
+    payload: {
+      type: 'mls_epoch_purge',
+      hubId: params.hubId,
+      purgedEpochRange: params.purgedEpochRange,
+      reason: params.reason,
+    },
+    prevEntryHash,
+    signerDeviceId: params.signerDeviceId,
+  })
+  await appendSignedAuditEntry(params.hubId, entry)
+  return entry
+}
+
+/**
+ * Emit an `mls_ciphersuite_upgrade_planned` audit entry.
+ * Call when scheduling a ciphersuite upgrade for an MLS group.
+ */
+export async function logMlsCiphersuiteUpgradePlanned(params: {
+  hubId: string
+  fromCs: number
+  toCs: number
+  targetDate: string
+  signerDeviceId: string
+}): Promise<SignedAuditEntry> {
+  const prevEntryHash = await fetchAuditHead(params.hubId)
+  const entry = await buildSignedAuditEntry({
+    hubId: params.hubId,
+    payload: {
+      type: 'mls_ciphersuite_upgrade_planned',
+      hubId: params.hubId,
+      fromCs: params.fromCs,
+      toCs: params.toCs,
+      targetDate: params.targetDate,
+    },
+    prevEntryHash,
+    signerDeviceId: params.signerDeviceId,
+  })
+  await appendSignedAuditEntry(params.hubId, entry)
+  return entry
+}
+
+/**
+ * Emit an `mls_ciphersuite_upgrade_completed` audit entry.
+ * Call after a ciphersuite upgrade has been applied to an MLS group.
+ */
+export async function logMlsCiphersuiteUpgradeCompleted(params: {
+  hubId: string
+  fromCs: number
+  toCs: number
+  epoch: number
+  signerDeviceId: string
+}): Promise<SignedAuditEntry> {
+  const prevEntryHash = await fetchAuditHead(params.hubId)
+  const entry = await buildSignedAuditEntry({
+    hubId: params.hubId,
+    payload: {
+      type: 'mls_ciphersuite_upgrade_completed',
+      hubId: params.hubId,
+      fromCs: params.fromCs,
+      toCs: params.toCs,
+      epoch: params.epoch,
+    },
+    prevEntryHash,
+    signerDeviceId: params.signerDeviceId,
+  })
+  await appendSignedAuditEntry(params.hubId, entry)
+  return entry
+}
