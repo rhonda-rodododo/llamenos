@@ -207,7 +207,7 @@ export async function notifyContacts(
   })
 }
 
-async function importContacts(data: {
+export async function importContacts(data: {
   contacts: Array<{
     contactType: string
     riskLevel: string

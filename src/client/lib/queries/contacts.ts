@@ -15,6 +15,7 @@ import {
   deleteContact,
   getContact,
   getContactTimeline,
+  importContacts,
   listContactRelationships,
   listContacts,
   mergeContacts,
@@ -252,6 +253,20 @@ export function useMergeContacts() {
   return useMutation({
     mutationFn: ({ primaryId, secondaryId }: { primaryId: string; secondaryId: string }) =>
       mergeContacts(primaryId, secondaryId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.contacts.all })
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// useImportContacts
+// ---------------------------------------------------------------------------
+
+export function useImportContacts() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: importContacts,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.contacts.all })
     },
