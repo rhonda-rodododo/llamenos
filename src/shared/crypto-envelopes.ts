@@ -1,5 +1,8 @@
 /**
- * Higher-level envelope encryption helpers for messages, blasts, and drafts.
+ * Higher-level envelope encryption helpers for blasts, drafts, and exports.
+ *
+ * Note and message envelope encryption has been removed — both now use MLS
+ * (see Slice 5 for notes, Slice 6 for messages).
  *
  * These are pure (no DOM, no crypto worker) so they can run in server, worker, and test contexts.
  * All async/worker-delegating variants live in src/client/lib/crypto-worker-helpers.ts.
@@ -13,7 +16,6 @@ import {
   HKDF_CONTEXT_EXPORT,
   HKDF_SALT,
   LABEL_BLAST_CONTENT,
-  LABEL_MESSAGE,
 } from './crypto-labels'
 import {
   type RecipientKeyEnvelope,
@@ -30,44 +32,6 @@ function randomBytes(n: number): Uint8Array {
   const buf = new Uint8Array(n)
   crypto.getRandomValues(buf)
   return buf
-}
-
-// --- E2EE Message Encryption ---
-// Same envelope pattern as notes, using LABEL_MESSAGE for domain separation.
-// Used for SMS, WhatsApp, Signal, and web report messages.
-
-export interface EncryptedMessagePayload {
-  encryptedContent: Ciphertext // hex: nonce(24) + ciphertext
-  readerEnvelopes: RecipientKeyEnvelope[] // message key wrapped for each reader
-}
-
-/**
- * Encrypt a message for multiple readers using the envelope pattern.
- * Generates a random per-message symmetric key, wraps it for each reader via ECIES.
- *
- * @param plaintext - Message text to encrypt
- * @param readerPubkeys - Array of reader x-only pubkeys (author + admins)
- */
-export function encryptMessage(
-  plaintext: string,
-  readerPubkeys: string[]
-): EncryptedMessagePayload {
-  const messageKey = randomBytes(32)
-  const nonce = randomBytes(24)
-  const cipher = xchacha20poly1305(messageKey, nonce)
-  const ciphertext = cipher.encrypt(utf8ToBytes(plaintext))
-
-  const packed = new Uint8Array(nonce.length + ciphertext.length)
-  packed.set(nonce)
-  packed.set(ciphertext, nonce.length)
-
-  return {
-    encryptedContent: bytesToHex(packed) as Ciphertext,
-    readerEnvelopes: readerPubkeys.map((pk) => ({
-      pubkey: pk,
-      ...eciesWrapKey(messageKey, pk, LABEL_MESSAGE),
-    })),
-  }
 }
 
 // --- Blast Content Encryption ---

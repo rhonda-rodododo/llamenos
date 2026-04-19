@@ -13,6 +13,9 @@ import {
 } from '@/components/ui/select'
 import type { Report } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
+import { useConfig } from '@/lib/config'
+import { getMlsConversation } from '@/lib/mls/get-mls-conversation'
+import * as mlsApi from '@/lib/mls/mls-api-client'
 import {
   useAssignReport,
   useReport,
@@ -23,7 +26,6 @@ import {
   useUpdateReport,
 } from '@/lib/queries/reports'
 import { useToast } from '@/lib/toast'
-import { encryptMessage } from '@shared/crypto-envelopes'
 import { createFileRoute } from '@tanstack/react-router'
 import {
   AlertCircle,
@@ -251,6 +253,7 @@ function ReportDetail({
   const { t } = useTranslation()
   const { hasNsec, publicKey, hasPermission, adminDecryptionPubkey } = useAuth()
   const { toast } = useToast()
+  const { currentHubId } = useConfig()
 
   const [replyText, setReplyText] = useState('')
   const [showFileUpload, setShowFileUpload] = useState(false)
@@ -293,45 +296,56 @@ function ReportDetail({
   }, [report.id, closeMutation, toast, t])
 
   const handleSendReply = useCallback(async () => {
-    if (!replyText.trim() || !hasNsec || !publicKey) return
+    if (!replyText.trim() || !hasNsec || !publicKey || !currentHubId) return
 
-    const readerPubkeys = [publicKey]
-    if (adminDecryptionPubkey && adminDecryptionPubkey !== publicKey) {
-      readerPubkeys.push(adminDecryptionPubkey)
+    const mlsConv = await getMlsConversation(currentHubId)
+    if (!mlsConv) {
+      toast(t('reports.mlsNotAvailable', { defaultValue: 'MLS not available' }), 'error')
+      return
     }
 
-    const encrypted = encryptMessage(replyText.trim(), readerPubkeys)
-
     try {
+      const mlsBytes = await mlsConv.encrypt(new TextEncoder().encode(replyText.trim()))
+      const mlsCiphertext = mlsApi.toBase64(mlsBytes)
+      const epoch = await mlsConv.currentEpoch()
+
       await sendMutation.mutateAsync({
-        encryptedContent: encrypted.encryptedContent,
-        readerEnvelopes: encrypted.readerEnvelopes,
+        encryptedContent: '' as import('@shared/crypto-types').Ciphertext,
+        readerEnvelopes: [],
+        mlsCiphertext,
+        mlsEpoch: epoch,
       })
       setReplyText('')
     } catch {
       toast(t('reports.sendError', { defaultValue: 'Failed to send message' }), 'error')
     }
-  }, [replyText, hasNsec, publicKey, adminDecryptionPubkey, sendMutation, toast, t])
+  }, [replyText, hasNsec, publicKey, currentHubId, sendMutation, toast, t])
 
   const handleFileUploadComplete = useCallback(
     async (fileIds: string[]) => {
-      if (!hasNsec || !publicKey) return
+      if (!hasNsec || !publicKey || !currentHubId) return
 
-      const readerPubkeys = [publicKey]
-      if (adminDecryptionPubkey && adminDecryptionPubkey !== publicKey) {
-        readerPubkeys.push(adminDecryptionPubkey)
+      const mlsConv = await getMlsConversation(currentHubId)
+      if (!mlsConv) {
+        toast(t('reports.mlsNotAvailable', { defaultValue: 'MLS not available' }), 'error')
+        return
       }
 
       const placeholder = t('reports.filesAttached', {
         defaultValue: '[Files attached]',
         count: fileIds.length,
       })
-      const encrypted = encryptMessage(placeholder, readerPubkeys)
 
       try {
+        const mlsBytes = await mlsConv.encrypt(new TextEncoder().encode(placeholder))
+        const mlsCiphertext = mlsApi.toBase64(mlsBytes)
+        const epoch = await mlsConv.currentEpoch()
+
         await sendMutation.mutateAsync({
-          encryptedContent: encrypted.encryptedContent,
-          readerEnvelopes: encrypted.readerEnvelopes,
+          encryptedContent: '' as import('@shared/crypto-types').Ciphertext,
+          readerEnvelopes: [],
+          mlsCiphertext,
+          mlsEpoch: epoch,
           attachmentIds: fileIds,
         })
         setShowFileUpload(false)
@@ -339,7 +353,7 @@ function ReportDetail({
         toast(t('reports.sendError', { defaultValue: 'Failed to send message' }), 'error')
       }
     },
-    [hasNsec, publicKey, adminDecryptionPubkey, sendMutation, toast, t]
+    [hasNsec, publicKey, currentHubId, sendMutation, toast, t]
   )
 
   const isReporter = hasPermission('reports:create') && !hasPermission('calls:answer')

@@ -1,9 +1,10 @@
 /**
  * React Query hooks for conversations resource management.
  *
- * Conversations use per-message envelope encryption (XChaCha20-Poly1305 + ECIES).
- * The list is decrypted via decryptArrayFields + LABEL_USER_PII.
- * Message decryption is done client-side via decryptMessage().
+ * Messages use MLS group encryption (Slice 6).
+ * Inbound messages arrive server-encrypted; the first client to fetch
+ * claims them by decrypting the server blob, re-encrypting via MLS,
+ * and PATCHing the record back.
  *
  * Real-time updates arrive via Nostr (useConversations in hooks.ts);
  * these hooks provide the React Query cache layer that Nostr events invalidate.
@@ -13,16 +14,20 @@ import {
   type Conversation,
   type ConversationMessage,
   claimConversation,
+  claimMessage,
   getConversationMessages,
   getUserLoads,
   listConversations,
   sendConversationMessage,
   updateConversation,
+  upgradeMessageToMls,
 } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
-import { decryptMessage } from '@/lib/crypto-worker-helpers'
+import { useConfig } from '@/lib/config'
 import { decryptArrayFields } from '@/lib/decrypt-fields'
 import * as keyManager from '@/lib/key-manager'
+import { getMlsConversation } from '@/lib/mls/get-mls-conversation'
+import * as mlsApi from '@/lib/mls/mls-api-client'
 import { LABEL_USER_PII } from '@shared/crypto-labels'
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from './keys'
@@ -38,7 +43,7 @@ interface DecryptedConversationMessages {
 
 type ConversationMessagesAuth = {
   hasNsec: boolean
-  publicKey: string | null
+  hubId: string | undefined
 }
 
 // ---------------------------------------------------------------------------
@@ -98,21 +103,43 @@ const conversationMessagesOptions = (
     queryFn: async (): Promise<DecryptedConversationMessages> => {
       if (!conversationId) return { messages: [], decryptedContent: new Map() }
 
-      const { hasNsec, publicKey } = auth
+      const { hasNsec, hubId } = auth
       const { messages } = await getConversationMessages(conversationId, { limit: 100 })
       const decryptedContent = new Map<string, string>()
 
-      const unlocked = hasNsec && publicKey ? await keyManager.isUnlocked() : false
-      if (unlocked && publicKey) {
+      const unlocked = hasNsec ? await keyManager.isUnlocked() : false
+      const mlsConv = unlocked && hubId ? await getMlsConversation(hubId) : null
+
+      if (mlsConv) {
         for (const msg of messages) {
-          if (msg.encryptedContent && msg.readerEnvelopes?.length) {
-            const plaintext = await decryptMessage(
-              msg.encryptedContent,
-              msg.readerEnvelopes,
-              publicKey
-            )
-            if (plaintext !== null) {
+          if (msg.mlsCiphertext) {
+            try {
+              const result = await mlsConv.decrypt(mlsApi.fromBase64(msg.mlsCiphertext))
+              if (result.message) {
+                decryptedContent.set(msg.id, new TextDecoder().decode(result.message))
+              }
+            } catch {
+              // Decryption failed — leave as encrypted
+            }
+          } else if (msg.serverEncryptedBody) {
+            // Claim: server decrypts and returns plaintext, client re-encrypts via MLS
+            try {
+              const { plaintext } = await claimMessage(conversationId, msg.id)
+              const mlsBytes = await mlsConv.encrypt(new TextEncoder().encode(plaintext))
+              const mlsCiphertext = mlsApi.toBase64(mlsBytes)
+              const epoch = await mlsConv.currentEpoch()
+
+              // Upgrade the message on the server
+              await upgradeMessageToMls(conversationId, msg.id, {
+                encryptedContent: '' as import('@shared/crypto-types').Ciphertext,
+                readerEnvelopes: [],
+                mlsCiphertext,
+                mlsEpoch: epoch,
+              })
+
               decryptedContent.set(msg.id, plaintext)
+            } catch {
+              // Claim failed — leave as encrypted
             }
           }
         }
@@ -133,8 +160,9 @@ const conversationMessagesOptions = (
  * Returns messages + a Map of decrypted content keyed by message id.
  */
 export function useConversationMessages(conversationId: string | null) {
-  const { hasNsec, publicKey } = useAuth()
-  return useQuery(conversationMessagesOptions(conversationId, { hasNsec, publicKey }))
+  const { hasNsec } = useAuth()
+  const { currentHubId } = useConfig()
+  return useQuery(conversationMessagesOptions(conversationId, { hasNsec, hubId: currentHubId }))
 }
 
 // ---------------------------------------------------------------------------
