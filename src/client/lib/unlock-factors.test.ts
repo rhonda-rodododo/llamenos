@@ -7,6 +7,7 @@ import type { RootKekEnvelopeBundle } from '@shared/schemas/root-kek-envelope'
 // (e.g. crypto-worker-client.test.ts, panic-wipe.test.ts, recovery-phrase.test.ts).
 import * as realCryptoWorkerClientNS from './crypto-worker-client'
 import * as realOpaqueClientNS from './opaque-client'
+import { DicewarePhrase } from './recovery-phrase'
 import * as realRecoveryPhraseNS from './recovery-phrase'
 import * as realWebauthnNS from './webauthn'
 
@@ -75,7 +76,7 @@ mock.module('./auth-facade-client', () => ({
   },
 }))
 
-const mockDeriveRecoveryPhrase = mock((_phrase: string, _salt: Uint8Array) =>
+const mockDeriveRecoveryPhrase = mock((_phrase: DicewarePhrase, _salt: Uint8Array) =>
   new Uint8Array(32).fill(3)
 )
 mock.module('./recovery-phrase', () => ({
@@ -163,7 +164,7 @@ describe('runUnlockFactor', () => {
     const { runUnlockFactor } = await import('./unlock-factors')
     await runUnlockFactor({
       type: 'recoveryPhrase',
-      phrase: 'test phrase',
+      phrase: DicewarePhrase.generate(),
       salt: new Uint8Array(32).fill(7),
     })
     expect(mockRootKekUnwrap).toHaveBeenCalledTimes(1)
