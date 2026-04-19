@@ -207,6 +207,13 @@ export const adminNavConfig: AdminNavConfig = {
           requiredRole: 'role-super-admin',
           testid: 'admin-sidebar-item-platform',
         },
+        {
+          slug: 'gdpr-erasure',
+          labelKey: 'adminNav.items.gdprErasure',
+          requiredPermissions: ['gdpr:admin'],
+          requiredRole: 'role-super-admin',
+          testid: 'admin-sidebar-item-gdpr-erasure',
+        },
       ],
     },
   ],

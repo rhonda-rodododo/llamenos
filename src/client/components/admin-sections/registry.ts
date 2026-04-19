@@ -6,6 +6,7 @@ import { CallSettingsSection } from './call-settings-section'
 import { CustomFieldsSection } from './custom-fields-section'
 import { DevicesSection } from './devices-section'
 import { FirehoseSection } from './firehose-section'
+import { GdprAdminSection } from './gdpr-section'
 import { HealthSection } from './health-section'
 import { HubRolesSection } from './hub-roles-section'
 import { HubsSection } from './hubs-section'
@@ -66,3 +67,4 @@ registerSection('health', HealthSection)
 registerSection('platform', PlatformSection)
 registerSection('recovery-group', RecoveryGroupSection)
 registerSection('devices', DevicesSection)
+registerSection('gdpr-erasure', GdprAdminSection)

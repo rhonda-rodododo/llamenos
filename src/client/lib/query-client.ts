@@ -57,6 +57,8 @@ const PLAINTEXT_QUERY_KEYS: QueryKeyDomain[] = [
   // Tier 6 device list — fingerprint + verification state are operational
   // metadata, not encrypted, so the cache survives lock/unlock cycles.
   'devices',
+  // GDPR erasure request status — status + timestamps, not encrypted.
+  'gdpr',
 ]
 
 // Compile-time exhaustiveness: if a new domain is added to queryKeys but not

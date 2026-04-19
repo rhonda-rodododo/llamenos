@@ -1537,7 +1537,8 @@
       "health": "Health",
       "platform": "Platform",
       "recoveryGroup": "Recovery Group",
-      "devices": "Devices"
+      "devices": "Devices",
+      "gdprErasure": "GDPR Erasure"
     }
   },
   "locationLookup": {
@@ -1858,6 +1859,42 @@
     "voicemailReviewer": {
       "name": "Voicemail Reviewer",
       "description": "Triages voicemails — listens, reads transcripts, and receives notifications"
+    }
+  },
+  "gdpr": {
+    "title": "Privacy & Data",
+    "exportTitle": "Download My Data",
+    "exportDescription": "Download a copy of all data we hold about you.",
+    "exportButton": "Download My Data",
+    "exportLoading": "Preparing download...",
+    "exportError": "Export failed. Please try again.",
+    "erasureTitle": "Delete My Account",
+    "erasureDescription": "Requesting deletion schedules your account for erasure after a 72-hour grace period.",
+    "erasureWarning": "This will permanently delete:",
+    "erasureWarningItems": {
+      "profile": "Your profile and identity keys",
+      "sessions": "All active sessions",
+      "notes": "All call notes you authored",
+      "shifts": "Your shift history",
+      "auditEntries": "Your audit log entries"
+    },
+    "erasureCountdown": "Your account will be deleted in approximately {{hours}} hour(s). You can cancel before then.",
+    "erasureButton": "Request Account Deletion",
+    "erasureCancelButton": "Cancel Deletion Request",
+    "erasureRequested": "Account deletion requested. You have 72 hours to cancel.",
+    "erasureCancelled": "Account deletion cancelled.",
+    "admin": {
+      "description": "Force-erase a user account immediately. This action is permanent and cannot be undone.",
+      "pubkeyLabel": "User Public Key",
+      "pubkeyPlaceholder": "npub... or hex pubkey",
+      "exportButton": "Export User Data",
+      "exportSuccess": "User data exported successfully.",
+      "exportError": "Export failed. Please try again.",
+      "eraseButton": "Erase User Account",
+      "eraseConfirmTitle": "Confirm Immediate Erasure",
+      "eraseConfirmDescription": "This will immediately and permanently erase all data for this user. This action cannot be undone.",
+      "eraseSuccess": "User erased successfully.",
+      "eraseError": "Erasure failed. Please try again."
     }
   }
 }
