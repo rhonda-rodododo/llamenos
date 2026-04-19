@@ -10,6 +10,7 @@
  */
 
 import { createDebugLog } from '@/lib/debug-log'
+import { logMlsGroupInit } from '../audit-log-client'
 import type { CryptoWorkerClient } from '../crypto-worker-client'
 import { MlsConversation } from './conversation'
 import * as mlsApi from './mls-api-client'
@@ -31,14 +32,25 @@ const INITIAL_KEY_PACKAGE_COUNT = 100
 export async function bootstrapMlsForNewHub(
   hubId: string,
   worker: CryptoWorkerClient,
-  deviceId: string
+  deviceId: string,
+  ciphersuite = 1
 ): Promise<MlsConversation | null> {
   try {
-    // 1. Create the MLS group locally and notify the server
     const conv = await MlsConversation.createGroup(hubId, worker, deviceId)
     log('MLS group created for hub %s', hubId)
 
-    // 2. Generate and upload initial key packages
+    try {
+      await logMlsGroupInit({
+        hubId,
+        groupId: conv.groupIdStr,
+        ciphersuite,
+        creatorDeviceId: deviceId,
+      })
+      log('Emitted mls_group_init audit entry for hub %s', hubId)
+    } catch (auditErr) {
+      log('Audit emission failed for hub %s (non-fatal)', hubId)
+    }
+
     await uploadKeyPackages(hubId, worker, deviceId)
     log('Uploaded %d initial key packages for hub %s', INITIAL_KEY_PACKAGE_COUNT, hubId)
 
