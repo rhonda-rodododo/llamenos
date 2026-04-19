@@ -35,7 +35,7 @@ export interface GdprExport {
   credentials: Array<{ id: string; label: string; createdAt: string; lastUsedAt: string }>
   shifts: Array<{ hubId: string; startedAt: string }>
   calls: Array<{ id: string; startedAt: string; status: string }>
-  notes: Array<{ id: string; createdAt: string; encryptedContent: string }>
+  notes: Array<{ id: string; createdAt: string; encryptedContent: string | null }>
   messages: Array<{ id: string; createdAt: string; encryptedContent: string }>
   auditLog: Array<{ id: string; event: string; createdAt: string }>
   hubs: Array<{ hubId: string; roleIds: string[] }>

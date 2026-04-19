@@ -71,6 +71,13 @@ export class MlsConversation {
       : convIdStr
     return new MlsConversation(hubId, worker, deviceId)
   }
+  /**
+   * Open an existing MLS group for encryption/decryption.
+   * Assumes the group was already created or joined in a previous session.
+   */
+  static open(hubId: string, worker: CryptoWorkerClient, deviceId: string): MlsConversation {
+    return new MlsConversation(hubId, worker, deviceId)
+  }
 
   /**
    * Join an existing MLS group via external commit (re-enrollment).

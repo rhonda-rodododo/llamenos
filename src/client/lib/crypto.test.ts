@@ -5,14 +5,7 @@ import { secp256k1 } from '@noble/curves/secp256k1.js'
 import { hkdf } from '@noble/hashes/hkdf.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
-import {
-  decryptDraft,
-  decryptNoteWithKey,
-  encryptDraft,
-  encryptExport,
-  encryptMessage,
-  encryptNote,
-} from '@shared/crypto-envelopes'
+import { decryptDraft, encryptDraft, encryptExport, encryptMessage } from '@shared/crypto-envelopes'
 import {
   type CryptoLabel,
   HKDF_CONTEXT_EXPORT,
@@ -166,82 +159,6 @@ describe('eciesWrapKey / eciesUnwrapKeyWithSecret', () => {
 })
 
 // ── A1: encryptNote / decryptNoteWithKey ──
-
-describe('encryptNote / decryptNoteWithKey', () => {
-  const samplePayload: NotePayload = {
-    text: 'Caller reported unsafe conditions at home.',
-    fields: { urgency: 'high', followUp: true },
-  }
-
-  test('author roundtrip: encrypt → decrypt via authorEnvelope recovers original payload', () => {
-    const author = generateKeyPair()
-    const admin = generateKeyPair()
-
-    const encrypted = encryptNote(samplePayload, author.publicKey, [admin.publicKey])
-    const decrypted = decryptNoteWithKey(
-      encrypted.encryptedContent,
-      encrypted.authorEnvelope,
-      author.secretKey
-    )
-
-    expect(decrypted).toEqual(samplePayload)
-  })
-
-  test('admin roundtrip: encrypt with 2 admins → each decrypts via their envelope', () => {
-    const author = generateKeyPair()
-    const admin1 = generateKeyPair()
-    const admin2 = generateKeyPair()
-
-    const encrypted = encryptNote(samplePayload, author.publicKey, [
-      admin1.publicKey,
-      admin2.publicKey,
-    ])
-
-    expect(encrypted.adminEnvelopes).toHaveLength(2)
-
-    const env1 = encrypted.adminEnvelopes.find((e) => e.pubkey === admin1.publicKey)!
-    const env2 = encrypted.adminEnvelopes.find((e) => e.pubkey === admin2.publicKey)!
-
-    const dec1 = decryptNoteWithKey(encrypted.encryptedContent, env1, admin1.secretKey)
-    const dec2 = decryptNoteWithKey(encrypted.encryptedContent, env2, admin2.secretKey)
-
-    expect(dec1).toEqual(samplePayload)
-    expect(dec2).toEqual(samplePayload)
-  })
-
-  test('wrong key: unrelated secretKey returns null', () => {
-    const author = generateKeyPair()
-    const attacker = generateKeyPair()
-
-    const encrypted = encryptNote(samplePayload, author.publicKey, [])
-    const result = decryptNoteWithKey(
-      encrypted.encryptedContent,
-      encrypted.authorEnvelope,
-      attacker.secretKey
-    )
-
-    expect(result).toBeNull()
-  })
-
-  test('forward secrecy: two encryptions produce different encryptedContent', () => {
-    const author = generateKeyPair()
-
-    const enc1 = encryptNote(samplePayload, author.publicKey, [])
-    const enc2 = encryptNote(samplePayload, author.publicKey, [])
-
-    expect(enc1.encryptedContent).not.toBe(enc2.encryptedContent)
-  })
-
-  test('cross-label: unwrap authorEnvelope with LABEL_MESSAGE instead of LABEL_NOTE_KEY throws', () => {
-    const author = generateKeyPair()
-
-    const encrypted = encryptNote(samplePayload, author.publicKey, [])
-
-    expect(() =>
-      eciesUnwrapKeyWithSecret(encrypted.authorEnvelope, author.secretKey, LABEL_MESSAGE)
-    ).toThrow()
-  })
-})
 
 // ── A2: encryptMessage / decryptMessage ──
 

@@ -238,18 +238,19 @@ export interface CallRecordMetadata {
 export interface EncryptedNote {
   id: string
   hubId: string
-  callId?: string // links to a voice call
-  conversationId?: string // links to a conversation (Epic 123)
-  contactHash?: string // links to a contact for contact-level view (Epic 123)
+  callId?: string
+  conversationId?: string
+  contactHash?: string
   authorPubkey: string
-  encryptedContent: string
+  encryptedContent?: string
   createdAt: string
   updatedAt: string
-  ephemeralPubkey?: string // hex-encoded, present for server-encrypted transcriptions (ECIES)
-  // Per-note ECIES envelopes (forward secrecy)
+  ephemeralPubkey?: string
   authorEnvelope?: KeyEnvelope
   adminEnvelopes?: RecipientEnvelope[]
-  replyCount?: number // cached count of replies (Epic 123)
+  mlsCiphertext?: string
+  mlsEpoch?: number
+  replyCount?: number
 }
 
 export interface AuditLogEntry {
@@ -688,17 +689,21 @@ export interface CreateNoteData {
   conversationId?: string
   contactHash?: string
   authorPubkey: string
-  encryptedContent: string
+  encryptedContent?: string
   ephemeralPubkey?: string
   authorEnvelope?: { wrappedKey: string; ephemeralPubkey: string }
   adminEnvelopes?: { pubkey: string; wrappedKey: string; ephemeralPubkey: string }[]
+  mlsCiphertext?: string
+  mlsEpoch?: number
 }
 
 export interface UpdateNoteData {
-  encryptedContent: string
+  encryptedContent?: string
   authorPubkey: string
   authorEnvelope?: { wrappedKey: string; ephemeralPubkey: string }
   adminEnvelopes?: { pubkey: string; wrappedKey: string; ephemeralPubkey: string }[]
+  mlsCiphertext?: string
+  mlsEpoch?: number
 }
 
 export interface NoteFilters {

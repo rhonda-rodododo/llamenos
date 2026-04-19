@@ -1,8 +1,9 @@
 import { useAuth } from '@/lib/auth'
 import { useConfig } from '@/lib/config'
+import { cryptoWorker } from '@/lib/crypto-worker-client'
+import { MlsConversation } from '@/lib/mls/conversation'
 import { useNoteSheet } from '@/lib/note-sheet-context'
 import { useDraft } from '@/lib/use-draft'
-import { encryptNote } from '@shared/crypto-envelopes'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -124,17 +125,16 @@ export function NoteSheet() {
       if (fieldValues.length > 0) {
         payload.fields = Object.fromEntries(fieldValues)
       }
-      // Per-note ephemeral key encryption (forward secrecy)
-      const authorPub = publicKey
-      const adminPub = adminDecryptionPubkey || authorPub // fallback to self if admin decryption pubkey not available
-      const { encryptedContent, authorEnvelope, adminEnvelopes } = encryptNote(payload, authorPub, [
-        adminPub,
-      ])
+      const conv = MlsConversation.open(hubId, cryptoWorker, '')
+      const plaintext = new TextEncoder().encode(JSON.stringify(payload))
+      const mlsCiphertextBytes = await conv.encrypt(plaintext)
+      const mlsCiphertext = Buffer.from(mlsCiphertextBytes).toString('base64')
+      const mlsEpoch = await conv.currentEpoch()
 
       if (mode === 'edit' && editNoteId) {
-        await updateNote(editNoteId, { encryptedContent, authorEnvelope, adminEnvelopes })
+        await updateNote(editNoteId, { mlsCiphertext, mlsEpoch })
       } else {
-        await createNote({ callId: draft.callId, encryptedContent, authorEnvelope, adminEnvelopes })
+        await createNote({ callId: draft.callId, mlsCiphertext, mlsEpoch })
       }
       void queryClient.invalidateQueries({ queryKey: queryKeys.notes.all })
       draft.clearDraft()

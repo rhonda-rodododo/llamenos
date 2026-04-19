@@ -65,7 +65,7 @@ export function VoicemailPlayer({ fileId, callId, canListen }: VoicemailPlayerPr
           : vmNote.authorEnvelope
 
         let text: string | null = null
-        if (envelope) {
+        if (envelope && vmNote.encryptedContent) {
           const payload = await decryptNote(vmNote.encryptedContent, envelope)
           text = payload?.text ?? null
         }

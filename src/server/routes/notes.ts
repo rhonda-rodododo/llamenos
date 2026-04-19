@@ -27,12 +27,14 @@ const NoteResponseSchema = z.object({
   conversationId: z.string().optional(),
   contactHash: z.string().optional(),
   authorPubkey: z.string(),
-  encryptedContent: z.string(),
+  encryptedContent: z.string().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
   ephemeralPubkey: z.string().optional(),
   authorEnvelope: KeyEnvelopeSchema.optional(),
   adminEnvelopes: z.array(RecipientEnvelopeSchema).optional(),
+  mlsCiphertext: z.string().optional(),
+  mlsEpoch: z.number().optional(),
   replyCount: z.number().optional(),
 })
 
@@ -44,20 +46,26 @@ const CreateNoteBodySchema = z.object({
   callId: z.string().optional(),
   conversationId: z.string().optional(),
   contactHash: z.string().optional(),
-  encryptedContent: z.string(),
+  encryptedContent: z.string().optional(),
   authorEnvelope: KeyEnvelopeSchema.optional(),
   adminEnvelopes: z.array(RecipientEnvelopeSchema).optional(),
+  mlsCiphertext: z.string().optional(),
+  mlsEpoch: z.number().optional(),
 })
 
 const UpdateNoteBodySchema = z.object({
-  encryptedContent: z.string(),
+  encryptedContent: z.string().optional(),
   authorEnvelope: KeyEnvelopeSchema.optional(),
   adminEnvelopes: z.array(RecipientEnvelopeSchema).optional(),
+  mlsCiphertext: z.string().optional(),
+  mlsEpoch: z.number().optional(),
 })
 
 const CreateReplyBodySchema = z.object({
-  encryptedContent: z.string(),
-  readerEnvelopes: z.array(RecipientEnvelopeSchema),
+  encryptedContent: z.string().optional(),
+  mlsCiphertext: z.string().optional(),
+  mlsEpoch: z.number().optional(),
+  readerEnvelopes: z.array(RecipientEnvelopeSchema).optional(),
   authorEnvelope: KeyEnvelopeSchema.optional(),
 })
 
@@ -305,6 +313,8 @@ notes.openapi(createReplyRoute, async (c) => {
     encryptedContent: body.encryptedContent,
     authorEnvelope: body.authorEnvelope,
     adminEnvelopes: body.readerEnvelopes,
+    mlsCiphertext: body.mlsCiphertext,
+    mlsEpoch: body.mlsEpoch,
     authorPubkey: pubkey,
     callId: parent.callId,
     conversationId: parent.conversationId,

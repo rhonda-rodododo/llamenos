@@ -1,6 +1,9 @@
 import { type ActiveCall, addBan, createNote } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
+import { useConfig } from '@/lib/config'
+import { cryptoWorker } from '@/lib/crypto-worker-client'
 import { useCallTimer, useCalls, useShiftStatus } from '@/lib/hooks'
+import { MlsConversation } from '@/lib/mls/conversation'
 import {
   useCallAnalytics,
   useCallHoursAnalytics,
@@ -9,7 +12,6 @@ import {
 import { useCallsTodayCount, usePresence } from '@/lib/queries/calls'
 import { useUsers } from '@/lib/queries/users'
 import { useTranscription } from '@/lib/transcription'
-import { encryptNote } from '@shared/crypto-envelopes'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -489,6 +491,8 @@ function ActiveCallPanel({
   const { toast } = useToast()
   const { adminDecryptionPubkey } = useAuth()
   const { formatted } = useCallTimer(call.startedAt)
+  const { currentHubId } = useConfig()
+  const hubId = currentHubId ?? 'global'
   const [noteText, setNoteText] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -517,13 +521,12 @@ function ActiveCallPanel({
     if (!noteText.trim()) return
     setSaving(true)
     try {
-      const adminPub = adminDecryptionPubkey || authorPubkey
-      const { encryptedContent, authorEnvelope, adminEnvelopes } = encryptNote(
-        { text: noteText },
-        authorPubkey,
-        [adminPub]
-      )
-      await createNote({ callId: call.id, encryptedContent, authorEnvelope, adminEnvelopes })
+      const conv = MlsConversation.open(hubId, cryptoWorker, '')
+      const plaintext = new TextEncoder().encode(JSON.stringify({ text: noteText }))
+      const mlsCiphertextBytes = await conv.encrypt(plaintext)
+      const mlsCiphertext = Buffer.from(mlsCiphertextBytes).toString('base64')
+      const mlsEpoch = await conv.currentEpoch()
+      await createNote({ callId: call.id, mlsCiphertext, mlsEpoch })
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     } catch {
@@ -534,18 +537,18 @@ function ActiveCallPanel({
   }
 
   async function handleHangup() {
-    // Finalize transcription and save as encrypted note
     if (txSettings.enabled && (txStatus === 'capturing' || txStatus === 'finalizing')) {
       try {
         const text = await stopTranscription()
         if (text.trim()) {
-          const adminPub = adminDecryptionPubkey || authorPubkey
-          const { encryptedContent, authorEnvelope, adminEnvelopes } = encryptNote(
-            { text: `[${t('transcription.title')}] ${text}` },
-            authorPubkey,
-            [adminPub]
+          const conv = MlsConversation.open(hubId, cryptoWorker, '')
+          const plaintext = new TextEncoder().encode(
+            JSON.stringify({ text: `[${t('transcription.title')}] ${text}` })
           )
-          await createNote({ callId: call.id, encryptedContent, authorEnvelope, adminEnvelopes })
+          const mlsCiphertextBytes = await conv.encrypt(plaintext)
+          const mlsCiphertext = Buffer.from(mlsCiphertextBytes).toString('base64')
+          const mlsEpoch = await conv.currentEpoch()
+          await createNote({ callId: call.id, mlsCiphertext, mlsEpoch })
           toast(t('transcription.saved'), 'success')
         }
       } catch {

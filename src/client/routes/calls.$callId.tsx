@@ -13,9 +13,12 @@ import {
   linkToContact,
 } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
-import { decryptCallRecord, decryptNote, decryptTranscription } from '@/lib/crypto-worker-helpers'
+import { useConfig } from '@/lib/config'
+import { cryptoWorker } from '@/lib/crypto-worker-client'
+import { decryptCallRecord, decryptTranscription } from '@/lib/crypto-worker-helpers'
 import { decryptObjectFields } from '@/lib/decrypt-fields'
 import * as keyManager from '@/lib/key-manager'
+import { MlsConversation } from '@/lib/mls/conversation'
 import { useUsers } from '@/lib/queries/users'
 import { useToast } from '@/lib/toast'
 import { LABEL_USER_PII } from '@shared/crypto-labels'
@@ -52,10 +55,52 @@ function formatDuration(seconds: number) {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
+const PRE_UPGRADE_TEXT = 'Note from before security upgrade — no longer available'
+
+async function decryptNoteMls(note: EncryptedNote, hubId: string): Promise<NotePayload> {
+  if (!note.mlsCiphertext) {
+    if (
+      note.encryptedContent ||
+      note.authorEnvelope ||
+      (note.adminEnvelopes && note.adminEnvelopes.length > 0)
+    ) {
+      return { text: PRE_UPGRADE_TEXT }
+    }
+    return { text: '[Decryption failed]' }
+  }
+
+  const unlocked = await keyManager.isUnlocked()
+  if (!unlocked) {
+    return { text: '[No key]' }
+  }
+
+  try {
+    const conv = MlsConversation.open(hubId, cryptoWorker, '')
+    const result = await conv.decrypt(new Uint8Array(Buffer.from(note.mlsCiphertext, 'base64')))
+    if (!result.message) {
+      return { text: '[Decryption failed]' }
+    }
+    const decoded = new TextDecoder().decode(result.message)
+    try {
+      const parsed = JSON.parse(decoded)
+      if (parsed && typeof parsed === 'object' && typeof parsed.text === 'string') {
+        return parsed as NotePayload
+      }
+    } catch {
+      return { text: decoded }
+    }
+    return { text: decoded }
+  } catch {
+    return { text: '[Decryption failed]' }
+  }
+}
+
 function CallDetailPage() {
   const { t } = useTranslation()
   const { callId } = Route.useParams()
   const { isAdmin, hasNsec, publicKey, hasPermission } = useAuth()
+  const { currentHubId } = useConfig()
+  const hubId = currentHubId ?? 'global'
   const { toast } = useToast()
   const navigate = useNavigate()
   const canCreateContacts = hasPermission('contacts:create')
@@ -66,12 +111,10 @@ function CallDetailPage() {
   const [auditEntries, setAuditEntries] = useState<AuditLogEntry[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Contact linking state
   const [showCreateContact, setShowCreateContact] = useState(false)
   const [showLinkExisting, setShowLinkExisting] = useState(false)
   const [linkingContact, setLinkingContact] = useState(false)
 
-  // useUsers decrypts PII fields (name) in the query fn
   const { data: users = [] } = useUsers()
 
   useEffect(() => {
@@ -82,32 +125,19 @@ function CallDetailPage() {
         setAuditEntries(detail.auditEntries)
 
         const unlocked = await keyManager.isUnlocked()
-        const myPubkey = publicKey ?? ''
         const decrypted: DecryptedNote[] = []
         for (const note of detail.notes) {
           const isTranscription = note.authorPubkey.startsWith('system:transcription')
           let payload: NotePayload
           if (isTranscription && note.ephemeralPubkey && hasNsec && unlocked) {
             const text =
-              (await decryptTranscription(note.encryptedContent, note.ephemeralPubkey)) ||
+              (await decryptTranscription(note.encryptedContent ?? '', note.ephemeralPubkey)) ||
               '[Decryption failed]'
             payload = { text }
           } else if (isTranscription && !note.ephemeralPubkey) {
-            payload = { text: note.encryptedContent }
-          } else if (hasNsec && unlocked) {
-            const envelope = isAdmin
-              ? (note.adminEnvelopes?.find((e) => e.pubkey === myPubkey) ??
-                note.adminEnvelopes?.[0])
-              : note.authorEnvelope
-            if (envelope) {
-              payload = (await decryptNote(note.encryptedContent, envelope)) || {
-                text: '[Decryption failed]',
-              }
-            } else {
-              payload = { text: '[Decryption failed]' }
-            }
+            payload = { text: note.encryptedContent ?? '' }
           } else {
-            payload = { text: '[No key]' }
+            payload = await decryptNoteMls(note, hubId)
           }
           decrypted.push({ ...note, decrypted: payload.text, payload, isTranscription })
         }
@@ -115,7 +145,7 @@ function CallDetailPage() {
       })
       .catch(() => toast(t('common.error'), 'error'))
       .finally(() => setLoading(false))
-  }, [callId, hasNsec, publicKey, isAdmin])
+  }, [callId, hasNsec, publicKey, isAdmin, hubId])
 
   // Decrypt call record client-side (E2EE metadata + envelope-encrypted fields)
   const [decryptedCallWithFields, setDecryptedCall] = useState<CallRecord | null>(null)
