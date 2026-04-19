@@ -23,6 +23,8 @@ import {
   LABEL_PUK_WRAP_TO_DEVICE,
   LABEL_REGISTRY,
   LABEL_SAS_MLS,
+  LABEL_SAS_MLS_V3,
+  LABEL_SFRAME_RATCHET,
   labelToId,
 } from '@shared/crypto-labels'
 
@@ -93,26 +95,60 @@ describe('Tier 3 labels', () => {
 })
 
 describe('Tier 6 crypto labels', () => {
-  test('LABEL_SAS_MLS exists and is distinct', () => {
+  test('LABEL_SAS_MLS exists and is registered (AEAD fingerprint label)', () => {
     expect(LABEL_SAS_MLS as string).toBe('llamenos:sas:v2')
+    expect(LABEL_REGISTRY).toContain(LABEL_SAS_MLS)
+    expect(labelToId(LABEL_SAS_MLS)).toBe(41)
   })
-  test('LABEL_ITEMS_KEY_EXPORT exists', () => {
-    expect(LABEL_ITEMS_KEY_EXPORT as string).toBe('llamenos:items-key-export:v1')
+  test('LABEL_ITEMS_KEY_EXPORT is a plain string (HKDF-only, not in registry)', () => {
+    expect(LABEL_ITEMS_KEY_EXPORT).toBe('llamenos:items-key-export:v1')
+    expect(LABEL_REGISTRY).not.toContain(LABEL_ITEMS_KEY_EXPORT)
   })
-  test('LABEL_NOTE_EPOCH_KEY exists', () => {
-    expect(LABEL_NOTE_EPOCH_KEY as string).toBe('llamenos:note-epoch-key:v1')
+  test('LABEL_NOTE_EPOCH_KEY is a plain string (HKDF-only, not in registry)', () => {
+    expect(LABEL_NOTE_EPOCH_KEY).toBe('llamenos:note-epoch-key:v1')
+    expect(LABEL_REGISTRY).not.toContain(LABEL_NOTE_EPOCH_KEY)
   })
-  test('LABEL_MLS_PROVISION exists', () => {
-    expect(LABEL_MLS_PROVISION as string).toBe('llamenos:mls-provision:v1')
+  test('LABEL_MLS_PROVISION is a plain string (HKDF-only, not in registry)', () => {
+    expect(LABEL_MLS_PROVISION).toBe('llamenos:mls-provision:v1')
+    expect(LABEL_REGISTRY).not.toContain(LABEL_MLS_PROVISION)
   })
-  test('all Tier 6 labels registered in LABEL_REGISTRY', () => {
-    for (const label of [
-      LABEL_SAS_MLS,
-      LABEL_ITEMS_KEY_EXPORT,
-      LABEL_NOTE_EPOCH_KEY,
-      LABEL_MLS_PROVISION,
-    ]) {
-      expect(LABEL_REGISTRY).toContain(label)
-    }
+})
+
+describe('Slice 7: HKDF label split', () => {
+  test('LABEL_REGISTRY has 42 entries after removing 5 HKDF-only labels', () => {
+    expect(LABEL_REGISTRY.length).toBe(42)
+  })
+
+  test('LABEL_SFRAME_RATCHET is a plain string not in registry', () => {
+    // Type check: LABEL_SFRAME_RATCHET is now plain string, not CryptoLabel.
+    // Calling labelToId(LABEL_SFRAME_RATCHET) would be a compile-time error.
+    expect(typeof LABEL_SFRAME_RATCHET).toBe('string')
+    expect(LABEL_REGISTRY).not.toContain(LABEL_SFRAME_RATCHET)
+  })
+
+  test('LABEL_SAS_MLS_V3 is a plain string not in registry', () => {
+    // Type check: LABEL_SAS_MLS_V3 is now plain string, not CryptoLabel.
+    expect(typeof LABEL_SAS_MLS_V3).toBe('string')
+    expect(LABEL_REGISTRY).not.toContain(LABEL_SAS_MLS_V3)
+  })
+
+  test('LABEL_ITEMS_KEY_EXPORT, LABEL_NOTE_EPOCH_KEY, LABEL_MLS_PROVISION not in registry', () => {
+    expect(LABEL_REGISTRY).not.toContain(LABEL_ITEMS_KEY_EXPORT)
+    expect(LABEL_REGISTRY).not.toContain(LABEL_NOTE_EPOCH_KEY)
+    expect(LABEL_REGISTRY).not.toContain(LABEL_MLS_PROVISION)
+  })
+
+  test('labelToId throws for former HKDF-only label string values', () => {
+    // These were retired from the registry. Passing their string values
+    // (cast to CryptoLabel only for this test) must throw.
+    expect(() => labelToId(LABEL_SFRAME_RATCHET as CryptoLabel)).toThrow()
+    expect(() => labelToId(LABEL_SAS_MLS_V3 as CryptoLabel)).toThrow()
+    expect(() => labelToId(LABEL_ITEMS_KEY_EXPORT as CryptoLabel)).toThrow()
+    expect(() => labelToId(LABEL_NOTE_EPOCH_KEY as CryptoLabel)).toThrow()
+    expect(() => labelToId(LABEL_MLS_PROVISION as CryptoLabel)).toThrow()
+  })
+
+  test('LABEL_SAS_MLS remains the last AEAD label at index 41', () => {
+    expect(LABEL_REGISTRY[41] as string).toBe('llamenos:sas:v2')
   })
 })
