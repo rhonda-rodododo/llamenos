@@ -1,4 +1,5 @@
 import { CreateContactDialog } from '@/components/contacts/create-contact-dialog'
+import { ImportContactsDialog } from '@/components/contacts/import-contacts-dialog'
 import { TagBadge, TagInput, useTagLookup } from '@/components/tag-input'
 import {
   AlertDialog,
@@ -30,7 +31,7 @@ import { useConfig } from '@/lib/config'
 import { useBulkDeleteContacts, useBulkUpdateContacts, useContacts } from '@/lib/queries/contacts'
 import { useAssignTeamContacts, useTeamContacts, useTeams } from '@/lib/queries/teams'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { BookUser, Plus, Search, Tag, Trash2, Users, X } from 'lucide-react'
+import { BookUser, Plus, Search, Tag, Trash2, Upload, Users, X } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -79,6 +80,7 @@ function ContactDirectoryPage() {
   const { contactType, riskLevel, q, teamId, tag } = Route.useSearch()
   const [searchInput, setSearchInput] = useState(q)
   const [createOpen, setCreateOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const { currentHubId } = useConfig()
   const hubId = currentHubId ?? 'global'
@@ -214,6 +216,15 @@ function ContactDirectoryPage() {
           <h1 className="text-xl font-bold sm:text-2xl">{t('contacts.title')}</h1>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            data-testid="import-contacts-btn"
+            size="sm"
+            variant="outline"
+            onClick={() => setImportOpen(true)}
+          >
+            <Upload className="mr-1.5 h-4 w-4" />
+            {t('contacts.import', { defaultValue: 'Import' })}
+          </Button>
           <Button data-testid="new-contact-btn" size="sm" onClick={() => setCreateOpen(true)}>
             <Plus className="mr-1.5 h-4 w-4" />
             {t('contacts.newContact')}
@@ -455,6 +466,15 @@ function ContactDirectoryPage() {
         onCreated={() => {
           setCreateOpen(false)
           // useCreateContact mutation invalidates contacts.all in onSuccess
+        }}
+      />
+
+      <ImportContactsDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onImported={() => {
+          setImportOpen(false)
+          // useImportContacts mutation invalidates contacts.all in onSuccess
         }}
       />
     </div>

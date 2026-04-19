@@ -25,11 +25,20 @@
 import { describe, expect, test } from 'bun:test'
 import { bytesToHex } from '@noble/hashes/utils.js'
 import {
-  combineRecoveryGroupShares,
+  type VerifiedShare,
+  combineAndVerifyShares,
   commitShare,
   splitRecoveryGroupSecret,
   verifyShareCommitment,
 } from './recovery-group-share'
+
+// Cast a raw share to VerifiedShare, bypassing commitment verification.
+// Used only in adversarial tests that intentionally test raw Shamir combine
+// behavior (below-threshold garbage output) without going through the public
+// verification layer. Never use outside of this test file.
+function asVerified(share: Uint8Array): VerifiedShare {
+  return share as unknown as VerifiedShare
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -52,22 +61,24 @@ function tamperShare(share: Uint8Array): Uint8Array {
 // ---------------------------------------------------------------------------
 
 describe('Shamir — below-threshold combine produces garbage, not the secret', () => {
-  test('2-of-3: combining only 1 valid share with combineRecoveryGroupShares throws', async () => {
+  test('2-of-3: combining only 1 valid share with combineAndVerifyShares throws', async () => {
     const secret = randomSecret()
     const shares = await splitRecoveryGroupSecret(secret, 3, 2)
 
-    // The guard in combineRecoveryGroupShares requires at least 2 shares.
-    await expect(combineRecoveryGroupShares([shares[0]!])).rejects.toThrow(/at least 2 shares/)
+    // The guard in combineAndVerifyShares requires at least 2 shares.
+    await expect(combineAndVerifyShares([asVerified(shares[0]!)])).rejects.toThrow(
+      /at least 2 shares/
+    )
   })
 
   test('3-of-5: combining exactly 2 (below threshold) returns wrong bytes', async () => {
-    // Use combineRecoveryGroupShares directly — bypasses the commitment check
-    // so we can observe the raw library output.
+    // Use asVerified() to bypass commitment branding so we can observe the raw
+    // library output for a below-threshold combine.
     const secret = randomSecret()
     const shares = await splitRecoveryGroupSecret(secret, 5, 3)
 
     // 2 < 3 threshold: the library returns GF(2^8) interpolation garbage.
-    const garbage = await combineRecoveryGroupShares([shares[0]!, shares[1]!])
+    const garbage = await combineAndVerifyShares([asVerified(shares[0]!), asVerified(shares[1]!)])
 
     expect(bytesToHex(garbage)).not.toBe(bytesToHex(secret))
     // The garbage is still the right byte length (same as the secret).
@@ -78,8 +89,8 @@ describe('Shamir — below-threshold combine produces garbage, not the secret', 
     const secret = randomSecret()
     const shares = await splitRecoveryGroupSecret(secret, 5, 3)
 
-    const run1 = await combineRecoveryGroupShares([shares[0]!, shares[2]!])
-    const run2 = await combineRecoveryGroupShares([shares[0]!, shares[2]!])
+    const run1 = await combineAndVerifyShares([asVerified(shares[0]!), asVerified(shares[2]!)])
+    const run2 = await combineAndVerifyShares([asVerified(shares[0]!), asVerified(shares[2]!)])
 
     // Deterministic library: identical share subsets must produce identical garbage.
     expect(bytesToHex(run1)).toBe(bytesToHex(run2))
@@ -92,8 +103,8 @@ describe('Shamir — below-threshold combine produces garbage, not the secret', 
     const secret = randomSecret()
     const shares = await splitRecoveryGroupSecret(secret, 5, 3)
 
-    const subset01 = await combineRecoveryGroupShares([shares[0]!, shares[1]!])
-    const subset23 = await combineRecoveryGroupShares([shares[2]!, shares[3]!])
+    const subset01 = await combineAndVerifyShares([asVerified(shares[0]!), asVerified(shares[1]!)])
+    const subset23 = await combineAndVerifyShares([asVerified(shares[2]!), asVerified(shares[3]!)])
 
     // Different share sets → different garbage (with overwhelming probability for random secret).
     expect(bytesToHex(subset01)).not.toBe(bytesToHex(subset23))
