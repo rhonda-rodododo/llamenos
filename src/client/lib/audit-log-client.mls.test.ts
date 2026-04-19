@@ -21,6 +21,18 @@ mock.module('./crypto-worker-client', () => ({
   },
 }))
 
+// Isolate from auth-facade-client mocks in other test files (e.g.
+// unlock-factors.test.ts) that strip getAccessToken from the exported
+// authFacadeClient. Without this, getAuthHeaders() throws
+// "getAccessToken is not a function" when those mocks leak into this file.
+mock.module('./auth-facade-client', () => ({
+  authFacadeClient: {
+    getAccessToken: () => null,
+    setAccessToken: () => {},
+    clearAccessToken: () => {},
+  },
+}))
+
 const {
   logMlsGroupInit,
   logMlsMembersAdded,
