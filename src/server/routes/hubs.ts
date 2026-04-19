@@ -3,6 +3,7 @@ import { LABEL_STORAGE_CREDENTIAL_WRAP } from '@shared/crypto-labels'
 import { eq } from 'drizzle-orm'
 import type { Hub } from '../../shared/types'
 import { getDb } from '../db'
+import { mlsHubState } from '../db/schema/mls'
 import { hubStorageCredentials, hubStorageSettings } from '../db/schema/storage'
 import { createLogger } from '../lib/logger'
 import { createRouter } from '../lib/openapi'
@@ -116,6 +117,22 @@ routes.openapi(createHubRoute, async (c) => {
     createdBy: pubkey,
   })
 
+  // Bootstrap MLS group state for the new hub
+  try {
+    const db = getDb()
+    const groupIdBytes = Buffer.from(`llamenos:hub:${hub.id}`, 'utf-8')
+    await db.insert(mlsHubState).values({
+      hubId: hub.id,
+      groupId: groupIdBytes,
+      ciphersuite: 1,
+      currentEpoch: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+  } catch (err) {
+    log.error('Failed to bootstrap MLS group state for hub', err, { hubId: hub.id })
+  }
+
   if (services.storage) {
     try {
       const iamResult = await services.storage.provisionHub(hub.id)
@@ -181,7 +198,18 @@ routes.openapi(getHubRoute, async (c) => {
     return c.json({ error: 'Access denied' }, 403)
   }
 
-  return c.json({ hub }, 200)
+  // Include MLS readiness indicator
+  const db = getDb()
+  const mlsRows = await db
+    .select({ currentEpoch: mlsHubState.currentEpoch })
+    .from(mlsHubState)
+    .where(eq(mlsHubState.hubId, hubId))
+    .limit(1)
+
+  const mlsState =
+    mlsRows.length > 0 ? { mlsReady: true, mlsEpoch: mlsRows[0].currentEpoch } : { mlsReady: false }
+
+  return c.json({ hub: { ...hub, ...mlsState } }, 200)
 })
 
 // ── PATCH /{hubId} — update hub ──
