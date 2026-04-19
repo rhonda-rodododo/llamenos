@@ -332,8 +332,11 @@ export const LABEL_SFRAME_CALL_SECRET = 'llamenos:sframe-call-secret:v1' as Cryp
 /** HKDF info for per-sender SFrame base key derivation from call secret */
 export const LABEL_SFRAME_BASE_KEY = 'llamenos:sframe-base-key:v1' as CryptoLabel
 
-/** HKDF salt for forward-secret ratchet on device join */
-export const LABEL_SFRAME_RATCHET = 'llamenos:sframe-ratchet:v1' as CryptoLabel
+/**
+ * HKDF salt for forward-secret ratchet on device join.
+ * Plain string — HKDF info/salt only, never used as AEAD `label` argument.
+ */
+export const LABEL_SFRAME_RATCHET = 'llamenos:sframe-ratchet:v1'
 
 // --- Tier 6 (MLS + PQ) ---
 
@@ -344,17 +347,27 @@ export const LABEL_SAS_MLS = 'llamenos:sas:v2' as CryptoLabel
  * 7-emoji SAS v3 — binds verifier pubkey + target pubkey + session nonce.
  * Supersedes LABEL_SAS_MLS, which derived from the target pubkey only and was
  * trivially precomputable by any attacker who knew the public key.
+ * Plain string — HKDF info only, never used as AEAD `label` argument.
  */
-export const LABEL_SAS_MLS_V3 = 'llamenos:sas:v3' as CryptoLabel
+export const LABEL_SAS_MLS_V3 = 'llamenos:sas:v3'
 
-/** MLS exporter-secret → per-user items_key derivation */
-export const LABEL_ITEMS_KEY_EXPORT = 'llamenos:items-key-export:v1' as CryptoLabel
+/**
+ * MLS exporter-secret → per-user items_key derivation.
+ * Plain string — HKDF info only, never used as AEAD `label` argument.
+ */
+export const LABEL_ITEMS_KEY_EXPORT = 'llamenos:items-key-export:v1'
 
-/** MLS exporter-secret → per-note epoch-bound key (provable delete) */
-export const LABEL_NOTE_EPOCH_KEY = 'llamenos:note-epoch-key:v1' as CryptoLabel
+/**
+ * MLS exporter-secret → per-note epoch-bound key (provable delete).
+ * Plain string — HKDF info only, never used as AEAD `label` argument.
+ */
+export const LABEL_NOTE_EPOCH_KEY = 'llamenos:note-epoch-key:v1'
 
-/** HKDF domain separation for MLS credential provisioning */
-export const LABEL_MLS_PROVISION = 'llamenos:mls-provision:v1' as CryptoLabel
+/**
+ * HKDF domain separation for MLS credential provisioning.
+ * Plain string — HKDF info only, never used as AEAD `label` argument.
+ */
+export const LABEL_MLS_PROVISION = 'llamenos:mls-provision:v1'
 
 // --- Label Registry ---
 // The index of each label is its stable on-wire `labelId` byte.
@@ -403,13 +416,14 @@ export const LABEL_REGISTRY = [
   LABEL_PAPER_KEY_ENCRYPTION,
   LABEL_HUB_PTK_PREV_GEN,
   // Tier 5: SFrame Voice E2EE
-  LABEL_SFRAME_CALL_SECRET,
-  LABEL_SFRAME_RATCHET,
-  LABEL_SAS_MLS,
-  LABEL_SAS_MLS_V3,
-  LABEL_ITEMS_KEY_EXPORT,
-  LABEL_NOTE_EPOCH_KEY,
-  LABEL_MLS_PROVISION,
+  LABEL_SFRAME_CALL_SECRET, // 40
+  LABEL_SAS_MLS, // 41
+  // Indices 42-46 permanently retired — were HKDF-only labels, never used as AEAD:
+  //   42: LABEL_SFRAME_RATCHET  (llamenos:sframe-ratchet:v1)
+  //   43: LABEL_SAS_MLS_V3      (llamenos:sas:v3)
+  //   44: LABEL_ITEMS_KEY_EXPORT (llamenos:items-key-export:v1)
+  //   45: LABEL_NOTE_EPOCH_KEY   (llamenos:note-epoch-key:v1)
+  //   46: LABEL_MLS_PROVISION    (llamenos:mls-provision:v1)
 ] as const satisfies readonly CryptoLabel[]
 
 export function labelToId(label: CryptoLabel): number {
