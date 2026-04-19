@@ -13,7 +13,10 @@
  */
 
 import { archiveHub, createHub, deleteHub, listHubs, updateHub } from '@/lib/api'
+import { cryptoWorker } from '@/lib/crypto-worker-client'
+import { getDeviceKeypair } from '@/lib/device-identity-store'
 import { decryptHubField } from '@/lib/hub-field-crypto'
+import { bootstrapMlsForNewHub } from '@/lib/mls/hub-bootstrap'
 import type { Hub } from '@shared/schemas'
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from './keys'
@@ -60,8 +63,17 @@ export function useCreateHub() {
   return useMutation({
     mutationFn: (data: { name: string; description?: string; phoneNumber?: string }) =>
       createHub(data),
-    onSuccess: () => {
+    onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.hubs.all })
+
+      // Bootstrap MLS group for the new hub (fire-and-forget — failure is non-fatal)
+      if (result.hub?.id && cryptoWorker) {
+        void (async () => {
+          const keypair = await getDeviceKeypair()
+          if (!keypair) return
+          await bootstrapMlsForNewHub(result.hub.id, cryptoWorker, keypair.deviceId)
+        })()
+      }
     },
   })
 }
