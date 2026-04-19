@@ -354,7 +354,7 @@ function ReportDetail({
         data-testid="report-detail-header"
       >
         <div className="min-w-0 flex-1">
-          <p className="truncate font-medium">
+          <p className="truncate font-medium" data-testid="report-detail-title">
             {activeReport.metadata?.reportTitle ||
               t('reports.untitled', { defaultValue: 'Untitled Report' })}
           </p>
@@ -391,7 +391,7 @@ function ReportDetail({
         </div>
         <div className="flex items-center gap-2 shrink-0 ml-3">
           {activeReport.status === 'waiting' && (isAdmin || hasPermission('calls:answer')) && (
-            <Button size="sm" onClick={handleAssign}>
+            <Button size="sm" onClick={handleAssign} data-testid="report-detail-claim">
               <UserCheck className="h-3.5 w-3.5" />
               {t('reports.claim', { defaultValue: 'Claim' })}
             </Button>
@@ -425,13 +425,23 @@ function ReportDetail({
       )}
 
       {/* Messages thread */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto px-4 py-4 space-y-3"
+        data-testid="report-detail-messages"
+      >
         {messagesLoading ? (
-          <div className="flex items-center justify-center py-8">
+          <div
+            className="flex items-center justify-center py-8"
+            data-testid="report-detail-loading"
+          >
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : messages.length === 0 ? (
-          <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+          <div
+            className="flex items-center justify-center py-8 text-sm text-muted-foreground"
+            data-testid="report-detail-empty"
+          >
             {t('reports.noMessages', { defaultValue: 'No messages yet' })}
           </div>
         ) : (
@@ -440,7 +450,11 @@ function ReportDetail({
             const text = decryptedContent.get(msg.id)
 
             return (
-              <div key={msg.id} className={`flex ${isInbound ? 'justify-start' : 'justify-end'}`}>
+              <div
+                key={msg.id}
+                className={`flex ${isInbound ? 'justify-start' : 'justify-end'}`}
+                data-testid={`report-message-${msg.id}`}
+              >
                 <div
                   className={`max-w-[75%] rounded-2xl px-4 py-2.5 ${
                     isInbound
@@ -460,7 +474,7 @@ function ReportDetail({
 
                   {/* Inline file attachments */}
                   {msg.hasAttachments && msg.attachmentIds && msg.attachmentIds.length > 0 && (
-                    <div className="mt-2 space-y-2">
+                    <div className="mt-2 space-y-2" data-testid="report-detail-files">
                       {msg.attachmentIds.map((fileId) => (
                         <FilePreview key={fileId} fileId={fileId} />
                       ))}
@@ -500,7 +514,10 @@ function ReportDetail({
 
       {/* Composer */}
       {canReply && (
-        <div className="border-t border-border bg-background px-4 py-3">
+        <div
+          className="border-t border-border bg-background px-4 py-3"
+          data-testid="report-detail-composer"
+        >
           <div className="flex items-center gap-1.5 mb-2 text-xs text-muted-foreground">
             <Lock className="h-3 w-3" />
             <span>
@@ -514,6 +531,7 @@ function ReportDetail({
               onClick={() => setShowFileUpload((prev) => !prev)}
               aria-label={t('reports.attachFile', { defaultValue: 'Attach file' })}
               className="shrink-0 text-muted-foreground"
+              data-testid="report-detail-attach"
             >
               <Paperclip className="h-4 w-4" />
             </Button>
@@ -529,6 +547,7 @@ function ReportDetail({
               placeholder={t('reports.replyPlaceholder', { defaultValue: 'Type your reply...' })}
               rows={1}
               className="flex-1 resize-none rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              data-testid="report-detail-reply-textarea"
             />
             <Button
               size="icon-sm"
@@ -536,6 +555,7 @@ function ReportDetail({
               onClick={() => void handleSendReply()}
               aria-label={t('common.submit')}
               className="shrink-0"
+              data-testid="report-detail-send-reply"
             >
               {sending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
