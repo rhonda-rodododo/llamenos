@@ -84,9 +84,13 @@ export class UserNotificationsService {
   ) {}
 
   async sendAlert(userPubkey: string, alert: AlertInput): Promise<{ delivered: boolean }> {
+    const prefs = await this.prefs.get(userPubkey)
+
+    // Respect the user's notification channel preference
+    if (prefs.notificationChannel !== 'signal') return { delivered: false }
+
     const contact = await this.signalContacts.findByUser(userPubkey)
     if (!contact) return { delivered: false }
-    const prefs = await this.prefs.get(userPubkey)
 
     if (alert.type === 'digest' && prefs.digestCadence === 'off') {
       return { delivered: false }

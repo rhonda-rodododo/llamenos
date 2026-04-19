@@ -1382,6 +1382,7 @@ authFacade.get('/security-prefs', async (c) => {
     alertOnNewDevice: row.alertOnNewDevice,
     alertOnPasskeyChange: row.alertOnPasskeyChange,
     alertOnPinChange: row.alertOnPinChange,
+    notificationChannel: row.notificationChannel,
   })
 })
 
@@ -1400,6 +1401,7 @@ authFacade.patch('/security-prefs', async (c) => {
     alertOnNewDevice: row.alertOnNewDevice,
     alertOnPasskeyChange: row.alertOnPasskeyChange,
     alertOnPinChange: row.alertOnPinChange,
+    notificationChannel: row.notificationChannel,
   })
 })
 

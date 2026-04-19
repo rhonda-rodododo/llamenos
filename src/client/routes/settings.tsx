@@ -46,11 +46,13 @@ import {
   Globe,
   KeyRound,
   Loader2,
+  MessageSquare,
   Mic,
   Monitor,
   Phone,
   PhoneCall,
   Plus,
+  Radio,
   Settings2,
   ShieldCheck,
   Smartphone,
@@ -580,6 +582,12 @@ function SettingsPage() {
         <NotificationPermissionStatus />
       </SettingsSection>
 
+      {/* Signal Contact */}
+      <SignalContactSection expanded={expanded} toggleSection={toggleSection} />
+
+      {/* Notification Channel */}
+      <NotificationChannelSection expanded={expanded} toggleSection={toggleSection} />
+
       {/* Privacy & Data */}
       <GdprSection />
     </div>
@@ -721,6 +729,334 @@ function GdprSection() {
           </div>
         )}
       </div>
+    </SettingsSection>
+  )
+}
+
+function SignalContactSection({
+  expanded,
+  toggleSection,
+}: {
+  expanded: Set<string>
+  toggleSection: (id: string, open: boolean) => void
+}) {
+  const { t } = useTranslation()
+  const { toast } = useToast()
+  const { publicKey } = useAuth()
+
+  const [contact, setContact] = useState<{
+    identifierType: 'phone' | 'username'
+    identifierCiphertext: string
+    verifiedAt: string | null
+  } | null>(null)
+  const [loaded, setLoaded] = useState(false)
+  const [identifierType, setIdentifierType] = useState<'phone' | 'username'>('phone')
+  const [identifier, setIdentifier] = useState('')
+  const [registering, setRegistering] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  useEffect(() => {
+    authFacadeClient
+      .getSignalContact()
+      .then((res) => {
+        if (res.contact) {
+          setContact({
+            identifierType: res.contact.identifierType,
+            identifierCiphertext: res.contact.identifierCiphertext,
+            verifiedAt: res.contact.verifiedAt,
+          })
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoaded(true))
+  }, [])
+
+  async function handleRegister() {
+    if (!identifier.trim() || !publicKey) return
+    setRegistering(true)
+    try {
+      const { normalizeSignalIdentifier } = await import('@shared/signal-identifier-normalize')
+      const normalized = normalizeSignalIdentifier(identifier, identifierType)
+
+      // Get HMAC key for hashing
+      const { key: hmacKey } = await authFacadeClient.getSignalContactHmacKey()
+
+      // Hash the identifier client-side
+      const { hmac } = await import('@noble/hashes/hmac.js')
+      const { sha256 } = await import('@noble/hashes/sha2.js')
+      const { utf8ToBytes, bytesToHex } = await import('@noble/hashes/utils.js')
+      const identifierHash = bytesToHex(hmac(sha256, utf8ToBytes(hmacKey), utf8ToBytes(normalized)))
+
+      // Envelope-encrypt the identifier for self
+      const { LABEL_SIGNAL_CONTACT } = await import('@shared/crypto-labels')
+      const { encryptedHex, envelopes } = await cryptoWorker.envelopeEncryptField(
+        normalized,
+        [publicKey],
+        LABEL_SIGNAL_CONTACT,
+        utf8ToBytes(LABEL_SIGNAL_CONTACT)
+      )
+
+      await authFacadeClient.registerSignalContact({
+        identifierHash,
+        identifierCiphertext: encryptedHex,
+        identifierEnvelope: envelopes.map((e) => ({
+          pubkey: e.recipientPubkey,
+          wrappedKey: e.wrappedKeyHex as import('@shared/crypto-types').Ciphertext,
+          ephemeralPubkey: e.ephemeralPubkeyHex,
+        })),
+        identifierType,
+        plaintextIdentifier: normalized,
+      })
+
+      setContact({
+        identifierType,
+        identifierCiphertext: encryptedHex,
+        verifiedAt: new Date().toISOString(),
+      })
+      setIdentifier('')
+      toast(t('settings.signalContactRegistered_success'), 'success')
+    } catch {
+      toast(t('common.error'), 'error')
+    } finally {
+      setRegistering(false)
+    }
+  }
+
+  async function handleDelete() {
+    setDeleting(true)
+    try {
+      await authFacadeClient.deleteSignalContact()
+      setContact(null)
+      toast(t('settings.signalContactDeleted'), 'success')
+    } catch {
+      toast(t('common.error'), 'error')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  return (
+    <SettingsSection
+      id="signal-contact"
+      title={t('settings.signalContact')}
+      description={t('settings.signalContactDescription')}
+      icon={<MessageSquare className="h-5 w-5 text-muted-foreground" />}
+      expanded={expanded.has('signal-contact')}
+      onToggle={(open) => toggleSection('signal-contact', open)}
+    >
+      {!loaded ? (
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          {t('common.loading')}
+        </div>
+      ) : contact ? (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between rounded-lg border border-border p-4">
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <Label>{t('settings.signalContactRegistered')}</Label>
+                {contact.verifiedAt && (
+                  <Badge variant="outline" className="text-green-600 border-green-500/30">
+                    <CheckCircle2 className="mr-1 h-3 w-3" />
+                    {t('settings.signalContactVerified')}
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {contact.identifierType === 'phone'
+                  ? t('settings.signalContactPhone')
+                  : t('settings.signalContactUsername')}
+              </p>
+            </div>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleDelete}
+              disabled={deleting}
+              data-testid="signal-contact-delete"
+            >
+              {deleting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">{t('settings.signalContactNone')}</p>
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              <Button
+                variant={identifierType === 'phone' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setIdentifierType('phone')}
+                data-testid="signal-type-phone"
+              >
+                {t('settings.signalContactPhone')}
+              </Button>
+              <Button
+                variant={identifierType === 'username' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setIdentifierType('username')}
+                data-testid="signal-type-username"
+              >
+                {t('settings.signalContactUsername')}
+              </Button>
+            </div>
+            <div className="flex gap-2">
+              <Input
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder={
+                  identifierType === 'phone'
+                    ? t('settings.signalContactIdentifierPhonePlaceholder')
+                    : t('settings.signalContactIdentifierUsernamePlaceholder')
+                }
+                data-testid="signal-identifier-input"
+              />
+              <Button
+                onClick={handleRegister}
+                disabled={registering || !identifier.trim()}
+                data-testid="signal-register-button"
+              >
+                {registering ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {t('settings.signalContactRegistering')}
+                  </>
+                ) : (
+                  t('settings.signalContactRegister')
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </SettingsSection>
+  )
+}
+
+function NotificationChannelSection({
+  expanded,
+  toggleSection,
+}: {
+  expanded: Set<string>
+  toggleSection: (id: string, open: boolean) => void
+}) {
+  const { t } = useTranslation()
+  const { toast } = useToast()
+
+  const [channel, setChannel] = useState<'web_push' | 'signal'>('web_push')
+  const [loaded, setLoaded] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [hasSignalContact, setHasSignalContact] = useState(false)
+
+  useEffect(() => {
+    Promise.all([
+      authFacadeClient.getSecurityPrefs().then((prefs) => {
+        setChannel(prefs.notificationChannel as 'web_push' | 'signal')
+      }),
+      authFacadeClient.getSignalContact().then((res) => {
+        setHasSignalContact(res.contact !== null)
+      }),
+    ])
+      .catch(() => {})
+      .finally(() => setLoaded(true))
+  }, [])
+
+  async function handleChannelChange(newChannel: 'web_push' | 'signal') {
+    if (newChannel === 'signal' && !hasSignalContact) {
+      toast(t('settings.notificationChannelSignalNoContact'), 'error')
+      return
+    }
+    setSaving(true)
+    try {
+      await authFacadeClient.updateSecurityPrefs({ notificationChannel: newChannel })
+      setChannel(newChannel)
+      toast(t('settings.notificationChannelSaved'), 'success')
+    } catch {
+      toast(t('common.error'), 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const options = [
+    {
+      value: 'web_push' as const,
+      label: t('settings.notificationChannelWebPush'),
+      desc: t('settings.notificationChannelWebPushDesc'),
+      icon: Bell,
+    },
+    {
+      value: 'signal' as const,
+      label: t('settings.notificationChannelSignal'),
+      desc: t('settings.notificationChannelSignalDesc'),
+      icon: MessageSquare,
+      disabled: !hasSignalContact,
+    },
+  ]
+
+  return (
+    <SettingsSection
+      id="notification-channel"
+      title={t('settings.notificationChannel')}
+      description={t('settings.notificationChannelDescription')}
+      icon={<Radio className="h-5 w-5 text-muted-foreground" />}
+      expanded={expanded.has('notification-channel')}
+      onToggle={(open) => toggleSection('notification-channel', open)}
+    >
+      {!loaded ? (
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          {t('common.loading')}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              disabled={saving || option.disabled}
+              data-testid={`notification-channel-${option.value}`}
+              onClick={() => handleChannelChange(option.value)}
+              className={`flex w-full items-center gap-3 rounded-lg border p-4 text-left transition-colors ${
+                channel === option.value
+                  ? 'border-primary bg-primary/5'
+                  : option.disabled
+                    ? 'cursor-not-allowed border-border opacity-50'
+                    : 'border-border hover:border-primary/50'
+              }`}
+            >
+              <div
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+                  channel === option.value
+                    ? 'bg-primary/10 text-primary'
+                    : 'bg-muted text-muted-foreground'
+                }`}
+              >
+                <option.icon className="h-5 w-5" />
+              </div>
+              <div className="flex-1">
+                <p
+                  className={`text-sm font-medium ${channel === option.value ? 'text-primary' : ''}`}
+                >
+                  {option.label}
+                </p>
+                <p className="text-xs text-muted-foreground">{option.desc}</p>
+              </div>
+              {channel === option.value && <div className="h-2.5 w-2.5 rounded-full bg-primary" />}
+            </button>
+          ))}
+          {!hasSignalContact && (
+            <p className="text-xs text-muted-foreground">
+              {t('settings.notificationChannelSignalNoContact')}
+            </p>
+          )}
+        </div>
+      )}
     </SettingsSection>
   )
 }

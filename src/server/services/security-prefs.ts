@@ -3,6 +3,7 @@ import type { Database } from '../db'
 import { type UserSecurityPrefsRow, userSecurityPrefs } from '../db/schema/security-prefs'
 
 export type DigestCadence = 'off' | 'daily' | 'weekly'
+export type NotificationChannel = 'web_push' | 'signal'
 
 const DEFAULTS = {
   autoLockMs: 900000,
@@ -11,6 +12,7 @@ const DEFAULTS = {
   alertOnNewDevice: true,
   alertOnPasskeyChange: true,
   alertOnPinChange: true,
+  notificationChannel: 'web_push' as NotificationChannel,
 }
 
 export class SecurityPrefsService {
