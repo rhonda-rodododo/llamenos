@@ -12,7 +12,11 @@ import { ed25519 } from '@noble/curves/ed25519.js'
 import { schnorr } from '@noble/curves/secp256k1.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { computeEntryHash } from '@shared/lib/audit-entry-hash'
-import type { AuditEntryPayload, SignedAuditEntry } from '@shared/schemas/audit-entries'
+import type {
+  AuditEntryPayload,
+  SignedAuditEntry,
+  UnsignedAuditEntry,
+} from '@shared/schemas/audit-entries'
 import { verifyUserSigchain } from './user-sigchain-verifier'
 
 // ---- fixtures ----
@@ -33,10 +37,7 @@ const STRANGER = makeKeypair('ee')
 
 // ---- synthetic sigchain builder ----
 
-function signEntry(
-  privHex: string,
-  base: Omit<SignedAuditEntry, 'entryHash' | 'signature'>
-): SignedAuditEntry {
+function signEntry(privHex: string, base: UnsignedAuditEntry): SignedAuditEntry {
   const entryHash = computeEntryHash(base)
   const signature = bytesToHex(schnorr.sign(hexToBytes(entryHash), hexToBytes(privHex)))
   return { ...base, entryHash, signature }
@@ -61,7 +62,7 @@ function appendEntry(
   privHex: string,
   pubHex: string,
   payload: AuditEntryPayload,
-  overrides?: Partial<Omit<SignedAuditEntry, 'entryHash' | 'signature'>>
+  overrides?: Partial<UnsignedAuditEntry>
 ): SignedAuditEntry {
   const entry = signEntry(privHex, {
     id: crypto.randomUUID(),
