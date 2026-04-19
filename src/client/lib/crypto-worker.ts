@@ -180,6 +180,20 @@ type WorkerRequest =
   | { type: 'mlsCurrentEpoch'; id: string; groupId: string }
   | { type: 'mlsLock'; id: string }
   | { type: 'mlsClearState'; id: string }
+  // ---- Tier 6 MLS group management (Slice 3) ----
+  | { type: 'mlsCreateGroup'; id: string; groupId: string }
+  | { type: 'mlsProcessWelcome'; id: string; welcomeBytes: Uint8Array }
+  | { type: 'mlsExternalJoin'; id: string; groupInfoBytes: Uint8Array }
+  | { type: 'mlsEncryptMessage'; id: string; groupId: string; plaintext: Uint8Array }
+  | { type: 'mlsDecryptMessage'; id: string; groupId: string; ciphertext: Uint8Array }
+  | {
+      type: 'mlsAddMembers'
+      id: string
+      groupId: string
+      keyPackages: Uint8Array[]
+    }
+  | { type: 'mlsRemoveMembers'; id: string; groupId: string; clientIds: string[] }
+  | { type: 'mlsWipeGroup'; id: string; groupId: string }
 
 interface WorkerSuccessResponse {
   type: 'success'
@@ -817,6 +831,9 @@ async function handleMlsInit(clientId: string, explicitKekHex?: string): Promise
       ciphersuites: [Ciphersuite.MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519],
       nbKeyPackage: MLS_DEFAULT_KEY_PACKAGE_COUNT,
     })
+
+    // Register transport for commit bundle capture (Slice 3)
+    await setupMlsTransport()
   } finally {
     idbKey.fill(0)
   }
@@ -862,6 +879,158 @@ async function handleMlsClearState(): Promise<void> {
   if (typeof indexedDB !== 'undefined') {
     indexedDB.deleteDatabase(MLS_DATABASE_NAME)
   }
+}
+
+// ---- Tier 6 MLS group management (Slice 3) ----
+
+// Commit bundle capture — the MLS transport stores the last commit bundle here
+// so the RPC handler can return it to the main thread. Cleared after each read.
+let capturedCommitBundle: {
+  commit: Uint8Array
+  welcome: Uint8Array | undefined
+  groupInfo: Uint8Array | undefined
+} | null = null
+
+/**
+ * Register the MLS transport with the core-crypto instance. The transport
+ * captures commit bundles for the RPC layer to return to the main thread
+ * (the MlsConversation is responsible for sending them to the server).
+ */
+async function setupMlsTransport(): Promise<void> {
+  if (!mlsInstance) return
+  const { MlsTransportData } = await (await import('./mls/core-crypto-loader')).loadCoreCrypto()
+  await mlsInstance.provideTransport({
+    sendCommitBundle: async (bundle) => {
+      capturedCommitBundle = {
+        commit: new Uint8Array(bundle.commit),
+        welcome: bundle.welcome ? bundle.welcome.copyBytes() : undefined,
+        groupInfo: bundle.groupInfo.payload.copyBytes(),
+      }
+      return 'success'
+    },
+    sendMessage: async () => 'success',
+    prepareForTransport: async () => new MlsTransportData(new Uint8Array(0)),
+  })
+}
+
+async function handleMlsCreateGroup(groupId: string): Promise<void> {
+  if (!mlsInstance) throw new Error('MLS not initialized')
+  const { ConversationId, Ciphersuite, CredentialType } = await (
+    await import('./mls/core-crypto-loader')
+  ).loadCoreCrypto()
+  const convId = new ConversationId(new TextEncoder().encode(groupId))
+  await mlsInstance.transaction((ctx) =>
+    ctx.createConversation(convId, CredentialType.Basic, {
+      ciphersuite: Ciphersuite.MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519,
+    })
+  )
+}
+
+async function handleMlsProcessWelcome(welcomeBytes: Uint8Array): Promise<string> {
+  if (!mlsInstance) throw new Error('MLS not initialized')
+  const { Welcome } = await (await import('./mls/core-crypto-loader')).loadCoreCrypto()
+  const welcome = new Welcome(welcomeBytes)
+  const bundle = await mlsInstance.transaction((ctx) => ctx.processWelcomeMessage(welcome))
+  const idBytes = bundle.id.copyBytes()
+  return new TextDecoder().decode(idBytes)
+}
+
+async function handleMlsExternalJoin(groupInfoBytes: Uint8Array): Promise<string> {
+  if (!mlsInstance) throw new Error('MLS not initialized')
+  const { GroupInfo, CredentialType } = await (
+    await import('./mls/core-crypto-loader')
+  ).loadCoreCrypto()
+  const gi = new GroupInfo(groupInfoBytes)
+  const bundle = await mlsInstance.transaction((ctx) =>
+    ctx.joinByExternalCommit(gi, CredentialType.Basic)
+  )
+  const idBytes = bundle.id.copyBytes()
+  return new TextDecoder().decode(idBytes)
+}
+
+async function handleMlsEncryptMessage(
+  groupId: string,
+  plaintext: Uint8Array
+): Promise<Uint8Array> {
+  if (!mlsInstance) throw new Error('MLS not initialized')
+  const { ConversationId } = await (await import('./mls/core-crypto-loader')).loadCoreCrypto()
+  const convId = new ConversationId(new TextEncoder().encode(groupId))
+  return mlsInstance.transaction((ctx) => ctx.encryptMessage(convId, plaintext))
+}
+
+async function handleMlsDecryptMessage(
+  groupId: string,
+  ciphertext: Uint8Array
+): Promise<{
+  message: Uint8Array | undefined
+  senderClientId: string | undefined
+  hasEpochChanged: boolean
+  isActive: boolean
+}> {
+  if (!mlsInstance) throw new Error('MLS not initialized')
+  const { ConversationId } = await (await import('./mls/core-crypto-loader')).loadCoreCrypto()
+  const convId = new ConversationId(new TextEncoder().encode(groupId))
+  const result = await mlsInstance.transaction((ctx) => ctx.decryptMessage(convId, ciphertext))
+  return {
+    message: result.message,
+    senderClientId: result.senderClientId
+      ? new TextDecoder().decode(result.senderClientId.copyBytes())
+      : undefined,
+    hasEpochChanged: result.hasEpochChanged,
+    isActive: result.isActive,
+  }
+}
+
+async function handleMlsAddMembers(
+  groupId: string,
+  keyPackages: Uint8Array[]
+): Promise<{
+  commit: Uint8Array
+  welcome: Uint8Array | undefined
+  groupInfo: Uint8Array | undefined
+}> {
+  if (!mlsInstance) throw new Error('MLS not initialized')
+  const { ConversationId } = await (await import('./mls/core-crypto-loader')).loadCoreCrypto()
+  const convId = new ConversationId(new TextEncoder().encode(groupId))
+
+  capturedCommitBundle = null
+  await mlsInstance.transaction((ctx) => ctx.addClientsToConversation(convId, keyPackages))
+
+  if (!capturedCommitBundle) throw new Error('No commit bundle captured from transport')
+  const result = capturedCommitBundle
+  capturedCommitBundle = null
+  return result
+}
+
+async function handleMlsRemoveMembers(
+  groupId: string,
+  clientIds: string[]
+): Promise<{
+  commit: Uint8Array
+  welcome: Uint8Array | undefined
+  groupInfo: Uint8Array | undefined
+}> {
+  if (!mlsInstance) throw new Error('MLS not initialized')
+  const { ConversationId, ClientId } = await (
+    await import('./mls/core-crypto-loader')
+  ).loadCoreCrypto()
+  const convId = new ConversationId(new TextEncoder().encode(groupId))
+  const cids = clientIds.map((id) => new ClientId(new TextEncoder().encode(id)))
+
+  capturedCommitBundle = null
+  await mlsInstance.transaction((ctx) => ctx.removeClientsFromConversation(convId, cids))
+
+  if (!capturedCommitBundle) throw new Error('No commit bundle captured from transport')
+  const result = capturedCommitBundle
+  capturedCommitBundle = null
+  return result
+}
+
+async function handleMlsWipeGroup(groupId: string): Promise<void> {
+  if (!mlsInstance) throw new Error('MLS not initialized')
+  const { ConversationId } = await (await import('./mls/core-crypto-loader')).loadCoreCrypto()
+  const convId = new ConversationId(new TextEncoder().encode(groupId))
+  await mlsInstance.transaction((ctx) => ctx.wipeConversation(convId))
 }
 
 // ---- Message handler ----
@@ -1039,6 +1208,33 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
         await handleMlsClearState()
         result = null
         break
+      // ---- Tier 6 MLS group management (Slice 3) ----
+      case 'mlsCreateGroup':
+        await handleMlsCreateGroup(req.groupId)
+        result = null
+        break
+      case 'mlsProcessWelcome':
+        result = await handleMlsProcessWelcome(req.welcomeBytes)
+        break
+      case 'mlsExternalJoin':
+        result = await handleMlsExternalJoin(req.groupInfoBytes)
+        break
+      case 'mlsEncryptMessage':
+        result = await handleMlsEncryptMessage(req.groupId, req.plaintext)
+        break
+      case 'mlsDecryptMessage':
+        result = await handleMlsDecryptMessage(req.groupId, req.ciphertext)
+        break
+      case 'mlsAddMembers':
+        result = await handleMlsAddMembers(req.groupId, req.keyPackages)
+        break
+      case 'mlsRemoveMembers':
+        result = await handleMlsRemoveMembers(req.groupId, req.clientIds)
+        break
+      case 'mlsWipeGroup':
+        await handleMlsWipeGroup(req.groupId)
+        result = null
+        break
       default: {
         // Exhaustive check — if we get here, the type is never
         const _exhaustive: never = req
@@ -1127,4 +1323,18 @@ export function _test_clearMlsState(): void {
     kekBytes = null
   }
   mlsInstance = null
+  capturedCommitBundle = null
+}
+
+/** @internal Test only — direct access to Slice 3 MLS group management handlers. */
+export {
+  handleMlsCreateGroup as _test_handleMlsCreateGroup,
+  handleMlsProcessWelcome as _test_handleMlsProcessWelcome,
+  handleMlsExternalJoin as _test_handleMlsExternalJoin,
+  handleMlsEncryptMessage as _test_handleMlsEncryptMessage,
+  handleMlsDecryptMessage as _test_handleMlsDecryptMessage,
+  handleMlsAddMembers as _test_handleMlsAddMembers,
+  handleMlsRemoveMembers as _test_handleMlsRemoveMembers,
+  handleMlsWipeGroup as _test_handleMlsWipeGroup,
+  setupMlsTransport as _test_setupMlsTransport,
 }

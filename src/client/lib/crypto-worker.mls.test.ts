@@ -56,6 +56,7 @@ describe('handleMlsInit', () => {
   const mockCoreCrypto = {
     close: mock(() => Promise.resolve()),
     transaction: mock(async (cb: (ctx: unknown) => Promise<unknown>) => cb({})),
+    provideTransport: mock(() => Promise.resolve()),
   }
 
   const mockDatabaseKey = mock((_bytes: Uint8Array) => ({}))
@@ -73,6 +74,7 @@ describe('handleMlsInit', () => {
         Ciphersuite: { MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519: 1 },
         CredentialType: { Basic: 1 },
         ConversationId: mock((_bytes: Uint8Array) => ({})),
+        MlsTransportData: mock((_bytes: Uint8Array) => ({})),
       }),
   }))
 
@@ -124,6 +126,7 @@ describe('handleMlsLock', () => {
               Promise.resolve({
                 close: mock(() => Promise.resolve()),
                 transaction: mock(async (cb: (ctx: unknown) => Promise<unknown>) => cb({})),
+                provideTransport: mock(() => Promise.resolve()),
               })
             ),
           },
@@ -132,6 +135,7 @@ describe('handleMlsLock', () => {
           Ciphersuite: { MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519: 1 },
           CredentialType: { Basic: 1 },
           ConversationId: mock((_b: Uint8Array) => ({})),
+          MlsTransportData: mock((_b: Uint8Array) => ({})),
         }),
     }))
 
