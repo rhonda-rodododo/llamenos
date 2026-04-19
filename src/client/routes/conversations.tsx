@@ -10,6 +10,7 @@ import { useConfig } from '@/lib/config'
 import { useConversations } from '@/lib/hooks'
 import {
   useClaimConversation,
+  useConversationLoads,
   useConversationMessages,
   useSendConversationMessage,
   useUpdateConversation,
@@ -42,6 +43,8 @@ function ConversationsPage() {
   const messagesQuery = useConversationMessages(selectedId)
   const { messages = [], decryptedContent = new Map<string, string>() } = messagesQuery.data ?? {}
   const messagesLoading = messagesQuery.isLoading
+
+  const { data: loads = {} } = useConversationLoads()
 
   const claimMutation = useClaimConversation()
   const closeMutation = useUpdateConversation()
@@ -190,6 +193,16 @@ function ConversationsPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  {selectedConv.assignedTo && loads[selectedConv.assignedTo] !== undefined && (
+                    <Badge
+                      variant="secondary"
+                      className="text-xs"
+                      data-testid="conversation-load-badge"
+                    >
+                      {loads[selectedConv.assignedTo]}{' '}
+                      {t('conversations.load', { defaultValue: 'active' })}
+                    </Badge>
+                  )}
                   {selectedConv.status === 'waiting' && (
                     <Button size="sm" onClick={() => void handleClaim(selectedConv.id)}>
                       <UserCheck className="h-3.5 w-3.5 mr-1" />

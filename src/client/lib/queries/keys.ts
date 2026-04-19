@@ -130,6 +130,7 @@ export const queryKeys = {
       limit?: number
     }) => ['conversations', 'list', filters ?? {}] as const,
     messages: (conversationId: string) => ['conversations', 'messages', conversationId] as const,
+    loads: () => ['conversations', 'loads'] as const,
   },
 
   settings: {

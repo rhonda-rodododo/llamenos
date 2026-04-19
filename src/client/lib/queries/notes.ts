@@ -358,4 +358,4 @@ export function useCreateNoteReply(noteId: string) {
 // ---------------------------------------------------------------------------
 // Re-export types for convenience
 // ---------------------------------------------------------------------------
-export type { CustomFieldDefinition, DecryptedNote, EncryptedNote }
+export type { CustomFieldDefinition, EncryptedNote }

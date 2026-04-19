@@ -130,6 +130,6 @@ export async function getConversationStats() {
   )
 }
 
-async function getUserLoads() {
+export async function getUserLoads() {
   return request<{ loads: Record<string, number> }>(hp('/conversations/load'))
 }
