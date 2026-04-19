@@ -21,6 +21,9 @@ paths = [
   "drizzle/migrations/.*\\.sql",
   # Test fixtures and snapshots
   "tests/.*\\.snap",
+  # Colocated unit tests legitimately contain dummy passwords for OPAQUE / auth tests
+  "src/.*\\.test\\.ts",
+  "src/.*\\.spec\\.ts",
   # Plan documents contain code snippets with variable names that look like keys
   "docs/superpowers/plans/.*\\.md",
   # Epic plan documents contain cryptographic type names that trigger generic-api-key
