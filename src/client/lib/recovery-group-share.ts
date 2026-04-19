@@ -5,9 +5,9 @@ import { bytesToHex } from '@noble/hashes/utils.js'
  * Recovery Group share primitives.
  *
  *   generateRecoveryGroupKeyPair() → (RG_pub, RG_priv)  [secp256k1]
- *   splitRecoveryGroupSecret(secret, shares, threshold) → shares[]
- *   combineRecoveryGroupShares(shares) → secret  (no verification!)
- *   combineAndVerifyShares(shares, commitments) → secret (verified)
+ *   splitRecoveryGroupSecret(secret, shares, threshold) → ShamirShare[]
+ *   verifyAndBrandShare(share, commitment) → VerifiedShare (throws on mismatch)
+ *   combineAndVerifyShares(verifiedShares) → secret
  *   commitShare(share)  → commitment (32 bytes SHA-256 hex)
  *   verifyShareCommitment(share, commitment) → bool
  *
@@ -15,12 +15,34 @@ import { bytesToHex } from '@noble/hashes/utils.js'
  *
  * IMPORTANT: The library does NOT verify reconstructed secrets. With fewer
  * shares than the threshold, `combine()` returns silently wrong bytes — not
- * an error. Callers MUST use `combineAndVerifyShares()` to verify each share's
- * SHA-256 commitment before combination and validate the result. Given N
- * total shares, any K (threshold) shares suffice to reconstruct the secret;
- * K-1 or fewer shares reveal zero information (information-theoretic security).
+ * an error. Callers MUST use `combineAndVerifyShares()` with `VerifiedShare`
+ * values (produced by `verifyAndBrandShare`) to ensure each share has passed
+ * its SHA-256 commitment check before combination. Given N total shares, any
+ * K (threshold) shares suffice to reconstruct the secret; K-1 or fewer shares
+ * reveal zero information (information-theoretic security).
  */
 import { combine, split } from 'shamir-secret-sharing'
+
+// ---------------------------------------------------------------------------
+// Branded Uint8Array types for Shamir shares
+//
+// `ShamirShare` is a raw share produced by `split()` — correct bytes but
+// unverified against any commitment.
+//
+// `VerifiedShare` is a share that has passed its SHA-256 commitment check via
+// `verifyAndBrandShare`. Only `VerifiedShare` values may be passed to
+// `combineAndVerifyShares`, making it a compile-time error to reconstruct a
+// secret from unverified material.
+//
+// The phantom symbol (`__brand`) lives only in the type system; at runtime
+// both types are plain Uint8Arrays.
+// ---------------------------------------------------------------------------
+
+/** Raw Shamir share — produced by `splitRecoveryGroupSecret`, not yet verified. */
+export type ShamirShare = Uint8Array & { readonly __brand: 'ShamirShare' }
+
+/** Commitment-verified Shamir share — produced by `verifyAndBrandShare`. */
+export type VerifiedShare = Uint8Array & { readonly __brand: 'VerifiedShare' }
 
 class ShareCommitmentError extends Error {
   constructor(detail: string) {
@@ -33,17 +55,18 @@ export async function splitRecoveryGroupSecret(
   secret: Uint8Array,
   totalShares: number,
   threshold: number
-): Promise<Uint8Array[]> {
+): Promise<ShamirShare[]> {
   if (totalShares < 3 || totalShares > 5) {
     throw new Error(`totalShares must be 3..5, got ${totalShares}`)
   }
   if (threshold < 2 || threshold > totalShares) {
     throw new Error(`threshold must be 2..${totalShares}, got ${threshold}`)
   }
-  return split(secret, totalShares, threshold)
+  const raw = await split(secret, totalShares, threshold)
+  return raw as ShamirShare[]
 }
 
-export async function combineRecoveryGroupShares(shares: Uint8Array[]): Promise<Uint8Array> {
+async function combineRecoveryGroupShares(shares: VerifiedShare[]): Promise<Uint8Array> {
   if (shares.length < 2) {
     throw new Error(`combine requires at least 2 shares, got ${shares.length}`)
   }
@@ -63,32 +86,35 @@ export async function verifyShareCommitment(
 }
 
 /**
- * Verify each share against its commitment, then combine. Throws
- * ShareCommitmentError with the failing index if any share is tampered.
- *
- * This is the only safe way to reconstruct a secret — raw
- * `combineRecoveryGroupShares` returns garbage for below-threshold or
- * tampered shares with no error.
+ * Verify a raw share against its commitment and return a branded `VerifiedShare`.
+ * Throws `ShareCommitmentError` if the share does not match the commitment.
  */
-async function combineAndVerifyShares(
-  shares: Uint8Array[],
-  commitments: string[]
-): Promise<Uint8Array> {
-  if (shares.length !== commitments.length) {
-    throw new ShareCommitmentError(
-      `share/commitment count mismatch: ${shares.length} shares vs ${commitments.length} commitments`
-    )
+export async function verifyAndBrandShare(
+  share: ShamirShare,
+  commitment: string
+): Promise<VerifiedShare> {
+  const valid = await verifyShareCommitment(share, commitment)
+  if (!valid) {
+    throw new ShareCommitmentError('share does not match its commitment')
   }
+  return share as unknown as VerifiedShare
+}
+
+/**
+ * Combine pre-verified shares to reconstruct the secret.
+ *
+ * Each share must be a `VerifiedShare` — produced by `verifyAndBrandShare` —
+ * ensuring its SHA-256 commitment was checked before this call. This makes it
+ * a compile-time error to pass unverified `ShamirShare` values here.
+ *
+ * With fewer shares than the threshold, the library returns silently wrong
+ * bytes; callers must ensure at least `threshold` shares are provided.
+ */
+export async function combineAndVerifyShares(shares: VerifiedShare[]): Promise<Uint8Array> {
   if (shares.length < 2) {
     throw new ShareCommitmentError(`need at least 2 shares, got ${shares.length}`)
   }
-  for (let i = 0; i < shares.length; i++) {
-    const valid = await verifyShareCommitment(shares[i]!, commitments[i]!)
-    if (!valid) {
-      throw new ShareCommitmentError(`share at index ${i} does not match its commitment`)
-    }
-  }
-  return combine(shares)
+  return combineRecoveryGroupShares(shares)
 }
 
 interface RecoveryGroupKeyPair {
