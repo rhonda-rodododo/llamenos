@@ -25,10 +25,60 @@ export class RecoveryPhraseError extends Error {
 }
 
 /**
- * Generate a recovery phrase with `wordCount` EFF-large-wordlist words.
- * Default 15 = ~194 bits of entropy. Uses unbiased rejection sampling.
+ * Opaque wrapper around a diceware recovery phrase.
+ *
+ * Redacts the plaintext in all serialization paths — `JSON.stringify`,
+ * `console.log`, and Node.js inspect all return "[REDACTED]". The plaintext
+ * is only accessible via the explicit `.reveal()` call, making it an
+ * auditable pattern at the KDF boundary.
  */
-export function generateRecoveryPhrase(wordCount: 12 | 15 | 18 | 24 = 15): string {
+export class DicewarePhrase {
+  #phrase: string
+
+  private constructor(phrase: string) {
+    this.#phrase = phrase
+  }
+
+  /** Return the plaintext phrase. Only call at cryptographic boundaries. */
+  reveal(): string {
+    return this.#phrase
+  }
+
+  toJSON(): string {
+    return '[REDACTED]'
+  }
+
+  toString(): string {
+    return 'DicewarePhrase [REDACTED]'
+  }
+
+  [Symbol.for('nodejs.util.inspect.custom')](): string {
+    return 'DicewarePhrase [REDACTED]'
+  }
+
+  /**
+   * Validate the input, normalize whitespace/case, and wrap in a
+   * `DicewarePhrase`. Throws `RecoveryPhraseError` if invalid.
+   */
+  static create(words: string): DicewarePhrase {
+    assertValidRecoveryPhrase(words)
+    return new DicewarePhrase(normalizeRecoveryPhrase(words))
+  }
+
+  /**
+   * Generate a fresh `DicewarePhrase` with `wordCount` EFF-large-wordlist words.
+   * Default 15 = ~194 bits of entropy. Uses unbiased rejection sampling.
+   */
+  static generate(wordCount: 12 | 15 | 18 | 24 = 15): DicewarePhrase {
+    return new DicewarePhrase(generateRawPhrase(wordCount))
+  }
+}
+
+/**
+ * Generate a raw recovery phrase string (module-private).
+ * External callers should use `generateRecoveryPhrase()` or `DicewarePhrase.generate()`.
+ */
+function generateRawPhrase(wordCount: 12 | 15 | 18 | 24 = 15): string {
   if (typeof crypto === 'undefined' || typeof crypto.getRandomValues !== 'function') {
     throw new RecoveryPhraseError('rng_unavailable')
   }
@@ -42,6 +92,14 @@ export function generateRecoveryPhrase(wordCount: 12 | 15 | 18 | 24 = 15): strin
     }
   }
   return words.join(' ')
+}
+
+/**
+ * Generate a recovery phrase wrapped in a `DicewarePhrase`.
+ * Default 15 words = ~194 bits of entropy.
+ */
+export function generateRecoveryPhrase(wordCount: 12 | 15 | 18 | 24 = 15): DicewarePhrase {
+  return DicewarePhrase.generate(wordCount)
 }
 
 export function normalizeRecoveryPhrase(phrase: string): string {
@@ -91,12 +149,13 @@ function assertValidRecoveryPhrase(phrase: string): void {
  *   Argon2id(t=2, m=19456 KiB, p=1, dkLen=32)
  * then HKDF-SHA256 with LABEL_RECOVERY_PHRASE_KEK + ':phrase' as info.
  */
-export function deriveRecoveryPhraseKekBytes(phrase: string, salt: Uint8Array): Uint8Array {
-  assertValidRecoveryPhrase(phrase)
+export function deriveRecoveryPhraseKekBytes(phrase: DicewarePhrase, salt: Uint8Array): Uint8Array {
+  const plaintext = phrase.reveal()
+  assertValidRecoveryPhrase(plaintext)
   if (salt.length !== 32) {
     throw new Error(`Recovery phrase salt must be 32 bytes, got ${salt.length}`)
   }
-  const normalized = normalizeRecoveryPhrase(phrase)
+  const normalized = normalizeRecoveryPhrase(plaintext)
   const ikm = utf8ToBytes(normalized)
   const raw = argon2id(ikm, salt, {
     t: RECOVERY_PHRASE_KDF_PARAMS.t,

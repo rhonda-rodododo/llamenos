@@ -16,6 +16,7 @@ import { bytesToHex } from '@noble/hashes/utils.js'
 import { utf8ToBytes } from '@noble/hashes/utils.js'
 import { LABEL_OPAQUE_EXPORT_KEK } from '@shared/crypto-labels'
 import type { RootKekEnvelope, RootKekEnvelopeBundle } from '@shared/schemas/root-kek-envelope'
+import type { DicewarePhrase } from './recovery-phrase'
 import { loadBundleFromIdb } from './root-kek-store'
 
 // ---------------------------------------------------------------------------
@@ -25,7 +26,7 @@ import { loadBundleFromIdb } from './root-kek-store'
 export type UnlockFactor =
   | { type: 'prf'; credentialId?: string }
   | { type: 'opaque'; password: string; userIdentifier: string; purpose?: string }
-  | { type: 'recoveryPhrase'; phrase: string; salt: Uint8Array }
+  | { type: 'recoveryPhrase'; phrase: DicewarePhrase; salt: Uint8Array }
   | { type: 'recoveryGroup'; rootKekBytes: Uint8Array }
 
 // ---------------------------------------------------------------------------
