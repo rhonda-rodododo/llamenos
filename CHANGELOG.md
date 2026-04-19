@@ -1971,6 +1971,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - add E2E tests for device linking and fix /link-device public path
 
 
+## 0.51.3 (2026-04-19)
+
+### Features
+
+- complete i18n bigbang for 22 locales
+- Signal contact registration UI + notification channel preference (#174)
+- P2 Slice 2 — DicewarePhrase redacting wrapper (#180)
+- Slice 3 — MlsConversation implementation (#181)
+- P2 Slice 7 — split HKDF labels from LABEL_REGISTRY (#182)
+- P2 Slice 5 — branded SealedFrame record (#184)
+- P2 Slice 6 — parse-don't-validate audit entry (#185)
+- P2 Slice 1 — branded ShamirShare / VerifiedShare (#178)
+
+### Fixes
+
+- resolve critical protobufjs vulnerability
+- update bun.lockb references to bun.lock
+
 ## 0.51.2 (2026-04-15)
 
 ### Features
