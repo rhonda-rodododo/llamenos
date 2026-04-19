@@ -42,6 +42,14 @@ mock.module('./mls-api-client', () => ({
     currentEpoch: 0,
     lastCommitAt: null,
   })),
+  uploadKeyPackages: mock(async () => ({ uploaded: 100 })),
+  fetchKeyPackage: mock(async () => ({
+    keyPackageRef: 'ref-1',
+    keyPackageData: 'data-1',
+    deviceId: 'device-1',
+  })),
+  fetchKeyPackageCounts: mock(async () => ({ counts: {} })),
+  purgeOldEpochs: mock(async () => ({ purged: 0 })),
   toBase64: (bytes: Uint8Array) => {
     let binary = ''
     for (let i = 0; i < bytes.byteLength; i++) {

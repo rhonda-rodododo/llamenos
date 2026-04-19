@@ -31,23 +31,18 @@ test.describe('MLS Server Routes', () => {
 
   // ─── Bootstrap ─────────────────────────────────────────────────────────
 
-  test('bootstrap MLS group for hub', async () => {
+  test('hub creation auto-bootstraps MLS group', async () => {
     const hubId = ctx.hubId
-    const groupId = `llamenos:hub:${hubId}`
-
-    const res = await adminApi.post(mlsPath(hubId, '/bootstrap'), {
-      deviceId: 'device-integration-1',
-      groupId,
-    })
-    expect(res.status()).toBe(201)
+    // Hub was created in beforeAll; MLS auto-bootstrap should have occurred
+    const res = await adminApi.get(mlsPath(hubId, '/epoch'))
+    expect(res.status()).toBe(200)
     const body = await res.json()
-    expect(body.hubId).toBe(hubId)
+    expect(body.currentEpoch).toBe(0)
     expect(body.ciphersuite).toBe(1)
-    expect(body.epoch).toBe(0)
-    expect(body.groupId).toBe(groupId)
+    expect(body.groupId).toContain(hubId)
   })
 
-  test('bootstrap rejects duplicate (409)', async () => {
+  test('bootstrap rejects already-bootstrapped hub (409)', async () => {
     const hubId = ctx.hubId
     const res = await adminApi.post(mlsPath(hubId, '/bootstrap'), {
       deviceId: 'device-integration-1',

@@ -25,6 +25,20 @@ mock.module('./mls-api-client', () => ({
   bootstrapGroup: mockBootstrapGroup,
   uploadKeyPackages: mockUploadKeyPackages,
   fetchCurrentEpoch: mockFetchCurrentEpoch,
+  submitCommit: mock(async () => ({
+    id: 'commit-1',
+    epoch: 1,
+    hubId: 'hub-new',
+    createdAt: '2026-04-19T00:00:00Z',
+  })),
+  fetchCommits: mock(async () => ({ commits: [] })),
+  fetchKeyPackage: mock(async () => ({
+    keyPackageRef: 'ref-1',
+    keyPackageData: 'data-1',
+    deviceId: 'device-1',
+  })),
+  fetchKeyPackageCounts: mock(async () => ({ counts: {} })),
+  purgeOldEpochs: mock(async () => ({ purged: 0 })),
   toBase64: (bytes: Uint8Array) => {
     let binary = ''
     for (let i = 0; i < bytes.byteLength; i++) {
@@ -44,7 +58,6 @@ mock.module('./mls-api-client', () => ({
 
 // ---- Mock debug-log (dev-only, stripped in prod) ----
 mock.module('@/lib/debug-log', () => ({
-  // biome-ignore lint/suspicious/noEmptyBlockStatements: intentional noop for test mock
   createDebugLog: () => () => {
     /* noop */
   },
@@ -54,7 +67,6 @@ mock.module('@/lib/debug-log', () => ({
 
 function createMockWorker(overrides: Partial<CryptoWorkerClient> = {}): CryptoWorkerClient {
   return {
-    // biome-ignore lint/suspicious/noEmptyBlockStatements: intentional noop for test mock
     mlsCreateGroup: mock(async () => {
       /* noop */
     }),
