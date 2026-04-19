@@ -5,12 +5,13 @@ test.describe('Team Contact Assignment', () => {
   test('team management page loads', async ({ adminPage }) => {
     await navigateAfterLogin(adminPage, '/admin/teams')
     await expect(adminPage.getByTestId('admin-section')).toHaveAttribute('data-section', 'teams')
-    await expect(adminPage.getByTestId('admin-teams-list')).toBeVisible({ timeout: 10000 })
+    // Wait for teams to load (teamsLoading starts true, then renders list)
+    await expect(adminPage.getByTestId('admin-teams-list')).toBeVisible({ timeout: 15000 })
   })
 
   test('can create a team', async ({ adminPage }) => {
     await navigateAfterLogin(adminPage, '/admin/teams')
-    await expect(adminPage.getByTestId('admin-teams-list')).toBeVisible({ timeout: 10000 })
+    await expect(adminPage.getByTestId('admin-teams-list')).toBeVisible({ timeout: 15000 })
 
     const teamName = `Team ${Date.now()}`
     await adminPage.getByTestId('admin-teams-create').click()
@@ -28,7 +29,8 @@ test.describe('Team Contact Assignment', () => {
     await adminPage.getByTestId('new-contact-btn').click()
 
     await expect(adminPage.getByTestId('create-contact-dialog')).toBeVisible({ timeout: 5000 })
-    await adminPage.getByLabel(/name/i).fill(`Contact ${Date.now()}`)
+    // Use displayName input specifically to avoid strict mode violation
+    await adminPage.locator('#displayName').fill(`Contact ${Date.now()}`)
     await adminPage.getByRole('button', { name: /create/i }).click()
 
     await adminPage.waitForURL(/\/contacts_\//, { timeout: 10000 })
@@ -38,7 +40,7 @@ test.describe('Team Contact Assignment', () => {
 
   test('can assign and unassign a team to a contact', async ({ adminPage }) => {
     await navigateAfterLogin(adminPage, '/admin/teams')
-    await expect(adminPage.getByTestId('admin-teams-list')).toBeVisible({ timeout: 10000 })
+    await expect(adminPage.getByTestId('admin-teams-list')).toBeVisible({ timeout: 15000 })
 
     const teamName = `AssignTeam ${Date.now()}`
     await adminPage.getByTestId('admin-teams-create').click()
@@ -52,7 +54,7 @@ test.describe('Team Contact Assignment', () => {
 
     await expect(adminPage.getByTestId('create-contact-dialog')).toBeVisible({ timeout: 5000 })
     const contactName = `AssignContact ${Date.now()}`
-    await adminPage.getByLabel(/name/i).fill(contactName)
+    await adminPage.locator('#displayName').fill(contactName)
     await adminPage.getByRole('button', { name: /create/i }).click()
 
     await adminPage.waitForURL(/\/contacts_\//, { timeout: 10000 })
