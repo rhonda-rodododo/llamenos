@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { deriveBaseKey, importAesKey } from './cipher-suite.js'
 import { openFrame, sealFrame } from './frame-codec.js'
-import { asCiphertextBytes } from './sframe-types.js'
+import { asSealedFrame } from './sframe-types.js'
 import { TRAILER_LENGTH } from './trailer.js'
 
 const SECRET_A = new Uint8Array(32).fill(0x42)
@@ -259,7 +259,7 @@ describe('SFrame frame codec — tamper detection', () => {
       rtpTimestamp: 1,
     })
     // Flip a byte inside the ciphertext region (well before the trailer).
-    const tampered = asCiphertextBytes(new Uint8Array(sealed))
+    const tampered = asSealedFrame(new Uint8Array(sealed))
     tampered[2] ^= 0x01
     await expect(
       openFrame(tampered, key, {
@@ -282,7 +282,7 @@ describe('SFrame frame codec — tamper detection', () => {
       ssrc: 1,
       rtpTimestamp: 1,
     })
-    const tampered = asCiphertextBytes(new Uint8Array(sealed))
+    const tampered = asSealedFrame(new Uint8Array(sealed))
     // Last byte is the config byte; flip a low (keyId) bit.
     tampered[tampered.byteLength - 1] ^= 0x01
     await expect(
@@ -306,7 +306,7 @@ describe('SFrame frame codec — tamper detection', () => {
       ssrc: 1,
       rtpTimestamp: 1,
     })
-    const tampered = asCiphertextBytes(new Uint8Array(sealed))
+    const tampered = asSealedFrame(new Uint8Array(sealed))
     // Counter is the 4 bytes before the config byte.
     tampered[tampered.byteLength - 2] ^= 0x01
     await expect(
@@ -354,7 +354,7 @@ describe('SFrame frame codec — input validation', () => {
   test('openFrame rejects frame too short to decrypt', async () => {
     const key = await makeKey(SECRET_A, 'call-1', 'alice')
     // Need at least header + tag(16) + trailer(5) = 21 bytes for headerLen=0
-    const tooShort = asCiphertextBytes(new Uint8Array(20))
+    const tooShort = asSealedFrame(new Uint8Array(20))
     await expect(
       openFrame(tooShort, key, {
         callId: 'call-1',

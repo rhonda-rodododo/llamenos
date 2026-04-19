@@ -13,7 +13,7 @@ import type {
 export type SFrameWorkerRpcReply = SFrameSuccessResponse | SFrameErrorResponse
 import { importAesKey } from '@shared/sframe/cipher-suite.js'
 import { openFrame, sealFrame } from '@shared/sframe/frame-codec.js'
-import { asCiphertextBytes } from '@shared/sframe/sframe-types.js'
+import { asSealedFrame } from '@shared/sframe/sframe-types.js'
 import { parseTrailer } from '@shared/sframe/trailer.js'
 
 /**
@@ -353,10 +353,10 @@ function installWorkerGlobals(): void {
             rawFrame.data = copy.buffer
             state.metrics.sealed += 1
           } else {
-            // Wire bytes arriving from the remote peer are ciphertext by
+            // Wire bytes arriving from the remote peer are sealed frames by
             // construction — brand them before handing to openFrame so the
             // brand check at the API surface succeeds without a loose cast.
-            const bytes = asCiphertextBytes(new Uint8Array(rawFrame.data))
+            const bytes = asSealedFrame(new Uint8Array(rawFrame.data))
             const { keyId } = parseTrailer(bytes)
             let key: CryptoKey | undefined
             let matchedSenderId: string | undefined
