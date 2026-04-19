@@ -1,5 +1,29 @@
 # Next Backlog
 
+## Incomplete Features Audit — 2026-04-18
+
+Full report: [`docs/INCOMPLETE_FEATURES_AUDIT_2026-04-18.md`](INCOMPLETE_FEATURES_AUDIT_2026-04-18.md). Server infrastructure is complete for all items below; only client UI / wiring is missing.
+
+### P1 (functional gaps — volunteers/admins expect these to work)
+
+- [ ] **GDPR account erasure + data export UI** — API client exists (`src/client/lib/api/gdpr.ts`) but zero UI components import it. Missing: React Query hooks, "Download my data" button, "Request account deletion" flow, admin erasure dashboard.
+- [ ] **Contacts bulk import + merge UI** — API + query hooks exist (`useBulkUpdateContacts`, `useBulkDeleteContacts`, `useMergeContacts`) but zero UI components import them. Missing: CSV/JSON import dialog, contact merge modal, batch select in contacts table.
+- [ ] **Telephony provider setup wizard (OAuth, A2P, phone provisioning)** — API functions exist (`validateProviderCredentials`, `startProviderOAuth`, `provisionPhoneNumber`, etc.) but only basic telephony config UI exists. Missing: OAuth callback handler, A2P brand/campaign forms, phone number search + provision UI.
+
+### P2 (feature completeness / UX polish)
+
+- [ ] **Retention settings admin UI** — API client exists (`getRetentionSettings`, `updateRetentionSettings`) but no admin section component. Missing: React Query hooks + admin UI for data-retention policy configuration.
+- [ ] **Settings fallback-group endpoint deduplication** — `/settings/fallback-group` and `/shifts/fallback` are redundant. Pick canonical endpoint, deprecate the other, update client.
+- [ ] **Note replies** — Server routes `GET|POST /notes/:id/replies` exist. Missing: API functions, query hooks, reply thread UI.
+- [ ] **Intake detail view** — Server route `GET /intakes/:id` exists. Missing: `getIntake` API function, `useIntake` hook, intake detail route/page.
+- [ ] **Report detail + files** — Server routes `GET /reports/:id` and `GET /reports/:id/files` exist. API functions `getReport` and `getReportFiles` are defined but **not exported**. Missing: export + query hooks + report detail page with file viewer.
+- [ ] **Conversation load balancing indicator** — Server route `GET /conversations/load` exists. API function `getUserLoads` is defined but **not exported**. Missing: export + query hook + load indicator in claim UI.
+- [ ] **Team contact assignment UI** — API + query hooks exist (`useAssignTeamContacts`, `useUnassignTeamContact`) but zero UI components import them. Missing: contact-assignment UI in team detail and/or contacts page.
+
+### Safeguarding
+
+- [ ] **Knip safelist for intentionally-unused API/query symbols** — Add JSDoc `@knipignore` (or knip config) for the orphaned functions/hooks listed in the audit so a future sweep does not delete them like the Signal contact registration UI was deleted in the knip incident.
+
 ## Security overhaul — Phase 2 (from completion audit 2026-04-14)
 
 Full report: [`docs/security/SECURITY_OVERHAUL_COMPLETION_AUDIT_2026-04-14.md`](security/SECURITY_OVERHAUL_COMPLETION_AUDIT_2026-04-14.md). Phase 1 (Tiers 0, 3, 4, 5-Twilio, Tier 1 hub-fields, Tier 2 OPAQUE/Shamir/multi-factor KEK) shipped and is hardened. Phase 2 remains.
