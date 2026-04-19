@@ -17,6 +17,7 @@ import {
   asSessionToken,
 } from '@shared/crypto-types'
 import type { HpkeEnvelope } from '@shared/hpke-envelope'
+import type { AesGcmKey, X25519EncryptionKey } from '@shared/types'
 
 /** Error messages from the worker that indicate the key is no longer available. */
 const LOCKED_ERROR_PATTERNS = [
@@ -405,8 +406,8 @@ export class CryptoWorkerClient {
    */
   async unlockWithHandles(
     nsecRaw: Uint8Array,
-    hpkePrivateKey: CryptoKey,
-    hubKey: CryptoKey
+    hpkePrivateKey: X25519EncryptionKey,
+    hubKey: AesGcmKey
   ): Promise<string> {
     return this.call<string>({
       type: 'unlockWithHandles',

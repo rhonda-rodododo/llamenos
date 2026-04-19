@@ -31,4 +31,18 @@ paths = [
   # Security docs describe cryptographic primitives by name (XChaCha20-Poly1305,
   # Ed25519, etc.); the generic-api-key regex occasionally flags those phrases.
   "docs/security/.*\\.md",
+  # Crypto source files use branded type names (Ed25519SigningKey, X25519EncryptionKey,
+  # AesGcmKey) in type annotations next to `privateKey:` — triggers generic-api-key.
+  "src/client/lib/crypto-worker\\.ts",
+  "src/client/lib/crypto-worker-client\\.ts",
+  "src/client/lib/cross-signing\\.ts",
+  "src/client/lib/puk\\.ts",
+  "src/client/lib/paper-key\\.ts",
+  "src/client/lib/device-identity\\.ts",
+  "src/client/lib/hub-key-manager\\.ts",
+  "src/client/lib/recovery-group-tier3\\.ts",
+  "src/client/lib/webrtc/sframe-.*\\.ts",
+  "src/server/lib/hpke-service\\.ts",
+  "src/shared/types\\.ts",
+  "src/shared/hpke-primitives\\.ts",
 ]

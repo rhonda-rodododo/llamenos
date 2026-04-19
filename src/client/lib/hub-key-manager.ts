@@ -26,6 +26,7 @@ import { symmetricDecrypt, symmetricEncrypt } from '@shared/crypto-primitives'
 import type { Ciphertext } from '@shared/crypto-types'
 import type { HpkeEnvelope } from '@shared/hpke-envelope'
 import { buildAad, hpkeOpen, hpkeSeal } from '@shared/hpke-primitives'
+import type { X25519EncryptionKey } from '@shared/types'
 
 const log = createDebugLog('llamenos:hub-key-manager')
 
@@ -157,7 +158,7 @@ export function decryptFromHub(
  */
 export async function wrapHubKeyForDevice(
   hubKey: Uint8Array,
-  deviceEncPubkey: CryptoKey,
+  deviceEncPubkey: X25519EncryptionKey,
   deviceId: string,
   hubId: string
 ): Promise<HpkeEnvelope> {
@@ -226,7 +227,7 @@ export class HubKeyWrapError extends Error {
  */
 export async function wrapHubKeyForDevices(
   hubKey: Uint8Array,
-  devices: Array<{ deviceId: string; encPubkey: CryptoKey }>,
+  devices: Array<{ deviceId: string; encPubkey: X25519EncryptionKey }>,
   hubId: string,
   failurePolicy: WrapFailurePolicy = 'abort'
 ): Promise<Array<{ deviceId: string; envelope: HpkeEnvelope }>> {
@@ -290,7 +291,7 @@ export async function wrapHubKeyForDevices(
  */
 export async function unwrapHubKeyForDevice(
   envelope: HpkeEnvelope,
-  devicePrivateKey: CryptoKey,
+  devicePrivateKey: X25519EncryptionKey,
   deviceId: string,
   hubId: string
 ): Promise<Uint8Array> {
@@ -480,7 +481,7 @@ export async function rotateHubKeyClkr(params: {
   hubId: string
   currentHubKey: Uint8Array
   currentGen: number
-  remainingDevices: Array<{ deviceId: string; encPubkey: CryptoKey }>
+  remainingDevices: Array<{ deviceId: string; encPubkey: X25519EncryptionKey }>
   rotationReason: RotationReason
 }): Promise<HubKeyRotationResult> {
   const { hubId, currentHubKey, currentGen, remainingDevices, rotationReason } = params

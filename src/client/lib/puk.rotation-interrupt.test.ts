@@ -26,7 +26,7 @@
 
 import { describe, expect, test } from 'bun:test'
 import { createHpkeSuite } from '@shared/crypto-suite'
-import type { DeviceKeypair } from '@shared/types'
+import { type DeviceKeypair, asEd25519SigningKey, asX25519EncryptionKey } from '@shared/types'
 import {
   type RotatePukResult,
   createInitialPuk,
@@ -64,8 +64,8 @@ async function generateTestDevice(): Promise<
 
   return {
     deviceId: crypto.randomUUID(),
-    signing: { privateKey: signingPair.privateKey, publicKey: signingPub },
-    encryption: { privateKey: encPrivKey, publicKey: encPubBytes },
+    signing: { privateKey: asEd25519SigningKey(signingPair.privateKey), publicKey: signingPub },
+    encryption: { privateKey: asX25519EncryptionKey(encPrivKey), publicKey: encPubBytes },
     createdAt: new Date().toISOString(),
     isPaperKey: false,
     encryptionPrivateBytes: encPrivBytes,

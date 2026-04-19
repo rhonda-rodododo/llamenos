@@ -25,14 +25,22 @@ import {
 import { createHpkeSuite } from '@shared/crypto-suite'
 import type { HpkeEnvelope } from '@shared/hpke-envelope'
 import { buildAad, hpkeOpen, hpkeSeal } from '@shared/hpke-primitives'
-import type { DeviceKeypair } from '@shared/types'
+import {
+  type AesGcmKey,
+  type DeviceKeypair,
+  type Ed25519SigningKey,
+  type X25519EncryptionKey,
+  asAesGcmKey,
+  asEd25519SigningKey,
+  asX25519EncryptionKey,
+} from '@shared/types'
 
 export interface PukSubkeys {
-  signPrivate: CryptoKey // non-extractable Ed25519
-  signPublic: CryptoKey // Ed25519
-  dhPrivate: CryptoKey // non-extractable X25519
-  dhPublic: CryptoKey // X25519
-  secretBoxKey: CryptoKey // AES-GCM-256
+  signPrivate: Ed25519SigningKey // non-extractable Ed25519
+  signPublic: Ed25519SigningKey // Ed25519
+  dhPrivate: X25519EncryptionKey // non-extractable X25519
+  dhPublic: X25519EncryptionKey // X25519
+  secretBoxKey: AesGcmKey // AES-GCM-256
 }
 
 export interface PukEnvelope {
@@ -60,7 +68,7 @@ export interface RotatePukResult {
   newSeed: Uint8Array
   newEnvelopes: PukEnvelope[]
   oldGenWrappedUnderNew: string // hex of AES-GCM ciphertext
-  newSecretBoxKey: CryptoKey
+  newSecretBoxKey: AesGcmKey
   pukSignPubRaw: Uint8Array
   pukDhPubRaw: Uint8Array
 }
@@ -92,12 +100,14 @@ export async function derivePukSubkeys(seed: Uint8Array, generation: number): Pr
   const { privateKey: dhPrivate, publicKey: dhPublic } = await importX25519FromSeed(dhSeed)
 
   // AES-GCM-256 key
-  const sbKey = await crypto.subtle.importKey(
-    'raw',
-    sbSeed as BufferSource,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['encrypt', 'decrypt']
+  const sbKey = asAesGcmKey(
+    await crypto.subtle.importKey(
+      'raw',
+      sbSeed as BufferSource,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt', 'decrypt']
+    )
   )
 
   // Zero raw seeds
@@ -138,7 +148,7 @@ function buildPkcs8(header: Uint8Array, seed: Uint8Array): ArrayBuffer {
  */
 async function importEd25519FromSeed(
   seed: Uint8Array
-): Promise<{ privateKey: CryptoKey; publicKey: CryptoKey }> {
+): Promise<{ privateKey: Ed25519SigningKey; publicKey: Ed25519SigningKey }> {
   const pkcs8 = buildPkcs8(ED25519_PKCS8_HEADER, seed)
 
   // Import extractable to get JWK with public key component
@@ -148,17 +158,19 @@ async function importEd25519FromSeed(
   const jwk = await crypto.subtle.exportKey('jwk', extractable)
 
   // Import non-extractable private key
-  const privateKey = await crypto.subtle.importKey('pkcs8', pkcs8, { name: 'Ed25519' }, false, [
-    'sign',
-  ])
+  const privateKey = asEd25519SigningKey(
+    await crypto.subtle.importKey('pkcs8', pkcs8, { name: 'Ed25519' }, false, ['sign'])
+  )
 
   // Import public-only from JWK
-  const publicKey = await crypto.subtle.importKey(
-    'jwk',
-    { kty: jwk.kty, crv: jwk.crv, x: jwk.x },
-    { name: 'Ed25519' },
-    true,
-    ['verify']
+  const publicKey = asEd25519SigningKey(
+    await crypto.subtle.importKey(
+      'jwk',
+      { kty: jwk.kty, crv: jwk.crv, x: jwk.x },
+      { name: 'Ed25519' },
+      true,
+      ['verify']
+    )
   )
 
   return { privateKey, publicKey }
@@ -166,7 +178,7 @@ async function importEd25519FromSeed(
 
 async function importX25519FromSeed(
   seed: Uint8Array
-): Promise<{ privateKey: CryptoKey; publicKey: CryptoKey }> {
+): Promise<{ privateKey: X25519EncryptionKey; publicKey: X25519EncryptionKey }> {
   const pkcs8 = buildPkcs8(X25519_PKCS8_HEADER, seed)
 
   // Import extractable to get JWK with public key component
@@ -176,17 +188,19 @@ async function importX25519FromSeed(
   const jwk = await crypto.subtle.exportKey('jwk', extractable)
 
   // Import non-extractable private key
-  const privateKey = await crypto.subtle.importKey('pkcs8', pkcs8, { name: 'X25519' }, false, [
-    'deriveBits',
-  ])
+  const privateKey = asX25519EncryptionKey(
+    await crypto.subtle.importKey('pkcs8', pkcs8, { name: 'X25519' }, false, ['deriveBits'])
+  )
 
   // Import public-only from JWK
-  const publicKey = await crypto.subtle.importKey(
-    'jwk',
-    { kty: jwk.kty, crv: jwk.crv, x: jwk.x },
-    { name: 'X25519' },
-    true,
-    []
+  const publicKey = asX25519EncryptionKey(
+    await crypto.subtle.importKey(
+      'jwk',
+      { kty: jwk.kty, crv: jwk.crv, x: jwk.x },
+      { name: 'X25519' },
+      true,
+      []
+    )
   )
 
   return { privateKey, publicKey }
@@ -200,7 +214,9 @@ async function sealSeedToDevice(
   deviceId: string
 ): Promise<HpkeEnvelope> {
   const suite = createHpkeSuite()
-  const recipientKey = await suite.kem.deserializePublicKey(deviceEncPub)
+  const recipientKey = asX25519EncryptionKey(
+    (await suite.kem.deserializePublicKey(deviceEncPub)) as CryptoKey
+  )
   const aad = buildAad(LABEL_PUK_WRAP_TO_DEVICE, deviceId, 'puk-seed')
   return hpkeSeal(seed, recipientKey, LABEL_PUK_WRAP_TO_DEVICE, aad)
 }
@@ -219,7 +235,9 @@ export async function openPukEnvelope(
 ): Promise<Uint8Array> {
   const aad = buildAad(LABEL_PUK_WRAP_TO_DEVICE, deviceId, 'puk-seed')
   const suite = createHpkeSuite()
-  const hpkePriv = await suite.kem.deserializePrivateKey(rawX25519PrivateKey)
+  const hpkePriv = asX25519EncryptionKey(
+    (await suite.kem.deserializePrivateKey(rawX25519PrivateKey)) as CryptoKey
+  )
   return hpkeOpen(envelope, hpkePriv, LABEL_PUK_WRAP_TO_DEVICE, aad)
 }
 
@@ -251,7 +269,7 @@ export async function createInitialPuk(device: DeviceKeypair): Promise<InitialPu
 
 async function aesGcmEncrypt(
   plaintext: Uint8Array,
-  key: CryptoKey,
+  key: AesGcmKey,
   aadString: string
 ): Promise<Uint8Array> {
   const iv = crypto.getRandomValues(new Uint8Array(12))
@@ -270,7 +288,7 @@ async function aesGcmEncrypt(
 
 async function aesGcmDecrypt(
   packed: Uint8Array,
-  key: CryptoKey,
+  key: AesGcmKey,
   aadString: string
 ): Promise<Uint8Array> {
   const iv = packed.slice(0, 12)
@@ -321,7 +339,7 @@ export async function rotatePuk(params: RotatePukParams): Promise<RotatePukResul
 
 export async function decryptOldGenWrap(
   wrappedHex: string,
-  secretBoxKey: CryptoKey,
+  secretBoxKey: AesGcmKey,
   newGen: number
 ): Promise<Uint8Array> {
   const oldGen = newGen - 1

@@ -4,6 +4,12 @@ import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { LABEL_NOTE_KEY, labelToId } from '@shared/crypto-labels'
 import { createHpkeSuite } from '@shared/crypto-suite'
 import {
+  type AesGcmKey,
+  type X25519EncryptionKey,
+  asAesGcmKey,
+  asX25519EncryptionKey,
+} from '@shared/types'
+import {
   _test_clearHpkeState,
   _test_clearSecretKey,
   _test_handleHpkeOpen,
@@ -93,14 +99,13 @@ async function seedWorkerWithHpkeKeys(): Promise<{
   //    worker holds a real CryptoKey for opening envelopes.
   const suite = createHpkeSuite()
   const kp = (await suite.kem.generateKeyPair()) as CryptoKeyPair
-  const priv = kp.privateKey
+  const priv = asX25519EncryptionKey(kp.privateKey)
   const recipientPub = new Uint8Array(await suite.kem.serializePublicKey(kp.publicKey))
 
   // 2. Generate a fresh hub AES-GCM CryptoKey.
-  const hub = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, [
-    'encrypt',
-    'decrypt',
-  ])
+  const hub = asAesGcmKey(
+    await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt'])
+  )
 
   // 3. Hand an nsec into the worker alongside the HPKE + hub handles.
   const nsec = new Uint8Array(32).fill(9)
@@ -132,8 +137,8 @@ describe('Tier 1 HPKE sidecar — unlockWithHandles', () => {
     expect(() =>
       _test_handleUnlockWithHandles(
         wrongLen,
-        {} as unknown as CryptoKey,
-        {} as unknown as CryptoKey
+        {} as unknown as X25519EncryptionKey,
+        {} as unknown as AesGcmKey
       )
     ).toThrow(/32 bytes/)
   })

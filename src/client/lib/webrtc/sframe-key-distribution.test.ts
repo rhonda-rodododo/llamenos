@@ -1,10 +1,18 @@
 import { describe, expect, test } from 'bun:test'
 import { createHpkeSuite } from '@shared/crypto-suite.js'
+import { type X25519EncryptionKey, asX25519EncryptionKey } from '@shared/types'
 import { buildKeyEvent, parseKeyEvent } from './sframe-key-distribution.js'
 
-async function genKeyPair(): Promise<CryptoKeyPair> {
+async function genKeyPair(): Promise<{
+  privateKey: X25519EncryptionKey
+  publicKey: X25519EncryptionKey
+}> {
   const suite = createHpkeSuite()
-  return (await suite.kem.generateKeyPair()) as CryptoKeyPair
+  const kp = await suite.kem.generateKeyPair()
+  return {
+    privateKey: asX25519EncryptionKey(kp.privateKey as CryptoKey),
+    publicKey: asX25519EncryptionKey(kp.publicKey as CryptoKey),
+  }
 }
 
 const CALL_ID = '00000000-0000-4000-8000-000000000001'
