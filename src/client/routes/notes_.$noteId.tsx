@@ -13,7 +13,7 @@ import { ArrowLeft, Lock, MessageSquare, Mic, Pencil, Send, StickyNote } from 'l
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-export const Route = createFileRoute('/notes/$noteId')({
+export const Route = createFileRoute('/notes_/$noteId')({
   component: NoteDetailPage,
 })
 

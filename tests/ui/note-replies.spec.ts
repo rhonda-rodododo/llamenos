@@ -3,11 +3,9 @@ import { navigateAfterLogin } from '../helpers'
 
 test.describe('Note Replies Thread', () => {
   test('note detail page renders when navigated directly', async ({ adminPage }) => {
-    // Note detail page exists at /notes/$noteId but the notes list page
-    // does NOT have clickable links to individual notes — notes are displayed
-    // inline grouped by call. The note detail route is accessed from call
-    // detail pages, not the notes list. We verify the route exists by
-    // navigating directly and checking for the loading state.
+    // Note detail page is a flat route at /notes_/$noteId (not nested under /notes layout).
+    // The notes list page does NOT have clickable links to individual notes — notes are
+    // displayed inline grouped by call. We verify the route exists by navigating directly.
     await navigateAfterLogin(adminPage, '/notes/test-note-id')
     // Should show either loading, not-found, or forbidden — confirming the route renders
     await expect(

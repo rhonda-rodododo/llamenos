@@ -33,7 +33,7 @@ test.describe('Team Contact Assignment', () => {
     await adminPage.locator('#displayName').fill(`Contact ${Date.now()}`)
     await adminPage.getByRole('button', { name: /create/i }).click()
 
-    await adminPage.waitForURL(/\/contacts_\//, { timeout: 10000 })
+    await adminPage.waitForURL(/\/contacts\//, { timeout: 10000 })
     await expect(adminPage.getByTestId('contact-summary-card')).toBeVisible({ timeout: 10000 })
     await expect(adminPage.getByTestId('contact-teams-card')).toBeVisible()
   })
@@ -57,7 +57,7 @@ test.describe('Team Contact Assignment', () => {
     await adminPage.locator('#displayName').fill(contactName)
     await adminPage.getByRole('button', { name: /create/i }).click()
 
-    await adminPage.waitForURL(/\/contacts_\//, { timeout: 10000 })
+    await adminPage.waitForURL(/\/contacts\//, { timeout: 10000 })
     await expect(adminPage.getByTestId('contact-summary-card')).toBeVisible({ timeout: 10000 })
 
     await expect(adminPage.getByTestId('team-assign-select')).toBeVisible()
