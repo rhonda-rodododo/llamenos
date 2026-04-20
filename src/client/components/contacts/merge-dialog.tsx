@@ -66,6 +66,7 @@ export function MergeDialog({
           <ContactSelect
             value={primaryId}
             onChange={(val) => setPrimaryId(typeof val === 'string' ? val : (val[0] ?? ''))}
+            data-testid="merge-contact-select"
           />
         </div>
 
