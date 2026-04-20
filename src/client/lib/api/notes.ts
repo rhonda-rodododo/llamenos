@@ -71,9 +71,11 @@ export async function getNoteReplies(noteId: string) {
 export async function createNoteReply(
   noteId: string,
   data: {
-    encryptedContent: Ciphertext
+    encryptedContent?: Ciphertext
     authorEnvelope?: KeyEnvelope
     adminEnvelopes?: RecipientEnvelope[]
+    mlsCiphertext?: string
+    mlsEpoch?: number
   }
 ) {
   return request<{ reply: EncryptedNote }>(hp(`/notes/${noteId}/replies`), {

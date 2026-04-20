@@ -4,9 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/lib/auth'
 import { useConfig } from '@/lib/config'
+import { cryptoWorker } from '@/lib/crypto-worker-client'
+import { MlsConversation } from '@/lib/mls/conversation'
 import { useCreateNoteReply, useNoteDetail, useNoteReplies } from '@/lib/queries/notes'
 import { useToast } from '@/lib/toast'
-import { encryptNote } from '@shared/crypto-envelopes'
 import type { NotePayload } from '@shared/types'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, Lock, MessageSquare, Mic, Pencil, Send, StickyNote } from 'lucide-react'
@@ -21,6 +22,8 @@ function NoteDetailPage() {
   const { t } = useTranslation()
   const { noteId } = Route.useParams()
   const { isAdmin } = useAuth()
+  const { currentHubId } = useConfig()
+  const hubId = currentHubId ?? 'global'
   const { toast } = useToast()
   const navigate = useNavigate()
 
@@ -179,8 +182,9 @@ function NoteDetailPage() {
 
 function NoteRepliesSection({ noteId }: { noteId: string }) {
   const { t } = useTranslation()
-  const { hasNsec, publicKey, adminDecryptionPubkey } = useAuth()
-  const { currentHubId: _hubId } = useConfig()
+  const { hasNsec, publicKey } = useAuth()
+  const { currentHubId } = useConfig()
+  const hubId = currentHubId ?? 'global'
   const { toast } = useToast()
   const [replyText, setReplyText] = useState('')
 
@@ -191,11 +195,12 @@ function NoteRepliesSection({ noteId }: { noteId: string }) {
     if (!replyText.trim() || !hasNsec || !publicKey) return
     try {
       const payload: NotePayload = { text: replyText.trim() }
-      const adminPub = adminDecryptionPubkey || publicKey
-      const { encryptedContent, authorEnvelope, adminEnvelopes } = encryptNote(payload, publicKey, [
-        adminPub,
-      ])
-      await createReply.mutateAsync({ encryptedContent, authorEnvelope, adminEnvelopes })
+      const conv = MlsConversation.open(hubId, cryptoWorker, '')
+      const plaintext = new TextEncoder().encode(JSON.stringify(payload))
+      const mlsCiphertextBytes = await conv.encrypt(plaintext)
+      const mlsCiphertext = Buffer.from(mlsCiphertextBytes).toString('base64')
+      const mlsEpoch = await conv.currentEpoch()
+      await createReply.mutateAsync({ mlsCiphertext, mlsEpoch })
       setReplyText('')
     } catch {
       toast(t('common.error', { defaultValue: 'Error' }), 'error')

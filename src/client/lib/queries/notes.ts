@@ -294,7 +294,7 @@ export function useUpdateNote() {
  * Replies share the same ECIES encryption shape as notes.
  * Decryption deferred to the component via auth context.
  */
-const noteRepliesOptions = (noteId: string, auth: NotesAuth) =>
+const noteRepliesOptions = (noteId: string, auth: NotesAuth, hubId: string) =>
   queryOptions({
     queryKey: queryKeys.notes.replies(noteId),
     queryFn: async (): Promise<DecryptedNote[]> => {
@@ -307,20 +307,15 @@ const noteRepliesOptions = (noteId: string, auth: NotesAuth) =>
         const isTranscription = reply.authorPubkey.startsWith('system:transcription')
         let payload: NotePayload
 
-        if (hasNsec && unlocked && publicKey) {
-          const envelope = isAdmin
-            ? (reply.adminEnvelopes?.find((e) => e.pubkey === publicKey) ??
-              reply.adminEnvelopes?.[0])
-            : reply.authorEnvelope
-          if (envelope) {
-            payload = (await decryptNote(reply.encryptedContent, envelope)) || {
-              text: '[Decryption failed]',
-            }
-          } else {
-            payload = { text: '[Decryption failed]' }
-          }
+        if (isTranscription && reply.ephemeralPubkey && hasNsec && unlocked) {
+          const text =
+            (await decryptTranscription(reply.encryptedContent ?? '', reply.ephemeralPubkey)) ||
+            '[Decryption failed]'
+          payload = { text }
+        } else if (isTranscription && !reply.ephemeralPubkey) {
+          payload = { text: reply.encryptedContent ?? '' }
         } else {
-          payload = { text: '[No key]' }
+          payload = await decryptNoteMls(reply, hubId)
         }
 
         decryptedReplies.push({ ...reply, decrypted: payload.text, payload, isTranscription })
@@ -337,7 +332,9 @@ const noteRepliesOptions = (noteId: string, auth: NotesAuth) =>
 
 export function useNoteReplies(noteId: string) {
   const { hasNsec, publicKey, isAdmin } = useAuth()
-  return useQuery(noteRepliesOptions(noteId, { isAdmin, publicKey, hasNsec }))
+  const { currentHubId } = useConfig()
+  const hubId = currentHubId ?? 'global'
+  return useQuery(noteRepliesOptions(noteId, { isAdmin, publicKey, hasNsec }, hubId))
 }
 
 // ---------------------------------------------------------------------------
