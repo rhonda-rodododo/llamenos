@@ -1,7 +1,6 @@
 import { useAuth } from '@/lib/auth'
 import { useConfig } from '@/lib/config'
-import { cryptoWorker } from '@/lib/crypto-worker-client'
-import { MlsConversation } from '@/lib/mls/conversation'
+import { getMlsConversation } from '@/lib/mls/get-mls-conversation'
 import { useNoteSheet } from '@/lib/note-sheet-context'
 import { useDraft } from '@/lib/use-draft'
 import { useEffect, useState } from 'react'
@@ -125,7 +124,8 @@ export function NoteSheet() {
       if (fieldValues.length > 0) {
         payload.fields = Object.fromEntries(fieldValues)
       }
-      const conv = MlsConversation.open(hubId, cryptoWorker, '')
+      const conv = await getMlsConversation(hubId)
+      if (!conv) throw new Error('MLS not available')
       const plaintext = new TextEncoder().encode(JSON.stringify(payload))
       const mlsCiphertextBytes = await conv.encrypt(plaintext)
       const mlsCiphertext = Buffer.from(mlsCiphertextBytes).toString('base64')

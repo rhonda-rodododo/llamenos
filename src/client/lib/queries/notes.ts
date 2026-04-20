@@ -23,11 +23,10 @@ import {
 } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { useConfig } from '@/lib/config'
-import { cryptoWorker } from '@/lib/crypto-worker-client'
 import { decryptTranscription } from '@/lib/crypto-worker-helpers'
 import { decryptHubField } from '@/lib/hub-field-crypto'
 import * as keyManager from '@/lib/key-manager'
-import { MlsConversation } from '@/lib/mls/conversation'
+import { getMlsConversation } from '@/lib/mls/get-mls-conversation'
 import type { NotePayload } from '@shared/types'
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from './keys'
@@ -78,7 +77,8 @@ async function decryptNoteMls(note: EncryptedNote, hubId: string): Promise<NoteP
   }
 
   try {
-    const conv = MlsConversation.open(hubId, cryptoWorker, '')
+    const conv = await getMlsConversation(hubId)
+    if (!conv) return { text: '[MLS not available]' }
     const result = await conv.decrypt(new Uint8Array(Buffer.from(note.mlsCiphertext, 'base64')))
     if (!result.message) {
       return { text: '[Decryption failed]' }

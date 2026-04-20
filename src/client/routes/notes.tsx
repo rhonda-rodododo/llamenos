@@ -8,8 +8,7 @@ import { Input } from '@/components/ui/input'
 import type { CallRecord } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { useConfig } from '@/lib/config'
-import { cryptoWorker } from '@/lib/crypto-worker-client'
-import { MlsConversation } from '@/lib/mls/conversation'
+import { getMlsConversation } from '@/lib/mls/get-mls-conversation'
 import { useCallHistory } from '@/lib/queries/calls'
 import { useCreateNote, useCustomFields, useNotes, useUpdateNote } from '@/lib/queries/notes'
 import { useUsers } from '@/lib/queries/users'
@@ -97,7 +96,8 @@ function NotesPage() {
     try {
       const payload: NotePayload = { text }
       if (Object.keys(fields).length > 0) payload.fields = fields
-      const conv = MlsConversation.open(hubId, cryptoWorker, '')
+      const conv = await getMlsConversation(hubId)
+      if (!conv) throw new Error('MLS not available')
       const plaintext = new TextEncoder().encode(JSON.stringify(payload))
       const mlsCiphertextBytes = await conv.encrypt(plaintext)
       const mlsCiphertext = Buffer.from(mlsCiphertextBytes).toString('base64')
@@ -121,7 +121,8 @@ function NotesPage() {
     try {
       const payload: NotePayload = { text }
       if (Object.keys(fields).length > 0) payload.fields = fields
-      const conv = MlsConversation.open(hubId, cryptoWorker, '')
+      const conv = await getMlsConversation(hubId)
+      if (!conv) throw new Error('MLS not available')
       const plaintext = new TextEncoder().encode(JSON.stringify(payload))
       const mlsCiphertextBytes = await conv.encrypt(plaintext)
       const mlsCiphertext = Buffer.from(mlsCiphertextBytes).toString('base64')
