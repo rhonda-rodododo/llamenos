@@ -469,6 +469,22 @@ These items were identified during brainstorming but deferred as follow-up effor
 - [ ] **Trusted browser / "remember this device"** — Per-session trust marking with different TTLs for trusted vs. untrusted sessions. Cuts across login flow + session UI. Depends on sessions table landing first.
 - [ ] **Step-up re-auth for sensitive actions** — Re-tap passkey (or re-enter PIN) before admin operations. Requires tagging sensitive endpoints + freshness claim on tokens + UX interruption pattern. Cross-cutting.
 
+## v2→v1 Template Loader + Marketplace (2026-04-19)
+
+Spec: `docs/superpowers/specs/2026-04-19-template-loader-spec.md`
+
+- [ ] **Template loader spec review** — Spec written, pending review before implementation.
+- [ ] **Copy v2 templates + schema into v1** — 14 template JSONs + `templateManifestSchema` from `packages/protocol/template-types.ts`. Build-time copy into `src/shared/templates/`.
+- [ ] **Add `multiselect` + `date` custom field types** — v2 templates use these; v1 `CustomFieldDefinitionSchema` lacks them.
+- [ ] **Add `hub_template_config` table** — Stores template metadata (statuses, severities, contactRoles, relationshipTypes) as hub-encrypted JSON for Part 6 entity runtime.
+- [ ] **Add `report_types.encrypted_config` column** — Stores per-type statuses, fields, icon, color, etc. from template report types.
+- [ ] **Implement `TemplateLoaderService`** — Parse, validate, resolve `extends` inheritance, encrypt labels with hub key, seed report types / custom fields / roles.
+- [ ] **Wire `templateId` into hub creation** — `POST /hubs` and `POST /setup/complete` accept optional `templateId`. Apply template after hub key generation.
+- [ ] **Template summary static asset** — Build-generated `public/templates/index.json` with lightweight metadata for UI listing.
+- [ ] **Client template picker UI** — `TemplatePicker` + `TemplateCard` components. Integrate into `SetupWizard` (new step) and `CreateHubDialog`.
+- [ ] **i18n keys for template UI** — Add to all 22 locale files.
+- [ ] **Tests** — Unit (schema validation, inheritance, encryption), API E2E (hub creation with template), UI E2E (wizard + admin dialog).
+
 ## Dedupe section-layout primitives (2026-04-05)
 
 - [x] **Dedupe user-shell + admin-shell `section-layout.tsx`** — Done: moved primitives to `src/client/components/section-layout/`, with a `surface: 'admin' | 'user'` prop on `SectionBody`/`SectionDescription`/`SectionActions` to preserve each surface's distinct visual rhythm and testid prefix. `saveButtonTestId` legacy override retained. 19 unit tests cover both surfaces. Old duplicates deleted.
