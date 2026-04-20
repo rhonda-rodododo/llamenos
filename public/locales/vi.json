@@ -1536,6 +1536,7 @@
     },
     "groups": {
       "general": "General",
+      "operations": "Hoạt động",
       "people": "People",
       "intake": "Intake",
       "callsVoice": "Calls & Voice",
