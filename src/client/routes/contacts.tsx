@@ -463,9 +463,9 @@ function ContactDirectoryPage() {
       <CreateContactDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
-        onCreated={() => {
+        onCreated={(contact) => {
           setCreateOpen(false)
-          // useCreateContact mutation invalidates contacts.all in onSuccess
+          navigate({ to: '/contacts/$contactId', params: { contactId: contact.id } })
         }}
       />
 
