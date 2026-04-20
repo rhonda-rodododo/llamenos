@@ -233,7 +233,12 @@
     "newConversationNote": "New Conversation Note",
     "noReplies": "No replies yet",
     "notFound": "Note not found",
-    "replies": "Replies",
+    "replies": {
+      "title": "Replies",
+      "empty": "No replies yet.",
+      "placeholder": "Write a reply...",
+      "send": "Send reply"
+    },
     "repliesCount": "{{count}} replies",
     "reply": "Reply",
     "replyHint": "Write a reply...",
@@ -1848,7 +1853,8 @@
       "platform": "Platform",
       "recoveryGroup": "Recovery Group",
       "devices": "Devices",
-      "gdprErasure": "GDPR Erasure"
+      "gdprErasure": "GDPR Erasure",
+      "retention": "Data Retention"
     },
     "openMenu": "Open navigation menu"
   },
@@ -2132,5 +2138,65 @@
       "eraseSuccess": "User erased successfully.",
       "eraseError": "Erasure failed. Please try again."
     }
+  },
+  "conversations": {
+    "title": "Conversations",
+    "claimed": "Conversation claimed",
+    "claimError": "Failed to claim conversation",
+    "closed": "Conversation closed",
+    "closeError": "Failed to close conversation",
+    "sendError": "Failed to send message",
+    "noChannels": "No messaging channels enabled",
+    "noChannelsDescription": "Enable SMS, WhatsApp, Signal, or Reports in Hub Settings to start receiving messages.",
+    "waiting": "waiting",
+    "unknownContact": "Unknown",
+    "e2ee": "End-to-end encrypted",
+    "load": "active",
+    "claim": "Claim",
+    "reassign": "Reassign",
+    "close": "Close",
+    "selectConversation": "Select a conversation to view messages"
+  },
+  "retention": {
+    "description": "Configure how long different types of records are retained before automatic deletion.",
+    "callRecordsDays": "Call Records (days)",
+    "callRecordsDaysHelp": "How long to keep call records (30–3650 days)",
+    "notesDays": "Notes (days)",
+    "notesDaysHelp": "How long to keep call notes (30–3650 days)",
+    "messagesDays": "Messages (days)",
+    "messagesDaysHelp": "How long to keep conversation messages (30–3650 days)",
+    "auditLogDays": "Audit Log (days)",
+    "auditLogDaysHelp": "How long to keep audit log entries (365–3650 days)"
+  },
+  "teams": {
+    "description": "Organize users into teams for contact assignment and shift management.",
+    "createTeam": "Create Team",
+    "editTeam": "Edit Team",
+    "deleteTitle": "Delete Team",
+    "deleteConfirm": "Are you sure you want to delete this team? All member and contact assignments will be removed.",
+    "name": "Name",
+    "namePlaceholder": "e.g. Crisis Response",
+    "descriptionLabel": "Description",
+    "descriptionPlaceholder": "Brief description of this team...",
+    "created": "Team created",
+    "updated": "Team updated",
+    "deleted": "Team deleted",
+    "members": "Members",
+    "contacts": "Contacts",
+    "addMember": "Add",
+    "addMembers": "Add Members",
+    "membersAdded": "Members added",
+    "memberRemoved": "Member removed",
+    "noMembers": "No members yet",
+    "selectMembers": "Select members...",
+    "contactsAssigned": "Contacts assigned",
+    "contactUnassigned": "Contact unassigned",
+    "noContacts": "No contacts assigned yet",
+    "assignContact": "Assign",
+    "assignContacts": "Assign Contacts",
+    "title": "Teams",
+    "team": "Team",
+    "assignToTeam": "Assign to team...",
+    "contactAssigned": "Assigned to team"
   }
 }

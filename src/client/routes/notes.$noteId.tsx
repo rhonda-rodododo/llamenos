@@ -1,12 +1,16 @@
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/lib/auth'
-import { useNoteDetail } from '@/lib/queries/notes'
+import { useConfig } from '@/lib/config'
+import { useCreateNoteReply, useNoteDetail, useNoteReplies } from '@/lib/queries/notes'
 import { useToast } from '@/lib/toast'
+import { encryptNote } from '@shared/crypto-envelopes'
+import type { NotePayload } from '@shared/types'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
-import { ArrowLeft, Lock, Mic, Pencil, StickyNote } from 'lucide-react'
-import { useEffect } from 'react'
+import { ArrowLeft, Lock, MessageSquare, Mic, Pencil, Send, StickyNote } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 export const Route = createFileRoute('/notes/$noteId')({
@@ -125,7 +129,9 @@ function NoteDetailPage() {
         </CardHeader>
 
         <CardContent className="pt-4">
-          <p className="whitespace-pre-wrap text-sm">{note.decrypted}</p>
+          <p className="whitespace-pre-wrap text-sm" data-testid="note-detail-content">
+            {note.decrypted}
+          </p>
 
           {/* Custom fields */}
           {note.payload.fields && visibleFields.length > 0 && (
@@ -160,6 +166,113 @@ function NoteDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Reply thread */}
+      <NoteRepliesSection noteId={noteId} />
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// NoteRepliesSection — reply thread below the main note
+// ---------------------------------------------------------------------------
+
+function NoteRepliesSection({ noteId }: { noteId: string }) {
+  const { t } = useTranslation()
+  const { hasNsec, publicKey, adminDecryptionPubkey } = useAuth()
+  const { currentHubId: _hubId } = useConfig()
+  const { toast } = useToast()
+  const [replyText, setReplyText] = useState('')
+
+  const { data: replies = [], isLoading } = useNoteReplies(noteId)
+  const createReply = useCreateNoteReply(noteId)
+
+  async function handleSendReply() {
+    if (!replyText.trim() || !hasNsec || !publicKey) return
+    try {
+      const payload: NotePayload = { text: replyText.trim() }
+      const adminPub = adminDecryptionPubkey || publicKey
+      const { encryptedContent, authorEnvelope, adminEnvelopes } = encryptNote(payload, publicKey, [
+        adminPub,
+      ])
+      await createReply.mutateAsync({ encryptedContent, authorEnvelope, adminEnvelopes })
+      setReplyText('')
+    } catch {
+      toast(t('common.error', { defaultValue: 'Error' }), 'error')
+    }
+  }
+
+  return (
+    <div className="space-y-3" data-testid="note-replies-section">
+      <div className="flex items-center gap-2">
+        <MessageSquare className="h-4 w-4 text-muted-foreground" />
+        <h2 className="text-sm font-medium">
+          {t('notes.replies.title', { defaultValue: 'Replies' })}
+        </h2>
+        {replies.length > 0 && (
+          <span className="text-xs text-muted-foreground">({replies.length})</span>
+        )}
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-2">
+          {[1, 2].map((i) => (
+            <div key={i} className="h-12 animate-pulse rounded bg-muted" />
+          ))}
+        </div>
+      ) : replies.length === 0 ? (
+        <p className="text-xs text-muted-foreground" data-testid="note-replies-empty">
+          {t('notes.replies.empty', { defaultValue: 'No replies yet.' })}
+        </p>
+      ) : (
+        <div className="space-y-2" data-testid="note-replies-list">
+          {replies.map((reply) => (
+            <Card key={reply.id} className="border-l-2 border-l-primary/20">
+              <CardContent className="py-2 px-3">
+                <p className="text-xs text-muted-foreground mb-1">
+                  <code>{reply.authorPubkey.slice(0, 12)}…</code>
+                  {' · '}
+                  {new Date(reply.createdAt).toLocaleString()}
+                </p>
+                <p className="text-sm whitespace-pre-wrap" data-testid="note-reply-content">
+                  {reply.decrypted}
+                </p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {hasNsec && (
+        <div className="flex gap-2" data-testid="note-reply-composer">
+          <Textarea
+            value={replyText}
+            onChange={(e) => setReplyText(e.target.value)}
+            placeholder={t('notes.replies.placeholder', {
+              defaultValue: 'Write a reply…',
+            })}
+            rows={2}
+            className="resize-none"
+            data-testid="note-reply-input"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                void handleSendReply()
+              }
+            }}
+          />
+          <Button
+            size="sm"
+            disabled={!replyText.trim() || createReply.isPending}
+            onClick={handleSendReply}
+            data-testid="note-reply-send-btn"
+          >
+            <Send className="h-4 w-4" />
+            <span className="sr-only">
+              {t('notes.replies.send', { defaultValue: 'Send reply' })}
+            </span>
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

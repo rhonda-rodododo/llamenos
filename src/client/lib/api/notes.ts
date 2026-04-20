@@ -58,3 +58,23 @@ export async function updateNote(
 export async function getNote(noteId: string) {
   return request<{ note: EncryptedNote }>(hp(`/notes/${noteId}`))
 }
+
+// --- Note Replies ---
+
+export async function getNoteReplies(noteId: string) {
+  return request<{ replies: EncryptedNote[] }>(hp(`/notes/${noteId}/replies`))
+}
+
+export async function createNoteReply(
+  noteId: string,
+  data: {
+    encryptedContent: Ciphertext
+    authorEnvelope?: KeyEnvelope
+    adminEnvelopes?: RecipientEnvelope[]
+  }
+) {
+  return request<{ reply: EncryptedNote }>(hp(`/notes/${noteId}/replies`), {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}

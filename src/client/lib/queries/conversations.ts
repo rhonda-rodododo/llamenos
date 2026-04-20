@@ -14,6 +14,7 @@ import {
   type ConversationMessage,
   claimConversation,
   getConversationMessages,
+  getUserLoads,
   listConversations,
   sendConversationMessage,
   updateConversation,
@@ -197,6 +198,34 @@ export function useUpdateConversation() {
       void queryClient.invalidateQueries({ queryKey: queryKeys.conversations.all })
     },
   })
+}
+
+// ---------------------------------------------------------------------------
+// conversationLoadsOptions
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch per-user conversation load counts (how many active conversations each
+ * user is currently handling). Used to surface load-balancing indicators.
+ * Polls every 30s alongside Nostr real-time events.
+ */
+const conversationLoadsOptions = () =>
+  queryOptions({
+    queryKey: queryKeys.conversations.loads(),
+    queryFn: async (): Promise<Record<string, number>> => {
+      const { loads } = await getUserLoads()
+      return loads
+    },
+    staleTime: 30_000,
+    refetchInterval: 30_000,
+  })
+
+// ---------------------------------------------------------------------------
+// useConversationLoads
+// ---------------------------------------------------------------------------
+
+export function useConversationLoads() {
+  return useQuery(conversationLoadsOptions())
 }
 
 // ---------------------------------------------------------------------------
