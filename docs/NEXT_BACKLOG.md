@@ -421,6 +421,17 @@ admin-flow (18), blast-sending (8), notes-crud (7), smoke (4), theme (7), health
 - [x] **React Query for fetch + decrypt** — Completed in react-query refactor PR #28.
 - [x] **Eliminate remaining decryptHubField calls** — Verified 2026-04-12: all `decryptHubField()` call sites now live in `src/client/lib/queries/*.ts` (teams, tags, settings, shifts, notes, blasts, roles, reports, hubs, firehose) — the target decrypt-in-queryFn pattern. Zero component-level callers remain. The 2 mentions in `tag-input.tsx` and `platform-roles-section.tsx` are comments referencing the function, not calls. `hub-field-crypto.ts` stays as the implementation the queries import.
 
+## v2→v1 Feature Backport Series
+
+A series of specs and plans to backport v2 (Llámenos Platform) architectural patterns into v1 (Llámenos Hotline). These are pre-production foundation work — no migration code needed.
+
+- [ ] **Spec 1/6: Entity Templates Architecture** — `docs/superpowers/specs/2026-04-19-v2-entity-templates-architecture.md` (pending write)
+- [ ] **Spec 2/6: Custom Field System** — `docs/superpowers/specs/2026-04-19-custom-field-system-spec.md` (pending write)
+- [ ] **Spec 3/6: Case Management Records** — `docs/superpowers/specs/2026-04-19-case-management-records-spec.md` (pending write)
+- [ ] **Spec 4/6: Contact Directory v2** — `docs/superpowers/specs/2026-04-19-contact-directory-v2-spec.md` (pending write)
+- [ ] **Spec 5/6: Relationship Graph** — `docs/superpowers/specs/2026-04-19-relationship-graph-spec.md` (pending write)
+- [x] **Spec 6/6: Blind Index Search** — `docs/superpowers/specs/2026-04-19-blind-index-search-spec.md` — DONE. Enables server-side filtering of encrypted entity field values via client-computed HMAC-SHA256 blind indexes. Hub-derived per-field keys, dedicated `bi_*` DB columns, crypto worker extension, hybrid server/client search UI.
+
 ## Comprehensive Audit (2026-04-02)
 
 > Specs and plans created from full codebase audit. Organized by priority.
