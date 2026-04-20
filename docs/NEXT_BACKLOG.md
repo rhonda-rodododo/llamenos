@@ -24,6 +24,17 @@ Full report: [`docs/INCOMPLETE_FEATURES_AUDIT_2026-04-18.md`](INCOMPLETE_FEATURE
 
 - [ ] **Knip safelist for intentionally-unused API/query symbols** — Add JSDoc `@knipignore` (or knip config) for the orphaned functions/hooks listed in the audit so a future sweep does not delete them like the Signal contact registration UI was deleted in the knip incident.
 
+## v2→v1 Feature Port Series
+
+Multi-PR effort to port v2's entity template / custom field architecture to v1. Specs live in `docs/superpowers/specs/`.
+
+- [ ] **Part 1 — Entity Type System** — `docs/superpowers/specs/2026-04-19-v2-entity-templates-architecture.md`
+- [ ] **Part 2 — Template Engine** — Template manifest, apply, update detection
+- [ ] **Part 3 — Relationship Types** — Contact/case/event linking with join fields
+- [ ] **Part 4 — Custom Field Schema Engine** — [`docs/superpowers/specs/2026-04-19-custom-field-schema-spec.md`](specs/2026-04-19-custom-field-schema-spec.md). Per-entity typed fields with validation, conditional visibility, PII marking, MLS encryption for PII values, hub-key encryption for metadata. Dynamic form renderer. Migration from `custom_field_definitions`.
+- [ ] **Part 5 — Report Type Schema Engine** — Report-specific field schemas with status/severity workflows
+- [ ] **Part 6 — Migration Tooling** — v2→v1 data migration scripts, template import/export
+
 ## Security overhaul — Phase 2 (from completion audit 2026-04-14)
 
 Full report: [`docs/security/SECURITY_OVERHAUL_COMPLETION_AUDIT_2026-04-14.md`](security/SECURITY_OVERHAUL_COMPLETION_AUDIT_2026-04-14.md). Phase 1 (Tiers 0, 3, 4, 5-Twilio, Tier 1 hub-fields, Tier 2 OPAQUE/Shamir/multi-factor KEK) shipped and is hardened. Phase 2 remains.
@@ -338,6 +349,15 @@ All items below have a design spec and implementation plan in `docs/superpowers/
 - [x] **Health Monitoring** — ProviderHealthService with consecutive failure tracking (healthy→degraded→down). Background polling. GET /provider-health endpoint. ProviderHealthBadge React component. 5 E2E tests.
 - [x] **Infrastructure** — Fixed Asterisk bridge 44GB memory leak (WebSocket GC + reconnect limit). Docker compose dev cleanup (asterisk in Docker, bridge local). Bun upgraded to latest.
 
+### v2→v1 Port Series (2026-04)
+
+> Systematic port of v2 platform features into v1 hotline. Each part has a spec in `docs/superpowers/specs/` and will get an implementation plan in `docs/superpowers/plans/`.
+
+**Series order:** 1 (Entity Templates) → 2 (Relationship Engine) → 3 (Case Management) → 4 (Advanced Search) → 5 (Reporting) → 6 (Automation)
+
+- [ ] **Part 1: Entity Templates** (`2026-04-19-v2-entity-templates-architecture.md`) — Generic entity types, fields, statuses, custom forms. Foundation for cases, events, custom records.
+- [ ] **Part 2: Relationship Engine** (`2026-04-19-relationship-engine-spec.md`) — Generic M:N relationships between any entity types. MLS-encrypted payloads, hub-key encrypted metadata, cardinality enforcement, roles, join fields, affinity groups. Replaces `contact_relationships`.
+
 ### Contact Directory v2 — Specs (Draft, Needs Review)
 
 > All specs below are drafts from 2026-03-28 brainstorming. They need review against the codebase and may need revision after Spec 0 (PBAC redesign) lands or other work changes assumptions. Review each spec before writing an implementation plan.
@@ -400,6 +420,17 @@ admin-flow (18), blast-sending (8), notes-crud (7), smoke (4), theme (7), health
 
 - [x] **React Query for fetch + decrypt** — Completed in react-query refactor PR #28.
 - [x] **Eliminate remaining decryptHubField calls** — Verified 2026-04-12: all `decryptHubField()` call sites now live in `src/client/lib/queries/*.ts` (teams, tags, settings, shifts, notes, blasts, roles, reports, hubs, firehose) — the target decrypt-in-queryFn pattern. Zero component-level callers remain. The 2 mentions in `tag-input.tsx` and `platform-roles-section.tsx` are comments referencing the function, not calls. `hub-field-crypto.ts` stays as the implementation the queries import.
+
+## v2→v1 Feature Backport Series
+
+A series of specs and plans to backport v2 (Llámenos Platform) architectural patterns into v1 (Llámenos Hotline). These are pre-production foundation work — no migration code needed.
+
+- [ ] **Spec 1/6: Entity Templates Architecture** — `docs/superpowers/specs/2026-04-19-v2-entity-templates-architecture.md` (pending write)
+- [ ] **Spec 2/6: Custom Field System** — `docs/superpowers/specs/2026-04-19-custom-field-system-spec.md` (pending write)
+- [ ] **Spec 3/6: Case Management Records** — `docs/superpowers/specs/2026-04-19-case-management-records-spec.md` (pending write)
+- [ ] **Spec 4/6: Contact Directory v2** — `docs/superpowers/specs/2026-04-19-contact-directory-v2-spec.md` (pending write)
+- [ ] **Spec 5/6: Relationship Graph** — `docs/superpowers/specs/2026-04-19-relationship-graph-spec.md` (pending write)
+- [x] **Spec 6/6: Blind Index Search** — `docs/superpowers/specs/2026-04-19-blind-index-search-spec.md` — DONE. Enables server-side filtering of encrypted entity field values via client-computed HMAC-SHA256 blind indexes. Hub-derived per-field keys, dedicated `bi_*` DB columns, crypto worker extension, hybrid server/client search UI.
 
 ## Comprehensive Audit (2026-04-02)
 
@@ -481,6 +512,22 @@ These items were identified during brainstorming but deferred as follow-up effor
 - [ ] **WebAuthn-as-KEK-factor add/remove** — Add/remove WebAuthn as a KEK factor (distinct from passkey-as-login-credential). Requires re-wrapping KEK when factor set changes. key-store-v2 already supports 3-factor PRF mode so plumbing exists; needs UX + rotation flow.
 - [ ] **Trusted browser / "remember this device"** — Per-session trust marking with different TTLs for trusted vs. untrusted sessions. Cuts across login flow + session UI. Depends on sessions table landing first.
 - [ ] **Step-up re-auth for sensitive actions** — Re-tap passkey (or re-enter PIN) before admin operations. Requires tagging sensitive endpoints + freshness claim on tokens + UX interruption pattern. Cross-cutting.
+
+## v2→v1 Template Loader + Marketplace (2026-04-19)
+
+Spec: `docs/superpowers/specs/2026-04-19-template-loader-spec.md`
+
+- [ ] **Template loader spec review** — Spec written, pending review before implementation.
+- [ ] **Copy v2 templates + schema into v1** — 14 template JSONs + `templateManifestSchema` from `packages/protocol/template-types.ts`. Build-time copy into `src/shared/templates/`.
+- [ ] **Add `multiselect` + `date` custom field types** — v2 templates use these; v1 `CustomFieldDefinitionSchema` lacks them.
+- [ ] **Add `hub_template_config` table** — Stores template metadata (statuses, severities, contactRoles, relationshipTypes) as hub-encrypted JSON for Part 6 entity runtime.
+- [ ] **Add `report_types.encrypted_config` column** — Stores per-type statuses, fields, icon, color, etc. from template report types.
+- [ ] **Implement `TemplateLoaderService`** — Parse, validate, resolve `extends` inheritance, encrypt labels with hub key, seed report types / custom fields / roles.
+- [ ] **Wire `templateId` into hub creation** — `POST /hubs` and `POST /setup/complete` accept optional `templateId`. Apply template after hub key generation.
+- [ ] **Template summary static asset** — Build-generated `public/templates/index.json` with lightweight metadata for UI listing.
+- [ ] **Client template picker UI** — `TemplatePicker` + `TemplateCard` components. Integrate into `SetupWizard` (new step) and `CreateHubDialog`.
+- [ ] **i18n keys for template UI** — Add to all 22 locale files.
+- [ ] **Tests** — Unit (schema validation, inheritance, encryption), API E2E (hub creation with template), UI E2E (wizard + admin dialog).
 
 ## Dedupe section-layout primitives (2026-04-05)
 
