@@ -17,6 +17,23 @@ export const Route = createFileRoute('/notes_/$noteId')({
   component: NoteDetailPage,
 })
 
+function BackToNotes({
+  navigate,
+  t,
+}: { navigate: ReturnType<typeof useNavigate>; t: (key: string) => string }) {
+  return (
+    <button
+      type="button"
+      onClick={() => navigate({ to: '/notes', search: { page: 1, callId: '', search: '' } })}
+      className="text-muted-foreground hover:text-foreground"
+      aria-label={t('common.back')}
+      data-testid="note-detail-back"
+    >
+      <ArrowLeft className="h-5 w-5" />
+    </button>
+  )
+}
+
 function NoteDetailPage() {
   const { t } = useTranslation()
   const { noteId } = Route.useParams()
@@ -50,18 +67,30 @@ function NoteDetailPage() {
 
   if (forbidden) {
     return (
-      <div className="py-16 text-center text-muted-foreground" data-testid="note-detail-forbidden">
-        <Lock className="mx-auto mb-3 h-8 w-8 opacity-40" />
-        <p className="text-sm">{t('notes.detail.forbidden')}</p>
+      <div className="space-y-6">
+        <BackToNotes navigate={navigate} t={t} />
+        <div
+          className="py-16 text-center text-muted-foreground"
+          data-testid="note-detail-forbidden"
+        >
+          <Lock className="mx-auto mb-3 h-8 w-8 opacity-40" />
+          <p className="text-sm">{t('notes.detail.forbidden')}</p>
+        </div>
       </div>
     )
   }
 
   if (!note) {
     return (
-      <div className="py-16 text-center text-muted-foreground" data-testid="note-detail-not-found">
-        <StickyNote className="mx-auto mb-3 h-8 w-8 opacity-40" />
-        <p className="text-sm">{t('notes.detail.notFound')}</p>
+      <div className="space-y-6">
+        <BackToNotes navigate={navigate} t={t} />
+        <div
+          className="py-16 text-center text-muted-foreground"
+          data-testid="note-detail-not-found"
+        >
+          <StickyNote className="mx-auto mb-3 h-8 w-8 opacity-40" />
+          <p className="text-sm">{t('notes.detail.notFound')}</p>
+        </div>
       </div>
     )
   }
