@@ -1,5 +1,46 @@
 # Next Backlog
 
+## Entity Templates (from v2)
+
+Full architecture spec: [`docs/superpowers/specs/2026-04-19-v2-entity-templates-architecture.md`](superpowers/specs/2026-04-19-v2-entity-templates-architecture.md).
+
+Bring v2's template-driven entity/relationship model into v1 while preserving zero-knowledge E2EE invariants. v2 defines 14 use-case templates (general-hotline, copwatch, street-medic, bail-fund, mutual-aid, ice-rapid-response, jail-support, hate-crime-reporting, stop-the-sweeps, dv-crisis, missing-persons, kyr-training, tenant-organizing, anti-trafficking) with 20 unique entity types, custom field schemas, relationship types, and i18n labels.
+
+### Phase 1: Generic Entity Type Registry
+- [ ] DB: `entity_types`, `entity_type_statuses` tables
+- [ ] API: CRUD routes for entity types (hub-key encrypted labels)
+- [ ] Admin UI: "Entity Types" section
+- [ ] Client: React Query hooks, decrypt-on-fetch
+
+### Phase 2: Custom Field Schema
+- [ ] DB: `entity_type_fields` table
+- [ ] API: CRUD for field definitions
+- [ ] Client: Dynamic form renderer (extend `custom-field-inputs.tsx`)
+- [ ] Add `date` field type to v1 custom fields
+- [ ] Migrate `custom_field_definitions` → `entity_type_fields`
+
+### Phase 3: Relationship Types
+- [ ] DB: `entity_type_relationship_types`, `entity_relationships` tables
+- [ ] API: CRUD for relationship types; create/link/unlink
+- [ ] Migrate `contactRelationships` → `entity_relationships`
+- [ ] Generalize relationship UI beyond contacts
+
+### Phase 4: Template Loader
+- [ ] Template parser: v2 JSON → v1 DB schema
+- [ ] Handle `extends` (template inheritance)
+- [ ] Seed 14 built-in templates
+- [ ] Add "Choose template" step to hub creation flow
+
+### Phase 5: Template Marketplace / Sharing
+- [ ] Export hub config → template JSON
+- [ ] Import/validate template JSON
+- [ ] Community template gallery
+
+### Open Questions (see spec §8)
+- Keep contacts specialized or migrate to generic `entity_instances`?
+- Server-side indexing for encrypted fields?
+- Permission namespace per entity type?
+
 ## Incomplete Features Audit — 2026-04-18
 
 Full report: [`docs/INCOMPLETE_FEATURES_AUDIT_2026-04-18.md`](INCOMPLETE_FEATURES_AUDIT_2026-04-18.md). Server infrastructure is complete for all items below; only client UI / wiring is missing.
