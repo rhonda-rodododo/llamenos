@@ -4,8 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/lib/auth'
 import { useConfig } from '@/lib/config'
-import { cryptoWorker } from '@/lib/crypto-worker-client'
-import { MlsConversation } from '@/lib/mls/conversation'
+import { getMlsConversation } from '@/lib/mls/get-mls-conversation'
 import { useCreateNoteReply, useNoteDetail, useNoteReplies } from '@/lib/queries/notes'
 import { useToast } from '@/lib/toast'
 import type { NotePayload } from '@shared/types'
@@ -195,7 +194,8 @@ function NoteRepliesSection({ noteId }: { noteId: string }) {
     if (!replyText.trim() || !hasNsec || !publicKey) return
     try {
       const payload: NotePayload = { text: replyText.trim() }
-      const conv = MlsConversation.open(hubId, cryptoWorker, '')
+      const conv = await getMlsConversation(hubId)
+      if (!conv) throw new Error('MLS not available')
       const plaintext = new TextEncoder().encode(JSON.stringify(payload))
       const mlsCiphertextBytes = await conv.encrypt(plaintext)
       const mlsCiphertext = Buffer.from(mlsCiphertextBytes).toString('base64')

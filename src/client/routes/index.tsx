@@ -1,9 +1,8 @@
 import { type ActiveCall, addBan, createNote } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { useConfig } from '@/lib/config'
-import { cryptoWorker } from '@/lib/crypto-worker-client'
 import { useCallTimer, useCalls, useShiftStatus } from '@/lib/hooks'
-import { MlsConversation } from '@/lib/mls/conversation'
+import { getMlsConversation } from '@/lib/mls/get-mls-conversation'
 import {
   useCallAnalytics,
   useCallHoursAnalytics,
@@ -521,7 +520,8 @@ function ActiveCallPanel({
     if (!noteText.trim()) return
     setSaving(true)
     try {
-      const conv = MlsConversation.open(hubId, cryptoWorker, '')
+      const conv = await getMlsConversation(hubId)
+      if (!conv) throw new Error('MLS not available')
       const plaintext = new TextEncoder().encode(JSON.stringify({ text: noteText }))
       const mlsCiphertextBytes = await conv.encrypt(plaintext)
       const mlsCiphertext = Buffer.from(mlsCiphertextBytes).toString('base64')
@@ -541,7 +541,8 @@ function ActiveCallPanel({
       try {
         const text = await stopTranscription()
         if (text.trim()) {
-          const conv = MlsConversation.open(hubId, cryptoWorker, '')
+          const conv = await getMlsConversation(hubId)
+          if (!conv) throw new Error('MLS not available')
           const plaintext = new TextEncoder().encode(
             JSON.stringify({ text: `[${t('transcription.title')}] ${text}` })
           )
