@@ -460,6 +460,19 @@ admin-flow (18), blast-sending (8), notes-crud (7), smoke (4), theme (7), health
 - [x] **Telnyx WebRTC token generation** — Done in PR #98: `generateTelnyxToken()` in `src/server/telephony/webrtc-tokens.ts` uses Telnyx's two-step Telephony Credential flow (`POST /v2/telephony_credentials` with `connection_id`, then `POST /v2/telephony_credentials/{id}/token` for the login JWT). Optional `sipConnectionId` + `webrtcEnabled` fields added to `TelnyxConfigSchema`; `isWebRtcConfigured()` enforces both at runtime. 8 new tests via scoped fetch stub (`webrtc-tokens.test.ts`).
 - [ ] **Bandwidth WebRTC token generation** — `src/server/telephony/webrtc-tokens.ts:36` still throws. Bandwidth schema already has `webrtcEnabled`; needs Bandwidth Voice SDK JWT mint.
 
+## Entity Type Registry (v2→v1 Series)
+
+> **Spec:** `docs/superpowers/specs/2026-04-19-entity-type-registry-spec.md`
+> **Series:** Part 1 of 6. Foundation for bringing v2's custom entity types into v1.
+> **Depends on:** PR #199 (v2 Entity Templates Architecture overview)
+
+- [ ] **Part 1: Entity Type Registry** — DB schema (`entity_types`, `entity_type_statuses`, `entity_type_fields`), API routes (OpenAPIHono + zod-openapi), Zod schemas, admin UI section, React Query hooks, migration path from `report_types`, permission integration.
+- [ ] **Part 2: Entity Instance CRUD** — Create, read, update, archive entity instances. Hub-key encryption for non-PII fields, MLS group encryption for `piiFields`.
+- [ ] **Part 3: Relationship Types** — Define and manage relationships between entity types (1:1, 1:N, M:N).
+- [ ] **Part 4: Template Engine** — Apply v2-style templates to bootstrap entity types, statuses, fields, and suggested roles.
+- [ ] **Part 5: Custom Field Migration** — Migrate `custom_field_definitions` into `entity_type_fields`. Deprecate old custom fields system.
+- [ ] **Part 6: Report Type Deprecation** — Remove `report_types` table and all dual-read code. Full cutover to entity types.
+
 ## Deferred from User Security & Device Management (2026-04-04)
 Spec: `docs/superpowers/specs/2026-04-04-user-security-device-management-design.md` (pending)
 
