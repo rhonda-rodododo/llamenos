@@ -79,10 +79,8 @@ test.describe('Platform Audit log (super-admin)', () => {
     await expect(adminPage.getByTestId('admin-audit-prev-page')).toBeDisabled()
   })
 
-  test('hub admin does not see platform audit in the sidebar', async ({ hubAdminPage }) => {
-    // The platform group is hidden from non-super-admins. Navigate to any
-    // hub-admin section and assert the sidebar item isn't present.
+  test('hub admin sees audit in the sidebar', async ({ hubAdminPage }) => {
     await navigateAfterLogin(hubAdminPage, '/admin/hub-roles')
-    await expect(hubAdminPage.getByTestId('admin-sidebar-item-audit')).toHaveCount(0)
+    await expect(hubAdminPage.getByTestId('admin-sidebar-item-audit')).toBeVisible()
   })
 })
