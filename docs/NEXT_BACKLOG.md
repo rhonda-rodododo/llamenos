@@ -24,6 +24,17 @@ Full report: [`docs/INCOMPLETE_FEATURES_AUDIT_2026-04-18.md`](INCOMPLETE_FEATURE
 
 - [ ] **Knip safelist for intentionally-unused API/query symbols** — Add JSDoc `@knipignore` (or knip config) for the orphaned functions/hooks listed in the audit so a future sweep does not delete them like the Signal contact registration UI was deleted in the knip incident.
 
+## v2→v1 Feature Port Series
+
+Multi-PR effort to port v2's entity template / custom field architecture to v1. Specs live in `docs/superpowers/specs/`.
+
+- [ ] **Part 1 — Entity Type System** — `docs/superpowers/specs/2026-04-19-v2-entity-templates-architecture.md`
+- [ ] **Part 2 — Template Engine** — Template manifest, apply, update detection
+- [ ] **Part 3 — Relationship Types** — Contact/case/event linking with join fields
+- [ ] **Part 4 — Custom Field Schema Engine** — [`docs/superpowers/specs/2026-04-19-custom-field-schema-spec.md`](specs/2026-04-19-custom-field-schema-spec.md). Per-entity typed fields with validation, conditional visibility, PII marking, MLS encryption for PII values, hub-key encryption for metadata. Dynamic form renderer. Migration from `custom_field_definitions`.
+- [ ] **Part 5 — Report Type Schema Engine** — Report-specific field schemas with status/severity workflows
+- [ ] **Part 6 — Migration Tooling** — v2→v1 data migration scripts, template import/export
+
 ## Security overhaul — Phase 2 (from completion audit 2026-04-14)
 
 Full report: [`docs/security/SECURITY_OVERHAUL_COMPLETION_AUDIT_2026-04-14.md`](security/SECURITY_OVERHAUL_COMPLETION_AUDIT_2026-04-14.md). Phase 1 (Tiers 0, 3, 4, 5-Twilio, Tier 1 hub-fields, Tier 2 OPAQUE/Shamir/multi-factor KEK) shipped and is hardened. Phase 2 remains.
