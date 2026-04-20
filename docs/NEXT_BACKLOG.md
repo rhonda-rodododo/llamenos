@@ -338,6 +338,15 @@ All items below have a design spec and implementation plan in `docs/superpowers/
 - [x] **Health Monitoring** — ProviderHealthService with consecutive failure tracking (healthy→degraded→down). Background polling. GET /provider-health endpoint. ProviderHealthBadge React component. 5 E2E tests.
 - [x] **Infrastructure** — Fixed Asterisk bridge 44GB memory leak (WebSocket GC + reconnect limit). Docker compose dev cleanup (asterisk in Docker, bridge local). Bun upgraded to latest.
 
+### v2→v1 Port Series (2026-04)
+
+> Systematic port of v2 platform features into v1 hotline. Each part has a spec in `docs/superpowers/specs/` and will get an implementation plan in `docs/superpowers/plans/`.
+
+**Series order:** 1 (Entity Templates) → 2 (Relationship Engine) → 3 (Case Management) → 4 (Advanced Search) → 5 (Reporting) → 6 (Automation)
+
+- [ ] **Part 1: Entity Templates** (`2026-04-19-v2-entity-templates-architecture.md`) — Generic entity types, fields, statuses, custom forms. Foundation for cases, events, custom records.
+- [ ] **Part 2: Relationship Engine** (`2026-04-19-relationship-engine-spec.md`) — Generic M:N relationships between any entity types. MLS-encrypted payloads, hub-key encrypted metadata, cardinality enforcement, roles, join fields, affinity groups. Replaces `contact_relationships`.
+
 ### Contact Directory v2 — Specs (Draft, Needs Review)
 
 > All specs below are drafts from 2026-03-28 brainstorming. They need review against the codebase and may need revision after Spec 0 (PBAC redesign) lands or other work changes assumptions. Review each spec before writing an implementation plan.
