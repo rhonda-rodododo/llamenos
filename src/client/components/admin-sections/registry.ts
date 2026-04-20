@@ -20,6 +20,7 @@ import { PlatformSection } from './platform-section'
 import { RcsChannelSection } from './rcs-channel-section'
 import { RecoveryGroupSection } from './recovery-group-section'
 import { ReportTypesSection } from './report-types-section'
+import { RetentionSection } from './retention-section'
 import { SignalChannelSection } from './signal-channel-section'
 import { SpamProtectionSection } from './spam-section'
 import { TagsSection } from './tags-section'
@@ -68,3 +69,4 @@ registerSection('platform', PlatformSection)
 registerSection('recovery-group', RecoveryGroupSection)
 registerSection('devices', DevicesSection)
 registerSection('gdpr-erasure', GdprAdminSection)
+registerSection('retention', RetentionSection)

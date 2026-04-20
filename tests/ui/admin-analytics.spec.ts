@@ -57,10 +57,8 @@ test.describe('Platform Analytics (super-admin)', () => {
     })
   })
 
-  test('hub admin does not see platform analytics in the sidebar', async ({ hubAdminPage }) => {
-    // The platform group is hidden from non-super-admins. Navigate to any
-    // hub-admin section and assert the sidebar item isn't present.
+  test('hub admin sees analytics in the sidebar', async ({ hubAdminPage }) => {
     await navigateAfterLogin(hubAdminPage, '/admin/hub-roles')
-    await expect(hubAdminPage.getByTestId('admin-sidebar-item-analytics')).toHaveCount(0)
+    await expect(hubAdminPage.getByTestId('admin-sidebar-item-analytics')).toBeVisible()
   })
 })

@@ -10,7 +10,9 @@ import {
   type Report,
   type ReportType,
   assignReport,
+  getReport,
   getReportCategories,
+  getReportFiles,
   getReportMessages,
   listReportTypes,
   listReports,
@@ -21,6 +23,7 @@ import { useAuth } from '@/lib/auth'
 import { decryptMessage } from '@/lib/crypto-worker-helpers'
 import { decryptHubField } from '@/lib/hub-field-crypto'
 import * as keyManager from '@/lib/key-manager'
+import type { FileRecord } from '@shared/types'
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from './keys'
 
@@ -270,6 +273,41 @@ export function useReportTypes(hubId = 'global') {
 }
 
 // ---------------------------------------------------------------------------
+// reportDetailOptions / useReport
+// ---------------------------------------------------------------------------
+
+const reportDetailOptions = (reportId: string) =>
+  queryOptions({
+    queryKey: queryKeys.reports.detail(reportId),
+    queryFn: (): Promise<Report> => getReport(reportId),
+    staleTime: 30_000,
+    enabled: !!reportId,
+  })
+
+export function useReport(reportId: string) {
+  return useQuery(reportDetailOptions(reportId))
+}
+
+// ---------------------------------------------------------------------------
+// reportFilesOptions / useReportFiles
+// ---------------------------------------------------------------------------
+
+const reportFilesOptions = (reportId: string) =>
+  queryOptions({
+    queryKey: ['reports', 'files', reportId] as const,
+    queryFn: async (): Promise<FileRecord[]> => {
+      const { files } = await getReportFiles(reportId)
+      return files
+    },
+    staleTime: 30_000,
+    enabled: !!reportId,
+  })
+
+export function useReportFiles(reportId: string) {
+  return useQuery(reportFilesOptions(reportId))
+}
+
+// ---------------------------------------------------------------------------
 // Re-export types for convenience
 // ---------------------------------------------------------------------------
-export type { ConversationMessage, Report, ReportType }
+export type { ConversationMessage, FileRecord, Report, ReportType }

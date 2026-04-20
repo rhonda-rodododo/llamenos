@@ -1,4 +1,5 @@
 import { ConfirmDialog } from '@/components/confirm-dialog'
+import { ContactSelect } from '@/components/contacts/contact-select'
 import { SectionBody, SectionDescription } from '@/components/section-layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,11 +11,14 @@ import { useConfig } from '@/lib/config'
 import { encryptHubField } from '@/lib/hub-field-crypto'
 import {
   useAddTeamMembers,
+  useAssignTeamContacts,
   useCreateTeam,
   useDeleteTeam,
   useRemoveTeamMember,
+  useTeamContacts,
   useTeamMembers,
   useTeams,
+  useUnassignTeamContact,
   useUpdateTeam,
 } from '@/lib/queries/teams'
 import { useUsers } from '@/lib/queries/users'
@@ -225,7 +229,12 @@ export function TeamsSection() {
               </div>
             </div>
 
-            {expandedTeamId === team.id && <TeamMembersPanel teamId={team.id} users={users} />}
+            {expandedTeamId === team.id && (
+              <>
+                <TeamMembersPanel teamId={team.id} users={users} />
+                <TeamContactsPanel teamId={team.id} />
+              </>
+            )}
           </div>
         ))}
       </div>
@@ -319,6 +328,137 @@ export function TeamsSection() {
 }
 
 // ---------------------------------------------------------------------------
+// TeamContactsPanel — inline expansion for managing team contact assignments
+// ---------------------------------------------------------------------------
+
+function TeamContactsPanel({ teamId }: { teamId: string }) {
+  const { t } = useTranslation()
+  const { toast } = useToast()
+
+  const { data: assignments = [] } = useTeamContacts(teamId)
+  const assignContacts = useAssignTeamContacts()
+  const unassignContact = useUnassignTeamContact()
+
+  const [addingContacts, setAddingContacts] = useState(false)
+  const [selectedContactIds, setSelectedContactIds] = useState<string[]>([])
+
+  const assignedContactIds = new Set(assignments.map((a) => a.contactId))
+
+  function handleAssign() {
+    const newIds = selectedContactIds.filter((id) => !assignedContactIds.has(id))
+    if (!newIds.length) return
+    assignContacts.mutate(
+      { teamId, contactIds: newIds },
+      {
+        onSuccess: () => {
+          setSelectedContactIds([])
+          setAddingContacts(false)
+          toast(t('teams.contactsAssigned', { defaultValue: 'Contacts assigned' }), 'success')
+        },
+        onError: () => toast(t('common.error', { defaultValue: 'Error' }), 'error'),
+      }
+    )
+  }
+
+  function handleUnassign(contactId: string) {
+    unassignContact.mutate(
+      { teamId, contactId },
+      {
+        onSuccess: () =>
+          toast(t('teams.contactUnassigned', { defaultValue: 'Contact unassigned' }), 'success'),
+        onError: () => toast(t('common.error', { defaultValue: 'Error' }), 'error'),
+      }
+    )
+  }
+
+  return (
+    <div
+      className="rounded-b-lg border border-t-0 border-border bg-muted/20 px-4 py-3 space-y-3"
+      data-testid={`admin-teams-contacts-panel-${teamId}`}
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          {t('teams.contacts', { defaultValue: 'Contacts' })} ({assignments.length})
+        </span>
+        {!addingContacts && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setAddingContacts(true)}
+            data-testid={`admin-teams-add-contact-btn-${teamId}`}
+          >
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            {t('teams.assignContact', { defaultValue: 'Assign' })}
+          </Button>
+        )}
+      </div>
+
+      {assignments.length > 0 ? (
+        <div className="space-y-1">
+          {assignments.map((assignment) => (
+            <div
+              key={assignment.id}
+              className="flex items-center gap-2 rounded px-2 py-1 hover:bg-muted/50 transition-colors"
+              data-testid={`admin-teams-contact-row-${assignment.contactId}`}
+            >
+              <span className="flex-1 text-sm truncate text-muted-foreground">
+                {assignment.contactId.slice(0, 12)}…
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0"
+                onClick={() => handleUnassign(assignment.contactId)}
+                data-testid={`admin-teams-unassign-contact-${assignment.contactId}`}
+              >
+                <X className="h-3 w-3 text-destructive" />
+                <span className="sr-only">{t('common.remove', { defaultValue: 'Remove' })}</span>
+              </Button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          {t('teams.noContacts', { defaultValue: 'No contacts assigned yet' })}
+        </p>
+      )}
+
+      {addingContacts && (
+        <div className="space-y-2 border-t border-border pt-2">
+          <ContactSelect
+            value={selectedContactIds}
+            onChange={(val) => setSelectedContactIds(Array.isArray(val) ? val : val ? [val] : [])}
+            multiple
+          />
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              disabled={!selectedContactIds.length || assignContacts.isPending}
+              onClick={handleAssign}
+              data-testid={`admin-teams-confirm-assign-contacts-${teamId}`}
+            >
+              {assignContacts.isPending
+                ? t('common.loading', { defaultValue: 'Loading...' })
+                : t('teams.assignContacts', { defaultValue: 'Assign Contacts' })}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setAddingContacts(false)
+                setSelectedContactIds([])
+              }}
+            >
+              {t('common.cancel', { defaultValue: 'Cancel' })}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // TeamMembersPanel — inline expansion for managing team members
 // ---------------------------------------------------------------------------
 
@@ -375,7 +515,7 @@ function TeamMembersPanel({
 
   return (
     <div
-      className="rounded-b-lg border border-t-0 border-border bg-muted/30 px-4 py-3 space-y-3"
+      className="border border-t-0 border-border bg-muted/30 px-4 py-3 space-y-3"
       data-testid={`admin-teams-members-panel-${teamId}`}
     >
       <div className="flex items-center justify-between">

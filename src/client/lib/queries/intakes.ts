@@ -6,7 +6,13 @@
  * into contact records.
  */
 
-import { type IntakeRecord, listIntakes, submitIntake, updateIntakeStatus } from '@/lib/api'
+import {
+  type IntakeRecord,
+  getIntake,
+  listIntakes,
+  submitIntake,
+  updateIntakeStatus,
+} from '@/lib/api'
 import type { RecipientEnvelope } from '@shared/types'
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from './keys'
@@ -31,6 +37,25 @@ const intakesListOptions = (status?: string) =>
 
 export function useIntakes(status?: string) {
   return useQuery(intakesListOptions(status))
+}
+
+// ---------------------------------------------------------------------------
+// intakeDetailOptions / useIntake
+// ---------------------------------------------------------------------------
+
+const intakeDetailOptions = (id: string) =>
+  queryOptions({
+    queryKey: queryKeys.intakes.detail(id),
+    queryFn: async () => {
+      const { intake } = await getIntake(id)
+      return intake
+    },
+    staleTime: 30 * 1000,
+    enabled: !!id,
+  })
+
+export function useIntake(id: string) {
+  return useQuery(intakeDetailOptions(id))
 }
 
 // ---------------------------------------------------------------------------

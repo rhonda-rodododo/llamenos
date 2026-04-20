@@ -345,11 +345,11 @@ const retentionSettingsOptions = () =>
     staleTime: STALE_10_MIN,
   })
 
-function useRetentionSettings() {
+export function useRetentionSettings() {
   return useQuery(retentionSettingsOptions())
 }
 
-function useUpdateRetentionSettings() {
+export function useUpdateRetentionSettings() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (data: Partial<RetentionSettings>) => updateRetentionSettings(data),
