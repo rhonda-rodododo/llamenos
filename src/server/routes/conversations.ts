@@ -1,7 +1,10 @@
 import { createRoute, z } from '@hono/zod-openapi'
+import { and, eq, sql } from 'drizzle-orm'
 import { KIND_CONVERSATION_ASSIGNED, KIND_MESSAGE_NEW } from '../../shared/nostr-events'
 import { canClaimChannel, getClaimableChannels } from '../../shared/permissions'
 import type { MessagingChannelType, RecipientEnvelope } from '../../shared/types'
+import { getDb } from '../db'
+import { messageEnvelopes } from '../db/schema'
 import { getMessagingAdapter, getNostrPublisher } from '../lib/adapters'
 import { createLogger } from '../lib/logger'
 import { createRouter } from '../lib/openapi'
@@ -290,7 +293,9 @@ conversations.openapi(getConversationMessagesRoute, async (c) => {
 
 const SendMessageBodySchema = z.object({
   encryptedContent: z.string(),
-  readerEnvelopes: z.array(z.object({}).passthrough()),
+  readerEnvelopes: z.array(z.object({}).passthrough()).optional(),
+  mlsCiphertext: z.string().optional(),
+  mlsEpoch: z.number().optional(),
   plaintextForSending: z.string().optional(),
 })
 
@@ -376,7 +381,9 @@ conversations.openapi(sendMessageRoute, async (c) => {
     direction: 'outbound',
     authorPubkey: pubkey,
     encryptedContent: body.encryptedContent,
-    readerEnvelopes: body.readerEnvelopes as unknown as RecipientEnvelope[],
+    readerEnvelopes: (body.readerEnvelopes ?? []) as unknown as RecipientEnvelope[],
+    mlsCiphertext: body.mlsCiphertext,
+    mlsEpoch: body.mlsEpoch,
     hasAttachments: false,
     externalId: messageExternalId,
     status: messageStatus,
@@ -480,7 +487,82 @@ conversations.openapi(updateConversationRoute, async (c) => {
   return c.json(updated, 200)
 })
 
-// ── POST /{id}/claim — claim a waiting conversation ──
+const claimMessageBodySchema = z.object({
+  mlsCiphertext: z.string(),
+  mlsEpoch: z.number(),
+})
+
+const claimMessageRoute = createRoute({
+  method: 'patch',
+  path: '/{id}/messages/{messageId}/claim',
+  tags: ['Conversations'],
+  summary: 'Claim a server-encrypted inbound message and replace with MLS ciphertext',
+  request: {
+    params: z.object({
+      id: z.string(),
+      messageId: z.string(),
+    }),
+    body: { content: { 'application/json': { schema: claimMessageBodySchema } } },
+  },
+  responses: {
+    200: {
+      description: 'Message claimed',
+      content: { 'application/json': { schema: PassthroughSchema } },
+    },
+    403: {
+      description: 'Forbidden',
+      content: { 'application/json': { schema: ErrorSchema } },
+    },
+    404: {
+      description: 'Not found',
+      content: { 'application/json': { schema: ErrorSchema } },
+    },
+    409: {
+      description: 'Already claimed',
+      content: { 'application/json': { schema: ErrorSchema } },
+    },
+  },
+})
+
+conversations.openapi(claimMessageRoute, async (c) => {
+  const services = c.get('services')
+  const { id, messageId } = c.req.valid('param')
+  const pubkey = c.get('pubkey')
+  const permissions = c.get('permissions')
+  const canReadAll = checkPermission(permissions, 'conversations:read-all')
+
+  const conv = await services.conversations.getConversation(id)
+  if (!conv) return c.json({ error: 'Not found' }, 404)
+  if (!canReadAll && conv.assignedTo !== pubkey && conv.status !== 'waiting') {
+    return c.json({ error: 'Forbidden' }, 403)
+  }
+
+  const body = c.req.valid('json')
+
+  const db = getDb()
+  const [row] = await db
+    .update(messageEnvelopes)
+    .set({
+      mlsCiphertext: body.mlsCiphertext,
+      mlsEpoch: body.mlsEpoch,
+      serverEncryptedBody: null,
+      encryptedContent: body.mlsCiphertext,
+    })
+    .where(
+      and(
+        eq(messageEnvelopes.id, messageId),
+        eq(messageEnvelopes.conversationId, id),
+        sql`${messageEnvelopes.mlsCiphertext} IS NULL`
+      )
+    )
+    .returning()
+
+  if (!row) {
+    return c.json({ error: 'Message not found or already claimed' }, 409)
+  }
+
+  return c.json(row as unknown as Record<string, unknown>, 200)
+})
 
 const claimConversationRoute = createRoute({
   method: 'post',
