@@ -29,9 +29,16 @@ interface ContactSelectProps {
   onChange: (value: string | string[]) => void
   multiple?: boolean
   disabled?: boolean
+  'data-testid'?: string
 }
 
-export function ContactSelect({ value, onChange, multiple, disabled }: ContactSelectProps) {
+export function ContactSelect({
+  value,
+  onChange,
+  multiple,
+  disabled,
+  'data-testid': testId,
+}: ContactSelectProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
 
@@ -88,6 +95,7 @@ export function ContactSelect({ value, onChange, multiple, disabled }: ContactSe
             role="combobox"
             aria-expanded={open}
             disabled={disabled}
+            data-testid={testId}
             className={cn(
               'w-full justify-between font-normal',
               !singleSelected && !multiple && 'text-muted-foreground'
