@@ -1,0 +1,4 @@
+displayName,contactType,riskLevel,tags,fullName,phone,notes
+Test Import One,caller,low,"e2e-import,test",Full Name One,+15551234001,First test contact
+Test Import Two,partner-org,medium,"e2e-import,partner",Partner Org,+15551234002,Second test contact
+Test Import Three,caller,high,"e2e-import",,,
