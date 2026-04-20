@@ -1963,6 +1963,7 @@
       "configured": "Webhooks configured.",
       "saveAndFinish": "Save & Finish"
     }
+  },
   "conversations": {
     "title": "Conversations",
     "claimed": "Conversation claimed",
