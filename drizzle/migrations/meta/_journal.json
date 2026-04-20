@@ -463,6 +463,13 @@
       "when": 1776643200000,
       "tag": "0064_notification_channel",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1776729600000,
+      "tag": "0065_mls_notes_cutover",
+      "breakpoints": true
     }
   ]
 }
