@@ -150,10 +150,13 @@ test.describe('Contact Directory', () => {
       await adminPage.getByTestId('new-contact-btn').click()
       await adminPage.locator('#displayName').fill(createdContactName)
       await adminPage.getByRole('button', { name: /create contact/i }).click()
-      // Wait for create-contact dialog to close and list to refresh
+      // Wait for create-contact dialog to close — onCreated navigates to profile
       await expect(adminPage.getByTestId('create-contact-dialog')).not.toBeVisible({
         timeout: Timeouts.API,
       })
+      // Navigate back to the contacts list for the test
+      await adminPage.waitForURL(/\/contacts\/[^/]+/, { timeout: Timeouts.NAVIGATION })
+      await navigateAfterLogin(adminPage, '/contacts')
       await adminPage.waitForTimeout(Timeouts.ASYNC_SETTLE)
     })
 
