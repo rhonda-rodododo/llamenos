@@ -144,8 +144,10 @@ reports.openapi(createReportRoute, async (c) => {
 
   const body = c.req.valid('json')
 
-  if (!body.encryptedContent || !body.readerEnvelopes?.length) {
-    return c.json({ error: 'Report content is required' }, 400)
+  const hasEcies = !!body.encryptedContent && (body.readerEnvelopes?.length ?? 0) > 0
+  const hasMls = !!body.mlsCiphertext && body.mlsEpoch !== undefined
+  if (!hasEcies && !hasMls) {
+    return c.json({ error: 'Report content is required (ECIES or MLS)' }, 400)
   }
 
   // Validate reportTypeId belongs to this hub if provided
