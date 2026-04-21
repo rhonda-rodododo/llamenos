@@ -40,6 +40,8 @@ export async function createReport(data: {
   reportTypeId?: string
   encryptedContent: Ciphertext
   readerEnvelopes: MessageKeyEnvelope[]
+  mlsCiphertext?: string
+  mlsEpoch?: number
 }) {
   return request<Report>(hp('/reports'), {
     method: 'POST',
@@ -66,6 +68,8 @@ export async function sendReportMessage(
     encryptedContent: Ciphertext
     readerEnvelopes: MessageKeyEnvelope[]
     attachmentIds?: string[]
+    mlsCiphertext?: string
+    mlsEpoch?: number
   }
 ) {
   return request<ConversationMessage>(hp(`/reports/${id}/messages`), {

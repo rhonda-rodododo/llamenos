@@ -112,6 +112,8 @@ const CreateReportBodySchema = z.object({
   reportTypeId: z.string().optional(),
   encryptedContent: z.string(),
   readerEnvelopes: z.array(z.object({}).passthrough()),
+  mlsCiphertext: z.string().optional(),
+  mlsEpoch: z.number().optional(),
 })
 
 const createReportRoute = createRoute({
@@ -179,6 +181,8 @@ reports.openapi(createReportRoute, async (c) => {
     readerEnvelopes: body.readerEnvelopes as unknown as RecipientEnvelope[],
     hasAttachments: false,
     status: 'delivered',
+    mlsCiphertext: body.mlsCiphertext,
+    mlsEpoch: body.mlsEpoch,
   })
 
   publishReportEvent(
@@ -346,6 +350,8 @@ const SendReportMessageBodySchema = z.object({
   encryptedContent: z.string(),
   readerEnvelopes: z.array(z.object({}).passthrough()),
   attachmentIds: z.array(z.string()).optional(),
+  mlsCiphertext: z.string().optional(),
+  mlsEpoch: z.number().optional(),
 })
 
 const sendReportMessageRoute = createRoute({
@@ -416,6 +422,8 @@ reports.openapi(sendReportMessageRoute, async (c) => {
     hasAttachments: (body.attachmentIds?.length ?? 0) > 0,
     attachmentIds: body.attachmentIds,
     status: 'delivered',
+    mlsCiphertext: body.mlsCiphertext,
+    mlsEpoch: body.mlsEpoch,
   })
 
   publishReportEvent(

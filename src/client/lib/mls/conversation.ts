@@ -93,6 +93,18 @@ export class MlsConversation {
     return new MlsConversation(hubId, worker, deviceId)
   }
 
+  /**
+   * Reconstruct an MlsConversation for a hub that already has local state.
+   * Does NOT verify the group exists — callers should check `mlsCurrentEpoch` first.
+   */
+  static fromExisting(
+    hubId: string,
+    worker: CryptoWorkerClient,
+    deviceId: string
+  ): MlsConversation {
+    return new MlsConversation(hubId, worker, deviceId)
+  }
+
   // ---- Encryption / decryption ----
 
   /**

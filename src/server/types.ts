@@ -391,6 +391,10 @@ export interface EncryptedMessage {
   readAt?: Date | null
   failureReason?: string | null
   retryCount: number
+  // MLS fields (Slice 6)
+  mlsCiphertext?: string | null
+  mlsEpoch?: number | null
+  serverEncryptedBody?: string | null
   createdAt: Date
 }
 
@@ -916,6 +920,10 @@ export interface CreateMessageData {
   deliveryStatus?: MessageDeliveryStatus
   providerMessageId?: string
   deliveryError?: string
+  // MLS fields (Slice 6)
+  mlsCiphertext?: string
+  mlsEpoch?: number
+  serverEncryptedBody?: string
 }
 
 // -------------------------------------------------------------------

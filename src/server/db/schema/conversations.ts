@@ -70,6 +70,12 @@ export const messageEnvelopes = pgTable(
     readAt: timestamp('read_at', { withTimezone: true }),
     failureReason: text('failure_reason'),
     retryCount: integer('retry_count').notNull().default(0),
+    // MLS group-encrypted ciphertext (base64-encoded TLS-serialized MLS message)
+    mlsCiphertext: text('mls_ciphertext'),
+    // MLS epoch at which this message was encrypted
+    mlsEpoch: integer('mls_epoch'),
+    // Server-encrypted body for inbound messages before client claim (AES-GCM under LABEL_MESSAGE)
+    serverEncryptedBody: text('server_encrypted_body'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index('message_envelopes_conversation_idx').on(table.conversationId)]

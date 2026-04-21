@@ -54,7 +54,6 @@ declare global {
         adminPubkeys: string[]
       ) => { encryptedContent: string; authorEnvelope: unknown; adminEnvelopes: unknown[] }
       decryptNote: typeof import('./lib/crypto-worker-helpers').decryptNote
-      decryptMessage: typeof import('./lib/crypto-worker-helpers').decryptMessage
     }
   }
 }
@@ -118,7 +117,6 @@ async function bootSPA(): Promise<void> {
           throw new Error('encryptNote removed — use MLS')
         },
         decryptNote: helpers.decryptNote,
-        decryptMessage: helpers.decryptMessage,
       }
     })
   }

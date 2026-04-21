@@ -1,9 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import {
-  decryptBlastContentWithKey,
-  encryptBlastContent,
-  encryptMessage,
-} from '@shared/crypto-envelopes'
+import { decryptBlastContentWithKey, encryptBlastContent } from '@shared/crypto-envelopes'
 import { generateKeyPair } from '@shared/crypto-primitives'
 import type { BlastContent } from '@shared/types'
 
@@ -83,18 +79,6 @@ describe('blast content encryption', () => {
         wrongKey.publicKey
       )
     ).toBeNull()
-  })
-
-  test('domain separation: LABEL_BLAST_CONTENT vs LABEL_MESSAGE are incompatible', () => {
-    const { encryptedContent, readerEnvelopes } = encryptMessage('hello', [admin1.publicKey])
-    // readerEnvelopes has same shape as contentEnvelopes, try to decrypt as blast
-    const decrypted = decryptBlastContentWithKey(
-      encryptedContent,
-      readerEnvelopes,
-      admin1.secretKey,
-      admin1.publicKey
-    )
-    expect(decrypted).toBeNull()
   })
 
   test('empty content envelopes returns null', () => {

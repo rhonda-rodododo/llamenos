@@ -19,9 +19,10 @@ import { Textarea } from '@/components/ui/textarea'
 import { createReport } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { useConfig } from '@/lib/config'
+import { getMlsConversation } from '@/lib/mls/get-mls-conversation'
+import * as mlsApi from '@/lib/mls/mls-api-client'
 import { useReportCategories, useReportTypes } from '@/lib/queries/reports'
 import { useToast } from '@/lib/toast'
-import { encryptMessage } from '@shared/crypto-envelopes'
 import { Loader2, Lock, Send } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -84,20 +85,25 @@ export function ReportForm({ open, onOpenChange, onCreated }: ReportFormProps) {
     setSubmitting(true)
 
     try {
-      // Build reader list: reporter + admin decryption key
-      const readerPubkeys = [publicKey]
-      if (adminDecryptionPubkey && adminDecryptionPubkey !== publicKey) {
-        readerPubkeys.push(adminDecryptionPubkey)
+      const mlsConv = await getMlsConversation(hubId)
+      if (!mlsConv) {
+        toast(t('reports.mlsNotAvailable', { defaultValue: 'MLS not available' }), 'error')
+        setSubmitting(false)
+        return
       }
 
-      const encrypted = encryptMessage(body.trim(), readerPubkeys)
+      const mlsBytes = await mlsConv.encrypt(new TextEncoder().encode(body.trim()))
+      const mlsCiphertext = mlsApi.toBase64(mlsBytes)
+      const epoch = await mlsConv.currentEpoch()
 
       const report = await createReport({
         title: title.trim(),
         category: category || undefined,
         reportTypeId: reportTypeId || undefined,
-        encryptedContent: encrypted.encryptedContent,
-        readerEnvelopes: encrypted.readerEnvelopes,
+        encryptedContent: '' as import('@shared/crypto-types').Ciphertext,
+        readerEnvelopes: [],
+        mlsCiphertext,
+        mlsEpoch: epoch,
       })
 
       toast(t('reports.created', { defaultValue: 'Report submitted' }), 'success')
@@ -116,7 +122,7 @@ export function ReportForm({ open, onOpenChange, onCreated }: ReportFormProps) {
     reportTypeId,
     hasNsec,
     publicKey,
-    adminDecryptionPubkey,
+    hubId,
     toast,
     t,
     resetForm,

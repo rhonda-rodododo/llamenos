@@ -13,7 +13,6 @@ import {
   type CryptoLabel,
   LABEL_BLAST_CONTENT,
   LABEL_CALL_META,
-  LABEL_MESSAGE,
   LABEL_NOTE_KEY,
   LABEL_TRANSCRIPTION,
 } from '@shared/crypto-labels'
@@ -69,37 +68,6 @@ export async function decryptNote(
       // Not JSON
     }
     return { text: decoded }
-  } catch {
-    return null
-  }
-}
-
-/**
- * Decrypt a message using the reader's envelope.
- * Finds the envelope matching the reader's pubkey and unwraps the message key.
- * Secret key operations are delegated to the crypto worker.
- *
- * @param encryptedContent - hex: nonce(24) + ciphertext
- * @param readerEnvelopes - array of per-reader ECIES envelopes
- * @param readerPubkey - reader's x-only pubkey (hex) to find the matching envelope
- */
-export async function decryptMessage(
-  encryptedContent: string,
-  readerEnvelopes: RecipientKeyEnvelope[],
-  readerPubkey: string
-): Promise<string | null> {
-  try {
-    const envelope = readerEnvelopes.find((e) => e.pubkey === readerPubkey)
-    if (!envelope) return null
-
-    const messageKey = await eciesUnwrapKey(envelope, LABEL_MESSAGE)
-
-    const data = hexToBytes(encryptedContent)
-    const nonce = data.slice(0, 24)
-    const ciphertext = data.slice(24)
-    const cipher = xchacha20poly1305(messageKey, nonce)
-    const plaintext = cipher.decrypt(ciphertext)
-    return new TextDecoder().decode(plaintext)
   } catch {
     return null
   }
