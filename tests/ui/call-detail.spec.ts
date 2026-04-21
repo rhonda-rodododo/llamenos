@@ -5,7 +5,6 @@
  * Note permalink navigation requires parameterized route support.
  */
 
-import { encryptNote } from '@shared/crypto-envelopes'
 import { expect, test } from '../fixtures/auth'
 import { navigateAfterLogin } from '../helpers'
 import {
@@ -16,22 +15,18 @@ import {
 // Lazy — resolved after global setup creates admin.json
 let ADMIN_PUBKEY: string
 
-/** Create an encrypted note via the API and return its ID */
+/** Create an MLS-encrypted note via the API and return its ID */
 async function createNoteViaApi(
   authedApi: ReturnType<typeof createAdminApiFromStorageState>,
-  noteText: string,
+  _noteText: string,
   callId: string
 ): Promise<string> {
-  const { encryptedContent, authorEnvelope, adminEnvelopes } = encryptNote(
-    { text: noteText },
-    ADMIN_PUBKEY,
-    [ADMIN_PUBKEY]
-  )
+  // Simulate MLS ciphertext — base64-encoded random bytes (server just stores it)
+  const mlsCiphertext = Buffer.from(crypto.getRandomValues(new Uint8Array(64))).toString('base64')
   const res = await authedApi.post('/api/notes', {
     callId,
-    encryptedContent,
-    authorEnvelope,
-    adminEnvelopes,
+    mlsCiphertext,
+    mlsEpoch: 1,
   })
   expect(res.ok(), `Note creation failed: ${res.status()}`).toBeTruthy()
   const data = await res.json()
@@ -80,11 +75,9 @@ test.describe('Call Detail Page', () => {
     const data = await res.json()
     const note = data.note
 
-    // Note should have encrypted content and envelopes
-    expect(note.encryptedContent).toBeTruthy()
-    expect(note.authorEnvelope).toBeTruthy()
-    expect(note.adminEnvelopes).toBeInstanceOf(Array)
-    expect(note.adminEnvelopes.length).toBeGreaterThan(0)
+    // Note should have MLS encrypted fields
+    expect(note.mlsCiphertext).toBeTruthy()
+    expect(note.mlsEpoch).toBeGreaterThanOrEqual(0)
   })
 
   test('call detail API returns 404 for non-existent call', async ({ request }) => {

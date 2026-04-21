@@ -4,7 +4,11 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { completeSetup, getConfig, seedDemoData, setActiveHub, updateSetupState } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
+import { cryptoWorker } from '@/lib/crypto-worker-client'
+import { createDebugLog } from '@/lib/debug-log'
+import { getDeviceKeypair } from '@/lib/device-identity-store'
 import * as keyManager from '@/lib/key-manager'
+import { bootstrapMlsForNewHub } from '@/lib/mls/hub-bootstrap'
 import { queryKeys } from '@/lib/queries/keys'
 import { useToast } from '@/lib/toast'
 import type {
@@ -192,14 +196,28 @@ export function SetupWizard({ needsBootstrap = false }: { needsBootstrap?: boole
     try {
       await completeSetup(demoMode)
       sessionStorage.removeItem('bootstrapComplete')
+
+      // Re-fetch config to get the default hub ID (created during setup)
+      // and bootstrap MLS for it. MLS bootstrap is required for note encryption
+      // to work; the server-side hub creation in completeSetup does not trigger
+      // MLS auto-bootstrap.
+      try {
+        const config = await getConfig()
+        if (config.hubs?.length && cryptoWorker) {
+          const hubId = config.defaultHubId || config.hubs[0].id
+          await setActiveHub(hubId)
+          const keypair = await getDeviceKeypair()
+          if (keypair) {
+            await bootstrapMlsForNewHub(hubId, cryptoWorker, keypair.deviceId)
+          }
+        }
+      } catch (err) {
+        // Non-fatal: MLS bootstrap failure shouldn't block setup completion
+        createDebugLog('setup:mls-bootstrap')('MLS bootstrap failed after setup completion', err)
+      }
+
       if (demoMode) {
         try {
-          // Re-fetch config to get the default hub ID (created during setup)
-          const config = await getConfig()
-          if (config.hubs?.length) {
-            const hubId = config.defaultHubId || config.hubs[0].id
-            setActiveHub(hubId)
-          }
           await seedDemoData()
           // Invalidate users and shifts caches so newly-created demo data
           // is immediately visible when navigating to those pages.

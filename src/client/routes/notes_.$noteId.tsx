@@ -4,9 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/lib/auth'
 import { useConfig } from '@/lib/config'
+import { getMlsConversation } from '@/lib/mls/get-mls-conversation'
+import { toBase64 } from '@/lib/mls/mls-api-client'
+import { cacheNotePlaintext } from '@/lib/queries/notes'
 import { useCreateNoteReply, useNoteDetail, useNoteReplies } from '@/lib/queries/notes'
 import { useToast } from '@/lib/toast'
-import { encryptNote } from '@shared/crypto-envelopes'
 import type { NotePayload } from '@shared/types'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, Lock, MessageSquare, Mic, Pencil, Send, StickyNote } from 'lucide-react'
@@ -38,6 +40,8 @@ function NoteDetailPage() {
   const { t } = useTranslation()
   const { noteId } = Route.useParams()
   const { isAdmin } = useAuth()
+  const { currentHubId } = useConfig()
+  const hubId = currentHubId ?? 'global'
   const { toast } = useToast()
   const navigate = useNavigate()
 
@@ -215,8 +219,9 @@ function NoteDetailPage() {
 
 function NoteRepliesSection({ noteId }: { noteId: string }) {
   const { t } = useTranslation()
-  const { hasNsec, publicKey, adminDecryptionPubkey } = useAuth()
-  const { currentHubId: _hubId } = useConfig()
+  const { hasNsec, publicKey } = useAuth()
+  const { currentHubId } = useConfig()
+  const hubId = currentHubId ?? 'global'
   const { toast } = useToast()
   const [replyText, setReplyText] = useState('')
 
@@ -227,11 +232,14 @@ function NoteRepliesSection({ noteId }: { noteId: string }) {
     if (!replyText.trim() || !hasNsec || !publicKey) return
     try {
       const payload: NotePayload = { text: replyText.trim() }
-      const adminPub = adminDecryptionPubkey || publicKey
-      const { encryptedContent, authorEnvelope, adminEnvelopes } = encryptNote(payload, publicKey, [
-        adminPub,
-      ])
-      await createReply.mutateAsync({ encryptedContent, authorEnvelope, adminEnvelopes })
+      const conv = await getMlsConversation(hubId)
+      if (!conv) throw new Error('MLS not available')
+      const plaintext = new TextEncoder().encode(JSON.stringify(payload))
+      const mlsCiphertextBytes = await conv.encrypt(plaintext)
+      const mlsCiphertext = toBase64(mlsCiphertextBytes)
+      const mlsEpoch = await conv.currentEpoch()
+      const result = await createReply.mutateAsync({ mlsCiphertext, mlsEpoch })
+      if (result?.reply?.id) cacheNotePlaintext(result.reply.id, payload)
       setReplyText('')
     } catch {
       toast(t('common.error', { defaultValue: 'Error' }), 'error')

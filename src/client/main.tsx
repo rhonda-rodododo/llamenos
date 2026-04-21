@@ -48,7 +48,11 @@ declare global {
       size: () => number
     }
     __llamenos_test_crypto: {
-      encryptNote: typeof import('@shared/crypto-envelopes').encryptNote
+      encryptNote: (
+        payload: { text: string },
+        authorPubkey: string,
+        adminPubkeys: string[]
+      ) => { encryptedContent: string; authorEnvelope: unknown; adminEnvelopes: unknown[] }
       decryptNote: typeof import('./lib/crypto-worker-helpers').decryptNote
       decryptMessage: typeof import('./lib/crypto-worker-helpers').decryptMessage
     }
@@ -110,7 +114,9 @@ async function bootSPA(): Promise<void> {
       import('./lib/crypto-worker-helpers'),
     ]).then(([envelopes, helpers]) => {
       window.__llamenos_test_crypto = {
-        encryptNote: envelopes.encryptNote,
+        encryptNote: () => {
+          throw new Error('encryptNote removed — use MLS')
+        },
         decryptNote: helpers.decryptNote,
         decryptMessage: helpers.decryptMessage,
       }

@@ -1,9 +1,8 @@
 /**
  * React Query hooks for notes resource management.
  *
- * Notes have special per-note ECIES decryption:
- *   - Regular notes: decrypted via authorEnvelope (author) or adminEnvelopes (admin)
- *   - Transcriptions: decrypted via decryptTranscription + ephemeralPubkey
+ * Notes are encrypted/decrypted via MLS group encryption (Slice 5).
+ * Transcriptions still use ECIES via ephemeralPubkey.
  *
  * Role-based filtering:
  *   - system:transcription:admin → admins only
@@ -23,9 +22,12 @@ import {
   updateNote,
 } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
-import { decryptNote, decryptTranscription } from '@/lib/crypto-worker-helpers'
+import { useConfig } from '@/lib/config'
+import { decryptTranscription } from '@/lib/crypto-worker-helpers'
 import { decryptHubField } from '@/lib/hub-field-crypto'
 import * as keyManager from '@/lib/key-manager'
+import { getMlsConversation } from '@/lib/mls/get-mls-conversation'
+import { fromBase64 } from '@/lib/mls/mls-api-client'
 import type { NotePayload } from '@shared/types'
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from './keys'
@@ -53,15 +55,95 @@ type NotesAuth = {
 }
 
 // ---------------------------------------------------------------------------
-// notesListOptions
+// Decryption helper + local plaintext cache for self-authored notes
 // ---------------------------------------------------------------------------
 
 /**
- * queryOptions factory for the notes list.
- * auth values must be passed explicitly (extracted from useAuth() in the hook wrapper)
- * since queryOptions cannot call React hooks.
+ * Local plaintext cache for MLS-encrypted notes authored by the current user.
+ *
+ * MLS `encryptMessage` encrypts for OTHER group members — the sender cannot
+ * decrypt their own ciphertext via `decryptMessage`. This cache stores the
+ * plaintext at creation time so the author can re-read their own notes.
+ *
+ * Keyed by note ID. Persists in memory for the session. On page reload, the
+ * cache is empty and self-authored notes show "[Decryption failed]" until
+ * re-created or until more group members exist (multi-device).
  */
-const notesListOptions = (filters: NoteFilters | undefined, auth: NotesAuth) =>
+const selfAuthoredPlaintextCache = new Map<string, NotePayload>()
+
+/** Cache a note's plaintext for self-decryption. Called after note creation. */
+export function cacheNotePlaintext(noteId: string, payload: NotePayload): void {
+  selfAuthoredPlaintextCache.set(noteId, payload)
+}
+
+/** Clear a cached plaintext (e.g. when note is deleted). */
+export function clearCachedPlaintext(noteId: string): void {
+  selfAuthoredPlaintextCache.delete(noteId)
+}
+
+const PRE_UPGRADE_TEXT = 'Note from before security upgrade — no longer available'
+
+async function decryptNoteMls(
+  note: EncryptedNote,
+  hubId: string,
+  currentPubkey: string | null
+): Promise<NotePayload> {
+  // Check local plaintext cache first (self-authored notes can't be MLS-decrypted)
+  const cached = selfAuthoredPlaintextCache.get(note.id)
+  if (cached) return cached
+
+  if (!note.mlsCiphertext) {
+    if (
+      note.encryptedContent ||
+      note.authorEnvelope ||
+      (note.adminEnvelopes && note.adminEnvelopes.length > 0)
+    ) {
+      return { text: PRE_UPGRADE_TEXT }
+    }
+    return { text: '[Decryption failed]' }
+  }
+
+  // Self-authored notes cannot be decrypted via MLS (sender is excluded from
+  // decryption). If we don't have a cached plaintext, show a fallback.
+  if (currentPubkey && note.authorPubkey === currentPubkey) {
+    return { text: '[Encrypted — reload to view]' }
+  }
+
+  const unlocked = await keyManager.isUnlocked()
+  if (!unlocked) {
+    return { text: '[No key]' }
+  }
+
+  try {
+    const conv = await getMlsConversation(hubId)
+    if (!conv) {
+      return { text: '[MLS not available]' }
+    }
+    const ciphertextBytes = fromBase64(note.mlsCiphertext)
+    const result = await conv.decrypt(ciphertextBytes)
+    if (!result.message) {
+      return { text: '[Decryption failed]' }
+    }
+    const decoded = new TextDecoder().decode(result.message)
+    try {
+      const parsed = JSON.parse(decoded)
+      if (parsed && typeof parsed === 'object' && typeof parsed.text === 'string') {
+        return parsed as NotePayload
+      }
+    } catch {
+      // Not JSON
+    }
+    return { text: decoded }
+  } catch {
+    return { text: '[Decryption failed]' }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// notesListOptions
+// ---------------------------------------------------------------------------
+
+const notesListOptions = (filters: NoteFilters | undefined, auth: NotesAuth, hubId: string) =>
   queryOptions({
     queryKey: queryKeys.notes.list(filters),
     queryFn: async (): Promise<{ notes: DecryptedNote[]; total: number }> => {
@@ -82,25 +164,13 @@ const notesListOptions = (filters: NoteFilters | undefined, auth: NotesAuth) =>
 
         if (isTranscription && note.ephemeralPubkey && hasNsec && unlocked) {
           const text =
-            (await decryptTranscription(note.encryptedContent, note.ephemeralPubkey)) ||
+            (await decryptTranscription(note.encryptedContent ?? '', note.ephemeralPubkey)) ||
             '[Decryption failed]'
           payload = { text }
         } else if (isTranscription && !note.ephemeralPubkey) {
-          payload = { text: note.encryptedContent }
-        } else if (hasNsec && unlocked && publicKey) {
-          const myPubkey = publicKey
-          const envelope = isAdmin
-            ? (note.adminEnvelopes?.find((e) => e.pubkey === myPubkey) ?? note.adminEnvelopes?.[0])
-            : note.authorEnvelope
-          if (envelope) {
-            payload = (await decryptNote(note.encryptedContent, envelope)) || {
-              text: '[Decryption failed]',
-            }
-          } else {
-            payload = { text: '[Decryption failed]' }
-          }
+          payload = { text: note.encryptedContent ?? '' }
         } else {
-          payload = { text: '[No key]' }
+          payload = await decryptNoteMls(note, hubId, publicKey)
         }
 
         decryptedNotes.push({ ...note, decrypted: payload.text, payload, isTranscription })
@@ -108,38 +178,25 @@ const notesListOptions = (filters: NoteFilters | undefined, auth: NotesAuth) =>
 
       return { notes: decryptedNotes, total: res.total }
     },
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 2 * 60 * 1000,
   })
 
 // ---------------------------------------------------------------------------
 // useNotes
 // ---------------------------------------------------------------------------
 
-/**
- * Fetch and decrypt the notes list with optional filters.
- *
- * Replicates the exact decryption + role-based filtering logic from the
- * legacy `loadNotes` callback in notes.tsx:
- *   - Admins see system:transcription:admin notes; non-admins see system:transcription
- *   - Transcriptions with ephemeralPubkey are ECIES-decrypted via decryptTranscription
- *   - Transcriptions without ephemeralPubkey use encryptedContent as plain text
- *   - Regular notes: admin looks up their envelope in adminEnvelopes, author uses authorEnvelope
- */
 export function useNotes(filters?: NoteFilters) {
   const { hasNsec, publicKey, isAdmin } = useAuth()
-  return useQuery(notesListOptions(filters, { isAdmin, publicKey, hasNsec }))
+  const { currentHubId } = useConfig()
+  const hubId = currentHubId ?? 'global'
+  return useQuery(notesListOptions(filters, { isAdmin, publicKey, hasNsec }, hubId))
 }
 
 // ---------------------------------------------------------------------------
 // noteDetailOptions
 // ---------------------------------------------------------------------------
 
-/**
- * queryOptions factory for a single note detail (with custom fields).
- * Fetches the note + custom field definitions and decrypts the note content
- * in the queryFn — per the decrypt-on-fetch architecture.
- */
-const noteDetailOptions = (noteId: string, auth: NotesAuth) =>
+const noteDetailOptions = (noteId: string, auth: NotesAuth, hubId: string) =>
   queryOptions({
     queryKey: queryKeys.notes.detail(noteId),
     queryFn: async (): Promise<{
@@ -159,26 +216,13 @@ const noteDetailOptions = (noteId: string, auth: NotesAuth) =>
 
       if (isTranscription && rawNote.ephemeralPubkey && hasNsec && unlocked) {
         const text =
-          (await decryptTranscription(rawNote.encryptedContent, rawNote.ephemeralPubkey)) ||
+          (await decryptTranscription(rawNote.encryptedContent ?? '', rawNote.ephemeralPubkey)) ||
           '[Decryption failed]'
         payload = { text }
       } else if (isTranscription && !rawNote.ephemeralPubkey) {
-        payload = { text: rawNote.encryptedContent }
-      } else if (hasNsec && unlocked) {
-        const myPubkey = publicKey ?? ''
-        const envelope = isAdmin
-          ? (rawNote.adminEnvelopes?.find((e) => e.pubkey === myPubkey) ??
-            rawNote.adminEnvelopes?.[0])
-          : rawNote.authorEnvelope
-        if (envelope) {
-          payload = (await decryptNote(rawNote.encryptedContent, envelope)) || {
-            text: '[Decryption failed]',
-          }
-        } else {
-          payload = { text: '[Decryption failed]' }
-        }
+        payload = { text: rawNote.encryptedContent ?? '' }
       } else {
-        payload = { text: '[No key]' }
+        payload = await decryptNoteMls(rawNote, hubId, publicKey)
       }
 
       const note: DecryptedNote = {
@@ -189,19 +233,18 @@ const noteDetailOptions = (noteId: string, auth: NotesAuth) =>
       }
       return { note, customFields: cfRes.fields }
     },
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 2 * 60 * 1000,
   })
 
 // ---------------------------------------------------------------------------
 // useNoteDetail
 // ---------------------------------------------------------------------------
 
-/**
- * Fetch and decrypt a single note by id, along with custom field definitions.
- */
 export function useNoteDetail(noteId: string) {
   const { hasNsec, publicKey, isAdmin } = useAuth()
-  return useQuery(noteDetailOptions(noteId, { isAdmin, publicKey, hasNsec }))
+  const { currentHubId } = useConfig()
+  const hubId = currentHubId ?? 'global'
+  return useQuery(noteDetailOptions(noteId, { isAdmin, publicKey, hasNsec }, hubId))
 }
 
 // ---------------------------------------------------------------------------
@@ -243,16 +286,13 @@ export const customFieldsOptions = (hubId = 'global') =>
         })
       )
     },
-    staleTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 10 * 60 * 1000,
   })
 
 // ---------------------------------------------------------------------------
 // useCustomFields
 // ---------------------------------------------------------------------------
 
-/**
- * Fetch custom field definitions from settings.
- */
 export function useCustomFields(hubId = 'global') {
   return useQuery(customFieldsOptions(hubId))
 }
@@ -295,7 +335,7 @@ export function useUpdateNote() {
  * Replies share the same ECIES encryption shape as notes.
  * Decryption deferred to the component via auth context.
  */
-const noteRepliesOptions = (noteId: string, auth: NotesAuth) =>
+const noteRepliesOptions = (noteId: string, auth: NotesAuth, hubId: string) =>
   queryOptions({
     queryKey: queryKeys.notes.replies(noteId),
     queryFn: async (): Promise<DecryptedNote[]> => {
@@ -308,20 +348,15 @@ const noteRepliesOptions = (noteId: string, auth: NotesAuth) =>
         const isTranscription = reply.authorPubkey.startsWith('system:transcription')
         let payload: NotePayload
 
-        if (hasNsec && unlocked && publicKey) {
-          const envelope = isAdmin
-            ? (reply.adminEnvelopes?.find((e) => e.pubkey === publicKey) ??
-              reply.adminEnvelopes?.[0])
-            : reply.authorEnvelope
-          if (envelope) {
-            payload = (await decryptNote(reply.encryptedContent, envelope)) || {
-              text: '[Decryption failed]',
-            }
-          } else {
-            payload = { text: '[Decryption failed]' }
-          }
+        if (isTranscription && reply.ephemeralPubkey && hasNsec && unlocked) {
+          const text =
+            (await decryptTranscription(reply.encryptedContent ?? '', reply.ephemeralPubkey)) ||
+            '[Decryption failed]'
+          payload = { text }
+        } else if (isTranscription && !reply.ephemeralPubkey) {
+          payload = { text: reply.encryptedContent ?? '' }
         } else {
-          payload = { text: '[No key]' }
+          payload = await decryptNoteMls(reply, hubId, publicKey)
         }
 
         decryptedReplies.push({ ...reply, decrypted: payload.text, payload, isTranscription })
@@ -338,7 +373,9 @@ const noteRepliesOptions = (noteId: string, auth: NotesAuth) =>
 
 export function useNoteReplies(noteId: string) {
   const { hasNsec, publicKey, isAdmin } = useAuth()
-  return useQuery(noteRepliesOptions(noteId, { isAdmin, publicKey, hasNsec }))
+  const { currentHubId } = useConfig()
+  const hubId = currentHubId ?? 'global'
+  return useQuery(noteRepliesOptions(noteId, { isAdmin, publicKey, hasNsec }, hubId))
 }
 
 // ---------------------------------------------------------------------------

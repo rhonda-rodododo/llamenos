@@ -25,7 +25,7 @@ export function buildDevCsp(
   const UNSAFE_INLINE = `'un${'safe'}-inline'`
   return [
     "default-src 'self'",
-    `script-src 'self'${nonceDirective}`,
+    `script-src 'self' 'wasm-unsafe-eval'${nonceDirective}`,
     `style-src 'self' 'nonce-${nonce ?? ''}' ${UNSAFE_INLINE}`,
     `style-src-attr ${UNSAFE_INLINE}`,
     "img-src 'self' data: blob:",

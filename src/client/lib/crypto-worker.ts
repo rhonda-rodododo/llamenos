@@ -109,6 +109,8 @@ type WorkerRequest =
       tokenHex: string
       encryptedNsecHex: string
       capsuleNonceHex: string
+      encryptedKekHex?: string
+      kekNonceHex?: string
     }
   // ---- Tier 1 HPKE sidecar ----
   | {
@@ -571,6 +573,8 @@ function handleExportSession(): {
   tokenHex: string
   encryptedNsecHex: string
   capsuleNonceHex: string
+  encryptedKekHex: string | null
+  kekNonceHex: string | null
 } {
   if (!secretKey) throw new Error('Worker is locked')
 
@@ -583,10 +587,27 @@ function handleExportSession(): {
   const ciphertext = cipher.encrypt(plaintext)
   plaintext.fill(0)
 
+  // Also export the KEK bytes (if available) so session-restore can re-init
+  // MLS without a full PIN unlock. The KEK is encrypted under the same random
+  // token with a separate nonce so the main thread never sees it in the clear.
+  let encryptedKekHex: string | null = null
+  let kekNonceHex: string | null = null
+  if (kekBytes) {
+    const kekNonce = randomBytes(24)
+    const kekCipher = xchacha20poly1305(token, kekNonce)
+    const kekPlaintext = utf8ToBytes(bytesToHex(kekBytes))
+    const kekCiphertext = kekCipher.encrypt(kekPlaintext)
+    kekPlaintext.fill(0)
+    encryptedKekHex = bytesToHex(kekCiphertext)
+    kekNonceHex = bytesToHex(kekNonce)
+  }
+
   return {
     tokenHex: bytesToHex(token),
     encryptedNsecHex: bytesToHex(ciphertext),
     capsuleNonceHex: bytesToHex(nonce),
+    encryptedKekHex,
+    kekNonceHex,
   }
 }
 
@@ -598,7 +619,9 @@ function handleExportSession(): {
 function handleImportSession(
   tokenHex: string,
   encryptedNsecHex: string,
-  capsuleNonceHex: string
+  capsuleNonceHex: string,
+  encryptedKekHex?: string,
+  kekNonceHexParam?: string
 ): string {
   const token = hexToBytes(tokenHex)
   const nonce = hexToBytes(capsuleNonceHex)
@@ -611,6 +634,23 @@ function handleImportSession(
 
   secretKey = hexToBytes(nsecHex)
   publicKeyHex = bytesToHex(schnorr.getPublicKey(secretKey))
+
+  // Restore KEK bytes if the capsule included them (enables MLS re-init).
+  if (encryptedKekHex && kekNonceHexParam) {
+    try {
+      const kekNonce = hexToBytes(kekNonceHexParam)
+      const kekCiphertext = hexToBytes(encryptedKekHex)
+      const kekCipher = xchacha20poly1305(token, kekNonce)
+      const kekDecrypted = kekCipher.decrypt(kekCiphertext)
+      const kekHex = new TextDecoder().decode(kekDecrypted)
+      kekDecrypted.fill(0)
+      if (kekBytes) kekBytes.fill(0)
+      kekBytes = hexToBytes(kekHex)
+    } catch {
+      // KEK restoration is best-effort — MLS will just be unavailable
+      // until the next full PIN unlock.
+    }
+  }
 
   resetRateLimits()
   return publicKeyHex
@@ -847,12 +887,30 @@ async function handleMlsInit(clientId: string, explicitKekHex?: string): Promise
   }
 }
 
+/**
+ * Lazy MLS initialization — if the worker is unlocked (kekBytes + publicKeyHex
+ * are available) but mlsInit hasn't completed (or failed silently during
+ * session restore / unlock), this triggers initialization on demand.
+ *
+ * This covers two failure modes:
+ *   1. mlsInit failed non-fatally during unlock (e.g. WASM load timing, IDB
+ *      contention) and the caller retries later.
+ *   2. The caller races ahead of the key-manager mlsInit call.
+ */
+async function ensureMlsInit(): Promise<void> {
+  if (mlsInstance) return
+  if (!kekBytes || !publicKeyHex) {
+    throw new Error('MLS not initialized — worker is locked')
+  }
+  await handleMlsInit(publicKeyHex)
+}
+
 async function handleMlsGenerateKeyPackages(count: number): Promise<Uint8Array[]> {
-  if (!mlsInstance) throw new Error('MLS not initialized')
+  await ensureMlsInit()
   const { Ciphersuite, CredentialType } = await (
     await import('./mls/core-crypto-loader')
   ).loadCoreCrypto()
-  return mlsInstance.transaction((ctx) =>
+  return mlsInstance!.transaction((ctx) =>
     ctx.clientKeypackages(
       Ciphersuite.MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519,
       CredentialType.Basic,
@@ -862,10 +920,10 @@ async function handleMlsGenerateKeyPackages(count: number): Promise<Uint8Array[]
 }
 
 async function handleMlsCurrentEpoch(groupId: string): Promise<number | null> {
-  if (!mlsInstance) throw new Error('MLS not initialized')
+  await ensureMlsInit()
   const { ConversationId } = await (await import('./mls/core-crypto-loader')).loadCoreCrypto()
   const convId = new ConversationId(new TextEncoder().encode(groupId))
-  return mlsInstance.transaction(async (ctx) => {
+  return mlsInstance!.transaction(async (ctx) => {
     const exists = await ctx.conversationExists(convId)
     if (!exists) return null
     return ctx.conversationEpoch(convId)
@@ -922,12 +980,12 @@ async function setupMlsTransport(): Promise<void> {
 }
 
 async function handleMlsCreateGroup(groupId: string): Promise<void> {
-  if (!mlsInstance) throw new Error('MLS not initialized')
+  await ensureMlsInit()
   const { ConversationId, Ciphersuite, CredentialType } = await (
     await import('./mls/core-crypto-loader')
   ).loadCoreCrypto()
   const convId = new ConversationId(new TextEncoder().encode(groupId))
-  await mlsInstance.transaction((ctx) =>
+  await mlsInstance!.transaction((ctx) =>
     ctx.createConversation(convId, CredentialType.Basic, {
       ciphersuite: Ciphersuite.MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519,
     })
@@ -935,21 +993,21 @@ async function handleMlsCreateGroup(groupId: string): Promise<void> {
 }
 
 async function handleMlsProcessWelcome(welcomeBytes: Uint8Array): Promise<string> {
-  if (!mlsInstance) throw new Error('MLS not initialized')
+  await ensureMlsInit()
   const { Welcome } = await (await import('./mls/core-crypto-loader')).loadCoreCrypto()
   const welcome = new Welcome(welcomeBytes)
-  const bundle = await mlsInstance.transaction((ctx) => ctx.processWelcomeMessage(welcome))
+  const bundle = await mlsInstance!.transaction((ctx) => ctx.processWelcomeMessage(welcome))
   const idBytes = bundle.id.copyBytes()
   return new TextDecoder().decode(idBytes)
 }
 
 async function handleMlsExternalJoin(groupInfoBytes: Uint8Array): Promise<string> {
-  if (!mlsInstance) throw new Error('MLS not initialized')
+  await ensureMlsInit()
   const { GroupInfo, CredentialType } = await (
     await import('./mls/core-crypto-loader')
   ).loadCoreCrypto()
   const gi = new GroupInfo(groupInfoBytes)
-  const bundle = await mlsInstance.transaction((ctx) =>
+  const bundle = await mlsInstance!.transaction((ctx) =>
     ctx.joinByExternalCommit(gi, CredentialType.Basic)
   )
   const idBytes = bundle.id.copyBytes()
@@ -960,10 +1018,10 @@ async function handleMlsEncryptMessage(
   groupId: string,
   plaintext: Uint8Array
 ): Promise<Uint8Array> {
-  if (!mlsInstance) throw new Error('MLS not initialized')
+  await ensureMlsInit()
   const { ConversationId } = await (await import('./mls/core-crypto-loader')).loadCoreCrypto()
   const convId = new ConversationId(new TextEncoder().encode(groupId))
-  return mlsInstance.transaction((ctx) => ctx.encryptMessage(convId, plaintext))
+  return mlsInstance!.transaction((ctx) => ctx.encryptMessage(convId, plaintext))
 }
 
 async function handleMlsDecryptMessage(
@@ -975,10 +1033,10 @@ async function handleMlsDecryptMessage(
   hasEpochChanged: boolean
   isActive: boolean
 }> {
-  if (!mlsInstance) throw new Error('MLS not initialized')
+  await ensureMlsInit()
   const { ConversationId } = await (await import('./mls/core-crypto-loader')).loadCoreCrypto()
   const convId = new ConversationId(new TextEncoder().encode(groupId))
-  const result = await mlsInstance.transaction((ctx) => ctx.decryptMessage(convId, ciphertext))
+  const result = await mlsInstance!.transaction((ctx) => ctx.decryptMessage(convId, ciphertext))
   return {
     message: result.message,
     senderClientId: result.senderClientId
@@ -997,12 +1055,12 @@ async function handleMlsAddMembers(
   welcome: Uint8Array | undefined
   groupInfo: Uint8Array | undefined
 }> {
-  if (!mlsInstance) throw new Error('MLS not initialized')
+  await ensureMlsInit()
   const { ConversationId } = await (await import('./mls/core-crypto-loader')).loadCoreCrypto()
   const convId = new ConversationId(new TextEncoder().encode(groupId))
 
   capturedCommitBundle = null
-  await mlsInstance.transaction((ctx) => ctx.addClientsToConversation(convId, keyPackages))
+  await mlsInstance!.transaction((ctx) => ctx.addClientsToConversation(convId, keyPackages))
 
   if (!capturedCommitBundle) throw new Error('No commit bundle captured from transport')
   const result = capturedCommitBundle
@@ -1018,7 +1076,7 @@ async function handleMlsRemoveMembers(
   welcome: Uint8Array | undefined
   groupInfo: Uint8Array | undefined
 }> {
-  if (!mlsInstance) throw new Error('MLS not initialized')
+  await ensureMlsInit()
   const { ConversationId, ClientId } = await (
     await import('./mls/core-crypto-loader')
   ).loadCoreCrypto()
@@ -1026,7 +1084,7 @@ async function handleMlsRemoveMembers(
   const cids = clientIds.map((id) => new ClientId(new TextEncoder().encode(id)))
 
   capturedCommitBundle = null
-  await mlsInstance.transaction((ctx) => ctx.removeClientsFromConversation(convId, cids))
+  await mlsInstance!.transaction((ctx) => ctx.removeClientsFromConversation(convId, cids))
 
   if (!capturedCommitBundle) throw new Error('No commit bundle captured from transport')
   const result = capturedCommitBundle
@@ -1035,10 +1093,10 @@ async function handleMlsRemoveMembers(
 }
 
 async function handleMlsWipeGroup(groupId: string): Promise<void> {
-  if (!mlsInstance) throw new Error('MLS not initialized')
+  await ensureMlsInit()
   const { ConversationId } = await (await import('./mls/core-crypto-loader')).loadCoreCrypto()
   const convId = new ConversationId(new TextEncoder().encode(groupId))
-  await mlsInstance.transaction((ctx) => ctx.wipeConversation(convId))
+  await mlsInstance!.transaction((ctx) => ctx.wipeConversation(convId))
 }
 
 // ---- Message handler ----
@@ -1163,7 +1221,13 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
         result = handleExportSession()
         break
       case 'importSession':
-        result = handleImportSession(req.tokenHex, req.encryptedNsecHex, req.capsuleNonceHex)
+        result = handleImportSession(
+          req.tokenHex,
+          req.encryptedNsecHex,
+          req.capsuleNonceHex,
+          req.encryptedKekHex,
+          req.kekNonceHex
+        )
         break
       case 'decryptEnvelopeField': {
         if (!secretKey) throw new Error('Worker is locked')

@@ -8,16 +8,15 @@ export interface EncryptedNote {
   id: string
   callId: string
   authorPubkey: string
-  encryptedContent: Ciphertext
+  encryptedContent?: Ciphertext
   createdAt: string
   updatedAt: string
   ephemeralPubkey?: string
-  // Per-note ECIES envelopes (forward secrecy)
   authorEnvelope?: KeyEnvelope
   adminEnvelopes?: RecipientEnvelope[]
+  mlsCiphertext?: string
+  mlsEpoch?: number
 }
-
-// --- Notes ---
 
 export async function listNotes(params?: { callId?: string; page?: number; limit?: number }) {
   const qs = new URLSearchParams()
@@ -29,9 +28,11 @@ export async function listNotes(params?: { callId?: string; page?: number; limit
 
 export async function createNote(data: {
   callId: string
-  encryptedContent: Ciphertext
+  encryptedContent?: Ciphertext
   authorEnvelope?: KeyEnvelope
   adminEnvelopes?: RecipientEnvelope[]
+  mlsCiphertext?: string
+  mlsEpoch?: number
 }) {
   return request<{ note: EncryptedNote }>(hp('/notes'), {
     method: 'POST',
@@ -42,9 +43,11 @@ export async function createNote(data: {
 export async function updateNote(
   id: string,
   data: {
-    encryptedContent: Ciphertext
+    encryptedContent?: Ciphertext
     authorEnvelope?: KeyEnvelope
     adminEnvelopes?: RecipientEnvelope[]
+    mlsCiphertext?: string
+    mlsEpoch?: number
   }
 ) {
   return request<{ note: EncryptedNote }>(hp(`/notes/${id}`), {
@@ -68,9 +71,11 @@ export async function getNoteReplies(noteId: string) {
 export async function createNoteReply(
   noteId: string,
   data: {
-    encryptedContent: Ciphertext
+    encryptedContent?: Ciphertext
     authorEnvelope?: KeyEnvelope
     adminEnvelopes?: RecipientEnvelope[]
+    mlsCiphertext?: string
+    mlsEpoch?: number
   }
 ) {
   return request<{ reply: EncryptedNote }>(hp(`/notes/${noteId}/replies`), {
