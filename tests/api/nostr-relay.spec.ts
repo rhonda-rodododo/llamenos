@@ -16,7 +16,8 @@
 
 import { expect, test } from '@playwright/test'
 import WebSocket from 'ws'
-import { createAdminApiFromStorageState } from '../helpers/authed-request'
+import { ADMIN_NSEC } from '../helpers'
+import { createAuthedRequestFromNsec } from '../helpers/authed-request'
 
 // Force the whole file to run on a single worker. The Call-ring and
 // REST-polling describes both drive /telephony/incoming against the same
@@ -156,7 +157,7 @@ test.describe('Call ring Nostr events', () => {
 
   test.beforeAll(async ({ request }) => {
     // Set admin as fallback ring group so calls trigger ringing + events
-    const adminApi = createAdminApiFromStorageState(request)
+    const adminApi = createAuthedRequestFromNsec(request, ADMIN_NSEC)
     await adminApi.put('/api/settings/fallback-group', { pubkeys: [adminApi.pubkey] })
   })
 
