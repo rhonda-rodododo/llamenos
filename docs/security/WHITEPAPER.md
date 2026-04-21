@@ -1,6 +1,6 @@
 # The Llámenos Security Whitepaper
 
-**Version 1.1 — 2026-04-13**
+**Version 1.2 — 2026-04-21**
 **Authors:** Llámenos security working group
 **Status:** Public release. Canonical copy lives at
 `docs/security/WHITEPAPER.md` in the Llámenos source repository. Any copy
@@ -68,8 +68,8 @@ reader-facing summary.
 |---|---|---|
 | **Hub-field encryption** (role names, shift names, report type names, custom field labels, team names) | HPKE v3 envelopes — `DHKEM(X25519, HKDF-SHA256) + HKDF-SHA256 + AES-256-GCM`, per-record AAD via `buildAad(label, recordId, fieldName)`. Source: `src/shared/hpke-primitives.ts`, `src/shared/crypto-suite.ts`, `src/client/lib/queries/*.ts`. | Unchanged. |
 | **Hub key distribution** | HPKE per-device wrap under `LABEL_HUB_KEY_WRAP` with AAD bound to `(deviceId, hubId)`. Source: `src/client/lib/hub-key-manager.ts`. | Unchanged. |
-| **Notes encryption** | **Legacy ECIES + XChaCha20-Poly1305 multi-admin envelopes.** Per-note random 32-byte key, XChaCha20-Poly1305 over the note body, key wrapped via `eciesWrapKey` under `LABEL_NOTE_KEY` for the author and for every current admin (multi-admin envelopes). Source: `src/shared/crypto-envelopes.ts#encryptNote`. | **MLS groupwise encryption** via vendored `@wireapp/core-crypto`, replacing the multi-admin envelope loop with an MLS group keyed on the hub. Tracked as Tier 6 PR #2. The MLS skeleton (`src/client/lib/mls/`) is vendored but `MlsConversation` is an empty class today. |
-| **Messages encryption** (SMS / WhatsApp / Signal inbound) | Same pattern as notes — random per-message key, XChaCha20-Poly1305 body, ECIES-wrapped under `LABEL_MESSAGE` for the assigned volunteer + each admin. Plaintext is discarded at the webhook boundary before any persistence. Source: `src/shared/crypto-envelopes.ts#encryptMessage`, `src/server/services/conversation-service.ts`. | Moves to the same MLS group as notes under Tier 6 PR #2. |
+| **Notes encryption** | **MLS groupwise encryption** via vendored `@wireapp/core-crypto@9.3.3`. Each hub has a persistent MLS group (`llamenos:hub:<hubId>`). Notes are encrypted via `MlsConversation.encrypt()` and decrypted via `MlsConversation.decrypt()` — no per-recipient key wrapping. Epoch advances on membership change provide forward secrecy. Source: `src/client/lib/mls/conversation.ts`, `src/client/lib/crypto-worker.ts` (MLS RPC handlers). Shipped in Tier 6 PR #2 Slices 1–8 (PRs #164, #165, #181, #189, #193, #194, #195, #208). | Unchanged. |
+| **Messages encryption** (SMS / WhatsApp / Signal inbound) | **MLS groupwise encryption** via the same hub MLS group as notes. Inbound webhook messages are server-encrypted (AES-GCM under `LABEL_MESSAGE`) then claimed and MLS-encrypted by the first client to fetch them; server plaintext is discarded at the webhook boundary. Source: `src/server/messaging/router.ts`, `src/client/lib/queries/conversations.ts`. Shipped in Tier 6 PR #2 Slice 6 (PR #194). | Unchanged. |
 | **Blasts** (outbound messaging to external recipients) | Same ECIES + XChaCha20-Poly1305 envelope pattern (`LABEL_BLAST_CONTENT`). | Out of scope for the MLS migration — external recipients are not hub members. Remains on the `HpkeEnvelope` primitive. |
 | **Identity unlock KDF** | **PBKDF2-SHA256, 600,000 iterations** over the PIN, combined via HKDF-SHA256 with the IdP-bound value and (if present) the WebAuthn PRF output. Source: `src/client/lib/key-store.ts` (`PBKDF2_ITERATIONS = 600_000`, `deriveKEK`). | **Argon2id** (memory-hard) replacement. No Argon2id is wired anywhere in the client today. |
 | **Multi-factor KEK** | PIN + IdP-bound value (2-factor) or PIN + IdP-bound value + WebAuthn PRF (3-factor). Encrypted identity blob lives in localStorage; decrypted `nsec` is held in memory only and zeroed on lock. Source: `src/client/lib/key-store.ts`. | A separate **root-KEK bundle** (`src/client/lib/root-kek-store.ts`) persists an AES-KW-wrapped root key in IndexedDB but **does not yet wrap the identity bytes or hub CryptoKey** — that integration is a Tier 3 P1 item. Recovery-group Shamir share wrapping via HPKE is a Tier 2 P0 item and not yet shipped. |
@@ -86,13 +86,13 @@ reader-facing summary.
 
 ### Short-form truth
 
-- **Note/message confidentiality** is currently provided by
-  ECIES + XChaCha20-Poly1305 with per-note forward-secret keys wrapped
-  for every admin. This is the same envelope family the project has
-  used since before the HPKE migration. The HPKE migration (Tier 1)
-  deliberately did **not** touch this surface, because the intended
-  replacement is MLS groupwise encryption, not a second envelope
-  rewrite.
+- **Note/message confidentiality** is provided by **MLS groupwise
+  encryption** via `@wireapp/core-crypto`. Each hub has a persistent
+  MLS group; notes and messages are encrypted/decrypted through the
+  group's ratchet tree. Epoch advances on membership change provide
+  forward secrecy. The old ECIES + XChaCha20-Poly1305 multi-admin
+  envelope loop has been deleted. Shipped in Tier 6 PR #2 (Slices
+  1–8, merged 2026-04-21).
 - **Hub metadata confidentiality** (roles, shifts, reports, etc.) IS
   HPKE-encrypted today with per-record AAD binding. This is the
   Tier 1 shipment.
@@ -115,7 +115,7 @@ of this document ultimately maps back to one of them.
 |---|---|---|
 | 1 | Callers are anonymous by construction. | PSTN arrival → routing by opaque call-id → no caller-id storage beyond the minimum needed for duplicate-call dedup and ban enforcement. |
 | 2 | Volunteer identity is visible only to admins. | Volunteer PII is envelope-encrypted per-user; only admins hold the keys needed to decrypt it. Other volunteers see only opaque display handles. |
-| 3 | Note contents never reach the server in plaintext. | Per-note forward-secret keys wrapped to the note author and to every current admin. Today the wrap is ECIES + XChaCha20-Poly1305 on a multi-admin envelope (`encryptNote` in `src/shared/crypto-envelopes.ts`); **(target)** MLS groupwise encryption via `@wireapp/core-crypto` under Tier 6 PR #2. The server stores ciphertext + envelope metadata only in both cases. |
+| 3 | Note contents never reach the server in plaintext. | MLS groupwise encryption via `@wireapp/core-crypto`. Each hub's MLS group provides forward secrecy through epoch-based ratcheting; the server stores opaque MLS ciphertext only. Source: `src/client/lib/mls/conversation.ts`. |
 | 4 | Audit events are tamper-evident. | SHA-256 hash chain + schnorr-signed sigchain; a single rewritten entry breaks the chain and is detectable by any reader. |
 | 5 | The code running in your browser matches the code the repo shipped. | Reproducible builds, cosign-signed checksums, third-party verifiers, and a client-side binary verifier that fails closed on mismatch. |
 | 6 | Targeted delivery attacks are publicly visible within minutes. | Every running client gossips the SHA-256 of the bundle it loaded; peers raise an alarm when they see a hash they cannot match. |

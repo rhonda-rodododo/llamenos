@@ -3,9 +3,8 @@
 **Branch:** `feat/sec-tier-1-impl-hpke-prb` (merged to `main` via Tier 1 PR).
 **Baseline:** Tier 0 (Albrecht hardening) on `main`.
 **Wire-format break:** envelope v2 (ECIES + XChaCha20-Poly1305) → envelope v3 (HPKE/AES-GCM),
-applied **to hub-field call sites only**. The note/message envelope family (§ "What HPKE does
-NOT cover today" below) stays on ECIES + XChaCha20-Poly1305 because its target replacement is
-MLS, not a second envelope rewrite.
+applied **to hub-field call sites only**. The note/message envelope family moved to MLS
+groupwise encryption in Tier 6 PR #2 (Slices 1–8, merged 2026-04-21).
 **Migration strategy:** TRUNCATE (pre-production). See `drizzle/migrations/0053_tier1_hpke_envelope_v3.sql`.
 
 Tier 1 shipped as two logical units on a single branch:
@@ -36,27 +35,29 @@ AES-256-GCM`) is the wire format for:
 
 ## What HPKE does NOT cover today
 
-The note and message confidentiality surface is **still** on the legacy ECIES + XChaCha20-Poly1305
-envelope family. Specifically:
+As of Tier 6 PR #2 (Slices 1–8, merged 2026-04-21), **notes and messages have moved to MLS
+groupwise encryption** via `@wireapp/core-crypto`. The multi-admin ECIES envelope loop
+(`encryptNote`, `encryptMessage`) has been deleted from `src/shared/crypto-envelopes.ts`.
 
-- `src/shared/crypto-envelopes.ts#encryptNote` / `decryptNoteWithKey` — per-note random
-  XChaCha20-Poly1305 key, wrapped via `eciesWrapKey(noteKey, pubkey, LABEL_NOTE_KEY)` for the
-  author and every current admin (multi-admin recipient envelopes).
-- `src/shared/crypto-envelopes.ts#encryptMessage` — same pattern for inbound SMS / WhatsApp /
-  Signal message bodies under `LABEL_MESSAGE`.
-- `src/shared/crypto-envelopes.ts#encryptBlastContent` — same pattern under
-  `LABEL_BLAST_CONTENT`.
-- The legacy ECIES/XChaCha20 sidecar in `src/client/lib/crypto-worker.ts`
-  (`encrypt` / `decrypt` / `reEncrypt` / `provisionNsec` / `decryptEnvelopeField` /
-  `envelopeEncryptField`) remains reachable for all of the above call sites, plus
-  envelope-encrypted PII on contacts / conversations / bans / call_records / signal-contacts.
+The ECIES/XChaCha20-Poly1305 sidecar in `src/client/lib/crypto-worker.ts` remains for:
 
-This is intentional. Per the top-level directive in
-`docs/security/POST_OVERHAUL_GAPS_2026-04-13.md`, **MLS replaces HPKE for the note and message
-application layer as a clean cut** (Tier 6 PR #2). Rewriting notes/messages onto HPKE as an
-intermediate step would be thrown away. The envelope PII columns on contacts/conversations/
-bans/call_records have their own migration story (per-record AAD plumbing in `decryptObjectFields`
-/ `decryptArrayFields`, tracked as Tier 1 P1).
+- `src/shared/crypto-envelopes.ts#encryptBlastContent` — per-blast random key under
+  `LABEL_BLAST_CONTENT`, ECIES-wrapped per recipient. Blasts target external recipients who are
+  not MLS group members, so they stay on the envelope pattern.
+- Envelope-encrypted PII on contacts / conversations / bans / call_records / signal-contacts
+  (`decryptObjectFields` / `decryptArrayFields` / `envelopeEncryptField`).
+- File encryption bodies (AES-GCM under items-key indirection, key wrapped via HPKE).
+- Backup export encryption (`encryptExport` / `encryptDraft` in `crypto-envelopes.ts`).
+- Device provisioning (`provisionNsec`).
+- Key-store PIN-KEK encryption (XChaCha20-Poly1305 under HKDF-derived KEK).
+- Hub-key-wrap (HPKE per-device, but the hub key itself is distributed through the ECIES-era
+  `hub-key-manager.ts` — hub key is NOT part of MLS).
+- Server-side `CryptoService` encrypt/decrypt for IdP-bound values, event payloads, and
+  agent secrets.
+
+The envelope PII columns on contacts/conversations/bans/call_records have their own migration
+story (per-record AAD plumbing in `decryptObjectFields` / `decryptArrayFields`, tracked as
+Tier 1 P1).
 
 ## What key store v3 did and did not ship
 
@@ -167,22 +168,21 @@ Original deferral list, annotated with current status on `main`:
   via the HPKE primitive family. **DONE.**
 - **Deletion of `key-store-v2.ts`** — **DONE** in PR #104; `key-store-v3.ts` was also renamed to
   `key-store.ts` in the same purge.
-- **Full removal of the ECIES/XChaCha20 sidecar from `crypto-worker.ts`** — **NOT DONE.** The
-  sidecar still exposes `encrypt` / `decrypt` / `reEncrypt` / `provisionNsec` /
-  `decryptEnvelopeField` / `envelopeEncryptField` for the remaining legacy call sites (notes,
-  messages, blasts, envelope-PII on contacts / conversations / bans / call_records /
-  signal-contacts). Tracked as Tier 1 P0 in `POST_OVERHAUL_GAPS_2026-04-13.md`.
-- **Server note/file envelope paths** — **PARTIAL.** Files migrated via the items-key
-  indirection. Notes stay on the legacy server-side `CryptoService` XChaCha20-Poly1305 primitive
-  and are explicitly **not** being promoted to `HpkeEnvelope` because Tier 6 PR #2 moves them to
-  MLS instead (see top-level directive in `POST_OVERHAUL_GAPS_2026-04-13.md`).
+- **Full removal of the ECIES/XChaCha20 sidecar from `crypto-worker.ts`** — **PARTIAL.** Notes
+  and messages moved to MLS in Tier 6 PR #2 (Slices 5–6). The sidecar still exposes `encrypt` /
+  `decrypt` / `reEncrypt` / `provisionNsec` / `decryptEnvelopeField` / `envelopeEncryptField`
+  for remaining legacy call sites (blasts, envelope-PII on contacts / conversations / bans /
+  call_records / signal-contacts). Tracked as Tier 1 P0 in `POST_OVERHAUL_GAPS_2026-04-13.md`.
+- **Server note/file envelope paths** — **DONE for notes.** Files migrated via the items-key
+  indirection. Notes moved to MLS in Tier 6 PR #2 (Slice 5) — the server stores opaque MLS
+  ciphertext and never sees plaintext.
 - **Multi-factor KEK support in `key-store.ts`** — **PARTIAL.** 2-factor (PIN + IdP-bound
   value) and 3-factor (PIN + IdP-bound value + WebAuthn PRF) are wired. The canonical Tier 2
   split-share multi-factor design (independent recovery key + WebAuthn as a primary factor +
   per-factor HPKE wrap of a KEK share) is still scheduled — the `root-kek-store.ts` bundle is
   the scaffolding target but does not yet wrap identity or hub keys.
 - **Full E2E test suite run against the notes/files call sites after their migration** —
-  superseded by the Tier 6 PR #2 MLS cutover test plan.
+  **DONE.** Superseded by the Tier 6 PR #2 MLS cutover (Slices 5–8 include round-trip tests).
 
 ## Verification checklist (Tier 1)
 

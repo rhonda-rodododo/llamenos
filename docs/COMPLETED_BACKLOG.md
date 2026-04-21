@@ -1,5 +1,24 @@
 # Completed Backlog
 
+## 2026-04-21: Tier 6 PR #2 — MLS Groupwise Encryption (`h4-mls-pr2` epic)
+
+Replaced ECIES + XChaCha20-Poly1305 multi-admin envelope encryption for notes and messages with MLS groupwise encryption via `@wireapp/core-crypto@9.3.3`. Each hub gets a persistent MLS group (`llamenos:hub:<hubId>`). Notes and messages are encrypted/decrypted through the group's ratchet tree — no per-recipient key wrapping. Epoch advances on membership change provide forward secrecy. The server stores opaque MLS ciphertext; it never sees plaintext.
+
+### Slice PRs (all merged to `main`)
+
+- [x] **Slice 1** (PR #165) — DB schema (`mls_hub_state`, `mls_key_packages`, `mls_epoch_commits` tables, `hubs.cs_profile` column) + 8 server MLS routes + `MlsService`
+- [x] **Slice 2** (PR #164) — core-crypto WASM bootstrap in crypto Web Worker, MLS client initialization, 8 MLS RPC handlers
+- [x] **Slice 3** (PR #181) — `MlsConversation` full implementation (create, joinViaWelcome, joinViaExternalCommit, addMembers, removeMembers, encrypt, decrypt)
+- [x] **Slice 4** (PR #189) — Hub creation bootstraps MLS group; first admin auto-joins; device enrollment via Welcome
+- [x] **Slice 5** (PR #195) — Notes path cutover to MLS; `encryptNote`/`decryptNoteWithKey` deleted from `crypto-envelopes.ts`
+- [x] **Slice 6** (PR #194) — Messages path cutover to MLS; `encryptMessage`/`EncryptedMessagePayload` deleted; inbound webhook claim-and-encrypt flow
+- [x] **Slice 7** (PR #208) — Epoch commits on member add/remove; replaces hub-key rotation for notes/messages
+- [x] **Slice 8** (PR #193) — 7 MLS audit entry types (`mls_group_init`, `mls_members_added`, `mls_members_removed`, `mls_path_update`, `mls_epoch_purge`, `mls_ciphersuite_upgrade_planned`, `mls_ciphersuite_upgrade_completed`)
+
+### What remains on ECIES
+
+Blasts (`encryptBlastContent`, `LABEL_BLAST_CONTENT`), envelope-encrypted PII (contacts, bans, call_records), file encryption, backup/export, device provisioning, key-store PIN-KEK, hub-key-wrap. These are not MLS-scoped.
+
 ## 2026-04-03: SIP Bridge Refactor (`audit/comprehensive-review` branch)
 
 - [x] Renamed `asterisk-bridge/` to `sip-bridge/` — unified bridge for Asterisk ARI, FreeSWITCH ESL, Kamailio JSONRPC
