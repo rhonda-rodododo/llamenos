@@ -40,14 +40,14 @@ export async function updateHub(hubId: string, data: Partial<Hub>) {
   })
 }
 
-async function addHubMember(hubId: string, pubkey: string, roleIds: string[]) {
+export async function addHubMember(hubId: string, pubkey: string, roleIds: string[]) {
   return request<{ ok: true }>(`/hubs/${hubId}/members`, {
     method: 'POST',
     body: JSON.stringify({ pubkey, roleIds }),
   })
 }
 
-async function removeHubMember(hubId: string, pubkey: string) {
+export async function removeHubMember(hubId: string, pubkey: string) {
   return request<{ ok: true }>(`/hubs/${hubId}/members/${pubkey}`, { method: 'DELETE' })
 }
 
