@@ -77,6 +77,10 @@ export interface SessionCapsule {
   autoLockExpiresAt: number
   /** First 16 chars of SHA-256(pubkey) — identity check against the key blob. */
   pubkeyHash: PubkeyHash16
+  /** Encrypted KEK bytes (hex) for MLS re-init on session restore. Optional — absent for capsules created before MLS Slice 5. */
+  encryptedKek?: string | null
+  /** XChaCha20 nonce for the encrypted KEK (hex). */
+  kekNonce?: string | null
 }
 
 /**
@@ -107,11 +111,18 @@ export function parseSessionCapsule(raw: unknown): SessionCapsule | null {
     return null
   }
 
+  // Optional MLS KEK fields — absent in capsules created before MLS Slice 5.
+  const encryptedKek =
+    typeof obj.encryptedKek === 'string' && obj.encryptedKek.length > 0 ? obj.encryptedKek : null
+  const kekNonce = typeof obj.kekNonce === 'string' && obj.kekNonce.length > 0 ? obj.kekNonce : null
+
   return {
     encryptedNsec,
     capsuleNonce,
     autoLockExpiresAt,
     pubkeyHash,
+    encryptedKek,
+    kekNonce,
   }
 }
 

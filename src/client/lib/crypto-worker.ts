@@ -109,6 +109,8 @@ type WorkerRequest =
       tokenHex: string
       encryptedNsecHex: string
       capsuleNonceHex: string
+      encryptedKekHex?: string
+      kekNonceHex?: string
     }
   // ---- Tier 1 HPKE sidecar ----
   | {
@@ -571,6 +573,8 @@ function handleExportSession(): {
   tokenHex: string
   encryptedNsecHex: string
   capsuleNonceHex: string
+  encryptedKekHex: string | null
+  kekNonceHex: string | null
 } {
   if (!secretKey) throw new Error('Worker is locked')
 
@@ -583,10 +587,27 @@ function handleExportSession(): {
   const ciphertext = cipher.encrypt(plaintext)
   plaintext.fill(0)
 
+  // Also export the KEK bytes (if available) so session-restore can re-init
+  // MLS without a full PIN unlock. The KEK is encrypted under the same random
+  // token with a separate nonce so the main thread never sees it in the clear.
+  let encryptedKekHex: string | null = null
+  let kekNonceHex: string | null = null
+  if (kekBytes) {
+    const kekNonce = randomBytes(24)
+    const kekCipher = xchacha20poly1305(token, kekNonce)
+    const kekPlaintext = utf8ToBytes(bytesToHex(kekBytes))
+    const kekCiphertext = kekCipher.encrypt(kekPlaintext)
+    kekPlaintext.fill(0)
+    encryptedKekHex = bytesToHex(kekCiphertext)
+    kekNonceHex = bytesToHex(kekNonce)
+  }
+
   return {
     tokenHex: bytesToHex(token),
     encryptedNsecHex: bytesToHex(ciphertext),
     capsuleNonceHex: bytesToHex(nonce),
+    encryptedKekHex,
+    kekNonceHex,
   }
 }
 
@@ -598,7 +619,9 @@ function handleExportSession(): {
 function handleImportSession(
   tokenHex: string,
   encryptedNsecHex: string,
-  capsuleNonceHex: string
+  capsuleNonceHex: string,
+  encryptedKekHex?: string,
+  kekNonceHexParam?: string
 ): string {
   const token = hexToBytes(tokenHex)
   const nonce = hexToBytes(capsuleNonceHex)
@@ -611,6 +634,23 @@ function handleImportSession(
 
   secretKey = hexToBytes(nsecHex)
   publicKeyHex = bytesToHex(schnorr.getPublicKey(secretKey))
+
+  // Restore KEK bytes if the capsule included them (enables MLS re-init).
+  if (encryptedKekHex && kekNonceHexParam) {
+    try {
+      const kekNonce = hexToBytes(kekNonceHexParam)
+      const kekCiphertext = hexToBytes(encryptedKekHex)
+      const kekCipher = xchacha20poly1305(token, kekNonce)
+      const kekDecrypted = kekCipher.decrypt(kekCiphertext)
+      const kekHex = new TextDecoder().decode(kekDecrypted)
+      kekDecrypted.fill(0)
+      if (kekBytes) kekBytes.fill(0)
+      kekBytes = hexToBytes(kekHex)
+    } catch {
+      // KEK restoration is best-effort — MLS will just be unavailable
+      // until the next full PIN unlock.
+    }
+  }
 
   resetRateLimits()
   return publicKeyHex
@@ -1163,7 +1203,13 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
         result = handleExportSession()
         break
       case 'importSession':
-        result = handleImportSession(req.tokenHex, req.encryptedNsecHex, req.capsuleNonceHex)
+        result = handleImportSession(
+          req.tokenHex,
+          req.encryptedNsecHex,
+          req.capsuleNonceHex,
+          req.encryptedKekHex,
+          req.kekNonceHex
+        )
         break
       case 'decryptEnvelopeField': {
         if (!secretKey) throw new Error('Worker is locked')
