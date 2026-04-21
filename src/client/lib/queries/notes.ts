@@ -1,8 +1,8 @@
 /**
  * React Query hooks for notes resource management.
  *
- * Notes are encrypted/decrypted via MLS group encryption (Slice 5).
- * Transcriptions still use ECIES via ephemeralPubkey.
+ * Notes are encrypted/decrypted via MLS group encryption.
+ * Transcriptions use server-side ECIES via ephemeralPubkey (server-created, not user-facing).
  *
  * Role-based filtering:
  *   - system:transcription:admin → admins only
@@ -81,8 +81,6 @@ export function clearCachedPlaintext(noteId: string): void {
   selfAuthoredPlaintextCache.delete(noteId)
 }
 
-const PRE_UPGRADE_TEXT = 'Note from before security upgrade — no longer available'
-
 async function decryptNoteMls(
   note: EncryptedNote,
   hubId: string,
@@ -93,13 +91,6 @@ async function decryptNoteMls(
   if (cached) return cached
 
   if (!note.mlsCiphertext) {
-    if (
-      note.encryptedContent ||
-      note.authorEnvelope ||
-      (note.adminEnvelopes && note.adminEnvelopes.length > 0)
-    ) {
-      return { text: PRE_UPGRADE_TEXT }
-    }
     return { text: '[Decryption failed]' }
   }
 
@@ -332,8 +323,7 @@ export function useUpdateNote() {
 
 /**
  * queryOptions factory for a note's reply thread.
- * Replies share the same ECIES encryption shape as notes.
- * Decryption deferred to the component via auth context.
+ * Replies use MLS group encryption, same as notes.
  */
 const noteRepliesOptions = (noteId: string, auth: NotesAuth, hubId: string) =>
   queryOptions({

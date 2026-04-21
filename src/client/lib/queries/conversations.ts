@@ -131,8 +131,6 @@ const conversationMessagesOptions = (
 
               // Upgrade the message on the server
               await upgradeMessageToMls(conversationId, msg.id, {
-                encryptedContent: '' as import('@shared/crypto-types').Ciphertext,
-                readerEnvelopes: [],
                 mlsCiphertext,
                 mlsEpoch: epoch,
               })

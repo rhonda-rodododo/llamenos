@@ -269,8 +269,7 @@ export class ConversationService {
   async claimMessage(
     id: string,
     data: {
-      encryptedContent: string
-      readerEnvelopes: RecipientEnvelope[]
+      encryptedContent?: string
       mlsCiphertext: string
       mlsEpoch: number
     }
@@ -278,8 +277,8 @@ export class ConversationService {
     const [row] = await this.db
       .update(messageEnvelopes)
       .set({
-        encryptedContent: data.encryptedContent,
-        readerEnvelopes: data.readerEnvelopes,
+        encryptedContent: data.encryptedContent ?? '',
+        readerEnvelopes: [],
         mlsCiphertext: data.mlsCiphertext,
         mlsEpoch: data.mlsEpoch,
         serverEncryptedBody: null,

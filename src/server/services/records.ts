@@ -3,7 +3,7 @@ import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js'
 import { HMAC_PHONE_PREFIX, LABEL_AUDIT_EVENT, LABEL_USER_PII } from '@shared/crypto-labels'
 import type { Ciphertext } from '@shared/crypto-types'
 import { and, count, desc, eq, gte, inArray, lte, or, sql } from 'drizzle-orm'
-import type { KeyEnvelope, RecipientEnvelope } from '../../shared/types'
+import type { RecipientEnvelope } from '../../shared/types'
 import type { Database } from '../db'
 import { auditLog, bans, callRecords, noteEnvelopes, users } from '../db/schema'
 import type { CryptoService } from '../lib/crypto-service'
@@ -411,10 +411,11 @@ export class RecordsService {
         conversationId: data.conversationId ?? null,
         contactHash: data.contactHash ?? null,
         authorPubkey: data.authorPubkey,
+        // encryptedContent + ephemeralPubkey only set by server-side transcription
         encryptedContent: data.encryptedContent ?? null,
         ephemeralPubkey: data.ephemeralPubkey ?? null,
-        authorEnvelope: (data.authorEnvelope ?? null) as RecipientEnvelope | null,
-        adminEnvelopes: (data.adminEnvelopes ?? []) as RecipientEnvelope[],
+        authorEnvelope: null,
+        adminEnvelopes: [],
         mlsCiphertext: data.mlsCiphertext ?? null,
         mlsEpoch: data.mlsEpoch ?? null,
         replyCount: 0,
@@ -433,13 +434,6 @@ export class RecordsService {
     const [row] = await this.db
       .update(noteEnvelopes)
       .set({
-        ...(data.encryptedContent !== undefined ? { encryptedContent: data.encryptedContent } : {}),
-        ...(data.authorEnvelope !== undefined
-          ? { authorEnvelope: data.authorEnvelope as RecipientEnvelope }
-          : {}),
-        ...(data.adminEnvelopes !== undefined
-          ? { adminEnvelopes: data.adminEnvelopes as RecipientEnvelope[] }
-          : {}),
         ...(data.mlsCiphertext !== undefined ? { mlsCiphertext: data.mlsCiphertext } : {}),
         ...(data.mlsEpoch !== undefined ? { mlsEpoch: data.mlsEpoch } : {}),
         updatedAt: new Date(),
@@ -863,12 +857,11 @@ export class RecordsService {
       conversationId: r.conversationId ?? undefined,
       contactHash: r.contactHash ?? undefined,
       authorPubkey: r.authorPubkey,
+      // encryptedContent + ephemeralPubkey retained for server-created transcription notes
       encryptedContent: r.encryptedContent ?? undefined,
       createdAt: r.createdAt.toISOString(),
       updatedAt: r.updatedAt.toISOString(),
       ephemeralPubkey: r.ephemeralPubkey ?? undefined,
-      authorEnvelope: r.authorEnvelope as KeyEnvelope | undefined,
-      adminEnvelopes: (r.adminEnvelopes as RecipientEnvelope[]) ?? undefined,
       mlsCiphertext: r.mlsCiphertext ?? undefined,
       mlsEpoch: r.mlsEpoch ?? undefined,
       replyCount: r.replyCount,

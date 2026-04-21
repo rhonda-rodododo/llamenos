@@ -310,8 +310,6 @@ function ReportDetail({
       const epoch = await mlsConv.currentEpoch()
 
       await sendMutation.mutateAsync({
-        encryptedContent: '' as import('@shared/crypto-types').Ciphertext,
-        readerEnvelopes: [],
         mlsCiphertext,
         mlsEpoch: epoch,
       })
@@ -342,8 +340,6 @@ function ReportDetail({
         const epoch = await mlsConv.currentEpoch()
 
         await sendMutation.mutateAsync({
-          encryptedContent: '' as import('@shared/crypto-types').Ciphertext,
-          readerEnvelopes: [],
           mlsCiphertext,
           mlsEpoch: epoch,
           attachmentIds: fileIds,

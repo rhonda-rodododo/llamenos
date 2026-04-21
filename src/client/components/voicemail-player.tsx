@@ -2,7 +2,6 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { type EncryptedNote, downloadFile, getFileEnvelopes, listNotes } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
-import { decryptNote } from '@/lib/crypto-worker-helpers'
 import { decryptFile } from '@/lib/file-crypto'
 import * as keyManager from '@/lib/key-manager'
 import type { FileKeyEnvelope } from '@shared/types'
@@ -52,24 +51,9 @@ export function VoicemailPlayer({ fileId, callId, canListen }: VoicemailPlayerPr
           return
         }
 
-        const unlocked = await keyManager.isUnlocked()
-        if (!hasNsec || !unlocked || !publicKey) {
-          setTranscript(null)
-          return
-        }
-
-        // Voicemail notes use per-note ECIES envelopes
-        const envelope = isAdmin
-          ? (vmNote.adminEnvelopes?.find((e) => e.pubkey === publicKey) ??
-            vmNote.adminEnvelopes?.[0])
-          : vmNote.authorEnvelope
-
-        let text: string | null = null
-        if (envelope && vmNote.encryptedContent) {
-          const payload = await decryptNote(vmNote.encryptedContent, envelope)
-          text = payload?.text ?? null
-        }
-        setTranscript(text)
+        // Voicemail transcriptions are server-encrypted; client-side MLS
+        // claim path is not yet built. Show placeholder for now.
+        setTranscript('[Server encrypted — voicemail transcription available]')
       })
       .catch(() => setTranscriptError(true))
       .finally(() => setTranscriptLoading(false))

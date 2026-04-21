@@ -1,5 +1,3 @@
-import type { Ciphertext } from '@shared/crypto-types'
-import type { KeyEnvelope, RecipientEnvelope } from '@shared/types'
 import { hp, request } from './client'
 
 // --- Types ---
@@ -8,12 +6,11 @@ export interface EncryptedNote {
   id: string
   callId: string
   authorPubkey: string
-  encryptedContent?: Ciphertext
+  // encryptedContent + ephemeralPubkey retained for server-created transcription notes
+  encryptedContent?: string
   createdAt: string
   updatedAt: string
   ephemeralPubkey?: string
-  authorEnvelope?: KeyEnvelope
-  adminEnvelopes?: RecipientEnvelope[]
   mlsCiphertext?: string
   mlsEpoch?: number
 }
@@ -28,11 +25,8 @@ export async function listNotes(params?: { callId?: string; page?: number; limit
 
 export async function createNote(data: {
   callId: string
-  encryptedContent?: Ciphertext
-  authorEnvelope?: KeyEnvelope
-  adminEnvelopes?: RecipientEnvelope[]
-  mlsCiphertext?: string
-  mlsEpoch?: number
+  mlsCiphertext: string
+  mlsEpoch: number
 }) {
   return request<{ note: EncryptedNote }>(hp('/notes'), {
     method: 'POST',
@@ -43,11 +37,8 @@ export async function createNote(data: {
 export async function updateNote(
   id: string,
   data: {
-    encryptedContent?: Ciphertext
-    authorEnvelope?: KeyEnvelope
-    adminEnvelopes?: RecipientEnvelope[]
-    mlsCiphertext?: string
-    mlsEpoch?: number
+    mlsCiphertext: string
+    mlsEpoch: number
   }
 ) {
   return request<{ note: EncryptedNote }>(hp(`/notes/${id}`), {
@@ -71,11 +62,8 @@ export async function getNoteReplies(noteId: string) {
 export async function createNoteReply(
   noteId: string,
   data: {
-    encryptedContent?: Ciphertext
-    authorEnvelope?: KeyEnvelope
-    adminEnvelopes?: RecipientEnvelope[]
-    mlsCiphertext?: string
-    mlsEpoch?: number
+    mlsCiphertext: string
+    mlsEpoch: number
   }
 ) {
   return request<{ reply: EncryptedNote }>(hp(`/notes/${noteId}/replies`), {
