@@ -7,7 +7,7 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  workers: process.env.CI ? 3 : parseInt(process.env.PLAYWRIGHT_WORKERS || "3"),
+  workers: process.env.CI ? 4 : parseInt(process.env.PLAYWRIGHT_WORKERS || "3"),
   reporter: process.env.CI
     ? [
         ["github"],
@@ -53,7 +53,7 @@ export default defineConfig({
       testDir: "./tests/api",
       use: {
         // API requests need longer timeouts when running in parallel with UI tests
-        // (3 workers + PBKDF2 + DB queries compete for CPU/IO)
+        // (4 workers + PBKDF2 + DB queries compete for CPU/IO)
         actionTimeout: 30_000,
       },
       dependencies: ["api-setup"],
@@ -77,7 +77,7 @@ export default defineConfig({
     {
       name: "mobile",
       testDir: "./tests/ui",
-      // Mobile tests run in parallel with UI tests — PBKDF2 under 3 workers needs more time
+      // Mobile tests run in parallel with UI tests — PBKDF2 under 4 workers needs more time
       timeout: 120_000,
       use: { ...devices["Pixel 7"] },
       testMatch: /responsive\.spec\.ts/,

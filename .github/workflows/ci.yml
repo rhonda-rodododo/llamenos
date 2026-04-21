@@ -5,12 +5,11 @@
 #   2. Build & validate (lint, typecheck, vite build, site build)
 #   3. Run unit tests (with Postgres for DB-dependent tests)
 #   4. Run API integration tests (Playwright, no browser)
-#   5. Run UI E2E tests (Playwright, Chromium — non-blocking while stabilizing)
-#   6. Dependency vulnerability scan
-#   7. Ansible validation (if ansible or app files changed)
+#   5. Dependency vulnerability scan
+#   6. Ansible validation (if ansible or app files changed)
 #
+# UI E2E tests run in a separate workflow (e2e.yml) for parallel execution.
 # Docs-only changes (*.md and site/ files) skip lint, build, audit, and all tests.
-# UI E2E tests are blocking — a failing UI spec now blocks merge via ci-status.
 #
 # Releases are handled by release.yml (push to main).
 # Desktop app releases are handled by tauri-release.yml.
@@ -32,7 +31,7 @@ env:
   BUN_VERSION: "1.3.11"
   # Test admin keypair (derived from ADMIN_NSEC in tests/helpers.ts)
   TEST_ADMIN_PUBKEY: "ac4718373d30301e5c7cf55e9e6f2568efb94f3278fb88f37f4981e880505228"
-  # Shared test environment — used by api-tests, e2e-tests, and unit-tests
+  # Shared test environment — used by api-tests and unit-tests
   TEST_DATABASE_URL: postgresql://llamenos:llamenos@localhost:5432/llamenos
   # Must be a valid hex string (even length) — used by hashPhone/hashIP via hexToBytes
   TEST_HMAC_SECRET: "deadbeefcafebabe0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -341,6 +340,8 @@ jobs:
 
       - name: Build frontend
         run: bun run build
+        env:
+          VITE_TEST_PBKDF2: "1000"
 
       - name: Start server
         env:
@@ -399,160 +400,6 @@ jobs:
         with:
           name: api-server-logs
           path: /tmp/server.log
-          retention-days: 3
-
-  # ─── UI E2E Tests ─────────────────────────────────────────
-  e2e-tests:
-    needs: [changes, build]
-    if: needs.changes.outputs.docs_only != 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 40
-    permissions:
-      contents: read
-      checks: write
-
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/setup-bun
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-          install-playwright: "true"
-
-      - name: Start backing services
-        run: >
-          docker compose
-          -f deploy/docker/docker-compose.yml
-          -f deploy/docker/docker-compose.ci.yml
-          --profile signal
-          up -d
-        env:
-          PG_PASSWORD: llamenos
-          AUTHENTIK_SECRET_KEY: ci-test-secret-key
-          AUTHENTIK_BOOTSTRAP_TOKEN: ci-bootstrap-token
-          # Required by compose variable validation (app service is disabled but vars still checked)
-          HMAC_SECRET: ${{ env.TEST_HMAC_SECRET }}
-          SERVER_NOSTR_SECRET: ${{ env.TEST_SERVER_NOSTR_SECRET }}
-          JWT_SECRET: ${{ env.TEST_JWT_SECRET }}
-          IDP_VALUE_ENCRYPTION_KEY: ${{ env.TEST_IDP_VALUE_ENCRYPTION_KEY }}
-          STORAGE_ACCESS_KEY: rustfsadmin
-          STORAGE_SECRET_KEY: rustfsadmin
-          ARI_PASSWORD: ci-ari-password
-          BRIDGE_SECRET: ci-bridge-secret
-
-      - name: Wait for Authentik
-        env:
-          BOOTSTRAP_TOKEN: ci-bootstrap-token
-        run: |
-          # /-/health/ready/ returns 200 as soon as the web server is up,
-          # but Authentik's bootstrap process (provisioning the bootstrap
-          # token, default flows, etc) runs separately and may not be done.
-          # Step 1: wait for the web server to be ready.
-          for i in $(seq 1 60); do
-            curl -sf http://localhost:9100/-/health/ready/ && break
-            sleep 5
-          done
-          # Step 2: wait for the bootstrap token to actually authorize an
-          # API call. The server's connectivity check uses GET /api/v3/core/users/
-          # so we poll the same endpoint here. 200 means the token is provisioned;
-          # 403 means bootstrap isn't done yet — retry.
-          for i in $(seq 1 60); do
-            STATUS=$(curl -s -o /dev/null -w '%{http_code}' \
-              -H "Authorization: Bearer $BOOTSTRAP_TOKEN" \
-              "http://localhost:9100/api/v3/core/users/?page_size=1")
-            if [ "$STATUS" = "200" ]; then
-              echo "Authentik bootstrap token authorized after ${i} retries"
-              break
-            fi
-            echo "Authentik bootstrap not ready (HTTP $STATUS), retrying..."
-            sleep 5
-          done
-          # Final assert — fail loudly if the token still doesn't work
-          curl -sf -H "Authorization: Bearer $BOOTSTRAP_TOKEN" \
-            "http://localhost:9100/api/v3/core/users/?page_size=1" >/dev/null \
-            || { echo "::error::Authentik bootstrap token never became valid"; exit 1; }
-
-      - name: Wait for Signal bridge
-        run: |
-          for i in $(seq 1 30); do
-            docker exec llamenos-signal-cli-1 curl -sf http://localhost:8080/v1/about 2>/dev/null && break || true
-            sleep 2
-          done
-
-      - uses: ./.github/actions/start-test-infra
-
-      - name: Build frontend
-        run: bun run build
-
-      - name: Start server
-        env:
-          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
-          ADMIN_PUBKEY: ${{ env.TEST_ADMIN_PUBKEY }}
-          HMAC_SECRET: ${{ env.TEST_HMAC_SECRET }}
-          ENVIRONMENT: development
-          USE_TEST_ADAPTER: "true"
-          STORAGE_ENDPOINT: http://localhost:9000
-          STORAGE_ACCESS_KEY: rustfsadmin
-          STORAGE_SECRET_KEY: rustfsadmin
-          NOSTR_RELAY_URL: ws://localhost:7777
-          SERVER_NOSTR_SECRET: ${{ env.TEST_SERVER_NOSTR_SECRET }}
-          DEV_RESET_SECRET: test-reset-secret
-          JWT_SECRET: ${{ env.TEST_JWT_SECRET }}
-          IDP_ADAPTER: authentik
-          AUTHENTIK_URL: http://localhost:9100
-          AUTHENTIK_API_TOKEN: ci-bootstrap-token
-          IDP_VALUE_ENCRYPTION_KEY: ${{ env.TEST_IDP_VALUE_ENCRYPTION_KEY }}
-          IDP_VALUE_KEY_VERSION: "1"
-          AUTH_WEBAUTHN_RP_ID: localhost
-          AUTH_WEBAUTHN_RP_NAME: Llamenos Test
-          AUTH_WEBAUTHN_ORIGIN: http://localhost:3000
-          FIREHOSE_AGENT_SEAL_KEY: ${{ env.TEST_FIREHOSE_AGENT_SEAL_KEY }}
-          DISABLE_TOKEN_ROTATION: "true"
-        run: |
-          bun run start > /tmp/server.log 2>&1 &
-          for i in $(seq 1 30); do
-            curl -sf http://localhost:3000/api/health/ready && break
-            sleep 2
-          done
-          curl -sf http://localhost:3000/api/health/ready || { echo "::error::Server failed to start"; cat /tmp/server.log; exit 1; }
-
-      - name: Run UI E2E tests
-        env:
-          PLAYWRIGHT_BASE_URL: http://localhost:3000
-          JWT_SECRET: ${{ env.TEST_JWT_SECRET }}
-          NOSTR_RELAY_URL: ws://localhost:7777
-          SERVER_NOSTR_SECRET: ${{ env.TEST_SERVER_NOSTR_SECRET }}
-        run: bunx playwright test --project=setup --project=ui --project=bootstrap --project=mobile
-
-      - name: E2E test report
-        uses: dorny/test-reporter@a6ddd83ac95ff4586f5d3aceeb314d9a1841db95 # v3.0.0
-        if: always()
-        with:
-          name: E2E Tests
-          path: test-results.xml
-          reporter: java-junit
-
-      - name: Upload server logs
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        if: failure()
-        with:
-          name: e2e-server-logs
-          path: /tmp/server.log
-          retention-days: 3
-
-      - name: Upload test report
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        if: always()
-        with:
-          name: e2e-test-report
-          path: playwright-report/
-          retention-days: 7
-
-      - name: Upload test traces
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        if: failure()
-        with:
-          name: e2e-test-traces
-          path: test-results/
           retention-days: 3
 
   # ─── Dependency Vulnerability Scan ───────────────────────────
@@ -734,7 +581,7 @@ jobs:
   # Single status check for branch protection rules.
   # All required jobs must pass for PRs to be mergeable.
   ci-status:
-    needs: [lint, build, audit, unit-tests, integration-tests, api-tests, e2e-tests, ansible-validate, grep-guardrails]
+    needs: [lint, build, audit, unit-tests, integration-tests, api-tests, ansible-validate, grep-guardrails]
     if: always()
     runs-on: ubuntu-latest
 
@@ -748,16 +595,14 @@ jobs:
           UNIT_TESTS_RESULT: ${{ needs.unit-tests.result }}
           INTEGRATION_TESTS_RESULT: ${{ needs.integration-tests.result }}
           API_TESTS_RESULT: ${{ needs.api-tests.result }}
-          E2E_TESTS_RESULT: ${{ needs.e2e-tests.result }}
           ANSIBLE_RESULT: ${{ needs.ansible-validate.result }}
           GUARDRAILS_RESULT: ${{ needs.grep-guardrails.result }}
         run: |
           FAILED=false
 
           # All jobs must succeed OR be legitimately skipped (docs-only / no
-          # ansible changes). E2E tests are now blocking — prior "informational"
-          # policy let PRs land with silently-failing UI specs.
-          for job_info in "lint:$LINT_RESULT" "build:$BUILD_RESULT" "audit:$AUDIT_RESULT" "unit-tests:$UNIT_TESTS_RESULT" "integration-tests:$INTEGRATION_TESTS_RESULT" "api-tests:$API_TESTS_RESULT" "e2e-tests:$E2E_TESTS_RESULT" "ansible-validate:$ANSIBLE_RESULT" "grep-guardrails:$GUARDRAILS_RESULT"; do
+          # ansible changes). E2E tests run in a separate workflow (e2e.yml).
+          for job_info in "lint:$LINT_RESULT" "build:$BUILD_RESULT" "audit:$AUDIT_RESULT" "unit-tests:$UNIT_TESTS_RESULT" "integration-tests:$INTEGRATION_TESTS_RESULT" "api-tests:$API_TESTS_RESULT" "ansible-validate:$ANSIBLE_RESULT" "grep-guardrails:$GUARDRAILS_RESULT"; do
             job="${job_info%%:*}"
             result="${job_info#*:}"
             if [[ "$result" != "success" && "$result" != "skipped" ]]; then
