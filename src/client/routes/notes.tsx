@@ -9,8 +9,15 @@ import type { CallRecord } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { useConfig } from '@/lib/config'
 import { getMlsConversation } from '@/lib/mls/get-mls-conversation'
+import { toBase64 } from '@/lib/mls/mls-api-client'
 import { useCallHistory } from '@/lib/queries/calls'
-import { useCreateNote, useCustomFields, useNotes, useUpdateNote } from '@/lib/queries/notes'
+import {
+  cacheNotePlaintext,
+  useCreateNote,
+  useCustomFields,
+  useNotes,
+  useUpdateNote,
+} from '@/lib/queries/notes'
 import { useUsers } from '@/lib/queries/users'
 import { useToast } from '@/lib/toast'
 import type { FileFieldValue, NotePayload } from '@shared/types'
@@ -100,12 +107,14 @@ function NotesPage() {
       if (!conv) throw new Error('MLS not available')
       const plaintext = new TextEncoder().encode(JSON.stringify(payload))
       const mlsCiphertextBytes = await conv.encrypt(plaintext)
-      const mlsCiphertext = Buffer.from(mlsCiphertextBytes).toString('base64')
+      const mlsCiphertext = toBase64(mlsCiphertextBytes)
       const mlsEpoch = await conv.currentEpoch()
       await updateNoteMutation.mutateAsync({
         id: noteId,
         data: { mlsCiphertext, mlsEpoch },
       })
+      // Update plaintext cache for self-authored note
+      cacheNotePlaintext(noteId, payload)
       setEditingId(null)
     } catch {
       toast(t('common.error'), 'error')
@@ -125,13 +134,18 @@ function NotesPage() {
       if (!conv) throw new Error('MLS not available')
       const plaintext = new TextEncoder().encode(JSON.stringify(payload))
       const mlsCiphertextBytes = await conv.encrypt(plaintext)
-      const mlsCiphertext = Buffer.from(mlsCiphertextBytes).toString('base64')
+      const mlsCiphertext = toBase64(mlsCiphertextBytes)
       const mlsEpoch = await conv.currentEpoch()
-      await createNoteMutation.mutateAsync({
+      const result = await createNoteMutation.mutateAsync({
         callId: selectedCallId,
         mlsCiphertext,
         mlsEpoch,
       })
+      // Cache plaintext so the author can read their own note (MLS encryptMessage
+      // encrypts for OTHER group members — sender cannot self-decrypt).
+      if (result?.note?.id) {
+        cacheNotePlaintext(result.note.id, payload)
+      }
       setShowNewNote(false)
     } catch {
       toast(t('common.error'), 'error')

@@ -1,6 +1,7 @@
 import { useAuth } from '@/lib/auth'
 import { useConfig } from '@/lib/config'
 import { getMlsConversation } from '@/lib/mls/get-mls-conversation'
+import { toBase64 } from '@/lib/mls/mls-api-client'
 import { useNoteSheet } from '@/lib/note-sheet-context'
 import { useDraft } from '@/lib/use-draft'
 import { useEffect, useState } from 'react'
@@ -29,6 +30,7 @@ import { Switch } from '@/components/ui/switch'
 import { type CustomFieldDefinition, createNote, updateNote } from '@/lib/api'
 import { useCallHistory } from '@/lib/queries/calls'
 import { queryKeys } from '@/lib/queries/keys'
+import { cacheNotePlaintext } from '@/lib/queries/notes'
 import { useCustomFields } from '@/lib/queries/notes'
 import { queryClient } from '@/lib/query-client'
 import { useToast } from '@/lib/toast'
@@ -128,13 +130,15 @@ export function NoteSheet() {
       if (!conv) throw new Error('MLS not available')
       const plaintext = new TextEncoder().encode(JSON.stringify(payload))
       const mlsCiphertextBytes = await conv.encrypt(plaintext)
-      const mlsCiphertext = Buffer.from(mlsCiphertextBytes).toString('base64')
+      const mlsCiphertext = toBase64(mlsCiphertextBytes)
       const mlsEpoch = await conv.currentEpoch()
 
       if (mode === 'edit' && editNoteId) {
         await updateNote(editNoteId, { mlsCiphertext, mlsEpoch })
+        cacheNotePlaintext(editNoteId, payload)
       } else {
-        await createNote({ callId: draft.callId, mlsCiphertext, mlsEpoch })
+        const result = await createNote({ callId: draft.callId, mlsCiphertext, mlsEpoch })
+        if (result?.note?.id) cacheNotePlaintext(result.note.id, payload)
       }
       void queryClient.invalidateQueries({ queryKey: queryKeys.notes.all })
       draft.clearDraft()

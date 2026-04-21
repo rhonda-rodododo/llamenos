@@ -5,6 +5,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/lib/auth'
 import { useConfig } from '@/lib/config'
 import { getMlsConversation } from '@/lib/mls/get-mls-conversation'
+import { toBase64 } from '@/lib/mls/mls-api-client'
+import { cacheNotePlaintext } from '@/lib/queries/notes'
 import { useCreateNoteReply, useNoteDetail, useNoteReplies } from '@/lib/queries/notes'
 import { useToast } from '@/lib/toast'
 import type { NotePayload } from '@shared/types'
@@ -234,9 +236,10 @@ function NoteRepliesSection({ noteId }: { noteId: string }) {
       if (!conv) throw new Error('MLS not available')
       const plaintext = new TextEncoder().encode(JSON.stringify(payload))
       const mlsCiphertextBytes = await conv.encrypt(plaintext)
-      const mlsCiphertext = Buffer.from(mlsCiphertextBytes).toString('base64')
+      const mlsCiphertext = toBase64(mlsCiphertextBytes)
       const mlsEpoch = await conv.currentEpoch()
-      await createReply.mutateAsync({ mlsCiphertext, mlsEpoch })
+      const result = await createReply.mutateAsync({ mlsCiphertext, mlsEpoch })
+      if (result?.reply?.id) cacheNotePlaintext(result.reply.id, payload)
       setReplyText('')
     } catch {
       toast(t('common.error', { defaultValue: 'Error' }), 'error')

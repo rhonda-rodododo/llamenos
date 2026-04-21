@@ -27,6 +27,7 @@ import { decryptTranscription } from '@/lib/crypto-worker-helpers'
 import { decryptHubField } from '@/lib/hub-field-crypto'
 import * as keyManager from '@/lib/key-manager'
 import { getMlsConversation } from '@/lib/mls/get-mls-conversation'
+import { fromBase64 } from '@/lib/mls/mls-api-client'
 import type { NotePayload } from '@shared/types'
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from './keys'
@@ -54,12 +55,43 @@ type NotesAuth = {
 }
 
 // ---------------------------------------------------------------------------
-// Decryption helper
+// Decryption helper + local plaintext cache for self-authored notes
 // ---------------------------------------------------------------------------
+
+/**
+ * Local plaintext cache for MLS-encrypted notes authored by the current user.
+ *
+ * MLS `encryptMessage` encrypts for OTHER group members — the sender cannot
+ * decrypt their own ciphertext via `decryptMessage`. This cache stores the
+ * plaintext at creation time so the author can re-read their own notes.
+ *
+ * Keyed by note ID. Persists in memory for the session. On page reload, the
+ * cache is empty and self-authored notes show "[Decryption failed]" until
+ * re-created or until more group members exist (multi-device).
+ */
+const selfAuthoredPlaintextCache = new Map<string, NotePayload>()
+
+/** Cache a note's plaintext for self-decryption. Called after note creation. */
+export function cacheNotePlaintext(noteId: string, payload: NotePayload): void {
+  selfAuthoredPlaintextCache.set(noteId, payload)
+}
+
+/** Clear a cached plaintext (e.g. when note is deleted). */
+export function clearCachedPlaintext(noteId: string): void {
+  selfAuthoredPlaintextCache.delete(noteId)
+}
 
 const PRE_UPGRADE_TEXT = 'Note from before security upgrade — no longer available'
 
-async function decryptNoteMls(note: EncryptedNote, hubId: string): Promise<NotePayload> {
+async function decryptNoteMls(
+  note: EncryptedNote,
+  hubId: string,
+  currentPubkey: string | null
+): Promise<NotePayload> {
+  // Check local plaintext cache first (self-authored notes can't be MLS-decrypted)
+  const cached = selfAuthoredPlaintextCache.get(note.id)
+  if (cached) return cached
+
   if (!note.mlsCiphertext) {
     if (
       note.encryptedContent ||
@@ -71,6 +103,12 @@ async function decryptNoteMls(note: EncryptedNote, hubId: string): Promise<NoteP
     return { text: '[Decryption failed]' }
   }
 
+  // Self-authored notes cannot be decrypted via MLS (sender is excluded from
+  // decryption). If we don't have a cached plaintext, show a fallback.
+  if (currentPubkey && note.authorPubkey === currentPubkey) {
+    return { text: '[Encrypted — reload to view]' }
+  }
+
   const unlocked = await keyManager.isUnlocked()
   if (!unlocked) {
     return { text: '[No key]' }
@@ -78,8 +116,11 @@ async function decryptNoteMls(note: EncryptedNote, hubId: string): Promise<NoteP
 
   try {
     const conv = await getMlsConversation(hubId)
-    if (!conv) return { text: '[MLS not available]' }
-    const result = await conv.decrypt(new Uint8Array(Buffer.from(note.mlsCiphertext, 'base64')))
+    if (!conv) {
+      return { text: '[MLS not available]' }
+    }
+    const ciphertextBytes = fromBase64(note.mlsCiphertext)
+    const result = await conv.decrypt(ciphertextBytes)
     if (!result.message) {
       return { text: '[Decryption failed]' }
     }
@@ -129,7 +170,7 @@ const notesListOptions = (filters: NoteFilters | undefined, auth: NotesAuth, hub
         } else if (isTranscription && !note.ephemeralPubkey) {
           payload = { text: note.encryptedContent ?? '' }
         } else {
-          payload = await decryptNoteMls(note, hubId)
+          payload = await decryptNoteMls(note, hubId, publicKey)
         }
 
         decryptedNotes.push({ ...note, decrypted: payload.text, payload, isTranscription })
@@ -181,7 +222,7 @@ const noteDetailOptions = (noteId: string, auth: NotesAuth, hubId: string) =>
       } else if (isTranscription && !rawNote.ephemeralPubkey) {
         payload = { text: rawNote.encryptedContent ?? '' }
       } else {
-        payload = await decryptNoteMls(rawNote, hubId)
+        payload = await decryptNoteMls(rawNote, hubId, publicKey)
       }
 
       const note: DecryptedNote = {
@@ -315,7 +356,7 @@ const noteRepliesOptions = (noteId: string, auth: NotesAuth, hubId: string) =>
         } else if (isTranscription && !reply.ephemeralPubkey) {
           payload = { text: reply.encryptedContent ?? '' }
         } else {
-          payload = await decryptNoteMls(reply, hubId)
+          payload = await decryptNoteMls(reply, hubId, publicKey)
         }
 
         decryptedReplies.push({ ...reply, decrypted: payload.text, payload, isTranscription })

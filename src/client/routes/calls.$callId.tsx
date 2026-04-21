@@ -18,6 +18,8 @@ import { decryptCallRecord, decryptTranscription } from '@/lib/crypto-worker-hel
 import { decryptObjectFields } from '@/lib/decrypt-fields'
 import * as keyManager from '@/lib/key-manager'
 import { getMlsConversation } from '@/lib/mls/get-mls-conversation'
+import { fromBase64 } from '@/lib/mls/mls-api-client'
+import { cacheNotePlaintext } from '@/lib/queries/notes'
 import { useUsers } from '@/lib/queries/users'
 import { useToast } from '@/lib/toast'
 import { LABEL_USER_PII } from '@shared/crypto-labels'
@@ -56,7 +58,11 @@ function formatDuration(seconds: number) {
 
 const PRE_UPGRADE_TEXT = 'Note from before security upgrade — no longer available'
 
-async function decryptNoteMls(note: EncryptedNote, hubId: string): Promise<NotePayload> {
+async function decryptNoteMls(
+  note: EncryptedNote,
+  hubId: string,
+  currentPubkey?: string | null
+): Promise<NotePayload> {
   if (!note.mlsCiphertext) {
     if (
       note.encryptedContent ||
@@ -68,6 +74,11 @@ async function decryptNoteMls(note: EncryptedNote, hubId: string): Promise<NoteP
     return { text: '[Decryption failed]' }
   }
 
+  // Self-authored notes cannot be decrypted via MLS (sender excluded).
+  if (currentPubkey && note.authorPubkey === currentPubkey) {
+    return { text: '[Encrypted — reload to view]' }
+  }
+
   const unlocked = await keyManager.isUnlocked()
   if (!unlocked) {
     return { text: '[No key]' }
@@ -76,7 +87,7 @@ async function decryptNoteMls(note: EncryptedNote, hubId: string): Promise<NoteP
   try {
     const conv = await getMlsConversation(hubId)
     if (!conv) return { text: '[MLS not available]' }
-    const result = await conv.decrypt(new Uint8Array(Buffer.from(note.mlsCiphertext, 'base64')))
+    const result = await conv.decrypt(fromBase64(note.mlsCiphertext))
     if (!result.message) {
       return { text: '[Decryption failed]' }
     }
