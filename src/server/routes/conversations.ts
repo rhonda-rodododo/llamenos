@@ -1,4 +1,5 @@
 import { createRoute, z } from '@hono/zod-openapi'
+import { LABEL_MESSAGE } from '@shared/crypto-labels'
 import { KIND_CONVERSATION_ASSIGNED, KIND_MESSAGE_NEW } from '../../shared/nostr-events'
 import { canClaimChannel, getClaimableChannels } from '../../shared/permissions'
 import type { MessagingChannelType, RecipientEnvelope } from '../../shared/types'
@@ -292,6 +293,8 @@ const SendMessageBodySchema = z.object({
   encryptedContent: z.string(),
   readerEnvelopes: z.array(z.object({}).passthrough()),
   plaintextForSending: z.string().optional(),
+  mlsCiphertext: z.string().optional(),
+  mlsEpoch: z.number().optional(),
 })
 
 const sendMessageRoute = createRoute({
@@ -380,6 +383,8 @@ conversations.openapi(sendMessageRoute, async (c) => {
     hasAttachments: false,
     externalId: messageExternalId,
     status: messageStatus,
+    mlsCiphertext: body.mlsCiphertext,
+    mlsEpoch: body.mlsEpoch,
   })
 
   publishConversationEvent(
@@ -575,6 +580,132 @@ conversations.openapi(claimConversationRoute, async (c) => {
   )
 
   return c.json(claimed, 200)
+})
+
+// ── POST /{id}/messages/{messageId}/claim — claim a server-encrypted inbound message ──
+
+const claimMessageRoute = createRoute({
+  method: 'post',
+  path: '/{id}/messages/{messageId}/claim',
+  tags: ['Conversations'],
+  summary: 'Claim a server-encrypted inbound message — returns decrypted plaintext',
+  request: {
+    params: z.object({
+      id: z.string().openapi({ param: { name: 'id', in: 'path' }, example: 'conv-abc123' }),
+      messageId: z
+        .string()
+        .openapi({ param: { name: 'messageId', in: 'path' }, example: 'msg-xyz789' }),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Decrypted plaintext',
+      content: { 'application/json': { schema: z.object({ plaintext: z.string() }) } },
+    },
+    403: {
+      description: 'Forbidden',
+      content: { 'application/json': { schema: ErrorSchema } },
+    },
+    404: {
+      description: 'Not found',
+      content: { 'application/json': { schema: ErrorSchema } },
+    },
+    409: {
+      description: 'Already claimed',
+      content: { 'application/json': { schema: ErrorSchema } },
+    },
+  },
+})
+
+conversations.openapi(claimMessageRoute, async (c) => {
+  const services = c.get('services')
+  const { id, messageId } = c.req.valid('param')
+  const pubkey = c.get('pubkey')
+  const permissions = c.get('permissions')
+  const canReadAll = checkPermission(permissions, 'conversations:read-all')
+
+  const conv = await services.conversations.getConversation(id)
+  if (!conv) return c.json({ error: 'Not found' }, 404)
+  if (!canReadAll && conv.assignedTo !== pubkey && conv.status !== 'waiting') {
+    return c.json({ error: 'Forbidden' }, 403)
+  }
+
+  const { messages } = await services.conversations.getMessages(id, 1, 1000)
+  const msg = messages.find((m) => m.id === messageId)
+  if (!msg) return c.json({ error: 'Message not found' }, 404)
+  if (!msg.serverEncryptedBody) {
+    return c.json({ error: 'Message already claimed or not server-encrypted' }, 409)
+  }
+
+  const plaintext = services.crypto.serverDecrypt(
+    msg.serverEncryptedBody as import('@shared/crypto-types').Ciphertext,
+    LABEL_MESSAGE
+  )
+  return c.json({ plaintext }, 200)
+})
+
+// ── PATCH /{id}/messages/{messageId} — upgrade a claimed message to MLS ──
+
+const upgradeMessageBodySchema = z.object({
+  encryptedContent: z.string(),
+  readerEnvelopes: z.array(z.object({}).passthrough()),
+  mlsCiphertext: z.string(),
+  mlsEpoch: z.number(),
+})
+
+const upgradeMessageRoute = createRoute({
+  method: 'patch',
+  path: '/{id}/messages/{messageId}',
+  tags: ['Conversations'],
+  summary: 'Upgrade a claimed message to MLS encryption',
+  request: {
+    params: z.object({
+      id: z.string().openapi({ param: { name: 'id', in: 'path' }, example: 'conv-abc123' }),
+      messageId: z
+        .string()
+        .openapi({ param: { name: 'messageId', in: 'path' }, example: 'msg-xyz789' }),
+    }),
+    body: { content: { 'application/json': { schema: upgradeMessageBodySchema } } },
+  },
+  responses: {
+    200: {
+      description: 'Message upgraded',
+      content: { 'application/json': { schema: PassthroughSchema } },
+    },
+    403: {
+      description: 'Forbidden',
+      content: { 'application/json': { schema: ErrorSchema } },
+    },
+    404: {
+      description: 'Not found',
+      content: { 'application/json': { schema: ErrorSchema } },
+    },
+  },
+})
+
+conversations.openapi(upgradeMessageRoute, async (c) => {
+  const services = c.get('services')
+  const { id, messageId } = c.req.valid('param')
+  const pubkey = c.get('pubkey')
+  const permissions = c.get('permissions')
+  const canReadAll = checkPermission(permissions, 'conversations:read-all')
+
+  const conv = await services.conversations.getConversation(id)
+  if (!conv) return c.json({ error: 'Not found' }, 404)
+  if (!canReadAll && conv.assignedTo !== pubkey && conv.status !== 'waiting') {
+    return c.json({ error: 'Forbidden' }, 403)
+  }
+
+  const body = c.req.valid('json')
+
+  const updated = await services.conversations.claimMessage(messageId, {
+    encryptedContent: body.encryptedContent,
+    readerEnvelopes: body.readerEnvelopes as unknown as RecipientEnvelope[],
+    mlsCiphertext: body.mlsCiphertext,
+    mlsEpoch: body.mlsEpoch,
+  })
+
+  return c.json(updated, 200)
 })
 
 export default conversations

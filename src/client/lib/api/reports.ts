@@ -40,6 +40,8 @@ export async function createReport(data: {
   reportTypeId?: string
   encryptedContent: Ciphertext
   readerEnvelopes: MessageKeyEnvelope[]
+  mlsCiphertext?: string
+  mlsEpoch?: number
 }) {
   return request<Report>(hp('/reports'), {
     method: 'POST',
@@ -47,7 +49,7 @@ export async function createReport(data: {
   })
 }
 
-async function getReport(id: string) {
+export async function getReport(id: string) {
   return request<Report>(hp(`/reports/${id}`))
 }
 
@@ -66,6 +68,8 @@ export async function sendReportMessage(
     encryptedContent: Ciphertext
     readerEnvelopes: MessageKeyEnvelope[]
     attachmentIds?: string[]
+    mlsCiphertext?: string
+    mlsEpoch?: number
   }
 ) {
   return request<ConversationMessage>(hp(`/reports/${id}/messages`), {
@@ -92,7 +96,7 @@ export async function getReportCategories() {
   return request<{ categories: string[] }>(hp('/reports/categories'))
 }
 
-async function getReportFiles(id: string) {
+export async function getReportFiles(id: string) {
   return request<{ files: import('@shared/types').FileRecord[] }>(hp(`/reports/${id}/files`))
 }
 

@@ -152,6 +152,37 @@ export const adminNavConfig: AdminNavConfig = {
         },
       ],
     },
+    {
+      groupSlug: 'operations',
+      scope: 'this-hub',
+      labelKey: 'adminNav.groups.operations',
+      items: [
+        {
+          slug: 'bans',
+          labelKey: 'adminNav.items.bans',
+          requiredPermissions: ['bans:read'],
+          testid: 'admin-sidebar-item-bans',
+        },
+        {
+          slug: 'audit',
+          labelKey: 'adminNav.items.audit',
+          requiredPermissions: ['audit:read'],
+          testid: 'admin-sidebar-item-audit',
+        },
+        {
+          slug: 'analytics',
+          labelKey: 'adminNav.items.analytics',
+          requiredPermissions: ['calls:read-history', 'audit:read'],
+          testid: 'admin-sidebar-item-analytics',
+        },
+        {
+          slug: 'health',
+          labelKey: 'adminNav.items.health',
+          requiredPermissions: ['settings:read'],
+          testid: 'admin-sidebar-item-health',
+        },
+      ],
+    },
     // Platform
     {
       groupSlug: 'platform',
@@ -173,34 +204,6 @@ export const adminNavConfig: AdminNavConfig = {
           testid: 'admin-sidebar-item-platform-roles',
         },
         {
-          slug: 'bans',
-          labelKey: 'adminNav.items.bans',
-          requiredPermissions: ['bans:read'],
-          requiredRole: 'role-super-admin',
-          testid: 'admin-sidebar-item-bans',
-        },
-        {
-          slug: 'audit',
-          labelKey: 'adminNav.items.audit',
-          requiredPermissions: ['audit:read'],
-          requiredRole: 'role-super-admin',
-          testid: 'admin-sidebar-item-audit',
-        },
-        {
-          slug: 'analytics',
-          labelKey: 'adminNav.items.analytics',
-          requiredPermissions: ['calls:read-history', 'audit:read'],
-          requiredRole: 'role-super-admin',
-          testid: 'admin-sidebar-item-analytics',
-        },
-        {
-          slug: 'health',
-          labelKey: 'adminNav.items.health',
-          requiredPermissions: ['settings:read'],
-          requiredRole: 'role-super-admin',
-          testid: 'admin-sidebar-item-health',
-        },
-        {
           slug: 'platform',
           labelKey: 'adminNav.items.platform',
           requiredPermissions: [],
@@ -213,6 +216,13 @@ export const adminNavConfig: AdminNavConfig = {
           requiredPermissions: ['gdpr:admin'],
           requiredRole: 'role-super-admin',
           testid: 'admin-sidebar-item-gdpr-erasure',
+        },
+        {
+          slug: 'retention',
+          labelKey: 'adminNav.items.retention',
+          requiredPermissions: ['settings:read'],
+          requiredRole: 'role-super-admin',
+          testid: 'admin-sidebar-item-retention',
         },
       ],
     },

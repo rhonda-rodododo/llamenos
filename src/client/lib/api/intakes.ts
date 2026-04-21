@@ -39,6 +39,10 @@ export async function submitIntake(data: {
   return request(hp('/intakes'), { method: 'POST', body: JSON.stringify(data) })
 }
 
+export async function getIntake(id: string): Promise<{ intake: IntakeRecord }> {
+  return request(hp(`/intakes/${id}`))
+}
+
 export async function updateIntakeStatus(
   id: string,
   status: 'reviewed' | 'merged' | 'dismissed'

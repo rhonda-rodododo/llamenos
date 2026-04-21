@@ -91,9 +91,14 @@ test.describe('Voice CAPTCHA', () => {
     expect(captchaRes.ok()).toBeTruthy()
 
     const captchaBody = await captchaRes.text()
-    // Should contain Enqueue (call passed CAPTCHA)
-    expect(captchaBody).toContain('Enqueue')
-    expect(captchaBody).not.toContain('Hangup')
+    // CAPTCHA passed — call proceeds to either Enqueue (volunteers on shift)
+    // or voicemail Record (no volunteers available). Either outcome proves
+    // the CAPTCHA was accepted. The key assertion: no re-gather (retry) and
+    // no bare Hangup (rejection without voicemail).
+    const passedCaptcha = captchaBody.includes('Enqueue') || captchaBody.includes('Record')
+    expect(passedCaptcha).toBeTruthy()
+    // Should NOT contain a Gather (CAPTCHA retry prompt)
+    expect(captchaBody).not.toContain('Gather')
   })
 
   // --- Test 5.4: Incorrect DTMF triggers retry, then rejection ---

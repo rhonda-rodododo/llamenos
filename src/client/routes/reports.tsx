@@ -13,15 +13,19 @@ import {
 } from '@/components/ui/select'
 import type { Report } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
+import { useConfig } from '@/lib/config'
+import { getMlsConversation } from '@/lib/mls/get-mls-conversation'
+import * as mlsApi from '@/lib/mls/mls-api-client'
 import {
   useAssignReport,
+  useReport,
+  useReportFiles,
   useReportMessages,
   useReports,
   useSendReportMessage,
   useUpdateReport,
 } from '@/lib/queries/reports'
 import { useToast } from '@/lib/toast'
-import { encryptMessage } from '@shared/crypto-envelopes'
 import { createFileRoute } from '@tanstack/react-router'
 import {
   AlertCircle,
@@ -249,11 +253,18 @@ function ReportDetail({
   const { t } = useTranslation()
   const { hasNsec, publicKey, hasPermission, adminDecryptionPubkey } = useAuth()
   const { toast } = useToast()
+  const { currentHubId } = useConfig()
 
   const [replyText, setReplyText] = useState('')
   const [showFileUpload, setShowFileUpload] = useState(false)
+  const [showFiles, setShowFiles] = useState(false)
 
-  const messagesQuery = useReportMessages(report.id)
+  // Fetch fresh report detail + file list
+  const { data: freshReport } = useReport(report.id)
+  const activeReport = freshReport ?? report
+  const { data: reportFiles = [] } = useReportFiles(report.id)
+
+  const messagesQuery = useReportMessages(activeReport.id)
   const { messages = [], decryptedContent = new Map() } = messagesQuery.data ?? {}
   const messagesLoading = messagesQuery.isLoading
 
@@ -285,45 +296,56 @@ function ReportDetail({
   }, [report.id, closeMutation, toast, t])
 
   const handleSendReply = useCallback(async () => {
-    if (!replyText.trim() || !hasNsec || !publicKey) return
+    if (!replyText.trim() || !hasNsec || !publicKey || !currentHubId) return
 
-    const readerPubkeys = [publicKey]
-    if (adminDecryptionPubkey && adminDecryptionPubkey !== publicKey) {
-      readerPubkeys.push(adminDecryptionPubkey)
+    const mlsConv = await getMlsConversation(currentHubId)
+    if (!mlsConv) {
+      toast(t('reports.mlsNotAvailable', { defaultValue: 'MLS not available' }), 'error')
+      return
     }
 
-    const encrypted = encryptMessage(replyText.trim(), readerPubkeys)
-
     try {
+      const mlsBytes = await mlsConv.encrypt(new TextEncoder().encode(replyText.trim()))
+      const mlsCiphertext = mlsApi.toBase64(mlsBytes)
+      const epoch = await mlsConv.currentEpoch()
+
       await sendMutation.mutateAsync({
-        encryptedContent: encrypted.encryptedContent,
-        readerEnvelopes: encrypted.readerEnvelopes,
+        encryptedContent: '' as import('@shared/crypto-types').Ciphertext,
+        readerEnvelopes: [],
+        mlsCiphertext,
+        mlsEpoch: epoch,
       })
       setReplyText('')
     } catch {
       toast(t('reports.sendError', { defaultValue: 'Failed to send message' }), 'error')
     }
-  }, [replyText, hasNsec, publicKey, adminDecryptionPubkey, sendMutation, toast, t])
+  }, [replyText, hasNsec, publicKey, currentHubId, sendMutation, toast, t])
 
   const handleFileUploadComplete = useCallback(
     async (fileIds: string[]) => {
-      if (!hasNsec || !publicKey) return
+      if (!hasNsec || !publicKey || !currentHubId) return
 
-      const readerPubkeys = [publicKey]
-      if (adminDecryptionPubkey && adminDecryptionPubkey !== publicKey) {
-        readerPubkeys.push(adminDecryptionPubkey)
+      const mlsConv = await getMlsConversation(currentHubId)
+      if (!mlsConv) {
+        toast(t('reports.mlsNotAvailable', { defaultValue: 'MLS not available' }), 'error')
+        return
       }
 
       const placeholder = t('reports.filesAttached', {
         defaultValue: '[Files attached]',
         count: fileIds.length,
       })
-      const encrypted = encryptMessage(placeholder, readerPubkeys)
 
       try {
+        const mlsBytes = await mlsConv.encrypt(new TextEncoder().encode(placeholder))
+        const mlsCiphertext = mlsApi.toBase64(mlsBytes)
+        const epoch = await mlsConv.currentEpoch()
+
         await sendMutation.mutateAsync({
-          encryptedContent: encrypted.encryptedContent,
-          readerEnvelopes: encrypted.readerEnvelopes,
+          encryptedContent: '' as import('@shared/crypto-types').Ciphertext,
+          readerEnvelopes: [],
+          mlsCiphertext,
+          mlsEpoch: epoch,
           attachmentIds: fileIds,
         })
         setShowFileUpload(false)
@@ -331,60 +353,109 @@ function ReportDetail({
         toast(t('reports.sendError', { defaultValue: 'Failed to send message' }), 'error')
       }
     },
-    [hasNsec, publicKey, adminDecryptionPubkey, sendMutation, toast, t]
+    [hasNsec, publicKey, currentHubId, sendMutation, toast, t]
   )
 
   const isReporter = hasPermission('reports:create') && !hasPermission('calls:answer')
-  const canReply = report.status === 'active' || isReporter
+  const canReply = activeReport.status === 'active' || isReporter
   const sending = sendMutation.isPending
 
   return (
     <>
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+      <div
+        className="flex items-center justify-between border-b border-border px-4 py-3"
+        data-testid="report-detail-header"
+      >
         <div className="min-w-0 flex-1">
-          <p className="truncate font-medium">
-            {report.metadata?.reportTitle ||
+          <p className="truncate font-medium" data-testid="report-detail-title">
+            {activeReport.metadata?.reportTitle ||
               t('reports.untitled', { defaultValue: 'Untitled Report' })}
           </p>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Lock className="h-3 w-3" />
             {t('reports.e2ee', { defaultValue: 'End-to-end encrypted' })}
-            {report.metadata?.reportCategory && (
+            {activeReport.metadata?.reportCategory && (
               <>
                 <span className="mx-1">·</span>
                 <Badge variant="secondary" className="text-[10px]">
-                  {report.metadata.reportCategory}
+                  {activeReport.metadata.reportCategory}
                 </Badge>
+              </>
+            )}
+            {reportFiles.length > 0 && (
+              <>
+                <span className="mx-1">·</span>
+                <button
+                  type="button"
+                  className="flex items-center gap-1 hover:text-foreground transition-colors"
+                  onClick={() => setShowFiles((v) => !v)}
+                  data-testid="report-files-toggle"
+                >
+                  <Paperclip className="h-3 w-3" />
+                  {reportFiles.length}{' '}
+                  {t('reports.filesCount', {
+                    defaultValue: '{{count}} file(s)',
+                    count: reportFiles.length,
+                  })}
+                </button>
               </>
             )}
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0 ml-3">
-          {report.status === 'waiting' && (isAdmin || hasPermission('calls:answer')) && (
-            <Button size="sm" onClick={handleAssign}>
+          {activeReport.status === 'waiting' && (isAdmin || hasPermission('calls:answer')) && (
+            <Button size="sm" onClick={handleAssign} data-testid="report-detail-claim">
               <UserCheck className="h-3.5 w-3.5" />
               {t('reports.claim', { defaultValue: 'Claim' })}
             </Button>
           )}
-          {report.status === 'active' && isAdmin && (
+          {activeReport.status === 'active' && isAdmin && (
             <Button size="sm" variant="outline" data-testid="close-report" onClick={handleClose}>
               <X className="h-3.5 w-3.5" />
               {t('reports.closeReport', { defaultValue: 'Close' })}
             </Button>
           )}
-          <ReportStatusBadge status={report.status} />
+          <ReportStatusBadge status={activeReport.status} />
         </div>
       </div>
 
+      {/* Files panel */}
+      {showFiles && reportFiles.length > 0 && (
+        <div
+          className="border-b border-border bg-muted/30 px-4 py-2 space-y-1"
+          data-testid="report-files-panel"
+        >
+          <p className="text-xs font-medium text-muted-foreground mb-1">
+            {t('reports.attachments', { defaultValue: 'Attachments' })}
+          </p>
+          {reportFiles.map((file) => (
+            <div key={file.id} className="flex items-center gap-2">
+              <Paperclip className="h-3 w-3 text-muted-foreground shrink-0" />
+              <FilePreview fileId={file.id} />
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Messages thread */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto px-4 py-4 space-y-3"
+        data-testid="report-detail-messages"
+      >
         {messagesLoading ? (
-          <div className="flex items-center justify-center py-8">
+          <div
+            className="flex items-center justify-center py-8"
+            data-testid="report-detail-loading"
+          >
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : messages.length === 0 ? (
-          <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+          <div
+            className="flex items-center justify-center py-8 text-sm text-muted-foreground"
+            data-testid="report-detail-empty"
+          >
             {t('reports.noMessages', { defaultValue: 'No messages yet' })}
           </div>
         ) : (
@@ -393,7 +464,11 @@ function ReportDetail({
             const text = decryptedContent.get(msg.id)
 
             return (
-              <div key={msg.id} className={`flex ${isInbound ? 'justify-start' : 'justify-end'}`}>
+              <div
+                key={msg.id}
+                className={`flex ${isInbound ? 'justify-start' : 'justify-end'}`}
+                data-testid={`report-message-${msg.id}`}
+              >
                 <div
                   className={`max-w-[75%] rounded-2xl px-4 py-2.5 ${
                     isInbound
@@ -413,7 +488,7 @@ function ReportDetail({
 
                   {/* Inline file attachments */}
                   {msg.hasAttachments && msg.attachmentIds && msg.attachmentIds.length > 0 && (
-                    <div className="mt-2 space-y-2">
+                    <div className="mt-2 space-y-2" data-testid="report-detail-files">
                       {msg.attachmentIds.map((fileId) => (
                         <FilePreview key={fileId} fileId={fileId} />
                       ))}
@@ -439,7 +514,7 @@ function ReportDetail({
       {showFileUpload && hasNsec && publicKey && (
         <div className="border-t border-border px-4 py-3">
           <FileUpload
-            conversationId={report.id}
+            conversationId={activeReport.id}
             recipientPubkeys={[
               publicKey,
               ...(adminDecryptionPubkey && adminDecryptionPubkey !== publicKey
@@ -453,7 +528,10 @@ function ReportDetail({
 
       {/* Composer */}
       {canReply && (
-        <div className="border-t border-border bg-background px-4 py-3">
+        <div
+          className="border-t border-border bg-background px-4 py-3"
+          data-testid="report-detail-composer"
+        >
           <div className="flex items-center gap-1.5 mb-2 text-xs text-muted-foreground">
             <Lock className="h-3 w-3" />
             <span>
@@ -467,6 +545,7 @@ function ReportDetail({
               onClick={() => setShowFileUpload((prev) => !prev)}
               aria-label={t('reports.attachFile', { defaultValue: 'Attach file' })}
               className="shrink-0 text-muted-foreground"
+              data-testid="report-detail-attach"
             >
               <Paperclip className="h-4 w-4" />
             </Button>
@@ -482,6 +561,7 @@ function ReportDetail({
               placeholder={t('reports.replyPlaceholder', { defaultValue: 'Type your reply...' })}
               rows={1}
               className="flex-1 resize-none rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              data-testid="report-detail-reply-textarea"
             />
             <Button
               size="icon-sm"
@@ -489,6 +569,7 @@ function ReportDetail({
               onClick={() => void handleSendReply()}
               aria-label={t('common.submit')}
               className="shrink-0"
+              data-testid="report-detail-send-reply"
             >
               {sending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

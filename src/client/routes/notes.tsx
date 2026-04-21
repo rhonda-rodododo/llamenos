@@ -8,11 +8,18 @@ import { Input } from '@/components/ui/input'
 import type { CallRecord } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { useConfig } from '@/lib/config'
+import { getMlsConversation } from '@/lib/mls/get-mls-conversation'
+import { toBase64 } from '@/lib/mls/mls-api-client'
 import { useCallHistory } from '@/lib/queries/calls'
-import { useCreateNote, useCustomFields, useNotes, useUpdateNote } from '@/lib/queries/notes'
+import {
+  cacheNotePlaintext,
+  useCreateNote,
+  useCustomFields,
+  useNotes,
+  useUpdateNote,
+} from '@/lib/queries/notes'
 import { useUsers } from '@/lib/queries/users'
 import { useToast } from '@/lib/toast'
-import { encryptNote } from '@shared/crypto-envelopes'
 import type { FileFieldValue, NotePayload } from '@shared/types'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
@@ -96,15 +103,18 @@ function NotesPage() {
     try {
       const payload: NotePayload = { text }
       if (Object.keys(fields).length > 0) payload.fields = fields
-      const authorPub = publicKey
-      const adminPub = adminDecryptionPubkey || authorPub
-      const { encryptedContent, authorEnvelope, adminEnvelopes } = encryptNote(payload, authorPub, [
-        adminPub,
-      ])
+      const conv = await getMlsConversation(hubId)
+      if (!conv) throw new Error('MLS not available')
+      const plaintext = new TextEncoder().encode(JSON.stringify(payload))
+      const mlsCiphertextBytes = await conv.encrypt(plaintext)
+      const mlsCiphertext = toBase64(mlsCiphertextBytes)
+      const mlsEpoch = await conv.currentEpoch()
       await updateNoteMutation.mutateAsync({
         id: noteId,
-        data: { encryptedContent, authorEnvelope, adminEnvelopes },
+        data: { mlsCiphertext, mlsEpoch },
       })
+      // Update plaintext cache for self-authored note
+      cacheNotePlaintext(noteId, payload)
       setEditingId(null)
     } catch {
       toast(t('common.error'), 'error')
@@ -120,17 +130,22 @@ function NotesPage() {
     try {
       const payload: NotePayload = { text }
       if (Object.keys(fields).length > 0) payload.fields = fields
-      const authorPub = publicKey
-      const adminPub = adminDecryptionPubkey || authorPub
-      const { encryptedContent, authorEnvelope, adminEnvelopes } = encryptNote(payload, authorPub, [
-        adminPub,
-      ])
-      await createNoteMutation.mutateAsync({
+      const conv = await getMlsConversation(hubId)
+      if (!conv) throw new Error('MLS not available')
+      const plaintext = new TextEncoder().encode(JSON.stringify(payload))
+      const mlsCiphertextBytes = await conv.encrypt(plaintext)
+      const mlsCiphertext = toBase64(mlsCiphertextBytes)
+      const mlsEpoch = await conv.currentEpoch()
+      const result = await createNoteMutation.mutateAsync({
         callId: selectedCallId,
-        encryptedContent,
-        authorEnvelope,
-        adminEnvelopes,
+        mlsCiphertext,
+        mlsEpoch,
       })
+      // Cache plaintext so the author can read their own note (MLS encryptMessage
+      // encrypts for OTHER group members — sender cannot self-decrypt).
+      if (result?.note?.id) {
+        cacheNotePlaintext(result.note.id, payload)
+      }
       setShowNewNote(false)
     } catch {
       toast(t('common.error'), 'error')

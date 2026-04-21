@@ -5,21 +5,12 @@ import { secp256k1 } from '@noble/curves/secp256k1.js'
 import { hkdf } from '@noble/hashes/hkdf.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
-import {
-  decryptDraft,
-  decryptNoteWithKey,
-  encryptDraft,
-  encryptExport,
-  encryptMessage,
-  encryptNote,
-} from '@shared/crypto-envelopes'
+import { decryptDraft, encryptDraft, encryptExport } from '@shared/crypto-envelopes'
 import {
   type CryptoLabel,
   HKDF_CONTEXT_EXPORT,
   HKDF_SALT,
   LABEL_CALL_META,
-  LABEL_MESSAGE,
-  LABEL_NOTE_KEY,
   LABEL_TRANSCRIPTION,
 } from '@shared/crypto-labels'
 import {
@@ -30,7 +21,6 @@ import {
   isValidNsec,
   keyPairFromNsec,
 } from '@shared/crypto-primitives'
-import type { NotePayload } from '@shared/types'
 
 describe('generateKeyPair', () => {
   test('secretKey is 32 bytes (Uint8Array)', () => {
@@ -165,188 +155,9 @@ describe('eciesWrapKey / eciesUnwrapKeyWithSecret', () => {
   })
 })
 
-// ── A1: encryptNote / decryptNoteWithKey ──
+// ── Note and message ECIES envelope tests removed — both paths now use MLS ──
 
-describe('encryptNote / decryptNoteWithKey', () => {
-  const samplePayload: NotePayload = {
-    text: 'Caller reported unsafe conditions at home.',
-    fields: { urgency: 'high', followUp: true },
-  }
-
-  test('author roundtrip: encrypt → decrypt via authorEnvelope recovers original payload', () => {
-    const author = generateKeyPair()
-    const admin = generateKeyPair()
-
-    const encrypted = encryptNote(samplePayload, author.publicKey, [admin.publicKey])
-    const decrypted = decryptNoteWithKey(
-      encrypted.encryptedContent,
-      encrypted.authorEnvelope,
-      author.secretKey
-    )
-
-    expect(decrypted).toEqual(samplePayload)
-  })
-
-  test('admin roundtrip: encrypt with 2 admins → each decrypts via their envelope', () => {
-    const author = generateKeyPair()
-    const admin1 = generateKeyPair()
-    const admin2 = generateKeyPair()
-
-    const encrypted = encryptNote(samplePayload, author.publicKey, [
-      admin1.publicKey,
-      admin2.publicKey,
-    ])
-
-    expect(encrypted.adminEnvelopes).toHaveLength(2)
-
-    const env1 = encrypted.adminEnvelopes.find((e) => e.pubkey === admin1.publicKey)!
-    const env2 = encrypted.adminEnvelopes.find((e) => e.pubkey === admin2.publicKey)!
-
-    const dec1 = decryptNoteWithKey(encrypted.encryptedContent, env1, admin1.secretKey)
-    const dec2 = decryptNoteWithKey(encrypted.encryptedContent, env2, admin2.secretKey)
-
-    expect(dec1).toEqual(samplePayload)
-    expect(dec2).toEqual(samplePayload)
-  })
-
-  test('wrong key: unrelated secretKey returns null', () => {
-    const author = generateKeyPair()
-    const attacker = generateKeyPair()
-
-    const encrypted = encryptNote(samplePayload, author.publicKey, [])
-    const result = decryptNoteWithKey(
-      encrypted.encryptedContent,
-      encrypted.authorEnvelope,
-      attacker.secretKey
-    )
-
-    expect(result).toBeNull()
-  })
-
-  test('forward secrecy: two encryptions produce different encryptedContent', () => {
-    const author = generateKeyPair()
-
-    const enc1 = encryptNote(samplePayload, author.publicKey, [])
-    const enc2 = encryptNote(samplePayload, author.publicKey, [])
-
-    expect(enc1.encryptedContent).not.toBe(enc2.encryptedContent)
-  })
-
-  test('cross-label: unwrap authorEnvelope with LABEL_MESSAGE instead of LABEL_NOTE_KEY throws', () => {
-    const author = generateKeyPair()
-
-    const encrypted = encryptNote(samplePayload, author.publicKey, [])
-
-    expect(() =>
-      eciesUnwrapKeyWithSecret(encrypted.authorEnvelope, author.secretKey, LABEL_MESSAGE)
-    ).toThrow()
-  })
-})
-
-// ── A2: encryptMessage / decryptMessage ──
-
-describe('encryptMessage / decryptMessage (manual)', () => {
-  const plaintext = 'Hola, necesito ayuda urgente.'
-
-  /** Manually decrypt a message using eciesUnwrapKeyWithSecret + symmetric decrypt */
-  function decryptMessageWithKey(
-    encryptedContent: string,
-    readerEnvelopes: { pubkey: string; wrappedKey: string; ephemeralPubkey: string }[],
-    secretKey: Uint8Array,
-    readerPubkey: string
-  ): string | null {
-    try {
-      const envelope = readerEnvelopes.find((e) => e.pubkey === readerPubkey)
-      if (!envelope) return null
-      const messageKey = eciesUnwrapKeyWithSecret(
-        envelope as unknown as KeyEnvelope,
-        secretKey,
-        LABEL_MESSAGE
-      )
-      const data = hexToBytes(encryptedContent)
-      const nonce = data.slice(0, 24)
-      const ciphertext = data.slice(24)
-      const cipher = xchacha20poly1305(messageKey, nonce)
-      const decrypted = cipher.decrypt(ciphertext)
-      return new TextDecoder().decode(decrypted)
-    } catch {
-      return null
-    }
-  }
-
-  test('single-reader roundtrip', () => {
-    const reader = generateKeyPair()
-
-    const encrypted = encryptMessage(plaintext, [reader.publicKey])
-    const decrypted = decryptMessageWithKey(
-      encrypted.encryptedContent,
-      encrypted.readerEnvelopes,
-      reader.secretKey,
-      reader.publicKey
-    )
-
-    expect(decrypted).toBe(plaintext)
-  })
-
-  test('multi-reader: 3 readers each decrypt', () => {
-    const r1 = generateKeyPair()
-    const r2 = generateKeyPair()
-    const r3 = generateKeyPair()
-
-    const encrypted = encryptMessage(plaintext, [r1.publicKey, r2.publicKey, r3.publicKey])
-
-    for (const r of [r1, r2, r3]) {
-      const dec = decryptMessageWithKey(
-        encrypted.encryptedContent,
-        encrypted.readerEnvelopes,
-        r.secretKey,
-        r.publicKey
-      )
-      expect(dec).toBe(plaintext)
-    }
-  })
-
-  test('wrong pubkey lookup: non-matching pubkey returns null', () => {
-    const reader = generateKeyPair()
-    const other = generateKeyPair()
-
-    const encrypted = encryptMessage(plaintext, [reader.publicKey])
-    const result = decryptMessageWithKey(
-      encrypted.encryptedContent,
-      encrypted.readerEnvelopes,
-      other.secretKey,
-      other.publicKey
-    )
-
-    expect(result).toBeNull()
-  })
-
-  test('wrong secretKey: correct pubkey, wrong key returns null', () => {
-    const reader = generateKeyPair()
-    const attacker = generateKeyPair()
-
-    const encrypted = encryptMessage(plaintext, [reader.publicKey])
-    const result = decryptMessageWithKey(
-      encrypted.encryptedContent,
-      encrypted.readerEnvelopes,
-      attacker.secretKey,
-      reader.publicKey
-    )
-
-    expect(result).toBeNull()
-  })
-
-  test('nonce uniqueness: two encryptions of same plaintext differ', () => {
-    const reader = generateKeyPair()
-
-    const enc1 = encryptMessage(plaintext, [reader.publicKey])
-    const enc2 = encryptMessage(plaintext, [reader.publicKey])
-
-    expect(enc1.encryptedContent).not.toBe(enc2.encryptedContent)
-  })
-})
-
-// ── A3: decryptCallRecord — cross-boundary interop ──
+// ── decryptCallRecord — cross-boundary interop ──
 
 describe('decryptCallRecord — cross-boundary interop', () => {
   const callMeta = { answeredBy: 'vol_abc123', callerNumber: '+15551234567' }

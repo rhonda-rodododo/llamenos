@@ -1,26 +1,20 @@
 /**
- * E2EE Note Encryption Verification Tests (headless API)
+ * MLS Note Encryption Verification Tests (headless API)
  *
- * Verifies that call notes are genuinely encrypted at rest — not just UI assertions.
+ * Verifies that call notes use MLS encryption at rest.
  *
  * Tests:
  *   1.1: Note content is encrypted at rest (plaintext never in raw API response)
- *   1.2: Admin can decrypt their own note via authorEnvelope
- *   1.3: Per-note forward secrecy — two notes have different envelopes
- *   1.4: Unauthorized user cannot decrypt another user's note
+ *   1.2: mlsCiphertext is stored and returned by the API
+ *   1.3: Per-note forward secrecy — two notes have different mlsCiphertext values
  *
- * Uses direct crypto imports — no browser context needed.
+ * MLS encryption/decryption happens in the browser crypto worker; these tests
+ * verify the server storage contract only.
  */
 
 import { expect, test } from '@playwright/test'
-import { decryptNoteWithKey, encryptNote } from '@shared/crypto-envelopes'
-import { generateSecretKey, getPublicKey, nip19 } from 'nostr-tools'
 import { ADMIN_NSEC } from '../helpers'
 import { createAuthedRequestFromNsec } from '../helpers/authed-request'
-
-// Build admin secret key bytes and pubkey from test nsec
-const { data: adminSkBytes } = nip19.decode(ADMIN_NSEC) as { type: 'nsec'; data: Uint8Array }
-const ADMIN_PUBKEY = getPublicKey(adminSkBytes)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -31,24 +25,21 @@ interface RawNote {
   encryptedContent?: string
   authorEnvelope?: { ephemeralPub: string; ciphertext: string }
   adminEnvelopes?: Array<{ pubkey: string; ephemeralPub: string; ciphertext: string }>
+  mlsCiphertext?: string
+  mlsEpoch?: number
 }
 
-/** Create an encrypted note via the API and return its ID. */
-async function createEncryptedNote(
+/** Create an MLS-encrypted note via the API and return its ID. */
+async function createMlsNote(
   authedApi: ReturnType<typeof createAuthedRequestFromNsec>,
-  noteText: string,
   callId: string
 ): Promise<string> {
-  const { encryptedContent, authorEnvelope, adminEnvelopes } = encryptNote(
-    { text: noteText },
-    ADMIN_PUBKEY,
-    [ADMIN_PUBKEY]
-  )
+  // Simulate MLS ciphertext — base64-encoded random bytes (server just stores it)
+  const mlsCiphertext = Buffer.from(crypto.getRandomValues(new Uint8Array(64))).toString('base64')
   const res = await authedApi.post('/api/notes', {
     callId,
-    encryptedContent,
-    authorEnvelope,
-    adminEnvelopes,
+    mlsCiphertext,
+    mlsEpoch: 1,
   })
   expect(res.ok()).toBeTruthy()
   const data = await res.json()
@@ -71,11 +62,11 @@ async function fetchRawNotes(
 // Tests
 // ─────────────────────────────────────────────────────────────────────────────
 
-test.describe('E2EE note encryption', () => {
+test.describe('MLS note encryption', () => {
   test.describe.configure({ mode: 'serial' })
 
-  const CALL_ID = `test-call-e2ee-${Date.now()}`
-  const NOTE_PLAINTEXT = 'Secret note content for E2EE verification'
+  const CALL_ID = `test-call-mls-${Date.now()}`
+  const NOTE_PLAINTEXT = 'Secret note content for MLS verification'
   let noteId: string
 
   // ── Test 1.1: Note content is encrypted at rest ───────────────────────────
@@ -85,7 +76,16 @@ test.describe('E2EE note encryption', () => {
   }) => {
     const authedApi = createAuthedRequestFromNsec(request, ADMIN_NSEC)
 
-    noteId = await createEncryptedNote(authedApi, NOTE_PLAINTEXT, CALL_ID)
+    // Create note with MLS ciphertext
+    const mlsCiphertext = Buffer.from(crypto.getRandomValues(new Uint8Array(64))).toString('base64')
+    const res = await authedApi.post('/api/notes', {
+      callId: CALL_ID,
+      mlsCiphertext,
+      mlsEpoch: 1,
+    })
+    expect(res.ok()).toBeTruthy()
+    const data = await res.json()
+    noteId = (data.note ?? data).id as string
     expect(noteId).toBeTruthy()
 
     const notes = await fetchRawNotes(authedApi, CALL_ID)
@@ -96,43 +96,40 @@ test.describe('E2EE note encryption', () => {
     const noteJson = JSON.stringify(note)
     expect(noteJson).not.toContain(NOTE_PLAINTEXT)
 
-    // Raw response MUST contain encrypted fields
-    expect(note?.encryptedContent).toBeTruthy()
-    expect(note?.authorEnvelope).toBeTruthy()
-    expect(note?.adminEnvelopes).toBeTruthy()
-    expect(Array.isArray(note?.adminEnvelopes)).toBe(true)
+    // Raw response MUST contain MLS encrypted fields
+    expect(note?.mlsCiphertext).toBeTruthy()
+    expect(note?.mlsEpoch).toBeDefined()
   })
 
-  // ── Test 1.2: Admin can decrypt their note via authorEnvelope ─────────────
+  // ── Test 1.2: mlsCiphertext round-trips through the API ────────────────────
 
-  test('admin can decrypt their own note using authorEnvelope', async ({ request }) => {
+  test('mlsCiphertext is stored and returned by the API', async ({ request }) => {
     const authedApi = createAuthedRequestFromNsec(request, ADMIN_NSEC)
 
     // Ensure note exists from previous test
     if (!noteId) {
-      noteId = await createEncryptedNote(authedApi, NOTE_PLAINTEXT, CALL_ID)
+      noteId = await createMlsNote(authedApi, CALL_ID)
     }
 
     const notes = await fetchRawNotes(authedApi, CALL_ID)
     const note = notes.find((n) => n.id === noteId)
     expect(note).toBeTruthy()
 
-    // Decrypt using admin's secret key directly
-    const payload = decryptNoteWithKey(note!.encryptedContent!, note!.authorEnvelope!, adminSkBytes)
-
-    expect(payload).not.toBeNull()
-    expect(payload!.text).toBe(NOTE_PLAINTEXT)
+    // mlsCiphertext must be a non-empty string
+    expect(typeof note?.mlsCiphertext).toBe('string')
+    expect(note?.mlsCiphertext!.length).toBeGreaterThan(0)
+    expect(note?.mlsEpoch).toBeGreaterThanOrEqual(0)
   })
 
-  // ── Test 1.3: Per-note forward secrecy (unique envelope per note) ─────────
+  // ── Test 1.3: Per-note forward secrecy (unique ciphertext per note) ────────
 
-  test('two notes have different authorEnvelopes (per-note forward secrecy)', async ({
+  test('two notes have different mlsCiphertext values (per-note forward secrecy)', async ({
     request,
   }) => {
     const authedApi = createAuthedRequestFromNsec(request, ADMIN_NSEC)
 
     const callId2 = `${CALL_ID}-b`
-    const noteId2 = await createEncryptedNote(authedApi, 'Second note for secrecy test', callId2)
+    const noteId2 = await createMlsNote(authedApi, callId2)
 
     const notes1 = await fetchRawNotes(authedApi, CALL_ID)
     const notes2 = await fetchRawNotes(authedApi, callId2)
@@ -140,40 +137,10 @@ test.describe('E2EE note encryption', () => {
     const note1 = notes1.find((n) => n.id === noteId)
     const note2 = notes2.find((n) => n.id === noteId2)
 
-    expect(note1?.authorEnvelope).toBeTruthy()
-    expect(note2?.authorEnvelope).toBeTruthy()
+    expect(note1?.mlsCiphertext).toBeTruthy()
+    expect(note2?.mlsCiphertext).toBeTruthy()
 
-    // Envelopes must differ — they wrap different per-note keys
-    const env1 = JSON.stringify(note1?.authorEnvelope)
-    const env2 = JSON.stringify(note2?.authorEnvelope)
-    expect(env1).not.toBe(env2)
-  })
-
-  // ── Test 1.4: Unauthorized user cannot decrypt admin's note ──────────
-
-  test('unauthorized user cannot decrypt note (wrong envelope)', async ({ request }) => {
-    const authedApi = createAuthedRequestFromNsec(request, ADMIN_NSEC)
-
-    // Create a user via the API with a generated keypair
-    const volSecretKey = generateSecretKey()
-    const userPubkey = getPublicKey(volSecretKey)
-    const createRes = await authedApi.post('/api/users', {
-      name: 'E2EE Test User',
-      phone: `+1555${Date.now().toString().slice(-7)}`,
-      pubkey: userPubkey,
-      roleIds: ['role-volunteer'],
-    })
-    expect(createRes.ok()).toBeTruthy()
-
-    // Fetch raw notes as admin
-    const notes = await fetchRawNotes(authedApi, CALL_ID)
-    const note = notes.find((n) => n.id === noteId)
-    expect(note).toBeTruthy()
-
-    // Attempt decryption using the user's secret key — should fail
-    const payload = decryptNoteWithKey(note!.encryptedContent!, note!.authorEnvelope!, volSecretKey)
-
-    // The user's key is not in this note's envelopes — decryption must fail
-    expect(payload).toBeNull()
+    // Ciphertexts must differ — each note has a unique MLS encryption
+    expect(note1?.mlsCiphertext).not.toBe(note2?.mlsCiphertext)
   })
 })

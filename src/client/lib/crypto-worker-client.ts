@@ -76,6 +76,10 @@ interface ExportSessionResult {
   tokenHex: SessionToken
   encryptedNsecHex: EncryptedNsecHex
   capsuleNonceHex: CapsuleNonceHex
+  /** Encrypted KEK bytes (hex) for MLS re-init on session restore. Null if KEK was not available at export time. */
+  encryptedKekHex: string | null
+  /** XChaCha20 nonce for the encrypted KEK (hex). */
+  kekNonceHex: string | null
 }
 
 interface PendingRequest {
@@ -316,11 +320,15 @@ export class CryptoWorkerClient {
       tokenHex: string
       encryptedNsecHex: string
       capsuleNonceHex: string
+      encryptedKekHex: string | null
+      kekNonceHex: string | null
     }>({ type: 'exportSession' })
     return {
       tokenHex: asSessionToken(raw.tokenHex),
       encryptedNsecHex: asEncryptedNsec(raw.encryptedNsecHex),
       capsuleNonceHex: asCapsuleNonce(raw.capsuleNonceHex),
+      encryptedKekHex: raw.encryptedKekHex,
+      kekNonceHex: raw.kekNonceHex,
     }
   }
 
@@ -332,13 +340,17 @@ export class CryptoWorkerClient {
   async importSession(
     tokenHex: SessionToken,
     encryptedNsecHex: EncryptedNsecHex,
-    capsuleNonceHex: CapsuleNonceHex
+    capsuleNonceHex: CapsuleNonceHex,
+    encryptedKekHex?: string,
+    kekNonceHex?: string
   ): Promise<string> {
     return this.call<string>({
       type: 'importSession',
       tokenHex,
       encryptedNsecHex,
       capsuleNonceHex,
+      encryptedKekHex,
+      kekNonceHex,
     })
   }
 

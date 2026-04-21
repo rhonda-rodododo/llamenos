@@ -1,5 +1,46 @@
 # Next Backlog
 
+## Entity Templates (from v2)
+
+Full architecture spec: [`docs/superpowers/specs/2026-04-19-v2-entity-templates-architecture.md`](superpowers/specs/2026-04-19-v2-entity-templates-architecture.md).
+
+Bring v2's template-driven entity/relationship model into v1 while preserving zero-knowledge E2EE invariants. v2 defines 14 use-case templates (general-hotline, copwatch, street-medic, bail-fund, mutual-aid, ice-rapid-response, jail-support, hate-crime-reporting, stop-the-sweeps, dv-crisis, missing-persons, kyr-training, tenant-organizing, anti-trafficking) with 20 unique entity types, custom field schemas, relationship types, and i18n labels.
+
+### Phase 1: Generic Entity Type Registry
+- [ ] DB: `entity_types`, `entity_type_statuses` tables
+- [ ] API: CRUD routes for entity types (hub-key encrypted labels)
+- [ ] Admin UI: "Entity Types" section
+- [ ] Client: React Query hooks, decrypt-on-fetch
+
+### Phase 2: Custom Field Schema
+- [ ] DB: `entity_type_fields` table
+- [ ] API: CRUD for field definitions
+- [ ] Client: Dynamic form renderer (extend `custom-field-inputs.tsx`)
+- [ ] Add `date` field type to v1 custom fields
+- [ ] Migrate `custom_field_definitions` → `entity_type_fields`
+
+### Phase 3: Relationship Types
+- [ ] DB: `entity_type_relationship_types`, `entity_relationships` tables
+- [ ] API: CRUD for relationship types; create/link/unlink
+- [ ] Migrate `contactRelationships` → `entity_relationships`
+- [ ] Generalize relationship UI beyond contacts
+
+### Phase 4: Template Loader
+- [ ] Template parser: v2 JSON → v1 DB schema
+- [ ] Handle `extends` (template inheritance)
+- [ ] Seed 14 built-in templates
+- [ ] Add "Choose template" step to hub creation flow
+
+### Phase 5: Template Marketplace / Sharing
+- [ ] Export hub config → template JSON
+- [ ] Import/validate template JSON
+- [ ] Community template gallery
+
+### Open Questions (see spec §8)
+- Keep contacts specialized or migrate to generic `entity_instances`?
+- Server-side indexing for encrypted fields?
+- Permission namespace per entity type?
+
 ## Incomplete Features Audit — 2026-04-18
 
 Full report: [`docs/INCOMPLETE_FEATURES_AUDIT_2026-04-18.md`](INCOMPLETE_FEATURES_AUDIT_2026-04-18.md). Server infrastructure is complete for all items below; only client UI / wiring is missing.
@@ -338,7 +379,20 @@ All items below have a design spec and implementation plan in `docs/superpowers/
 - [x] **Health Monitoring** — ProviderHealthService with consecutive failure tracking (healthy→degraded→down). Background polling. GET /provider-health endpoint. ProviderHealthBadge React component. 5 E2E tests.
 - [x] **Infrastructure** — Fixed Asterisk bridge 44GB memory leak (WebSocket GC + reconnect limit). Docker compose dev cleanup (asterisk in Docker, bridge local). Bun upgraded to latest.
 
-### Contact Directory v2 — Specs (Draft, Needs Review)
+### v2→v1 Feature Migration Series
+
+> Porting v2 (Llámenos Platform) concepts to v1 (Llámenos Hotline). All specs are docs-only until the series is complete.
+
+**Dependency order:** Part 1 (Entity Templates Arch) → Part 2 (Entity Templates Impl) → Part 3 (Interaction Timeline) → Part 4 (Assessment Engine) → Part 5 (Referral Workflow) → Part 6 (Audit & Compliance)
+
+- [ ] **Part 1: Entity Templates Architecture** (`2026-04-19-v2-entity-templates-architecture.md`) — FOUNDATION. Entity template schema, entity instance lifecycle, custom field binding, per-entity permissions.
+- [ ] **Part 2: Entity Templates Implementation** — DB schema (`entity_templates`, `entity_instances`, `entity_fields`), CRUD API, admin UI for template designer, instance creation flow.
+- [x] **Part 3: Interaction Timeline** (`2026-04-19-interaction-timeline-spec.md`) — **SPEC READY**. Unified timeline linking notes/calls/messages to entity instances, inline MLS-encrypted comments, status change audit trail. Depends on Part 2.
+- [ ] **Part 4: Assessment Engine** — Lethality/triage assessments bound to entity instances, encrypted form data, scoring logic.
+- [ ] **Part 5: Referral Workflow** — Cross-hub case referral, encrypted handoff notes, receipt confirmation.
+- [ ] **Part 6: Audit & Compliance** — Per-entity audit export, GDPR erasure integration, retention policies for timeline data.
+
+## Contact Directory v2 — Specs (Draft, Needs Review)
 
 > All specs below are drafts from 2026-03-28 brainstorming. They need review against the codebase and may need revision after Spec 0 (PBAC redesign) lands or other work changes assumptions. Review each spec before writing an implementation plan.
 
@@ -459,6 +513,19 @@ admin-flow (18), blast-sending (8), notes-crud (7), smoke (4), theme (7), health
 - [x] **Vonage webhook verification** — Complete: `VonageAdapter.verifyWebhookConfig()` in `src/server/telephony/vonage.ts:631` queries `GET /v2/applications/{id}` with RS256 JWT minted via `signApplicationJwt()`, compares `capabilities.voice.webhooks.answer_url` against expected base URL.
 - [x] **Telnyx WebRTC token generation** — Done in PR #98: `generateTelnyxToken()` in `src/server/telephony/webrtc-tokens.ts` uses Telnyx's two-step Telephony Credential flow (`POST /v2/telephony_credentials` with `connection_id`, then `POST /v2/telephony_credentials/{id}/token` for the login JWT). Optional `sipConnectionId` + `webrtcEnabled` fields added to `TelnyxConfigSchema`; `isWebRtcConfigured()` enforces both at runtime. 8 new tests via scoped fetch stub (`webrtc-tokens.test.ts`).
 - [ ] **Bandwidth WebRTC token generation** — `src/server/telephony/webrtc-tokens.ts:36` still throws. Bandwidth schema already has `webrtcEnabled`; needs Bandwidth Voice SDK JWT mint.
+
+## Entity Type Registry (v2→v1 Series)
+
+> **Spec:** `docs/superpowers/specs/2026-04-19-entity-type-registry-spec.md`
+> **Series:** Part 1 of 6. Foundation for bringing v2's custom entity types into v1.
+> **Depends on:** PR #199 (v2 Entity Templates Architecture overview)
+
+- [ ] **Part 1: Entity Type Registry** — DB schema (`entity_types`, `entity_type_statuses`, `entity_type_fields`), API routes (OpenAPIHono + zod-openapi), Zod schemas, admin UI section, React Query hooks, migration path from `report_types`, permission integration.
+- [ ] **Part 2: Entity Instance CRUD** — Create, read, update, archive entity instances. Hub-key encryption for non-PII fields, MLS group encryption for `piiFields`.
+- [ ] **Part 3: Relationship Types** — Define and manage relationships between entity types (1:1, 1:N, M:N).
+- [ ] **Part 4: Template Engine** — Apply v2-style templates to bootstrap entity types, statuses, fields, and suggested roles.
+- [ ] **Part 5: Custom Field Migration** — Migrate `custom_field_definitions` into `entity_type_fields`. Deprecate old custom fields system.
+- [ ] **Part 6: Report Type Deprecation** — Remove `report_types` table and all dual-read code. Full cutover to entity types.
 
 ## Deferred from User Security & Device Management (2026-04-04)
 Spec: `docs/superpowers/specs/2026-04-04-user-security-device-management-design.md` (pending)

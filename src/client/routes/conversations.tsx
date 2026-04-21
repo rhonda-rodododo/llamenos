@@ -8,15 +8,17 @@ import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth'
 import { useConfig } from '@/lib/config'
 import { useConversations } from '@/lib/hooks'
+import { getMlsConversation } from '@/lib/mls/get-mls-conversation'
+import * as mlsApi from '@/lib/mls/mls-api-client'
 import {
   useClaimConversation,
+  useConversationLoads,
   useConversationMessages,
   useSendConversationMessage,
   useUpdateConversation,
 } from '@/lib/queries/conversations'
 import { useToast } from '@/lib/toast'
 import { useDecryptedArray } from '@/lib/use-decrypted'
-import { encryptMessage } from '@shared/crypto-envelopes'
 import { createFileRoute } from '@tanstack/react-router'
 import { Lock, MessageSquare, UserCheck, UserCog, X } from 'lucide-react'
 import { useCallback, useState } from 'react'
@@ -28,8 +30,8 @@ export const Route = createFileRoute('/conversations')({
 
 function ConversationsPage() {
   const { t } = useTranslation()
-  const { isAdmin, hasNsec, publicKey, adminDecryptionPubkey } = useAuth()
-  const { channels } = useConfig()
+  const { isAdmin, hasNsec, publicKey } = useAuth()
+  const { channels, currentHubId } = useConfig()
   const { toast } = useToast()
   const { conversations: rawConversations, waitingConversations } = useConversations()
   const conversations = useDecryptedArray(rawConversations)
@@ -42,6 +44,8 @@ function ConversationsPage() {
   const messagesQuery = useConversationMessages(selectedId)
   const { messages = [], decryptedContent = new Map<string, string>() } = messagesQuery.data ?? {}
   const messagesLoading = messagesQuery.isLoading
+
+  const { data: loads = {} } = useConversationLoads()
 
   const claimMutation = useClaimConversation()
   const closeMutation = useUpdateConversation()
@@ -78,29 +82,34 @@ function ConversationsPage() {
     [closeMutation, selectedId, t, toast]
   )
 
-  // Encrypt and send a message using envelope pattern
+  // Encrypt and send a message using MLS group encryption
   const handleComposerSend = useCallback(
     async (plaintext: string) => {
-      if (!selectedId || !hasNsec || !publicKey) return
+      if (!selectedId || !hasNsec || !publicKey || !currentHubId) return
 
-      const readerPubkeys = [publicKey]
-      if (adminDecryptionPubkey && adminDecryptionPubkey !== publicKey) {
-        readerPubkeys.push(adminDecryptionPubkey)
+      const mlsConv = await getMlsConversation(currentHubId)
+      if (!mlsConv) {
+        toast(t('conversations.mlsNotAvailable', { defaultValue: 'MLS not available' }), 'error')
+        return
       }
 
-      const encrypted = encryptMessage(plaintext, readerPubkeys)
-
       try {
+        const mlsBytes = await mlsConv.encrypt(new TextEncoder().encode(plaintext))
+        const mlsCiphertext = mlsApi.toBase64(mlsBytes)
+        const epoch = await mlsConv.currentEpoch()
+
         await sendMutation.mutateAsync({
-          encryptedContent: encrypted.encryptedContent,
-          readerEnvelopes: encrypted.readerEnvelopes,
+          encryptedContent: '' as import('@shared/crypto-types').Ciphertext,
+          readerEnvelopes: [],
           plaintextForSending: plaintext,
+          mlsCiphertext,
+          mlsEpoch: epoch,
         })
       } catch {
         toast(t('conversations.sendError', { defaultValue: 'Failed to send message' }), 'error')
       }
     },
-    [selectedId, hasNsec, publicKey, adminDecryptionPubkey, sendMutation, t, toast]
+    [selectedId, hasNsec, publicKey, currentHubId, sendMutation, t, toast]
   )
 
   const hasAnyMessaging = channels.sms || channels.whatsapp || channels.signal || channels.reports
@@ -190,6 +199,16 @@ function ConversationsPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  {selectedConv.assignedTo && loads[selectedConv.assignedTo] !== undefined && (
+                    <Badge
+                      variant="secondary"
+                      className="text-xs"
+                      data-testid="conversation-load-badge"
+                    >
+                      {loads[selectedConv.assignedTo]}{' '}
+                      {t('conversations.load', { defaultValue: 'active' })}
+                    </Badge>
+                  )}
                   {selectedConv.status === 'waiting' && (
                     <Button size="sm" onClick={() => void handleClaim(selectedConv.id)}>
                       <UserCheck className="h-3.5 w-3.5 mr-1" />

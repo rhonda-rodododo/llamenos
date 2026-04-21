@@ -71,6 +71,13 @@ export class MlsConversation {
       : convIdStr
     return new MlsConversation(hubId, worker, deviceId)
   }
+  /**
+   * Open an existing MLS group for encryption/decryption.
+   * Assumes the group was already created or joined in a previous session.
+   */
+  static open(hubId: string, worker: CryptoWorkerClient, deviceId: string): MlsConversation {
+    return new MlsConversation(hubId, worker, deviceId)
+  }
 
   /**
    * Join an existing MLS group via external commit (re-enrollment).
@@ -83,6 +90,18 @@ export class MlsConversation {
     deviceId: string
   ): Promise<MlsConversation> {
     await worker.mlsExternalJoin(groupInfoBytes)
+    return new MlsConversation(hubId, worker, deviceId)
+  }
+
+  /**
+   * Reconstruct an MlsConversation for a hub that already has local state.
+   * Does NOT verify the group exists — callers should check `mlsCurrentEpoch` first.
+   */
+  static fromExisting(
+    hubId: string,
+    worker: CryptoWorkerClient,
+    deviceId: string
+  ): MlsConversation {
     return new MlsConversation(hubId, worker, deviceId)
   }
 

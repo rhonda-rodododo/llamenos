@@ -37,7 +37,7 @@ import { Route as SecuritySessionsRouteImport } from './routes/security.sessions
 import { Route as SecurityPasskeysRouteImport } from './routes/security.passkeys'
 import { Route as SecurityHistoryRouteImport } from './routes/security.history'
 import { Route as SecurityFactorsRouteImport } from './routes/security.factors'
-import { Route as NotesNoteIdRouteImport } from './routes/notes.$noteId'
+import { Route as NotesNoteIdRouteImport } from './routes/notes_.$noteId'
 import { Route as ContactsContactIdRouteImport } from './routes/contacts_.$contactId'
 import { Route as CallsCallIdRouteImport } from './routes/calls.$callId'
 import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
@@ -184,9 +184,9 @@ const SecurityFactorsRoute = SecurityFactorsRouteImport.update({
   getParentRoute: () => SecurityRoute,
 } as any)
 const NotesNoteIdRoute = NotesNoteIdRouteImport.update({
-  id: '/$noteId',
-  path: '/$noteId',
-  getParentRoute: () => NotesRoute,
+  id: '/notes_/$noteId',
+  path: '/notes/$noteId',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ContactsContactIdRoute = ContactsContactIdRouteImport.update({
   id: '/contacts_/$contactId',
@@ -222,7 +222,7 @@ export interface FileRoutesByFullPath {
   '/intakes': typeof IntakesRoute
   '/link-device': typeof LinkDeviceRoute
   '/login': typeof LoginRoute
-  '/notes': typeof NotesRouteWithChildren
+  '/notes': typeof NotesRoute
   '/onboarding': typeof OnboardingRoute
   '/preferences': typeof PreferencesRoute
   '/profile-setup': typeof ProfileSetupRoute
@@ -256,7 +256,7 @@ export interface FileRoutesByTo {
   '/intakes': typeof IntakesRoute
   '/link-device': typeof LinkDeviceRoute
   '/login': typeof LoginRoute
-  '/notes': typeof NotesRouteWithChildren
+  '/notes': typeof NotesRoute
   '/onboarding': typeof OnboardingRoute
   '/preferences': typeof PreferencesRoute
   '/profile-setup': typeof ProfileSetupRoute
@@ -292,7 +292,7 @@ export interface FileRoutesById {
   '/intakes': typeof IntakesRoute
   '/link-device': typeof LinkDeviceRoute
   '/login': typeof LoginRoute
-  '/notes': typeof NotesRouteWithChildren
+  '/notes': typeof NotesRoute
   '/onboarding': typeof OnboardingRoute
   '/preferences': typeof PreferencesRoute
   '/profile-setup': typeof ProfileSetupRoute
@@ -306,7 +306,7 @@ export interface FileRoutesById {
   '/admin/settings': typeof AdminSettingsRoute
   '/calls/$callId': typeof CallsCallIdRoute
   '/contacts_/$contactId': typeof ContactsContactIdRoute
-  '/notes/$noteId': typeof NotesNoteIdRoute
+  '/notes_/$noteId': typeof NotesNoteIdRoute
   '/security/factors': typeof SecurityFactorsRoute
   '/security/history': typeof SecurityHistoryRoute
   '/security/passkeys': typeof SecurityPasskeysRoute
@@ -412,7 +412,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/calls/$callId'
     | '/contacts_/$contactId'
-    | '/notes/$noteId'
+    | '/notes_/$noteId'
     | '/security/factors'
     | '/security/history'
     | '/security/passkeys'
@@ -434,7 +434,7 @@ export interface RootRouteChildren {
   IntakesRoute: typeof IntakesRoute
   LinkDeviceRoute: typeof LinkDeviceRoute
   LoginRoute: typeof LoginRoute
-  NotesRoute: typeof NotesRouteWithChildren
+  NotesRoute: typeof NotesRoute
   OnboardingRoute: typeof OnboardingRoute
   PreferencesRoute: typeof PreferencesRoute
   ProfileSetupRoute: typeof ProfileSetupRoute
@@ -445,6 +445,7 @@ export interface RootRouteChildren {
   ShiftsRoute: typeof ShiftsRoute
   UsersRoute: typeof UsersRoute
   ContactsContactIdRoute: typeof ContactsContactIdRoute
+  NotesNoteIdRoute: typeof NotesNoteIdRoute
   UsersPubkeyRoute: typeof UsersPubkeyRoute
 }
 
@@ -646,12 +647,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SecurityFactorsRouteImport
       parentRoute: typeof SecurityRoute
     }
-    '/notes/$noteId': {
-      id: '/notes/$noteId'
-      path: '/$noteId'
+    '/notes_/$noteId': {
+      id: '/notes_/$noteId'
+      path: '/notes/$noteId'
       fullPath: '/notes/$noteId'
       preLoaderRoute: typeof NotesNoteIdRouteImport
-      parentRoute: typeof NotesRoute
+      parentRoute: typeof rootRouteImport
     }
     '/contacts_/$contactId': {
       id: '/contacts_/$contactId'
@@ -710,16 +711,6 @@ const CallsRouteChildren: CallsRouteChildren = {
 
 const CallsRouteWithChildren = CallsRoute._addFileChildren(CallsRouteChildren)
 
-interface NotesRouteChildren {
-  NotesNoteIdRoute: typeof NotesNoteIdRoute
-}
-
-const NotesRouteChildren: NotesRouteChildren = {
-  NotesNoteIdRoute: NotesNoteIdRoute,
-}
-
-const NotesRouteWithChildren = NotesRoute._addFileChildren(NotesRouteChildren)
-
 interface SecurityRouteChildren {
   SecurityFactorsRoute: typeof SecurityFactorsRoute
   SecurityHistoryRoute: typeof SecurityHistoryRoute
@@ -751,7 +742,7 @@ const rootRouteChildren: RootRouteChildren = {
   IntakesRoute: IntakesRoute,
   LinkDeviceRoute: LinkDeviceRoute,
   LoginRoute: LoginRoute,
-  NotesRoute: NotesRouteWithChildren,
+  NotesRoute: NotesRoute,
   OnboardingRoute: OnboardingRoute,
   PreferencesRoute: PreferencesRoute,
   ProfileSetupRoute: ProfileSetupRoute,
@@ -762,6 +753,7 @@ const rootRouteChildren: RootRouteChildren = {
   ShiftsRoute: ShiftsRoute,
   UsersRoute: UsersRoute,
   ContactsContactIdRoute: ContactsContactIdRoute,
+  NotesNoteIdRoute: NotesNoteIdRoute,
   UsersPubkeyRoute: UsersPubkeyRoute,
 }
 export const routeTree = rootRouteImport

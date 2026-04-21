@@ -1,5 +1,5 @@
 /**
- * Task 19: platform Health dashboard (super-admin only).
+ * Task 19: platform Health dashboard.
  *
  * Renders two cards:
  *  - System health (DB/storage/relay/version/uptime) from `/api/health`
@@ -7,8 +7,8 @@
  *  - Provider health (telephony + messaging) from
  *    `/api/settings/provider-health` — gated on `settings:read`.
  *
- * The nav item lives in the `platform` group and is gated on
- * `role-super-admin` + `settings:read`.
+ * The nav item lives in the `operations` group and is gated on
+ * `settings:read`.
  */
 
 import { expect, test } from '../fixtures/auth'
@@ -34,8 +34,8 @@ test.describe('Platform Health (super-admin)', () => {
     await adminPage.getByTestId('admin-health-refresh-button').click()
   })
 
-  test('hub admin does not see health item in the sidebar', async ({ hubAdminPage }) => {
+  test('hub admin sees health in the sidebar', async ({ hubAdminPage }) => {
     await navigateAfterLogin(hubAdminPage, '/admin/hub-roles')
-    await expect(hubAdminPage.getByTestId('admin-sidebar-item-health')).toHaveCount(0)
+    await expect(hubAdminPage.getByTestId('admin-sidebar-item-health')).toBeVisible()
   })
 })

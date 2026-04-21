@@ -81,14 +81,22 @@ export async function createContact(data: {
   encryptedPII?: string
   piiEnvelopes?: RecipientEnvelope[]
 }): Promise<ContactRecord> {
-  return request(hp('/contacts'), { method: 'POST', body: JSON.stringify(data) })
+  const res = await request<{ contact: ContactRecord }>(hp('/contacts'), {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+  return res.contact
 }
 
 export async function updateContact(
   id: string,
   data: Record<string, unknown>
 ): Promise<ContactRecord> {
-  return request(hp(`/contacts/${id}`), { method: 'PATCH', body: JSON.stringify(data) })
+  const res = await request<{ contact: ContactRecord }>(hp(`/contacts/${id}`), {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  })
+  return res.contact
 }
 
 export async function deleteContact(id: string): Promise<void> {

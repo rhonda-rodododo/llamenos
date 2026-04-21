@@ -246,6 +246,9 @@ export class ConversationService {
         deliveryStatusUpdatedAt: now,
         providerMessageId: data.providerMessageId ?? data.externalId ?? null,
         deliveryError: data.deliveryError ?? null,
+        mlsCiphertext: data.mlsCiphertext ?? null,
+        mlsEpoch: data.mlsEpoch ?? null,
+        serverEncryptedBody: data.serverEncryptedBody ?? null,
         createdAt: now,
       })
       .returning()
@@ -260,6 +263,29 @@ export class ConversationService {
       })
       .where(eq(conversations.id, data.conversationId))
 
+    return this.#rowToMessage(row)
+  }
+
+  async claimMessage(
+    id: string,
+    data: {
+      encryptedContent: string
+      readerEnvelopes: RecipientEnvelope[]
+      mlsCiphertext: string
+      mlsEpoch: number
+    }
+  ): Promise<EncryptedMessage> {
+    const [row] = await this.db
+      .update(messageEnvelopes)
+      .set({
+        encryptedContent: data.encryptedContent,
+        readerEnvelopes: data.readerEnvelopes,
+        mlsCiphertext: data.mlsCiphertext,
+        mlsEpoch: data.mlsEpoch,
+        serverEncryptedBody: null,
+      })
+      .where(eq(messageEnvelopes.id, id))
+      .returning()
     return this.#rowToMessage(row)
   }
 
@@ -369,6 +395,9 @@ export class ConversationService {
       readAt: r.readAt,
       failureReason: r.failureReason,
       retryCount: r.retryCount,
+      mlsCiphertext: r.mlsCiphertext,
+      mlsEpoch: r.mlsEpoch,
+      serverEncryptedBody: r.serverEncryptedBody,
       createdAt: r.createdAt,
     }
   }

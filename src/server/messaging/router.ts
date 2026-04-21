@@ -219,31 +219,22 @@ messaging.post('/:channel/webhook', async (c) => {
     }
   }
 
-  // Encrypt the inbound message body before storage (server encrypts, plaintext is discarded)
-  const adminDecryptionPubkey = c.env.ADMIN_DECRYPTION_PUBKEY || c.env.ADMIN_PUBKEY
-  if (!adminDecryptionPubkey) {
-    return c.json({ error: 'Admin not configured — cannot encrypt message' }, 503)
-  }
-  const readerPubkeys: string[] = [adminDecryptionPubkey]
-  if (conversation.assignedTo && conversation.assignedTo !== adminDecryptionPubkey) {
-    readerPubkeys.push(conversation.assignedTo)
-  }
-  const encrypted = services.crypto.envelopeEncrypt(
-    incoming.body || '',
-    readerPubkeys,
-    LABEL_MESSAGE
-  )
+  // Server-encrypt the inbound message body under LABEL_MESSAGE.
+  // The first client to fetch decrypts via serverDecrypt, re-encrypts via MLS,
+  // and PATCHes back via /conversations/{id}/messages/{msgId}/claim.
+  const serverEncryptedBody = services.crypto.serverEncrypt(incoming.body || '', LABEL_MESSAGE)
 
   // Store the encrypted message
   await services.conversations.addMessage({
     conversationId: conversation.id,
     direction: 'inbound',
     authorPubkey: 'system:inbound',
-    encryptedContent: encrypted.encrypted as string,
-    readerEnvelopes: encrypted.envelopes,
+    encryptedContent: '',
+    readerEnvelopes: [],
     hasAttachments: !!(incoming.mediaUrls && incoming.mediaUrls.length > 0),
     externalId: incoming.externalId,
     status: 'delivered',
+    serverEncryptedBody,
   })
 
   // Auto-assignment for new conversations

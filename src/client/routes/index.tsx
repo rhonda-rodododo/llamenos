@@ -1,15 +1,18 @@
 import { type ActiveCall, addBan, createNote } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
+import { useConfig } from '@/lib/config'
 import { useCallTimer, useCalls, useShiftStatus } from '@/lib/hooks'
+import { getMlsConversation } from '@/lib/mls/get-mls-conversation'
+import { toBase64 } from '@/lib/mls/mls-api-client'
 import {
   useCallAnalytics,
   useCallHoursAnalytics,
   useUserStatsAnalytics,
 } from '@/lib/queries/analytics'
 import { useCallsTodayCount, usePresence } from '@/lib/queries/calls'
+import { cacheNotePlaintext } from '@/lib/queries/notes'
 import { useUsers } from '@/lib/queries/users'
 import { useTranscription } from '@/lib/transcription'
-import { encryptNote } from '@shared/crypto-envelopes'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -489,6 +492,8 @@ function ActiveCallPanel({
   const { toast } = useToast()
   const { adminDecryptionPubkey } = useAuth()
   const { formatted } = useCallTimer(call.startedAt)
+  const { currentHubId } = useConfig()
+  const hubId = currentHubId ?? 'global'
   const [noteText, setNoteText] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -517,13 +522,14 @@ function ActiveCallPanel({
     if (!noteText.trim()) return
     setSaving(true)
     try {
-      const adminPub = adminDecryptionPubkey || authorPubkey
-      const { encryptedContent, authorEnvelope, adminEnvelopes } = encryptNote(
-        { text: noteText },
-        authorPubkey,
-        [adminPub]
-      )
-      await createNote({ callId: call.id, encryptedContent, authorEnvelope, adminEnvelopes })
+      const conv = await getMlsConversation(hubId)
+      if (!conv) throw new Error('MLS not available')
+      const plaintext = new TextEncoder().encode(JSON.stringify({ text: noteText }))
+      const mlsCiphertextBytes = await conv.encrypt(plaintext)
+      const mlsCiphertext = toBase64(mlsCiphertextBytes)
+      const mlsEpoch = await conv.currentEpoch()
+      const result = await createNote({ callId: call.id, mlsCiphertext, mlsEpoch })
+      if (result?.note?.id) cacheNotePlaintext(result.note.id, { text: noteText })
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     } catch {
@@ -534,18 +540,23 @@ function ActiveCallPanel({
   }
 
   async function handleHangup() {
-    // Finalize transcription and save as encrypted note
     if (txSettings.enabled && (txStatus === 'capturing' || txStatus === 'finalizing')) {
       try {
         const text = await stopTranscription()
         if (text.trim()) {
-          const adminPub = adminDecryptionPubkey || authorPubkey
-          const { encryptedContent, authorEnvelope, adminEnvelopes } = encryptNote(
-            { text: `[${t('transcription.title')}] ${text}` },
-            authorPubkey,
-            [adminPub]
+          const conv = await getMlsConversation(hubId)
+          if (!conv) throw new Error('MLS not available')
+          const plaintext = new TextEncoder().encode(
+            JSON.stringify({ text: `[${t('transcription.title')}] ${text}` })
           )
-          await createNote({ callId: call.id, encryptedContent, authorEnvelope, adminEnvelopes })
+          const mlsCiphertextBytes = await conv.encrypt(plaintext)
+          const mlsCiphertext = toBase64(mlsCiphertextBytes)
+          const mlsEpoch = await conv.currentEpoch()
+          const txResult = await createNote({ callId: call.id, mlsCiphertext, mlsEpoch })
+          if (txResult?.note?.id)
+            cacheNotePlaintext(txResult.note.id, {
+              text: `[${t('transcription.title')}] ${text}`,
+            })
           toast(t('transcription.saved'), 'success')
         }
       } catch {

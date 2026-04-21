@@ -64,7 +64,10 @@ export function ConversationThread({
 
   if (isLoading) {
     return (
-      <div className="flex flex-1 items-center justify-center p-8">
+      <div
+        className="flex flex-1 items-center justify-center p-8"
+        data-testid="conversation-loading"
+      >
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     )
@@ -72,7 +75,10 @@ export function ConversationThread({
 
   if (messages.length === 0) {
     return (
-      <div className="flex flex-1 items-center justify-center p-8 text-sm text-muted-foreground">
+      <div
+        className="flex flex-1 items-center justify-center p-8 text-sm text-muted-foreground"
+        data-testid="conversation-empty"
+      >
         {t('conversations.noMessages', 'No messages yet')}
       </div>
     )

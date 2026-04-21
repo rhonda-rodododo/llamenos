@@ -11,7 +11,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import type { IntakeRecord } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
-import { useIntakes, useUpdateIntakeStatus } from '@/lib/queries/intakes'
+import { useIntake, useIntakes, useUpdateIntakeStatus } from '@/lib/queries/intakes'
 import { useToast } from '@/lib/toast'
 import { createFileRoute } from '@tanstack/react-router'
 import { CheckCircle2, ClipboardList, Eye, Merge, X } from 'lucide-react'
@@ -40,8 +40,11 @@ function IntakesPage() {
 
   const { data: intakes, isLoading } = useIntakes(statusFilter !== 'all' ? statusFilter : undefined)
   const updateStatus = useUpdateIntakeStatus()
+  // Fetch full detail for the selected intake via GET /intakes/:id
+  const { data: intakeDetail } = useIntake(selectedId ?? '')
 
-  const selectedIntake = intakes?.find((i) => i.id === selectedId) ?? null
+  // Prefer the server detail (freshest); fall back to list item while loading
+  const selectedIntake = intakeDetail ?? intakes?.find((i) => i.id === selectedId) ?? null
 
   function handleStatusUpdate(id: string, status: 'reviewed' | 'merged' | 'dismissed') {
     updateStatus.mutate(

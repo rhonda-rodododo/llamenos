@@ -1,0 +1,20 @@
+[
+  {
+    "displayName": "JSON Import One",
+    "contactType": "caller",
+    "riskLevel": "low",
+    "tags": ["e2e-import", "json-test"],
+    "fullName": "JSON Full Name",
+    "phone": "+15551235001",
+    "notes": "First JSON contact"
+  },
+  {
+    "displayName": "JSON Import Two",
+    "contactType": "referral-resource",
+    "riskLevel": "medium",
+    "tags": ["e2e-import"],
+    "fullName": "",
+    "phone": "",
+    "notes": ""
+  }
+]

@@ -55,6 +55,10 @@ export interface ConversationMessage {
   /** Alias for failureReason — used by UI delivery indicators. */
   deliveryError?: string
   retryCount?: number
+  // MLS fields (Slice 6)
+  mlsCiphertext?: string
+  mlsEpoch?: number
+  serverEncryptedBody?: string
   createdAt: string
   externalId?: string
 }
@@ -102,12 +106,43 @@ export async function sendConversationMessage(
     encryptedContent: Ciphertext
     readerEnvelopes: MessageKeyEnvelope[]
     plaintextForSending?: string
+    mlsCiphertext?: string
+    mlsEpoch?: number
   }
 ) {
   return request<ConversationMessage>(hp(`/conversations/${id}/messages`), {
     method: 'POST',
     body: JSON.stringify(data),
   })
+}
+
+export async function claimMessage(
+  conversationId: string,
+  messageId: string
+): Promise<{ plaintext: string }> {
+  return request<{ plaintext: string }>(
+    hp(`/conversations/${conversationId}/messages/${messageId}/claim`),
+    { method: 'POST' }
+  )
+}
+
+export async function upgradeMessageToMls(
+  conversationId: string,
+  messageId: string,
+  data: {
+    encryptedContent: Ciphertext
+    readerEnvelopes: MessageKeyEnvelope[]
+    mlsCiphertext: string
+    mlsEpoch: number
+  }
+) {
+  return request<ConversationMessage>(
+    hp(`/conversations/${conversationId}/messages/${messageId}`),
+    {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }
+  )
 }
 
 export async function claimConversation(id: string) {
@@ -130,6 +165,6 @@ export async function getConversationStats() {
   )
 }
 
-async function getUserLoads() {
+export async function getUserLoads() {
   return request<{ loads: Record<string, number> }>(hp('/conversations/load'))
 }

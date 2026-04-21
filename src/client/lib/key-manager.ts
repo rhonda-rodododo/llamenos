@@ -239,6 +239,8 @@ async function handleRotation(
       capsuleNonce: session.capsuleNonceHex,
       autoLockExpiresAt: Date.now() + getAutoLock(),
       pubkeyHash: asPubkeyHash16(newBlob.pubkeyHash),
+      encryptedKek: session.encryptedKekHex,
+      kekNonce: session.kekNonceHex,
     })
   } catch (err) {
     // Capsule refresh failure is unexpected (the worker just re-encrypted
@@ -305,6 +307,8 @@ async function rotateSyntheticToReal(
         capsuleNonce: session.capsuleNonceHex,
         autoLockExpiresAt: Date.now() + getAutoLock(),
         pubkeyHash: asPubkeyHash16(newBlob.pubkeyHash),
+        encryptedKek: session.encryptedKekHex,
+        kekNonce: session.kekNonceHex,
       })
     } catch (err) {
       log('post-rotation capsule export failed', { err })
@@ -332,13 +336,28 @@ export async function trySessionRestore(): Promise<boolean> {
   if (!loaded) return false
 
   try {
-    await cryptoWorker.importSession(
+    const pubkey = await cryptoWorker.importSession(
       loaded.token,
       loaded.capsule.encryptedNsec,
-      loaded.capsule.capsuleNonce
+      loaded.capsule.capsuleNonce,
+      loaded.capsule.encryptedKek ?? undefined,
+      loaded.capsule.kekNonce ?? undefined
     )
     resetAutoLockTimer()
     notifyCallbacks(unlockCallbacks)
+
+    // Initialize MLS core-crypto (non-fatal — session restore must succeed
+    // even if MLS fails). The worker restored kekBytes from the capsule
+    // during importSession, so mlsInit can derive the IDB key internally.
+    try {
+      await cryptoWorker.mlsInit(pubkey)
+    } catch (err) {
+      log(
+        'MLS init after session restore failed (non-fatal):',
+        err instanceof Error ? err.message : 'unknown'
+      )
+    }
+
     return true
   } catch (err) {
     // Import failure after a successful loadCapsule means the capsule was
@@ -488,6 +507,8 @@ export async function unlock(pin: string): Promise<UnlockResult> {
       capsuleNonce: session.capsuleNonceHex,
       autoLockExpiresAt: Date.now() + getAutoLock(),
       pubkeyHash: asPubkeyHash16(blob.pubkeyHash),
+      encryptedKek: session.encryptedKekHex,
+      kekNonce: session.kekNonceHex,
     })
   } catch (err) {
     log('session capsule export failed', { err })

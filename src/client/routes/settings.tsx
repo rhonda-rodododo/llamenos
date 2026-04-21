@@ -119,6 +119,13 @@ function SettingsPage() {
   // Get npub for display — use publicKey from auth context (already resolved)
   const npub = publicKey ? nip19.npubEncode(publicKey) : ''
 
+  // Re-sync profile name when auth context updates (e.g. after async decryption)
+  useEffect(() => {
+    if (authName && authName !== '[encrypted]') {
+      setProfileName(authName)
+    }
+  }, [authName])
+
   useEffect(() => {
     const promises: Promise<void>[] = [
       getTranscriptionSettings()
