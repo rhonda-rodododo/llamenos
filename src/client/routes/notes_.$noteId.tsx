@@ -13,9 +13,26 @@ import { ArrowLeft, Lock, MessageSquare, Mic, Pencil, Send, StickyNote } from 'l
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-export const Route = createFileRoute('/notes/$noteId')({
+export const Route = createFileRoute('/notes_/$noteId')({
   component: NoteDetailPage,
 })
+
+function BackToNotes({
+  navigate,
+  t,
+}: { navigate: ReturnType<typeof useNavigate>; t: (key: string) => string }) {
+  return (
+    <button
+      type="button"
+      onClick={() => navigate({ to: '/notes', search: { page: 1, callId: '', search: '' } })}
+      className="text-muted-foreground hover:text-foreground"
+      aria-label={t('common.back')}
+      data-testid="note-detail-back"
+    >
+      <ArrowLeft className="h-5 w-5" />
+    </button>
+  )
+}
 
 function NoteDetailPage() {
   const { t } = useTranslation()
@@ -43,7 +60,7 @@ function NoteDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4" data-testid="note-detail-loading">
         <div className="h-6 w-48 animate-pulse rounded bg-muted" />
         <div className="h-48 animate-pulse rounded bg-muted" />
       </div>
@@ -52,18 +69,30 @@ function NoteDetailPage() {
 
   if (forbidden) {
     return (
-      <div className="py-16 text-center text-muted-foreground">
-        <Lock className="mx-auto mb-3 h-8 w-8 opacity-40" />
-        <p className="text-sm">{t('notes.detail.forbidden')}</p>
+      <div className="space-y-6">
+        <BackToNotes navigate={navigate} t={t} />
+        <div
+          className="py-16 text-center text-muted-foreground"
+          data-testid="note-detail-forbidden"
+        >
+          <Lock className="mx-auto mb-3 h-8 w-8 opacity-40" />
+          <p className="text-sm">{t('notes.detail.forbidden')}</p>
+        </div>
       </div>
     )
   }
 
   if (!note) {
     return (
-      <div className="py-16 text-center text-muted-foreground">
-        <StickyNote className="mx-auto mb-3 h-8 w-8 opacity-40" />
-        <p className="text-sm">{t('notes.detail.notFound')}</p>
+      <div className="space-y-6">
+        <BackToNotes navigate={navigate} t={t} />
+        <div
+          className="py-16 text-center text-muted-foreground"
+          data-testid="note-detail-not-found"
+        >
+          <StickyNote className="mx-auto mb-3 h-8 w-8 opacity-40" />
+          <p className="text-sm">{t('notes.detail.notFound')}</p>
+        </div>
       </div>
     )
   }
@@ -81,7 +110,7 @@ function NoteDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="note-detail-page">
       {/* Header */}
       <div className="flex items-center gap-3">
         <button
@@ -89,6 +118,7 @@ function NoteDetailPage() {
           onClick={handleBack}
           className="text-muted-foreground hover:text-foreground"
           aria-label={t('common.back')}
+          data-testid="note-detail-back"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
@@ -98,15 +128,19 @@ function NoteDetailPage() {
         </div>
       </div>
 
-      <Card>
+      <Card data-testid="note-detail-card">
         <CardHeader className="border-b pb-3">
           <CardTitle className="flex items-center justify-between text-sm font-normal">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs text-muted-foreground">
+              <span className="text-xs text-muted-foreground" data-testid="note-detail-date">
                 {new Date(note.createdAt).toLocaleString()}
               </span>
               {note.isTranscription && (
-                <Badge variant="secondary" className="gap-1">
+                <Badge
+                  variant="secondary"
+                  className="gap-1"
+                  data-testid="note-detail-transcription-badge"
+                >
                   <Mic className="h-3 w-3" />
                   {t('transcription.title')}
                 </Badge>
@@ -124,6 +158,7 @@ function NoteDetailPage() {
               disabled
               aria-label={t('common.edit')}
               title={t('notes.detail.editFromCallPage')}
+              data-testid="note-detail-edit-btn"
             >
               <Pencil className="h-3 w-3" />
             </Button>
@@ -137,7 +172,7 @@ function NoteDetailPage() {
 
           {/* Custom fields */}
           {note.payload.fields && visibleFields.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-4 flex flex-wrap gap-2" data-testid="note-detail-custom-fields">
               {visibleFields.map((field) => {
                 const val = note.payload.fields?.[field.id]
                 if (val === undefined || val === '') return null
@@ -154,13 +189,14 @@ function NoteDetailPage() {
 
           {/* Call context link */}
           {note.callId && (
-            <div className="mt-4 border-t pt-4">
+            <div className="mt-4 border-t pt-4" data-testid="note-detail-call-context">
               <p className="mb-1 text-xs text-muted-foreground">{t('notes.detail.callContext')}</p>
               <Link
                 to="/calls/$callId"
                 params={{ callId: note.callId }}
                 search={{ page: 1, q: '', dateFrom: '', dateTo: '', voicemailOnly: false }}
                 className="text-sm text-primary hover:underline"
+                data-testid="note-detail-view-call"
               >
                 {t('notes.detail.viewCall')}
               </Link>

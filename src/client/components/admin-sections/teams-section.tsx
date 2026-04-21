@@ -164,6 +164,11 @@ export function TeamsSection() {
       </SectionDescription>
 
       <div className="space-y-2" data-testid="admin-teams-list">
+        {teams.length === 0 && (
+          <p className="text-sm text-muted-foreground py-4 text-center">
+            {t('teams.empty', { defaultValue: 'No teams yet. Create one to get started.' })}
+          </p>
+        )}
         {teams.map((team) => (
           <div key={team.id}>
             <div
