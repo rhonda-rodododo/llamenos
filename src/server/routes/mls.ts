@@ -318,12 +318,19 @@ mlsRoutes.openapi(commitRoute, async (c) => {
     )
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
-    if (
+    const cause = (err as { cause?: unknown }).cause
+    const code = (err as { code?: unknown }).code
+    const causeErrno = (cause as { errno?: unknown })?.errno
+    const isUniqueViolation =
+      code === '23505' ||
+      causeErrno === '23505' ||
       msg.includes('unique') ||
       msg.includes('duplicate') ||
       msg.includes('UNIQUE') ||
-      msg.includes('23505')
-    ) {
+      msg.includes('23505') ||
+      (cause instanceof Error &&
+        (cause.message.includes('unique') || cause.message.includes('duplicate')))
+    if (isUniqueViolation) {
       const state = await db
         .select({ currentEpoch: mlsHubState.currentEpoch })
         .from(mlsHubState)

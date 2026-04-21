@@ -62,9 +62,7 @@ export const mlsEpochCommits = pgTable(
       .notNull()
       .references(() => hubs.id, { onDelete: 'cascade' }),
     epoch: bigint('epoch', { mode: 'number' }).notNull(),
-    committerDeviceId: text('committer_device_id')
-      .notNull()
-      .references(() => userDevices.deviceId),
+    committerDeviceId: text('committer_device_id').notNull(),
     commitData: bytea('commit_data').notNull(),
     welcomeData: bytea('welcome_data'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
