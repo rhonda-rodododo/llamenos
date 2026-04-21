@@ -379,6 +379,8 @@ jobs:
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:3000
           JWT_SECRET: ${{ env.TEST_JWT_SECRET }}
+          NOSTR_RELAY_URL: ws://localhost:7777
+          SERVER_NOSTR_SECRET: ${{ env.TEST_SERVER_NOSTR_SECRET }}
           TEST_ASTERISK_BRIDGE: '1'
           ASTERISK_BRIDGE_URL: http://localhost:3001
           ASTERISK_BRIDGE_SECRET: dev-bridge-secret

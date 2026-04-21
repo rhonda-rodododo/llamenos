@@ -80,7 +80,12 @@ describe('hpke-primitives', () => {
       const { publicKey, privateKey } = await genRecipient()
       const aad = buildAad(LABEL_NOTE_KEY, 'note-1', 'content')
       const env = await hpkeSeal(te.encode('secret'), publicKey, LABEL_NOTE_KEY, aad)
-      const tampered = { ...env, ct: `${env.ct.slice(0, -2)}AA` }
+      // Flip the first base64url char — guaranteed to change decoded data bits
+      // (avoids the 1/256 flake where replacing trailing chars is a no-op due
+      // to the last decoded byte already being 0x00).
+      const first = env.ct[0]
+      const flipped = first === 'A' ? 'B' : 'A'
+      const tampered = { ...env, ct: flipped + env.ct.slice(1) }
       await expect(hpkeOpen(tampered, privateKey, LABEL_NOTE_KEY, aad)).rejects.toThrow()
     })
 
