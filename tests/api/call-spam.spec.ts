@@ -9,7 +9,7 @@
  *   3. Voice CAPTCHA — CAPTCHA toggle controls routing behavior
  */
 
-import { expect, test } from '../fixtures/auth'
+import { expect, test } from '@playwright/test'
 import { createAdminApiFromStorageState } from '../helpers/authed-request'
 
 function formEncode(params: Record<string, string>): string {
