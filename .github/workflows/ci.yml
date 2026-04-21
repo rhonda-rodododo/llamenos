@@ -405,7 +405,7 @@ jobs:
 
   # ─── UI E2E Tests ─────────────────────────────────────────
   e2e-tests:
-    needs: [changes, build]
+    needs: [changes]
     if: needs.changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 50
