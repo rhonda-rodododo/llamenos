@@ -477,6 +477,13 @@
       "when": 1776816000000,
       "tag": "0066_mls_messages_cutover",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1776902400000,
+      "tag": "0067_mls_epoch_commits_drop_device_fk",
+      "breakpoints": true
     }
   ]
 }
