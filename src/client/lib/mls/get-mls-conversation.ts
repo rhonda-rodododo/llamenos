@@ -1,6 +1,7 @@
 import { cryptoWorker } from '@/lib/crypto-worker-client'
 import { createDebugLog } from '@/lib/debug-log'
-import { getDeviceKeypair } from '@/lib/device-identity-store'
+import { generateDeviceKeypair } from '@/lib/device-identity'
+import { getDeviceKeypair, putDeviceKeypair } from '@/lib/device-identity-store'
 import { MlsConversation } from './conversation'
 
 const log = createDebugLog('mls:get-conversation')
@@ -15,13 +16,20 @@ const log = createDebugLog('mls:get-conversation')
  *
  * This handles the common case of a new browser context (cleared IndexedDB,
  * restored from storageState, etc.) where the user is already a hub member
- * but lacks local MLS state.
+ * but lacks local MLS state. When IndexedDB was cleared (e.g. Playwright
+ * storageState restore), the device keypair is also regenerated on demand.
  */
 export async function getMlsConversation(hubId: string): Promise<MlsConversation | null> {
   if (!cryptoWorker) return null
 
-  const keypair = await getDeviceKeypair()
-  if (!keypair) return null
+  let keypair = await getDeviceKeypair()
+  if (!keypair) {
+    // IndexedDB was cleared (new browser context, storageState restore, etc.)
+    // — regenerate a device keypair so MLS can proceed.
+    keypair = await generateDeviceKeypair({ isPaperKey: false })
+    await putDeviceKeypair(keypair)
+    log('Regenerated missing device keypair %s', keypair.deviceId)
+  }
 
   const groupIdStr = `llamenos:hub:${hubId}`
   const epoch = await cryptoWorker.mlsCurrentEpoch(groupIdStr)
