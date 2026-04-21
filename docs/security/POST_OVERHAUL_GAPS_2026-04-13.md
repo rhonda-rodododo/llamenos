@@ -32,44 +32,44 @@ These override anything in the original tier plans:
 5. **Pre-production policy.** No data-migration paths for existing encrypted
    data. Wipe-if-unreadable is acceptable.
 
-## State of the MLS skeleton on `main`
+## State of MLS on `main` (updated 2026-04-21)
 
-- `src/client/lib/mls/core-crypto-loader.ts` — lazy WASM loader. Throws on
-  module load failure. Previously had an `if (MLS_ENABLED)` gate; flag removed
-  in PR #104. Always usable.
-- `src/client/lib/mls/conversation.ts` — **empty class with a private
-  constructor**. No methods. No fields. This is the primary gap.
-- `src/client/lib/mls/sas.ts`, `sas.test.ts`, `emoji-table.ts`,
-  `emoji-table.test.ts` — SAS derivation (used by fingerprint UX from Tier 6
-  PR #1). Functional, deterministic, unit-tested.
-- `vendor/@wireapp/core-crypto/` — vendored `@wireapp/core-crypto@9.3.3`,
-  `file:` dep in `package.json`.
-- No server routes for MLS key-package publication, Welcome distribution,
-  commit application, or epoch storage.
-- No Drizzle migrations for `mls_hub_state`, `mls_key_packages`, or
-  `hubs.tier6_enabled`/`cs_profile` columns.
-- No MLS client initialization anywhere in SPA boot.
+MLS is fully shipped via Tier 6 PR #2 (Slices 1–8):
 
-## Current encryption paths for messages/notes
+- `src/client/lib/mls/conversation.ts` — full `MlsConversation` class with
+  `create`, `joinViaWelcome`, `joinViaExternalCommit`, `addMembers`,
+  `removeMembers`, `encrypt`, `decrypt`, `currentEpoch`, `generateKeyPackages`.
+- `src/client/lib/mls/core-crypto-loader.ts` — lazy WASM loader.
+- `src/client/lib/mls/mls-worker-init.ts` — core-crypto initialization in
+  the crypto Web Worker (IDB-backed, KEK-derived key).
+- `src/client/lib/crypto-worker.ts` — 8 MLS RPC handlers (`mlsEncrypt`,
+  `mlsDecrypt`, `mlsCreateGroup`, `mlsAddMembers`, `mlsRemoveMembers`,
+  `mlsProcessWelcome`, `mlsGetKeyPackages`, `mlsGetEpoch`).
+- `src/server/services/mls-service.ts` — `MlsService` for key packages,
+  commits, welcomes, group state.
+- `src/server/routes/mls.ts` — 8 OpenAPIHono endpoints under
+  `/api/hubs/:hubId/mls/*`.
+- DB tables: `mls_hub_state`, `mls_key_packages`, `mls_epoch_commits` +
+  `hubs.cs_profile` column.
+- Notes and messages encrypt/decrypt via MLS. `encryptNote` /
+  `encryptMessage` deleted from `crypto-envelopes.ts`.
+- Hub creation bootstraps MLS group. Epoch advances on membership change.
 
-The narrative "MLS replaces HPKE" is slightly off w.r.t. the note/message
-layer specifically:
+## Current encryption paths for messages/notes (updated 2026-04-21)
 
 - **Hub fields** (role names, shift names, report type names, etc.) —
-  migrated to HPKE v3 (`hpkeSeal`/`hpkeOpen`) in Tier 1.
-- **Notes** (`encryptNote` in `src/shared/crypto-envelopes.ts`) — **still
-  ECIES + XChaCha20-Poly1305**. Per-note random key, wrapped via
-  `eciesWrapKey(noteKey, adminPubkey, LABEL_NOTE_KEY)` for the author + every
-  admin (multi-admin envelopes).
-- **Messages** (`encryptMessage` in `src/shared/crypto-envelopes.ts`) — same
-  pattern, `LABEL_MESSAGE`. Used for SMS/WhatsApp/Signal/web report message
-  bodies.
-- **Blasts** (`encryptBlastContent`) — same pattern, `LABEL_BLAST_CONTENT`.
-
-So the Tier 6 PR #2 directive effectively asks to replace the legacy ECIES
-envelope pattern for notes + messages with MLS groupwise encryption, and
-delete the multi-admin recipient-envelope loop. Blasts are NOT in scope (they
-target external recipients who are not hub members).
+  HPKE v3 (`hpkeSeal`/`hpkeOpen`) via Tier 1.
+- **Notes** — **MLS groupwise encryption** via `MlsConversation.encrypt()` /
+  `decrypt()`. The old `encryptNote` / `decryptNoteWithKey` and the
+  multi-admin ECIES envelope loop have been deleted. Shipped in Slice 5
+  (PR #195).
+- **Messages** — **MLS groupwise encryption**. Inbound webhook messages are
+  server-encrypted under `LABEL_MESSAGE`, then claimed and MLS-encrypted by
+  the first client to fetch. `encryptMessage` / `EncryptedMessagePayload`
+  deleted. Shipped in Slice 6 (PR #194).
+- **Blasts** (`encryptBlastContent`) — still ECIES + XChaCha20-Poly1305,
+  `LABEL_BLAST_CONTENT`. Not in MLS scope (external recipients are not hub
+  members).
 
 ## Tier 1
 
@@ -344,47 +344,26 @@ Status: PR #1 (fingerprint UX + vendored core-crypto skeleton + feature flag)
 landed. PR #2 (MLS code path wiring) is the primary gap this session tackles
 first. Source: `tier-carry-forward/tier-7-notes.md` + `tier-6-notes.md`.
 
-### P0 — this session scope (Tier 6 PR #2, redefined)
+### P0 — Tier 6 PR #2 (COMPLETE — merged 2026-04-21)
 
-Under the new directives (no flag, MLS replaces HPKE message/note paths, no
-dual path, hub-creation bootstraps the group), PR #2 has this scope:
+All 11 items shipped as 8 slice PRs in the `h4-mls-pr2` epic:
 
-1. **Core-crypto client bootstrap.** Initialize `@wireapp/core-crypto` in a
-   dedicated worker (or extend the existing crypto-worker). Produce + persist
-   the MLS client identity keypair. Load the vendored WASM from
-   `vendor/@wireapp/core-crypto`.
-2. **`MlsConversation` real implementation.** Replace the empty class with
-   createGroup / addMembers / removeMembers / encryptMessage / decryptMessage
-   / processWelcome / currentEpoch. Thin wrapper over core-crypto.
-3. **DB schema.** `mls_hub_state` + `mls_key_packages` tables. New column
-   `hubs.cs_profile` (`standard`|`high`). No `tier6_enabled` column —
-   everything is enabled. Drop the old note encryption columns in the same
-   migration or the next migration.
-4. **Server routes.** Key-package publication + consumption; Welcome message
-   fan-out via provisioning / sigchain channels; commit storage + ordered
-   fetch; epoch advancement.
-5. **Hub creation bootstrap.** Establishing the MLS group is part of the hub
-   create mutation. Blocking — if the group cannot be established, the hub
-   is not created. Admins auto-join. Device enrollment via Welcome.
-6. **Notes path cutover.** Replace `encryptNote` / `decryptNoteWithKey` +
-   the `adminEnvelopes` multi-admin loop with MLS `encryptMessage` /
-   `decryptMessage` against the hub's notes group. Delete the multi-admin
-   envelope logic. Delete legacy call sites.
-7. **Messages path cutover.** Replace `encryptMessage` /
-   `EncryptedMessagePayload` in `crypto-envelopes.ts` with MLS equivalents.
-   SMS / WhatsApp / Signal inbound webhooks land plaintext → MLS-encrypt →
-   discard plaintext.
-8. **Epoch commits for admin add/remove.** Replace hub-key rotation with MLS
-   epoch advance on membership change.
-9. **Audit payload variants.** `mls_group_init`, `mls_members_added`,
-   `mls_members_removed`, `mls_path_update`, `mls_epoch_purge`,
-   `mls_ciphersuite_upgrade_planned`, `mls_ciphersuite_upgrade_completed`.
-10. **Tests.** Round-trip encrypt/decrypt; 3+ device sync via Welcome;
-    adversarial (wrong epoch, missing commit, replay, stale device); admin
-    rotation via epoch advance.
-11. **Docs update.** `HPKE_MIGRATION_NOTES.md` (what stays HPKE, what moves
-    to MLS), `WHITEPAPER.md` "Current vs Target" section, `AEAD_AUDIT_…`
-    reflects the note/message AEAD changes.
+1. ~~**Core-crypto client bootstrap.**~~ — **DONE** (Slice 2, PR #164).
+2. ~~**`MlsConversation` real implementation.**~~ — **DONE** (Slice 3, PR #181).
+3. ~~**DB schema.**~~ — **DONE** (Slice 1, PR #165). `mls_hub_state`, `mls_key_packages`,
+   `mls_epoch_commits` tables + `hubs.cs_profile` column.
+4. ~~**Server routes.**~~ — **DONE** (Slice 1, PR #165). 8 MLS endpoints under
+   `/api/hubs/:hubId/mls/*`.
+5. ~~**Hub creation bootstrap.**~~ — **DONE** (Slice 4, PR #189).
+6. ~~**Notes path cutover.**~~ — **DONE** (Slice 5, PR #195). `encryptNote` /
+   `decryptNoteWithKey` deleted from `crypto-envelopes.ts`.
+7. ~~**Messages path cutover.**~~ — **DONE** (Slice 6, PR #194). `encryptMessage` /
+   `EncryptedMessagePayload` deleted.
+8. ~~**Epoch commits for admin add/remove.**~~ — **DONE** (Slice 7, PR #208).
+9. ~~**Audit payload variants.**~~ — **DONE** (Slice 8, PR #193). 7 MLS audit entry types.
+10. **Tests.** — Slices 1–8 include round-trip and API tests. Adversarial test suite
+    (Slice 9) is deferred.
+11. ~~**Docs update.**~~ — **DONE** (Slice 10, this PR).
 
 ### P1 — Tier 6 PR #1 follow-ups (`tier-carry-forward/tier-7-notes.md`)
 
@@ -422,7 +401,7 @@ dual path, hub-creation bootstraps the group), PR #2 has this scope:
 
 | Tier | Item | Reason |
 |------|------|--------|
-| 6 | PR #2 MLS code path wiring (notes + messages cutover) | Top-level directive, this session |
+| ~~6~~ | ~~PR #2 MLS code path wiring (notes + messages cutover)~~ | **DONE** — Slices 1–8 merged 2026-04-21 |
 | 1 | ECIES sidecar removal from crypto-worker | Blocks key-store-v2 deletion, blocks sidecar cleanup |
 | 2 | Multi-factor KEK on key-store-v3 | Recovery / WebAuthn unlock broken without it |
 | 2 | Recovery group share HPKE wrapping | Raw plaintext shares on the wire today |
