@@ -20,7 +20,9 @@ import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { HMAC_KEYID_PREFIX, LABEL_NSEC_KEK_2F, LABEL_NSEC_KEK_3F } from '@shared/crypto-labels'
 
 const STORAGE_KEY = 'llamenos-encrypted-key'
-const PBKDF2_ITERATIONS = 600_000
+const PBKDF2_ITERATIONS = import.meta.env.VITE_TEST_PBKDF2
+  ? Number.parseInt(import.meta.env.VITE_TEST_PBKDF2, 10)
+  : 600_000
 
 /**
  * Known synthetic IdP issuer prefixes. Keys stored with these issuers were created
