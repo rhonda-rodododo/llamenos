@@ -24,7 +24,10 @@ test.describe('Service Worker registration', () => {
   test('service worker registers and becomes active after login', async ({ adminPage }) => {
     await navigateAfterLogin(adminPage, '/')
 
-    // Wait for SW to register and become active
+    // Wait for SW to register and become active.
+    // navigator.serviceWorker.ready resolves when a SW is "active", but that
+    // worker may still be in the "activating" state (not yet "activated").
+    // Listen for the statechange event to wait for the final "activated" state.
     const swState = await adminPage.evaluate(async () => {
       if (!('serviceWorker' in navigator)) return 'not-supported'
       const reg = await Promise.race([
@@ -33,7 +36,21 @@ test.describe('Service Worker registration', () => {
       ])
       if (!reg) return 'timeout'
       const sw = reg as ServiceWorkerRegistration
-      return sw.active ? sw.active.state : 'no-active-sw'
+      if (!sw.active) return 'no-active-sw'
+      if (sw.active.state === 'activated') return 'activated'
+      // SW is still activating — wait for the state transition
+      return new Promise<string>((resolve) => {
+        const worker = sw.active!
+        const onStateChange = () => {
+          if (worker.state === 'activated') {
+            worker.removeEventListener('statechange', onStateChange)
+            resolve('activated')
+          }
+        }
+        worker.addEventListener('statechange', onStateChange)
+        // Safety timeout — don't hang forever
+        setTimeout(() => resolve(worker.state), 10_000)
+      })
     })
 
     expect(swState, 'Service worker should be in "activated" state').toBe('activated')
