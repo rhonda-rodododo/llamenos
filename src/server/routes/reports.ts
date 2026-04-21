@@ -144,7 +144,9 @@ reports.openapi(createReportRoute, async (c) => {
 
   const body = c.req.valid('json')
 
-  if (!body.encryptedContent || !body.readerEnvelopes?.length) {
+  const hasEciesContent = !!body.encryptedContent && (body.readerEnvelopes?.length ?? 0) > 0
+  const hasMlsContent = !!body.mlsCiphertext
+  if (!hasEciesContent && !hasMlsContent) {
     return c.json({ error: 'Report content is required' }, 400)
   }
 
