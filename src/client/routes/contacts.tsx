@@ -395,7 +395,6 @@ function ContactDirectoryPage() {
                       navigate({
                         to: '/contacts/$contactId',
                         params: { contactId: contact.id },
-                        search: (prev) => prev,
                       })
                     }}
                   >

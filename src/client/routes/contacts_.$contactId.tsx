@@ -402,7 +402,6 @@ function ContactProfilePage() {
               navigate({
                 to: '/contacts/$contactId',
                 params: { contactId: cid },
-                search: { contactType: '', riskLevel: '', q: '', teamId: '', tag: '' },
               })
             }
           />
@@ -448,7 +447,6 @@ function ContactProfilePage() {
             navigate({
               to: '/contacts/$contactId',
               params: { contactId: primaryId },
-              search: { contactType: '', riskLevel: '', q: '', teamId: '', tag: '' },
             })
           }}
         />

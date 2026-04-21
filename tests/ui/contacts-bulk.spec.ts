@@ -125,6 +125,10 @@ test.describe('Contacts Bulk Import / Merge', () => {
     await expect(adminPage.getByTestId('create-contact-dialog')).not.toBeVisible({
       timeout: Timeouts.API,
     })
+    // onCreated navigates to profile — go back to list
+    await adminPage.waitForURL(/\/contacts\/[^/]+/, { timeout: Timeouts.NAVIGATION })
+    await navigateAfterLogin(adminPage, '/contacts')
+    await adminPage.waitForTimeout(Timeouts.ASYNC_SETTLE)
 
     // Create contact B via UI
     await adminPage.getByTestId('new-contact-btn').click()
@@ -137,7 +141,9 @@ test.describe('Contacts Bulk Import / Merge', () => {
     await expect(adminPage.getByTestId('create-contact-dialog')).not.toBeVisible({
       timeout: Timeouts.API,
     })
-
+    // onCreated navigates to profile — go back to list
+    await adminPage.waitForURL(/\/contacts\/[^/]+/, { timeout: Timeouts.NAVIGATION })
+    await navigateAfterLogin(adminPage, '/contacts')
     await adminPage.waitForTimeout(Timeouts.ASYNC_SETTLE)
 
     // Click into contact B
