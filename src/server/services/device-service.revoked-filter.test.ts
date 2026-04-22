@@ -64,11 +64,10 @@ function createFilteringFakeDb() {
         from(_table: unknown) {
           return makeChainable()
         },
-        where(condition: unknown) {
+        where(_condition: unknown) {
           // Evaluate the condition by checking what the service queries:
           // and(eq(signingPubkey, pubkey), isNull(revokedAt))
           // We simulate this by filtering on both conditions.
-          const condStr = String(condition)
 
           // The real Drizzle `and(eq(...), isNull(...))` produces SQL.
           // Our fake just applies the logical filter.
@@ -89,8 +88,8 @@ function createFilteringFakeDb() {
   }
 
   return {
-    select(fields?: Record<string, unknown>) {
-      return selectChain(fields)
+    select(_fields?: Record<string, unknown>) {
+      return selectChain(_fields)
     },
     insert(_table: unknown) {
       return {
