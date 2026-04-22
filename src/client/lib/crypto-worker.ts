@@ -910,7 +910,7 @@ async function handleMlsGenerateKeyPackages(count: number): Promise<Uint8Array[]
   const { Ciphersuite, CredentialType } = await (
     await import('./mls/core-crypto-loader')
   ).loadCoreCrypto()
-  return mlsInstance?.transaction((ctx) =>
+  return mlsInstance!.transaction((ctx) =>
     ctx.clientKeypackages(
       Ciphersuite.MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519,
       CredentialType.Basic,
@@ -923,7 +923,7 @@ async function handleMlsCurrentEpoch(groupId: string): Promise<number | null> {
   await ensureMlsInit()
   const { ConversationId } = await (await import('./mls/core-crypto-loader')).loadCoreCrypto()
   const convId = new ConversationId(new TextEncoder().encode(groupId))
-  return mlsInstance?.transaction(async (ctx) => {
+  return mlsInstance!.transaction(async (ctx) => {
     const exists = await ctx.conversationExists(convId)
     if (!exists) return null
     return ctx.conversationEpoch(convId)
@@ -985,7 +985,7 @@ async function handleMlsCreateGroup(groupId: string): Promise<void> {
     await import('./mls/core-crypto-loader')
   ).loadCoreCrypto()
   const convId = new ConversationId(new TextEncoder().encode(groupId))
-  await mlsInstance?.transaction((ctx) =>
+  await mlsInstance!.transaction((ctx) =>
     ctx.createConversation(convId, CredentialType.Basic, {
       ciphersuite: Ciphersuite.MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519,
     })
@@ -996,7 +996,7 @@ async function handleMlsProcessWelcome(welcomeBytes: Uint8Array): Promise<string
   await ensureMlsInit()
   const { Welcome } = await (await import('./mls/core-crypto-loader')).loadCoreCrypto()
   const welcome = new Welcome(welcomeBytes)
-  const bundle = await mlsInstance?.transaction((ctx) => ctx.processWelcomeMessage(welcome))
+  const bundle = await mlsInstance!.transaction((ctx) => ctx.processWelcomeMessage(welcome))
   const idBytes = bundle.id.copyBytes()
   return new TextDecoder().decode(idBytes)
 }
@@ -1007,7 +1007,7 @@ async function handleMlsExternalJoin(groupInfoBytes: Uint8Array): Promise<string
     await import('./mls/core-crypto-loader')
   ).loadCoreCrypto()
   const gi = new GroupInfo(groupInfoBytes)
-  const bundle = await mlsInstance?.transaction((ctx) =>
+  const bundle = await mlsInstance!.transaction((ctx) =>
     ctx.joinByExternalCommit(gi, CredentialType.Basic)
   )
   const idBytes = bundle.id.copyBytes()
@@ -1021,7 +1021,7 @@ async function handleMlsEncryptMessage(
   await ensureMlsInit()
   const { ConversationId } = await (await import('./mls/core-crypto-loader')).loadCoreCrypto()
   const convId = new ConversationId(new TextEncoder().encode(groupId))
-  return mlsInstance?.transaction((ctx) => ctx.encryptMessage(convId, plaintext))
+  return mlsInstance!.transaction((ctx) => ctx.encryptMessage(convId, plaintext))
 }
 
 async function handleMlsDecryptMessage(
@@ -1036,7 +1036,7 @@ async function handleMlsDecryptMessage(
   await ensureMlsInit()
   const { ConversationId } = await (await import('./mls/core-crypto-loader')).loadCoreCrypto()
   const convId = new ConversationId(new TextEncoder().encode(groupId))
-  const result = await mlsInstance?.transaction((ctx) => ctx.decryptMessage(convId, ciphertext))
+  const result = await mlsInstance!.transaction((ctx) => ctx.decryptMessage(convId, ciphertext))
   return {
     message: result.message,
     senderClientId: result.senderClientId
@@ -1060,7 +1060,7 @@ async function handleMlsAddMembers(
   const convId = new ConversationId(new TextEncoder().encode(groupId))
 
   capturedCommitBundle = null
-  await mlsInstance?.transaction((ctx) => ctx.addClientsToConversation(convId, keyPackages))
+  await mlsInstance!.transaction((ctx) => ctx.addClientsToConversation(convId, keyPackages))
 
   if (!capturedCommitBundle) throw new Error('No commit bundle captured from transport')
   const result = capturedCommitBundle
@@ -1084,7 +1084,7 @@ async function handleMlsRemoveMembers(
   const cids = clientIds.map((id) => new ClientId(new TextEncoder().encode(id)))
 
   capturedCommitBundle = null
-  await mlsInstance?.transaction((ctx) => ctx.removeClientsFromConversation(convId, cids))
+  await mlsInstance!.transaction((ctx) => ctx.removeClientsFromConversation(convId, cids))
 
   if (!capturedCommitBundle) throw new Error('No commit bundle captured from transport')
   const result = capturedCommitBundle
@@ -1096,7 +1096,7 @@ async function handleMlsWipeGroup(groupId: string): Promise<void> {
   await ensureMlsInit()
   const { ConversationId } = await (await import('./mls/core-crypto-loader')).loadCoreCrypto()
   const convId = new ConversationId(new TextEncoder().encode(groupId))
-  await mlsInstance?.transaction((ctx) => ctx.wipeConversation(convId))
+  await mlsInstance!.transaction((ctx) => ctx.wipeConversation(convId))
 }
 
 // ---- Message handler ----

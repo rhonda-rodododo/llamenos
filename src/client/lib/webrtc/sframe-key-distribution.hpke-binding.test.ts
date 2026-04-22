@@ -15,7 +15,7 @@ import { describe, expect, test } from 'bun:test'
 import { LABEL_SFRAME_CALL_SECRET } from '@shared/crypto-labels.js'
 import { createHpkeSuite } from '@shared/crypto-suite.js'
 import { buildAad } from '@shared/hpke-primitives.js'
-import { type X25519EncryptionKey, asX25519EncryptionKey } from '@shared/types'
+import { asX25519EncryptionKey, type X25519EncryptionKey } from '@shared/types'
 import { buildKeyEvent, parseKeyEvent } from './sframe-key-distribution.js'
 
 async function genKeyPair(): Promise<{

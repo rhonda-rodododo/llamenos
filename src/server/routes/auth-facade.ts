@@ -1415,6 +1415,5 @@ authFacade.route('/recovery-group', recoveryGroupRoutes)
 export default authFacade
 
 // Export for testing
-export { type AuthFacadeEnv, rateLimitStore }
 /** @knipignore — exported for API test suite rate-limit testing */
-export { isRateLimited }
+export { type AuthFacadeEnv, isRateLimited, rateLimitStore }

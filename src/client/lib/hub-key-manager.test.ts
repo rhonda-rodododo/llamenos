@@ -538,7 +538,7 @@ describe('rotateHubKeyClkr', () => {
       const env = result.deviceEnvelopes.find((e) => e.deviceId === device.id)
       expect(env).toBeDefined()
       const recovered = await unwrapHubKeyForDevice(
-        env?.envelope,
+        env!.envelope,
         device.kp.privateKey,
         device.id,
         HUB_ID

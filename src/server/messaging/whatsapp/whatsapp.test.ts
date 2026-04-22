@@ -133,7 +133,7 @@ describe('WhatsAppAdapter (Meta Direct mode)', () => {
 
     it('parses image message with media references', async () => {
       const payload = makeMetaWebhookPayload()
-      const msg = payload.entry[0].changes[0].value.messages?.[0]
+      const msg = payload.entry[0].changes[0].value.messages![0]
       msg.type = 'image'
       msg.text = undefined
       msg.image = { id: 'media_id_001', mime_type: 'image/jpeg', sha256: 'abc', caption: 'A photo' }
@@ -148,7 +148,7 @@ describe('WhatsAppAdapter (Meta Direct mode)', () => {
 
     it('parses location message', async () => {
       const payload = makeMetaWebhookPayload()
-      const msg = payload.entry[0].changes[0].value.messages?.[0]
+      const msg = payload.entry[0].changes[0].value.messages![0]
       msg.type = 'location'
       msg.text = undefined
       msg.location = { latitude: 37.7749, longitude: -122.4194, name: 'SF', address: '123 Main St' }
@@ -161,7 +161,7 @@ describe('WhatsAppAdapter (Meta Direct mode)', () => {
 
     it('parses reaction message', async () => {
       const payload = makeMetaWebhookPayload()
-      const msg = payload.entry[0].changes[0].value.messages?.[0]
+      const msg = payload.entry[0].changes[0].value.messages![0]
       msg.type = 'reaction'
       msg.text = undefined
       msg.reaction = { emoji: '👍', message_id: 'wamid.target001' }
@@ -397,11 +397,11 @@ describe('WhatsAppAdapter (Meta Direct mode)', () => {
       }
 
       const request = makeJsonRequest(payload)
-      const update = await adapter.parseStatusWebhook?.(request)
+      const update = await adapter.parseStatusWebhook!(request)
 
       expect(update).not.toBeNull()
-      expect(update?.externalId).toBe('wamid.status001')
-      expect(update?.status).toBe('delivered')
+      expect(update!.externalId).toBe('wamid.status001')
+      expect(update!.status).toBe('delivered')
     })
 
     it('parses a Meta "failed" status with error details', async () => {
@@ -440,11 +440,11 @@ describe('WhatsAppAdapter (Meta Direct mode)', () => {
       }
 
       const request = makeJsonRequest(payload)
-      const update = await adapter.parseStatusWebhook?.(request)
+      const update = await adapter.parseStatusWebhook!(request)
 
       expect(update).not.toBeNull()
-      expect(update?.status).toBe('failed')
-      expect(update?.failureReason).toBe('Too many messages')
+      expect(update!.status).toBe('failed')
+      expect(update!.failureReason).toBe('Too many messages')
     })
 
     it('returns null when no statuses present', async () => {
@@ -467,7 +467,7 @@ describe('WhatsAppAdapter (Meta Direct mode)', () => {
       }
 
       const request = makeJsonRequest(payload)
-      const update = await adapter.parseStatusWebhook?.(request)
+      const update = await adapter.parseStatusWebhook!(request)
       expect(update).toBeNull()
     })
   })
@@ -662,11 +662,11 @@ describe('WhatsAppAdapter (Twilio mode)', () => {
         MessageStatus: 'delivered',
       })
 
-      const update = await adapter.parseStatusWebhook?.(request)
+      const update = await adapter.parseStatusWebhook!(request)
 
       expect(update).not.toBeNull()
-      expect(update?.externalId).toBe('SM_WA_STATUS_001')
-      expect(update?.status).toBe('delivered')
+      expect(update!.externalId).toBe('SM_WA_STATUS_001')
+      expect(update!.status).toBe('delivered')
     })
 
     it('maps "queued" to "pending"', async () => {
@@ -675,8 +675,8 @@ describe('WhatsAppAdapter (Twilio mode)', () => {
         MessageStatus: 'queued',
       })
 
-      const update = await adapter.parseStatusWebhook?.(request)
-      expect(update?.status).toBe('pending')
+      const update = await adapter.parseStatusWebhook!(request)
+      expect(update!.status).toBe('pending')
     })
 
     it('maps "undelivered" to "failed"', async () => {
@@ -685,13 +685,13 @@ describe('WhatsAppAdapter (Twilio mode)', () => {
         MessageStatus: 'undelivered',
       })
 
-      const update = await adapter.parseStatusWebhook?.(request)
-      expect(update?.status).toBe('failed')
+      const update = await adapter.parseStatusWebhook!(request)
+      expect(update!.status).toBe('failed')
     })
 
     it('returns null when MessageSid is missing', async () => {
       const request = makeFormRequest({ MessageStatus: 'delivered' })
-      const update = await adapter.parseStatusWebhook?.(request)
+      const update = await adapter.parseStatusWebhook!(request)
       expect(update).toBeNull()
     })
   })

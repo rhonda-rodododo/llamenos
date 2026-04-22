@@ -284,8 +284,8 @@ export function CustomFieldsSection() {
           {editing.type === 'select' && (
             <div className="space-y-2">
               <Label>{t('customFields.options')}</Label>
-              {(editing.options || []).map((opt, i) => (
-                <div key={`opt-${i}-${opt}`} className="flex gap-2">
+              {(editing.options || []).map((opt) => (
+                <div key={opt} className="flex gap-2">
                   <Input
                     value={opt}
                     onChange={(e) => {

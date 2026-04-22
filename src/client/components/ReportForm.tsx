@@ -35,7 +35,7 @@ interface ReportFormProps {
 
 export function ReportForm({ open, onOpenChange, onCreated }: ReportFormProps) {
   const { t } = useTranslation()
-  const { hasNsec, publicKey, adminDecryptionPubkey } = useAuth()
+  const { hasNsec, publicKey } = useAuth()
   const { currentHubId } = useConfig()
   const hubId = currentHubId ?? 'global'
   const { toast } = useToast()

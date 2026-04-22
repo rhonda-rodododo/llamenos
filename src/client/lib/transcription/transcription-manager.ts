@@ -100,7 +100,7 @@ export class TranscriptionManager {
           () => reject(new Error('Model initialization timed out')),
           300_000
         ) // 5 min for download
-        const originalHandler = this.worker?.onmessage
+        const originalHandler = this.worker!.onmessage
         this.worker!.onmessage = (event) => {
           const msg = event.data
           if (msg.type === 'ready') {
@@ -279,7 +279,7 @@ export class TranscriptionManager {
       }, 600_000) // 10 min for long recordings
 
       // Temporarily intercept this specific chunk result
-      const originalHandler = this.worker?.onmessage
+      const originalHandler = this.worker!.onmessage
       this.worker!.onmessage = (event: MessageEvent) => {
         const msg = event.data
         if (msg.type === 'chunk_result' && msg.chunkIndex === chunkIndex) {

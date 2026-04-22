@@ -8,9 +8,11 @@ import { AppError } from '../lib/errors'
 import type { SettingsService } from './settings'
 
 export class ReportTypeService {
+  #settings: SettingsService
+
   constructor(
     private readonly db: Database,
-    readonly _crypto: CryptoService,
+    private readonly crypto: CryptoService,
     settings: SettingsService
   ) {
     this.#settings = settings

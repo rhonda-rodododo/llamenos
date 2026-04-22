@@ -13,7 +13,7 @@ interface ConversationThreadProps {
 }
 
 export function ConversationThread({
-  conversationId,
+  conversationId: _conversationId,
   messages,
   isLoading,
   decryptedContent = new Map(),

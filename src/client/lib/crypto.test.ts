@@ -56,9 +56,9 @@ describe('keyPairFromNsec / isValidNsec', () => {
     const original = generateKeyPair()
     const recovered = keyPairFromNsec(original.nsec)
     expect(recovered).not.toBeNull()
-    expect(recovered?.publicKey).toBe(original.publicKey)
-    expect(bytesToHex(recovered?.secretKey)).toBe(bytesToHex(original.secretKey))
-    expect(recovered?.nsec).toBe(original.nsec)
+    expect(recovered!.publicKey).toBe(original.publicKey)
+    expect(bytesToHex(recovered!.secretKey)).toBe(bytesToHex(original.secretKey))
+    expect(recovered!.nsec).toBe(original.nsec)
   })
 
   test('invalid nsec returns null for garbage input', () => {

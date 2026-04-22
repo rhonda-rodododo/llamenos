@@ -18,6 +18,7 @@ const GRAPH_API_BASE = 'https://graph.facebook.com/v21.0'
  */
 export class MetaDirectClient {
   private readonly phoneNumberId: string
+  private readonly businessAccountId: string
   private readonly accessToken: string
   private readonly appSecret: string
 

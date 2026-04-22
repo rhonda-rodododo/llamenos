@@ -21,9 +21,11 @@ function isValidTimeFormat(time: string): boolean {
 }
 
 export class ShiftService {
+  #settings: SettingsService
+
   constructor(
     protected readonly db: Database,
-    readonly _crypto: CryptoService,
+    private readonly crypto: CryptoService,
     settings: SettingsService
   ) {
     this.#settings = settings
