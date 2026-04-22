@@ -10,14 +10,10 @@ import {
 // --- Types ---
 
 export interface ErasureRequest {
-  id: string
   pubkey: string
-  status: 'pending' | 'processing' | 'completed' | 'cancelled' | 'executed'
+  status: 'pending' | 'cancelled' | 'executed'
   requestedAt: string
   executeAt: string
-  scheduledAt?: string
-  completedAt?: string
-  cancelledAt?: string
 }
 
 // --- Account Erasure (GDPR) ---
@@ -34,6 +30,18 @@ export async function requestAccountErasure() {
 
 export async function cancelAccountErasure() {
   return request<{ ok: true }>('/gdpr/me/cancel', { method: 'DELETE' })
+}
+
+// --- Admin Erasure Requests ---
+
+export async function listErasureRequests(statusFilter?: ErasureRequest['status']) {
+  const params = statusFilter ? `?status=${statusFilter}` : ''
+  const res = await request<{ requests: ErasureRequest[] }>(`/gdpr/erasure-requests${params}`)
+  return res.requests
+}
+
+export async function adminEraseUser(targetPubkey: string) {
+  return request<{ ok: true }>(`/gdpr/${encodeURIComponent(targetPubkey)}`, { method: 'DELETE' })
 }
 
 export async function downloadMyData() {
