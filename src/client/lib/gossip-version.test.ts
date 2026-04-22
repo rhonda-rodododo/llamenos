@@ -8,10 +8,10 @@ import {
   type GossipNostrEvent,
 } from '@shared/schemas/gossip-version'
 import {
+  createEphemeralKeypair,
   type FleetObservation,
   type GossipTransport,
   GossipVersionClient,
-  createEphemeralKeypair,
   signGossipEvent,
   verifyGossipEvent,
 } from './gossip-version'

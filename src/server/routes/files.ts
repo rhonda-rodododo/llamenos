@@ -3,7 +3,6 @@ import { EncryptedMetaItemSchema, FileKeyEnvelopeSchema } from '../../shared/sch
 import type { EncryptedMetaItem, FileKeyEnvelope } from '../../shared/types'
 import { createRouter } from '../lib/openapi'
 import { checkPermission, requirePermission } from '../middleware/permission-guard'
-import type { AppEnv } from '../types'
 
 const files = createRouter()
 

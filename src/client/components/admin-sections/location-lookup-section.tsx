@@ -1,3 +1,9 @@
+import type { GeocodingProvider } from '@shared/types'
+import { GEOCODING_PROVIDER_LABELS } from '@shared/types'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Loader2, TestTube2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   SectionActions,
   SectionBody,
@@ -23,12 +29,6 @@ import {
 } from '@/lib/api'
 import { queryKeys } from '@/lib/queries/keys'
 import { useToast } from '@/lib/toast'
-import { GEOCODING_PROVIDER_LABELS } from '@shared/types'
-import type { GeocodingProvider } from '@shared/types'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Loader2, TestTube2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 const DISABLED_VALUE = '__disabled__'
 

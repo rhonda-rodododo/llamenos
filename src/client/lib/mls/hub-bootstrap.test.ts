@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
+import { beforeEach, describe, expect, mock, test } from 'bun:test'
 import type { CryptoWorkerClient } from '../crypto-worker-client'
 
 // ---- Mock MLS API client ----

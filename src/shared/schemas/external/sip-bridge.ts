@@ -172,9 +172,9 @@ export const SipBridgeWebhookSchema = z.looseObject({
 })
 export type SipBridgeWebhook = z.infer<typeof SipBridgeWebhookSchema>
 
+export type { SipBridgeWebhook as AsteriskBridgeWebhook }
 // ---------------------------------------------------------------------------
 // Backward-compat aliases — existing code importing AsteriskBridgeWebhookSchema
 // or AsteriskBridgeWebhook from this module will continue to compile.
 // ---------------------------------------------------------------------------
 export { SipBridgeWebhookSchema as AsteriskBridgeWebhookSchema }
-export type { SipBridgeWebhook as AsteriskBridgeWebhook }

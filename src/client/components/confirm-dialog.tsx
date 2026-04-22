@@ -1,3 +1,5 @@
+import { type ReactNode, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -7,8 +9,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { type ReactNode, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 interface ConfirmDialogProps {
   open: boolean

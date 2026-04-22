@@ -1,3 +1,6 @@
+import { Trash2, Upload } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { isValidE164 } from '@/components/phone-input'
 import { SectionBody, SectionDescription, SectionField } from '@/components/section-layout'
 import { Button } from '@/components/ui/button'
@@ -19,9 +22,6 @@ import {
   useRemoveGlobalBan,
 } from '@/lib/queries/bans'
 import { useToast } from '@/lib/toast'
-import { Trash2, Upload } from 'lucide-react'
-import { useRef, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 /**
  * Super-admin-only section for managing the GLOBAL (platform-wide) ban list.

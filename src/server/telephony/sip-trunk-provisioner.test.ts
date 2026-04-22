@@ -1,7 +1,7 @@
-import { afterEach, describe, expect, mock, test } from 'bun:test'
 import type { Mock } from 'bun:test'
-import { SIP_TRUNK_PRESETS, SipTrunkProvisioner } from './sip-trunk-provisioner'
+import { afterEach, describe, expect, mock, test } from 'bun:test'
 import type { SipTrunkProvisionConfig } from './sip-trunk-provisioner'
+import { SIP_TRUNK_PRESETS, SipTrunkProvisioner } from './sip-trunk-provisioner'
 
 const BRIDGE_URL = 'http://localhost:8088'
 const BRIDGE_SECRET = 'test-bridge-secret'
@@ -304,7 +304,7 @@ describe('SipTrunkProvisioner', () => {
     })
 
     test('all presets have required fields', () => {
-      for (const [name, preset] of Object.entries(SIP_TRUNK_PRESETS)) {
+      for (const [_name, preset] of Object.entries(SIP_TRUNK_PRESETS)) {
         expect(preset.domain).toBeTruthy()
         expect(preset.authType).toMatch(/^(registration|ip-based)$/)
         expect(preset.notes).toBeTruthy()

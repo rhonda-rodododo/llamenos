@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { AeadId, CipherSuite, KdfId, KemId } from '@hpke/core'
-import { HPKE_SUITE_ID, createHpkeSuite } from './crypto-suite.js'
+import { createHpkeSuite, HPKE_SUITE_ID } from './crypto-suite.js'
 
 describe('crypto-suite', () => {
   test('HPKE_SUITE_ID is the stable v1 identifier', () => {

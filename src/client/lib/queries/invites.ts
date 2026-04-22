@@ -6,19 +6,19 @@
  * invites cache on success.
  */
 
+import { LABEL_USER_PII } from '@shared/crypto-labels'
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  type InviteCode,
-  type InviteDeliveryChannel,
   createInvite,
   getAvailableInviteChannels,
+  type InviteCode,
+  type InviteDeliveryChannel,
   listInvites,
   revokeInvite,
   sendInvite,
 } from '@/lib/api'
 import { decryptArrayFields } from '@/lib/decrypt-fields'
 import * as keyManager from '@/lib/key-manager'
-import { LABEL_USER_PII } from '@shared/crypto-labels'
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from './keys'
 
 // ---------------------------------------------------------------------------

@@ -1,9 +1,9 @@
-import { SectionBody, SectionDescription } from '@/components/section-layout'
-import { Button } from '@/components/ui/button'
-import { useAuthEvents, useExportAuthEvents, useReportSuspicious } from '@/lib/queries/auth-events'
 import { createFileRoute } from '@tanstack/react-router'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
+import { SectionBody, SectionDescription } from '@/components/section-layout'
+import { Button } from '@/components/ui/button'
+import { useAuthEvents, useExportAuthEvents, useReportSuspicious } from '@/lib/queries/auth-events'
 
 export const Route = createFileRoute('/security/history')({
   component: HistoryPage,

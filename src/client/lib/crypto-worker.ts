@@ -223,7 +223,7 @@ let publicKeyHex: string | null = null
 // key object wrapping a raw-byte view (see `native-curves-check.ts`).
 let hpkePrivateKey: X25519EncryptionKey | null = null
 let hpkePublicKeyRawCache: Uint8Array | null = null
-let hubKey: AesGcmKey | null = null
+let _hubKey: AesGcmKey | null = null
 
 // Tier 2 root KEK. A 256-bit AES-KW key generated or unwrapped inside the
 // worker and held only as a CryptoKey handle. Never posted back to the main
@@ -292,7 +292,7 @@ function autoLock(): void {
   // Tier 1 handles. CryptoKey is not zeroable — we drop the reference and
   // rely on GC. Raw public key cache is zeroed.
   hpkePrivateKey = null
-  hubKey = null
+  _hubKey = null
   if (hpkePublicKeyRawCache) {
     hpkePublicKeyRawCache.fill(0)
     hpkePublicKeyRawCache = null
@@ -680,7 +680,7 @@ function handleUnlockWithHandles(
   nsecRaw.fill(0)
   publicKeyHex = bytesToHex(schnorr.getPublicKey(secretKey))
   hpkePrivateKey = hpkePriv
-  hubKey = hub
+  _hubKey = hub
   hpkePublicKeyRawCache = null
   resetRateLimits()
   return publicKeyHex
@@ -1343,18 +1343,19 @@ export function _test_clearSecretKey(): void {
 }
 
 /** @internal Test only — direct access to handleSignAuditEntry for unit testing. */
-export { handleSignAuditEntry as _test_handleSignAuditEntry }
-
 /** @internal Test only — direct access to the unlockWithHandles handler. */
-export { handleUnlockWithHandles as _test_handleUnlockWithHandles }
-
 /** @internal Test only — direct access to HPKE sidecar handlers. */
-export { handleHpkeSeal as _test_handleHpkeSeal, handleHpkeOpen as _test_handleHpkeOpen }
+export {
+  handleHpkeOpen as _test_handleHpkeOpen,
+  handleHpkeSeal as _test_handleHpkeSeal,
+  handleSignAuditEntry as _test_handleSignAuditEntry,
+  handleUnlockWithHandles as _test_handleUnlockWithHandles,
+}
 
 /** @internal Test only — clear Tier 1 HPKE state between tests. */
 export function _test_clearHpkeState(): void {
   hpkePrivateKey = null
-  hubKey = null
+  _hubKey = null
   if (hpkePublicKeyRawCache) {
     hpkePublicKeyRawCache.fill(0)
     hpkePublicKeyRawCache = null
@@ -1362,22 +1363,19 @@ export function _test_clearHpkeState(): void {
 }
 
 /** @internal Test only — direct access to the Tier 2 root-KEK handlers. */
-export {
-  handleRootKekCreate as _test_handleRootKekCreate,
-  handleRootKekWrap as _test_handleRootKekWrap,
-  handleRootKekUnwrap as _test_handleRootKekUnwrap,
-  handleRootKekClear as _test_handleRootKekClear,
-  handleRootKekIsLoaded as _test_handleRootKekIsLoaded,
-}
-
 /** @internal Test only — direct access to the Tier 6 MLS handlers. */
 export {
   deriveMlsIdbKey as _test_deriveMlsIdbKey,
-  handleMlsInit as _test_handleMlsInit,
-  handleMlsGenerateKeyPackages as _test_handleMlsGenerateKeyPackages,
-  handleMlsCurrentEpoch as _test_handleMlsCurrentEpoch,
-  handleMlsLock as _test_handleMlsLock,
   handleMlsClearState as _test_handleMlsClearState,
+  handleMlsCurrentEpoch as _test_handleMlsCurrentEpoch,
+  handleMlsGenerateKeyPackages as _test_handleMlsGenerateKeyPackages,
+  handleMlsInit as _test_handleMlsInit,
+  handleMlsLock as _test_handleMlsLock,
+  handleRootKekClear as _test_handleRootKekClear,
+  handleRootKekCreate as _test_handleRootKekCreate,
+  handleRootKekIsLoaded as _test_handleRootKekIsLoaded,
+  handleRootKekUnwrap as _test_handleRootKekUnwrap,
+  handleRootKekWrap as _test_handleRootKekWrap,
 }
 
 /** @internal Test only — access and clear MLS closure state. */
@@ -1400,12 +1398,12 @@ export function _test_clearMlsState(): void {
 
 /** @internal Test only — direct access to Slice 3 MLS group management handlers. */
 export {
-  handleMlsCreateGroup as _test_handleMlsCreateGroup,
-  handleMlsProcessWelcome as _test_handleMlsProcessWelcome,
-  handleMlsExternalJoin as _test_handleMlsExternalJoin,
-  handleMlsEncryptMessage as _test_handleMlsEncryptMessage,
-  handleMlsDecryptMessage as _test_handleMlsDecryptMessage,
   handleMlsAddMembers as _test_handleMlsAddMembers,
+  handleMlsCreateGroup as _test_handleMlsCreateGroup,
+  handleMlsDecryptMessage as _test_handleMlsDecryptMessage,
+  handleMlsEncryptMessage as _test_handleMlsEncryptMessage,
+  handleMlsExternalJoin as _test_handleMlsExternalJoin,
+  handleMlsProcessWelcome as _test_handleMlsProcessWelcome,
   handleMlsRemoveMembers as _test_handleMlsRemoveMembers,
   handleMlsWipeGroup as _test_handleMlsWipeGroup,
   setupMlsTransport as _test_setupMlsTransport,

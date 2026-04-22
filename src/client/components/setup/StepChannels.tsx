@@ -1,5 +1,3 @@
-import { Badge } from '@/components/ui/badge'
-import { Card } from '@/components/ui/card'
 import {
   CHANNEL_LABELS,
   CHANNEL_SECURITY,
@@ -8,6 +6,8 @@ import {
 } from '@shared/types'
 import { Check, FileText, Globe, MessageSquare, Phone, Shield } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
 import type { SetupData } from './SetupWizard'
 
 interface Props {

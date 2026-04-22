@@ -1,20 +1,5 @@
-import { PinChallengeDialog } from '@/components/pin-challenge-dialog'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
-import { type User, getUserUnmasked } from '@/lib/api'
-import { useAuth } from '@/lib/auth'
-import { useConfig } from '@/lib/config'
-import { useAuditLog } from '@/lib/queries/audit'
-import { useShifts } from '@/lib/queries/shifts'
-import { useUpdateUser, useUser } from '@/lib/queries/users'
-import { useToast } from '@/lib/toast'
-import { usePinChallenge } from '@/lib/use-pin-challenge'
 import { LANGUAGES } from '@shared/languages'
-import { Link, createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import {
   ArrowLeft,
   ChevronLeft,
@@ -32,6 +17,21 @@ import {
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { PinChallengeDialog } from '@/components/pin-challenge-dialog'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
+import { getUserUnmasked, type User } from '@/lib/api'
+import { useAuth } from '@/lib/auth'
+import { useConfig } from '@/lib/config'
+import { useAuditLog } from '@/lib/queries/audit'
+import { useShifts } from '@/lib/queries/shifts'
+import { useUpdateUser, useUser } from '@/lib/queries/users'
+import { useToast } from '@/lib/toast'
+import { usePinChallenge } from '@/lib/use-pin-challenge'
 
 const MESSAGING_CHANNELS = ['sms', 'whatsapp', 'signal', 'rcs', 'web'] as const
 
@@ -113,7 +113,7 @@ function UserProfilePage() {
   // useUser already decrypts name/phone via the query fn
   const displayName = user.name
 
-  const langMap = new Map(LANGUAGES.map((l) => [l.code, l]))
+  const _langMap = new Map(LANGUAGES.map((l) => [l.code, l]))
 
   return (
     <div className="space-y-6">

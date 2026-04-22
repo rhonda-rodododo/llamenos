@@ -1,12 +1,12 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { SectionBody, SectionDescription, SectionToggleField } from '@/components/section-layout'
 import { Switch } from '@/components/ui/switch'
 import { getTranscriptionSettings, updateTranscriptionSettings } from '@/lib/api'
 import { queryKeys } from '@/lib/queries/keys'
 import { useToast } from '@/lib/toast'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 interface TranscriptionSettings {
   globalEnabled: boolean

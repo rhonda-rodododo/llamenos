@@ -1,4 +1,4 @@
-import { boolean, index, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core'
+import { boolean, index, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
 import { ciphertext } from '../crypto-columns'
 import { hubs } from './settings'
 

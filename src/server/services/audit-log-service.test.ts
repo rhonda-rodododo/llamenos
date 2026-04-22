@@ -13,7 +13,7 @@ import type {
   SignedAuditEntry,
   UnsignedAuditEntry,
 } from '@shared/schemas/audit-entries'
-import { AuditChainError, AuditLogService, type AuditSignerLookup } from './audit-log-service'
+import { AuditLogService, type AuditSignerLookup } from './audit-log-service'
 
 // ---- fixtures ----
 

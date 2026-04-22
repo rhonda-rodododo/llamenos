@@ -5,9 +5,9 @@ import { LABEL_NOTE_KEY, labelToId } from '@shared/crypto-labels'
 import { createHpkeSuite } from '@shared/crypto-suite'
 import {
   type AesGcmKey,
-  type X25519EncryptionKey,
   asAesGcmKey,
   asX25519EncryptionKey,
+  type X25519EncryptionKey,
 } from '@shared/types'
 import {
   _test_clearHpkeState,

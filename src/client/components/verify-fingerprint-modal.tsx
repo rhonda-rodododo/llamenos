@@ -1,9 +1,9 @@
+import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { SAS_EMOJI_TABLE } from '@/lib/mls/emoji-table'
 import { deriveSasEmoji, deriveSasNamesEn } from '@/lib/mls/sas'
-import { useMemo, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 interface VerifyFingerprintModalProps {
   open: boolean
@@ -64,6 +64,7 @@ export function VerifyFingerprintModal(props: VerifyFingerprintModalProps) {
               key={i}
               data-testid={`sas-emoji-${i}`}
               className="text-3xl text-center"
+              role="img"
               aria-label={correctNames[i]}
             >
               {e}

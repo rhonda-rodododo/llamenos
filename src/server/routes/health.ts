@@ -1,7 +1,6 @@
 import { createRoute, z } from '@hono/zod-openapi'
 import { BUILD_VERSION } from '../lib/build-constants'
 import { createRouter } from '../lib/openapi'
-import type { AppEnv } from '../types'
 
 const health = createRouter()
 

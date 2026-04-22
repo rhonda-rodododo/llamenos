@@ -64,6 +64,7 @@ export interface StorageManager {
 export interface TranscriptionService {
   run(model: string, input: { audio: number[] }): Promise<{ text: string }>
 }
+
 import type { Services } from './services'
 
 /**

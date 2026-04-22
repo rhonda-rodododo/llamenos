@@ -9,12 +9,12 @@
 import { bytesToHex } from '@noble/hashes/utils.js'
 import type { CryptoLabel } from '@shared/crypto-labels'
 import {
-  type CapsuleNonceHex,
-  type EncryptedNsecHex,
-  type SessionToken,
   asCapsuleNonce,
   asEncryptedNsec,
   asSessionToken,
+  type CapsuleNonceHex,
+  type EncryptedNsecHex,
+  type SessionToken,
 } from '@shared/crypto-types'
 import type { HpkeEnvelope } from '@shared/hpke-envelope'
 import type { AesGcmKey, X25519EncryptionKey } from '@shared/types'

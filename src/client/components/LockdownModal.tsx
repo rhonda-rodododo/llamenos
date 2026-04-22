@@ -1,11 +1,11 @@
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { deriveKekProof } from '@/lib/key-store'
 import { useLockdown } from '@/lib/queries/security-actions'
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 type Tier = 'A' | 'B' | 'C'
 

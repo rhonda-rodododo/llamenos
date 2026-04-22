@@ -1,3 +1,8 @@
+import { TELEPHONY_PROVIDER_LABELS, type TelephonyProviderDraft } from '@shared/types'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Loader2, Wand2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { AdvancedReveal } from '@/components/admin-shell/advanced-reveal'
 import { PhoneInput } from '@/components/phone-input'
 import {
@@ -20,19 +25,14 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import {
+  getTelephonyProvider,
   type TelephonyProviderConfig,
   type TelephonyProviderType,
-  getTelephonyProvider,
   testTelephonyProvider,
   updateTelephonyProvider,
 } from '@/lib/api'
 import { queryKeys } from '@/lib/queries/keys'
 import { useToast } from '@/lib/toast'
-import { TELEPHONY_PROVIDER_LABELS, type TelephonyProviderDraft } from '@shared/types'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Loader2, Wand2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 const SLUG = 'phone-provider'
 

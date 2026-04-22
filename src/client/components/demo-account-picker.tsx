@@ -1,12 +1,12 @@
-import { API_BASE } from '@/lib/api/client'
-import { useAuth } from '@/lib/auth'
-import { authFacadeClient } from '@/lib/auth-facade-client'
-import * as keyManager from '@/lib/key-manager'
 import { keyPairFromNsec } from '@shared/crypto-primitives'
 import { useNavigate } from '@tanstack/react-router'
 import { FileText, Info, LogIn, Shield, UserCog, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { API_BASE } from '@/lib/api/client'
+import { useAuth } from '@/lib/auth'
+import { authFacadeClient } from '@/lib/auth-facade-client'
+import * as keyManager from '@/lib/key-manager'
 
 const DEMO_PIN = '000000'
 

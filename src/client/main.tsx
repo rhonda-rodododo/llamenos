@@ -23,6 +23,9 @@
 // inside `bootSPA()` via dynamic import so they cannot execute until the
 // gate passes.
 
+import { createRouter, RouterProvider } from '@tanstack/react-router'
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
 import { AuthProvider } from '@/lib/auth'
 import { runBootReleaseVerifier } from '@/lib/boot-release-verifier'
 import { ConfigProvider } from '@/lib/config'
@@ -30,9 +33,6 @@ import { NoteSheetProvider } from '@/lib/note-sheet-context'
 import { ThemeProvider } from '@/lib/theme'
 import { ToastProvider } from '@/lib/toast'
 import { installTrustedTypesPolicy } from '@/lib/trusted-types-policy'
-import { RouterProvider, createRouter } from '@tanstack/react-router'
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
 import { routeTree } from './routeTree.gen'
 
 const router = createRouter({ routeTree })
@@ -111,7 +111,7 @@ async function bootSPA(): Promise<void> {
     void Promise.all([
       import('@shared/crypto-envelopes'),
       import('./lib/crypto-worker-helpers'),
-    ]).then(([envelopes, helpers]) => {
+    ]).then(([_envelopes, helpers]) => {
       window.__llamenos_test_crypto = {
         encryptNote: () => {
           throw new Error('encryptNote removed — use MLS')

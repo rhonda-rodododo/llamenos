@@ -1,12 +1,11 @@
 import { DEFAULT_LANGUAGE, IVR_LANGUAGES } from '../../shared/languages'
-import { IVR_PROMPTS, getPrompt } from '../../shared/voice-prompts'
+import { getPrompt, IVR_PROMPTS } from '../../shared/voice-prompts'
 import type {
   AudioUrlMap,
   CallAnsweredParams,
   CaptchaResponseParams,
   IncomingCallParams,
   LanguageMenuParams,
-  RingUsersParams,
   TelephonyResponse,
   VoicemailParams,
   WebhookCallInfo,

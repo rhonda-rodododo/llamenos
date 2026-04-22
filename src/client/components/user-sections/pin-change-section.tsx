@@ -1,11 +1,11 @@
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { SectionActions, SectionBody, SectionField } from '@/components/section-layout'
 import { Input } from '@/components/ui/input'
 import { authFacadeClient } from '@/lib/auth-facade-client'
 import { isUnlocked } from '@/lib/key-manager'
 import { deriveKekProof, isValidPin, loadEncryptedKey, rewrapWithNewPin } from '@/lib/key-store'
 import { useChangePin } from '@/lib/queries/security-actions'
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 export function PinChangeSection() {
   const { t } = useTranslation()

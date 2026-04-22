@@ -3,7 +3,6 @@ import type { GeocodingConfigAdmin } from '../../shared/types'
 import { createGeocodingAdapter } from '../geocoding/factory'
 import { createRouter } from '../lib/openapi'
 import { requirePermission } from '../middleware/permission-guard'
-import type { AppEnv } from '../types'
 
 const geocoding = createRouter()
 

@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import {
-  LoginStateCacheFullError,
   _test_loginStateCacheSize,
   _test_resetLoginStateCache,
   _test_resetMaxEntries,
   _test_setMaxEntries,
   consumeLoginState,
   createLoginState,
+  LoginStateCacheFullError,
 } from './login-state-cache'
 
 afterEach(() => {

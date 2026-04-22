@@ -1,3 +1,15 @@
+import { createFileRoute, Link } from '@tanstack/react-router'
+import {
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  ScrollText,
+  Search,
+  ShieldCheck,
+} from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -14,18 +26,6 @@ import { useAuth } from '@/lib/auth'
 import { useConfig } from '@/lib/config'
 import { useAuditChainIntegrity, useAuditLog } from '@/lib/queries/audit'
 import { useUsers } from '@/lib/queries/users'
-import { Link, createFileRoute } from '@tanstack/react-router'
-import {
-  AlertTriangle,
-  ChevronLeft,
-  ChevronRight,
-  Loader2,
-  ScrollText,
-  Search,
-  ShieldCheck,
-} from 'lucide-react'
-import { useMemo, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 export const Route = createFileRoute('/audit')({
   component: AuditPage,

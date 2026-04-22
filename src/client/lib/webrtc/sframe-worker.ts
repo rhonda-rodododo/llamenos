@@ -11,6 +11,7 @@ import type {
  * success or error responses keyed to a request id.
  */
 export type SFrameWorkerRpcReply = SFrameSuccessResponse | SFrameErrorResponse
+
 import { importAesKey } from '@shared/sframe/cipher-suite.js'
 import { openFrame, sealFrame } from '@shared/sframe/frame-codec.js'
 import { asSealedFrame } from '@shared/sframe/sframe-types.js'

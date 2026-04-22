@@ -1,16 +1,3 @@
-import { LogoMark } from '@/components/logo-mark'
-import { PinInput } from '@/components/pin-input'
-import { Button } from '@/components/ui/button'
-import { bootstrapAdmin } from '@/lib/api'
-import { useAuth } from '@/lib/auth'
-import { authFacadeClient } from '@/lib/auth-facade-client'
-import { createBackup, downloadBackupFile, generateRecoveryKey } from '@/lib/backup'
-import { createDebugLog } from '@/lib/debug-log'
-import { generateDeviceKeypair } from '@/lib/device-identity'
-import { putDeviceKeypair } from '@/lib/device-identity-store'
-import { setLanguage } from '@/lib/i18n'
-import * as keyManager from '@/lib/key-manager'
-import { useToast } from '@/lib/toast'
 import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import { schnorr } from '@noble/curves/secp256k1.js'
 import { sha256 } from '@noble/hashes/sha2.js'
@@ -32,6 +19,19 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { LogoMark } from '@/components/logo-mark'
+import { PinInput } from '@/components/pin-input'
+import { Button } from '@/components/ui/button'
+import { bootstrapAdmin } from '@/lib/api'
+import { useAuth } from '@/lib/auth'
+import { authFacadeClient } from '@/lib/auth-facade-client'
+import { createBackup, downloadBackupFile, generateRecoveryKey } from '@/lib/backup'
+import { createDebugLog } from '@/lib/debug-log'
+import { generateDeviceKeypair } from '@/lib/device-identity'
+import { putDeviceKeypair } from '@/lib/device-identity-store'
+import { setLanguage } from '@/lib/i18n'
+import * as keyManager from '@/lib/key-manager'
+import { useToast } from '@/lib/toast'
 
 const log = createDebugLog('llamenos:setup')
 
@@ -74,7 +74,7 @@ export function AdminBootstrap({ onComplete }: AdminBootstrapProps) {
   useEffect(() => {
     const timer = setTimeout(() => stepHeadingRef.current?.focus(), 50)
     return () => clearTimeout(timer)
-  }, [step, pinStep])
+  }, [])
 
   // Escape key navigation
   useEffect(() => {

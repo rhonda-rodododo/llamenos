@@ -1,8 +1,8 @@
 import {
-  type VerifiedAuthenticationResponse,
-  type VerifiedRegistrationResponse,
   generateAuthenticationOptions,
   generateRegistrationOptions,
+  type VerifiedAuthenticationResponse,
+  type VerifiedRegistrationResponse,
   verifyAuthenticationResponse,
   verifyRegistrationResponse,
 } from '@simplewebauthn/server'

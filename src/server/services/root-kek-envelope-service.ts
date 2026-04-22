@@ -23,7 +23,7 @@ export class RootKekEnvelopeService {
       .from(userRootKekEnvelopes)
       .where(eq(userRootKekEnvelopes.userPubkey, userPubkey))
     if (!rows.length) return null
-    return RootKekEnvelopeBundleSchema.parse(rows[0]!.bundle)
+    return RootKekEnvelopeBundleSchema.parse(rows[0]?.bundle)
   }
 
   async putBundle(bundle: RootKekEnvelopeBundle): Promise<void> {

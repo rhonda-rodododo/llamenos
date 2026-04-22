@@ -16,8 +16,6 @@
  *      HPKE-wraps new key to remaining devices, computes commitment hashes
  */
 
-import { clearChainCache } from '@/lib/audit-chain-verifier'
-import { createDebugLog } from '@/lib/debug-log'
 import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex } from '@noble/hashes/utils.js'
@@ -27,6 +25,8 @@ import type { Ciphertext } from '@shared/crypto-types'
 import type { HpkeEnvelope } from '@shared/hpke-envelope'
 import { buildAad, hpkeOpen, hpkeSeal } from '@shared/hpke-primitives'
 import type { X25519EncryptionKey } from '@shared/types'
+import { clearChainCache } from '@/lib/audit-chain-verifier'
+import { createDebugLog } from '@/lib/debug-log'
 
 const log = createDebugLog('llamenos:hub-key-manager')
 

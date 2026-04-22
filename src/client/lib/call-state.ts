@@ -8,7 +8,7 @@ export function getRingingCallIds(): string[] {
   return ringingCallIds
 }
 
-function setRingingCallIds(ids: string[]) {
+function _setRingingCallIds(ids: string[]) {
   ringingCallIds = ids
 }
 
@@ -16,6 +16,6 @@ export function getCurrentCallId(): string | null {
   return currentCallId
 }
 
-function setCurrentCallId(id: string | null) {
+function _setCurrentCallId(id: string | null) {
   currentCallId = id
 }

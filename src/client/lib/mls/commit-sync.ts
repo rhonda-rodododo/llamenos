@@ -10,11 +10,11 @@
  * be lengthened and the Nostr handler can trigger an immediate sync.
  */
 
+import { useEffect, useRef } from 'react'
 import { useConfig } from '@/lib/config'
 import { cryptoWorker } from '@/lib/crypto-worker-client'
 import { createDebugLog } from '@/lib/debug-log'
 import { getDeviceKeypair } from '@/lib/device-identity-store'
-import { useEffect, useRef } from 'react'
 import { getMlsConversation } from './get-mls-conversation'
 
 const log = createDebugLog('mls:commit-sync')

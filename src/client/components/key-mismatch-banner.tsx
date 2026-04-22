@@ -1,6 +1,6 @@
-import { useAuth } from '@/lib/auth'
 import { AlertTriangle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { useAuth } from '@/lib/auth'
 
 export function KeyMismatchBanner() {
   const { keyMismatchDetected } = useAuth()

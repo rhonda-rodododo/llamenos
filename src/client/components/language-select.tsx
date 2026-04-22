@@ -1,3 +1,6 @@
+import { LANGUAGE_MAP, LANGUAGES } from '@shared/languages'
+import { Globe } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import {
   Select,
   SelectContent,
@@ -6,14 +9,14 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { setLanguage } from '@/lib/i18n'
-import { LANGUAGES, LANGUAGE_MAP } from '@shared/languages'
-import { Globe } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
 
 export function LanguageSelect({
   size = 'default',
   fullWidth = false,
-}: { size?: 'sm' | 'default'; fullWidth?: boolean }) {
+}: {
+  size?: 'sm' | 'default'
+  fullWidth?: boolean
+}) {
   const { i18n, t } = useTranslation()
   const current = LANGUAGE_MAP[i18n.language]
 

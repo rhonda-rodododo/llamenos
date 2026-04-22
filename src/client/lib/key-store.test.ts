@@ -1,16 +1,15 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
+import { beforeEach, describe, expect, test } from 'bun:test'
+import { bytesToHex } from '@noble/hashes/utils.js'
 import {
-  type EncryptedKeyData,
-  type KEKFactors,
-  SYNTHETIC_ISSUERS,
   clearStoredKey,
   decryptNsec,
   deriveKEK,
   encryptNsec,
   hasStoredKey,
   isValidPin,
+  type KEKFactors,
   loadEncryptedKey,
+  SYNTHETIC_ISSUERS,
   storeEncryptedKey,
   syntheticIdpValue,
 } from './key-store'
@@ -222,13 +221,13 @@ describe('storeEncryptedKey / loadEncryptedKey', () => {
     const loaded = loadEncryptedKey()
 
     expect(loaded).not.toBeNull()
-    expect(loaded!.version).toBe(2)
-    expect(loaded!.salt).toBe(blob.salt)
-    expect(loaded!.nonce).toBe(blob.nonce)
-    expect(loaded!.ciphertext).toBe(blob.ciphertext)
-    expect(loaded!.pubkeyHash).toBe(blob.pubkeyHash)
-    expect(loaded!.prfUsed).toBe(blob.prfUsed)
-    expect(loaded!.idpIssuer).toBe(blob.idpIssuer)
+    expect(loaded?.version).toBe(2)
+    expect(loaded?.salt).toBe(blob.salt)
+    expect(loaded?.nonce).toBe(blob.nonce)
+    expect(loaded?.ciphertext).toBe(blob.ciphertext)
+    expect(loaded?.pubkeyHash).toBe(blob.pubkeyHash)
+    expect(loaded?.prfUsed).toBe(blob.prfUsed)
+    expect(loaded?.idpIssuer).toBe(blob.idpIssuer)
   })
 
   test('loadEncryptedKey returns null when nothing stored', () => {

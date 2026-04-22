@@ -1,3 +1,7 @@
+import { DEFAULT_BLAST_SETTINGS } from '@shared/types'
+import { Settings2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -6,10 +10,6 @@ import { Switch } from '@/components/ui/switch'
 import type { BlastSettings } from '@/lib/api'
 import { useBlastSettings, useUpdateBlastSettings } from '@/lib/queries/blasts'
 import { useToast } from '@/lib/toast'
-import { DEFAULT_BLAST_SETTINGS } from '@shared/types'
-import { Settings2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 export function BlastSettingsPanel() {
   const { t } = useTranslation()
@@ -110,7 +110,10 @@ export function BlastSettingsPanel() {
               type="number"
               value={settings.maxBlastsPerDay}
               onChange={(e) =>
-                setSettings({ ...settings, maxBlastsPerDay: Number.parseInt(e.target.value) || 10 })
+                setSettings({
+                  ...settings,
+                  maxBlastsPerDay: Number.parseInt(e.target.value, 10) || 10,
+                })
               }
             />
           </div>
@@ -122,7 +125,7 @@ export function BlastSettingsPanel() {
               onChange={(e) =>
                 setSettings({
                   ...settings,
-                  rateLimitPerSecond: Number.parseInt(e.target.value) || 10,
+                  rateLimitPerSecond: Number.parseInt(e.target.value, 10) || 10,
                 })
               }
             />

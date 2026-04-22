@@ -249,10 +249,10 @@ describe('TelnyxSMSAdapter', () => {
       const update = await adapter.parseStatusWebhook(request)
 
       expect(update).not.toBeNull()
-      expect(update!.externalId).toBe('MSG-STATUS-001')
-      expect(update!.status).toBe('sent')
-      expect(update!.failureReason).toBeUndefined()
-      expect(update!.timestamp).toBe('2026-01-15T10:31:00Z')
+      expect(update?.externalId).toBe('MSG-STATUS-001')
+      expect(update?.status).toBe('sent')
+      expect(update?.failureReason).toBeUndefined()
+      expect(update?.timestamp).toBe('2026-01-15T10:31:00Z')
     })
 
     it('maps "message.finalized" to "delivered" status', async () => {
@@ -274,8 +274,8 @@ describe('TelnyxSMSAdapter', () => {
       const update = await adapter.parseStatusWebhook(request)
 
       expect(update).not.toBeNull()
-      expect(update!.status).toBe('delivered')
-      expect(update!.timestamp).toBe('2026-01-15T10:32:00Z')
+      expect(update?.status).toBe('delivered')
+      expect(update?.timestamp).toBe('2026-01-15T10:32:00Z')
     })
 
     it('maps "message.failed" to "failed" with error details', async () => {
@@ -297,8 +297,8 @@ describe('TelnyxSMSAdapter', () => {
       const update = await adapter.parseStatusWebhook(request)
 
       expect(update).not.toBeNull()
-      expect(update!.status).toBe('failed')
-      expect(update!.failureReason).toBe('Number not reachable')
+      expect(update?.status).toBe('failed')
+      expect(update?.failureReason).toBe('Number not reachable')
     })
 
     it('returns null for unknown event types', async () => {

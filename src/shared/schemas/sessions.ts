@@ -26,11 +26,11 @@ const SessionListResponseSchema = z.object({
   sessions: z.array(SessionSchema),
 })
 
-const RevokeSessionParamsSchema = z.object({
+const _RevokeSessionParamsSchema = z.object({
   id: z.string(),
 })
 
-const RevokeOthersResponseSchema = z.object({
+const _RevokeOthersResponseSchema = z.object({
   revokedCount: z.number().int().min(0),
 })
 

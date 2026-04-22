@@ -1,13 +1,13 @@
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { type EncryptedNote, downloadFile, getFileEnvelopes, listNotes } from '@/lib/api'
-import { useAuth } from '@/lib/auth'
-import { decryptFile } from '@/lib/file-crypto'
-import * as keyManager from '@/lib/key-manager'
 import type { FileKeyEnvelope } from '@shared/types'
 import { AlertCircle, Loader2, Pause, Play, Voicemail } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { downloadFile, type EncryptedNote, getFileEnvelopes, listNotes } from '@/lib/api'
+import { useAuth } from '@/lib/auth'
+import { decryptFile } from '@/lib/file-crypto'
+import * as keyManager from '@/lib/key-manager'
 
 interface VoicemailPlayerProps {
   fileId?: string | null
@@ -57,7 +57,7 @@ export function VoicemailPlayer({ fileId, callId, canListen }: VoicemailPlayerPr
       })
       .catch(() => setTranscriptError(true))
       .finally(() => setTranscriptLoading(false))
-  }, [callId, hasNsec, publicKey, isAdmin])
+  }, [callId])
 
   const fetchAudio = useCallback(async () => {
     if (!fileId || !canListen) return

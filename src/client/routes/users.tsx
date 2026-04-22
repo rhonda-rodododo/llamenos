@@ -1,33 +1,3 @@
-import { ConfirmDialog } from '@/components/confirm-dialog'
-import { PhoneInput, isValidE164 } from '@/components/phone-input'
-import { PinChallengeDialog } from '@/components/pin-challenge-dialog'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { type InviteDeliveryChannel, getUserUnmasked, type updateUser } from '@/lib/api'
-import { useAuth } from '@/lib/auth'
-import { useConfig } from '@/lib/config'
-import {
-  useCreateInvite,
-  useInviteChannels,
-  useInvites,
-  useRevokeInvite,
-  useSendInvite,
-} from '@/lib/queries/invites'
-import { useRoles } from '@/lib/queries/roles'
-import { useCreateUser, useDeleteUser, useUpdateUser, useUsers } from '@/lib/queries/users'
-import { useToast } from '@/lib/toast'
-import { usePinChallenge } from '@/lib/use-pin-challenge'
 import { generateKeyPair } from '@shared/crypto-primitives'
 import { createFileRoute } from '@tanstack/react-router'
 import {
@@ -48,6 +18,36 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { ConfirmDialog } from '@/components/confirm-dialog'
+import { isValidE164, PhoneInput } from '@/components/phone-input'
+import { PinChallengeDialog } from '@/components/pin-challenge-dialog'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { getUserUnmasked, type InviteDeliveryChannel, type updateUser } from '@/lib/api'
+import { useAuth } from '@/lib/auth'
+import { useConfig } from '@/lib/config'
+import {
+  useCreateInvite,
+  useInviteChannels,
+  useInvites,
+  useRevokeInvite,
+  useSendInvite,
+} from '@/lib/queries/invites'
+import { useRoles } from '@/lib/queries/roles'
+import { useCreateUser, useDeleteUser, useUpdateUser, useUsers } from '@/lib/queries/users'
+import { useToast } from '@/lib/toast'
+import { usePinChallenge } from '@/lib/use-pin-challenge'
 
 export const Route = createFileRoute('/users')({
   component: UsersPage,

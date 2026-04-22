@@ -1,3 +1,6 @@
+import { AlertCircle, Loader2, User, Users } from 'lucide-react'
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -13,9 +16,6 @@ import type { Conversation } from '@/lib/api'
 import { useUpdateConversation } from '@/lib/queries/conversations'
 import { useUsers } from '@/lib/queries/users'
 import { useToast } from '@/lib/toast'
-import { AlertCircle, Loader2, User, Users } from 'lucide-react'
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 interface ReassignDialogProps {
   conversation: Conversation

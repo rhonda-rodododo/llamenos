@@ -1,15 +1,5 @@
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
 import { LANGUAGE_MAP } from '@shared/languages'
-import {
-  CHANNEL_LABELS,
-  CHANNEL_SECURITY,
-  type ChannelType,
-  type TransportSecurity,
-} from '@shared/types'
+import { CHANNEL_LABELS, type ChannelType } from '@shared/types'
 import {
   AlertCircle,
   Check,
@@ -24,6 +14,11 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import type { SetupData } from './SetupWizard'
 
 interface Props {

@@ -1,3 +1,7 @@
+import { createFileRoute } from '@tanstack/react-router'
+import { CheckCircle2, ClipboardList, Eye, Merge, X } from 'lucide-react'
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -13,10 +17,6 @@ import type { IntakeRecord } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { useIntake, useIntakes, useUpdateIntakeStatus } from '@/lib/queries/intakes'
 import { useToast } from '@/lib/toast'
-import { createFileRoute } from '@tanstack/react-router'
-import { CheckCircle2, ClipboardList, Eye, Merge, X } from 'lucide-react'
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 export const Route = createFileRoute('/intakes')({
   component: IntakesPage,
@@ -252,7 +252,11 @@ function IntakeRow({
   intake,
   selected,
   onSelect,
-}: { intake: IntakeRecord; selected: boolean; onSelect: () => void }) {
+}: {
+  intake: IntakeRecord
+  selected: boolean
+  onSelect: () => void
+}) {
   return (
     <Card
       className={`cursor-pointer transition-colors hover:bg-accent/50 ${selected ? 'ring-2 ring-primary' : ''}`}

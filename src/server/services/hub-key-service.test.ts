@@ -6,12 +6,6 @@
  * the correct data through to the database layer.
  */
 import { beforeEach, describe, expect, test } from 'bun:test'
-import type {
-  GenerationChainEntry,
-  HubKeyEnvelopeResult,
-  IssueInitialHubKeyEnvelopesParams,
-  RotateHubParams,
-} from './hub-key-service'
 import { HubKeyService } from './hub-key-service'
 
 // ---- fixtures ----
@@ -396,8 +390,8 @@ describe('HubKeyService', () => {
 
       const result = await service.getHubKeyEnvelopeForDevice(DEVICE_1_ID, HUB_ID)
       expect(result).not.toBeNull()
-      expect(result!.envelope).toBe('new-envelope')
-      expect(result!.generation).toBe(2)
+      expect(result?.envelope).toBe('new-envelope')
+      expect(result?.generation).toBe(2)
     })
 
     test('returns null when no envelope exists for device', async () => {
@@ -492,8 +486,8 @@ describe('HubKeyService', () => {
       expect(fakeDb._generations).toHaveLength(2)
       const gen2 = fakeDb._generations.find((g) => g.generation === 2)
       expect(gen2).toBeDefined()
-      expect(gen2!.oldGenWrappedUnderNew).toBe('aes-gcm-wrapped-old-under-new')
-      expect(gen2!.rotatedBySigchainEntryId).toBe(SIGCHAIN_ENTRY_2)
+      expect(gen2?.oldGenWrappedUnderNew).toBe('aes-gcm-wrapped-old-under-new')
+      expect(gen2?.rotatedBySigchainEntryId).toBe(SIGCHAIN_ENTRY_2)
 
       expect(fakeDb._envelopes).toHaveLength(2)
       expect(fakeDb._envelopes.every((e) => e.generation === 2)).toBe(true)
