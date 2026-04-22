@@ -29,11 +29,11 @@ export interface Conversation {
 
 export type MessageDeliveryStatus = 'pending' | 'sent' | 'delivered' | 'read' | 'failed'
 
-/** ECIES-wrapped message key for a specific reader. */
+/** Legacy ECIES-wrapped message key envelope — retained in DB schema, not populated for new messages. */
 export interface MessageKeyEnvelope {
-  pubkey: string // reader's x-only pubkey (hex)
-  wrappedKey: Ciphertext // hex: nonce(24) + ciphertext(48)
-  ephemeralPubkey: string // hex: compressed 33-byte ephemeral pubkey
+  pubkey: string
+  wrappedKey: Ciphertext
+  ephemeralPubkey: string
 }
 
 export interface ConversationMessage {
@@ -41,8 +41,8 @@ export interface ConversationMessage {
   conversationId: string
   direction: 'inbound' | 'outbound'
   authorPubkey: string
-  encryptedContent: Ciphertext // hex: nonce(24) + ciphertext (XChaCha20-Poly1305)
-  readerEnvelopes: MessageKeyEnvelope[] // per-reader ECIES-wrapped message keys
+  encryptedContent: Ciphertext // legacy — empty for MLS messages
+  readerEnvelopes: MessageKeyEnvelope[] // legacy — empty for MLS messages
   hasAttachments: boolean
   attachmentIds?: string[]
   // Delivery status tracking (Epic 71)
@@ -103,11 +103,9 @@ export async function getConversationMessages(
 export async function sendConversationMessage(
   id: string,
   data: {
-    encryptedContent: Ciphertext
-    readerEnvelopes: MessageKeyEnvelope[]
     plaintextForSending?: string
-    mlsCiphertext?: string
-    mlsEpoch?: number
+    mlsCiphertext: string
+    mlsEpoch: number
   }
 ) {
   return request<ConversationMessage>(hp(`/conversations/${id}/messages`), {
@@ -130,8 +128,6 @@ export async function upgradeMessageToMls(
   conversationId: string,
   messageId: string,
   data: {
-    encryptedContent: Ciphertext
-    readerEnvelopes: MessageKeyEnvelope[]
     mlsCiphertext: string
     mlsEpoch: number
   }

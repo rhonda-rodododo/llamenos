@@ -2,7 +2,7 @@ import { createRoute, z } from '@hono/zod-openapi'
 import { LABEL_MESSAGE } from '@shared/crypto-labels'
 import { KIND_CONVERSATION_ASSIGNED, KIND_MESSAGE_NEW } from '../../shared/nostr-events'
 import { canClaimChannel, getClaimableChannels } from '../../shared/permissions'
-import type { MessagingChannelType, RecipientEnvelope } from '../../shared/types'
+import type { MessagingChannelType } from '../../shared/types'
 import { getMessagingAdapter, getNostrPublisher } from '../lib/adapters'
 import { createLogger } from '../lib/logger'
 import { createRouter } from '../lib/openapi'
@@ -290,11 +290,9 @@ conversations.openapi(getConversationMessagesRoute, async (c) => {
 // ── POST /{id}/messages — send outbound message ──
 
 const SendMessageBodySchema = z.object({
-  encryptedContent: z.string(),
-  readerEnvelopes: z.array(z.object({}).passthrough()),
   plaintextForSending: z.string().optional(),
-  mlsCiphertext: z.string().optional(),
-  mlsEpoch: z.number().optional(),
+  mlsCiphertext: z.string(),
+  mlsEpoch: z.number(),
 })
 
 const sendMessageRoute = createRoute({
@@ -378,8 +376,7 @@ conversations.openapi(sendMessageRoute, async (c) => {
     conversationId: id,
     direction: 'outbound',
     authorPubkey: pubkey,
-    encryptedContent: body.encryptedContent,
-    readerEnvelopes: body.readerEnvelopes as unknown as RecipientEnvelope[],
+    encryptedContent: '',
     hasAttachments: false,
     externalId: messageExternalId,
     status: messageStatus,
@@ -647,8 +644,6 @@ conversations.openapi(claimMessageRoute, async (c) => {
 // ── PATCH /{id}/messages/{messageId} — upgrade a claimed message to MLS ──
 
 const upgradeMessageBodySchema = z.object({
-  encryptedContent: z.string(),
-  readerEnvelopes: z.array(z.object({}).passthrough()),
   mlsCiphertext: z.string(),
   mlsEpoch: z.number(),
 })
@@ -699,8 +694,7 @@ conversations.openapi(upgradeMessageRoute, async (c) => {
   const body = c.req.valid('json')
 
   const updated = await services.conversations.claimMessage(messageId, {
-    encryptedContent: body.encryptedContent,
-    readerEnvelopes: body.readerEnvelopes as unknown as RecipientEnvelope[],
+    encryptedContent: '',
     mlsCiphertext: body.mlsCiphertext,
     mlsEpoch: body.mlsEpoch,
   })

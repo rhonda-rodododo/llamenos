@@ -100,8 +100,6 @@ export function ReportForm({ open, onOpenChange, onCreated }: ReportFormProps) {
         title: title.trim(),
         category: category || undefined,
         reportTypeId: reportTypeId || undefined,
-        encryptedContent: '' as import('@shared/crypto-types').Ciphertext,
-        readerEnvelopes: [],
         mlsCiphertext,
         mlsEpoch: epoch,
       })

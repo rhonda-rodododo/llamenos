@@ -1,5 +1,4 @@
 import type {
-  KeyEnvelope,
   MessageDeliveryStatus,
   MessagingChannelType,
   RecipientEnvelope,
@@ -242,12 +241,11 @@ export interface EncryptedNote {
   conversationId?: string
   contactHash?: string
   authorPubkey: string
+  // encryptedContent + ephemeralPubkey retained for server-created transcription notes
   encryptedContent?: string
   createdAt: string
   updatedAt: string
   ephemeralPubkey?: string
-  authorEnvelope?: KeyEnvelope
-  adminEnvelopes?: RecipientEnvelope[]
   mlsCiphertext?: string
   mlsEpoch?: number
   replyCount?: number
@@ -366,11 +364,9 @@ export interface Conversation {
 export type { MessageDeliveryStatus } from '../shared/types'
 
 /**
- * Encrypted message using the envelope pattern (Epic 74).
- *
- * Single ciphertext encrypted with a random per-message symmetric key.
- * The key is ECIES-wrapped separately for each authorized reader.
- * Domain separation label: 'llamenos:message'.
+ * A conversation message. MLS group encryption for content (mlsCiphertext/mlsEpoch).
+ * Legacy encryptedContent/readerEnvelopes columns retained in DB but not populated
+ * for new messages.
  */
 export interface EncryptedMessage {
   id: string
@@ -693,19 +689,15 @@ export interface CreateNoteData {
   conversationId?: string
   contactHash?: string
   authorPubkey: string
+  // encryptedContent + ephemeralPubkey only used by server-side transcription (not API)
   encryptedContent?: string
   ephemeralPubkey?: string
-  authorEnvelope?: { wrappedKey: string; ephemeralPubkey: string }
-  adminEnvelopes?: { pubkey: string; wrappedKey: string; ephemeralPubkey: string }[]
   mlsCiphertext?: string
   mlsEpoch?: number
 }
 
 export interface UpdateNoteData {
-  encryptedContent?: string
   authorPubkey: string
-  authorEnvelope?: { wrappedKey: string; ephemeralPubkey: string }
-  adminEnvelopes?: { pubkey: string; wrappedKey: string; ephemeralPubkey: string }[]
   mlsCiphertext?: string
   mlsEpoch?: number
 }

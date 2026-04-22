@@ -99,8 +99,6 @@ function ConversationsPage() {
         const epoch = await mlsConv.currentEpoch()
 
         await sendMutation.mutateAsync({
-          encryptedContent: '' as import('@shared/crypto-types').Ciphertext,
-          readerEnvelopes: [],
           plaintextForSending: plaintext,
           mlsCiphertext,
           mlsEpoch: epoch,

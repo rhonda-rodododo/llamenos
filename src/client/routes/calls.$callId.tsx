@@ -56,21 +56,12 @@ function formatDuration(seconds: number) {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
-const PRE_UPGRADE_TEXT = 'Note from before security upgrade — no longer available'
-
 async function decryptNoteMls(
   note: EncryptedNote,
   hubId: string,
   currentPubkey?: string | null
 ): Promise<NotePayload> {
   if (!note.mlsCiphertext) {
-    if (
-      note.encryptedContent ||
-      note.authorEnvelope ||
-      (note.adminEnvelopes && note.adminEnvelopes.length > 0)
-    ) {
-      return { text: PRE_UPGRADE_TEXT }
-    }
     return { text: '[Decryption failed]' }
   }
 

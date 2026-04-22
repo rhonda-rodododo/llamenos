@@ -10,29 +10,17 @@ const baseMiddleware = requirePermission('notes:read-own')
 
 // ── Shared schemas ──
 
-const RecipientEnvelopeSchema = z.object({
-  pubkey: z.string(),
-  wrappedKey: z.string(),
-  ephemeralPubkey: z.string(),
-})
-
-const KeyEnvelopeSchema = z.object({
-  wrappedKey: z.string(),
-  ephemeralPubkey: z.string(),
-})
-
 const NoteResponseSchema = z.object({
   id: z.string(),
   callId: z.string().optional(),
   conversationId: z.string().optional(),
   contactHash: z.string().optional(),
   authorPubkey: z.string(),
+  // encryptedContent + ephemeralPubkey retained for server-created transcription notes
   encryptedContent: z.string().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
   ephemeralPubkey: z.string().optional(),
-  authorEnvelope: KeyEnvelopeSchema.optional(),
-  adminEnvelopes: z.array(RecipientEnvelopeSchema).optional(),
   mlsCiphertext: z.string().optional(),
   mlsEpoch: z.number().optional(),
   replyCount: z.number().optional(),
@@ -46,27 +34,18 @@ const CreateNoteBodySchema = z.object({
   callId: z.string().optional(),
   conversationId: z.string().optional(),
   contactHash: z.string().optional(),
-  encryptedContent: z.string().optional(),
-  authorEnvelope: KeyEnvelopeSchema.optional(),
-  adminEnvelopes: z.array(RecipientEnvelopeSchema).optional(),
-  mlsCiphertext: z.string().optional(),
-  mlsEpoch: z.number().optional(),
+  mlsCiphertext: z.string(),
+  mlsEpoch: z.number(),
 })
 
 const UpdateNoteBodySchema = z.object({
-  encryptedContent: z.string().optional(),
-  authorEnvelope: KeyEnvelopeSchema.optional(),
-  adminEnvelopes: z.array(RecipientEnvelopeSchema).optional(),
-  mlsCiphertext: z.string().optional(),
-  mlsEpoch: z.number().optional(),
+  mlsCiphertext: z.string(),
+  mlsEpoch: z.number(),
 })
 
 const CreateReplyBodySchema = z.object({
-  encryptedContent: z.string().optional(),
-  mlsCiphertext: z.string().optional(),
-  mlsEpoch: z.number().optional(),
-  readerEnvelopes: z.array(RecipientEnvelopeSchema).optional(),
-  authorEnvelope: KeyEnvelopeSchema.optional(),
+  mlsCiphertext: z.string(),
+  mlsEpoch: z.number(),
 })
 
 // ── GET / — list notes ──
@@ -310,9 +289,6 @@ notes.openapi(createReplyRoute, async (c) => {
   const parent = await services.records.getNote(id)
   if (!parent) return c.json({ error: 'Parent note not found' }, 404)
   const reply = await services.records.createNote({
-    encryptedContent: body.encryptedContent,
-    authorEnvelope: body.authorEnvelope,
-    adminEnvelopes: body.readerEnvelopes,
     mlsCiphertext: body.mlsCiphertext,
     mlsEpoch: body.mlsEpoch,
     authorPubkey: pubkey,

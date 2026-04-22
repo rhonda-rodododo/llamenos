@@ -1,6 +1,5 @@
 import { createRoute, z } from '@hono/zod-openapi'
 import { KIND_CONVERSATION_ASSIGNED, KIND_MESSAGE_NEW } from '../../shared/nostr-events'
-import type { RecipientEnvelope } from '../../shared/types'
 import { getNostrPublisher } from '../lib/adapters'
 import { createLogger } from '../lib/logger'
 import { createRouter } from '../lib/openapi'
@@ -110,10 +109,8 @@ const CreateReportBodySchema = z.object({
   title: z.string(),
   category: z.string().optional(),
   reportTypeId: z.string().optional(),
-  encryptedContent: z.string(),
-  readerEnvelopes: z.array(z.object({}).passthrough()),
-  mlsCiphertext: z.string().optional(),
-  mlsEpoch: z.number().optional(),
+  mlsCiphertext: z.string(),
+  mlsEpoch: z.number(),
 })
 
 const createReportRoute = createRoute({
@@ -144,10 +141,8 @@ reports.openapi(createReportRoute, async (c) => {
 
   const body = c.req.valid('json')
 
-  const hasEcies = !!body.encryptedContent && (body.readerEnvelopes?.length ?? 0) > 0
-  const hasMls = !!body.mlsCiphertext && body.mlsEpoch !== undefined
-  if (!hasEcies && !hasMls) {
-    return c.json({ error: 'Report content is required (ECIES or MLS)' }, 400)
+  if (!body.mlsCiphertext) {
+    return c.json({ error: 'Report content is required' }, 400)
   }
 
   // Validate reportTypeId belongs to this hub if provided
@@ -179,8 +174,7 @@ reports.openapi(createReportRoute, async (c) => {
     conversationId: conversation.id,
     direction: 'inbound',
     authorPubkey: pubkey,
-    encryptedContent: body.encryptedContent,
-    readerEnvelopes: body.readerEnvelopes as unknown as RecipientEnvelope[],
+    encryptedContent: '',
     hasAttachments: false,
     status: 'delivered',
     mlsCiphertext: body.mlsCiphertext,
@@ -349,11 +343,9 @@ reports.openapi(getReportMessagesRoute, async (c) => {
 // ── POST /{id}/messages — send message in report thread ──
 
 const SendReportMessageBodySchema = z.object({
-  encryptedContent: z.string(),
-  readerEnvelopes: z.array(z.object({}).passthrough()),
   attachmentIds: z.array(z.string()).optional(),
-  mlsCiphertext: z.string().optional(),
-  mlsEpoch: z.number().optional(),
+  mlsCiphertext: z.string(),
+  mlsEpoch: z.number(),
 })
 
 const sendReportMessageRoute = createRoute({
@@ -419,8 +411,7 @@ reports.openapi(sendReportMessageRoute, async (c) => {
     conversationId: id,
     direction,
     authorPubkey: pubkey,
-    encryptedContent: body.encryptedContent,
-    readerEnvelopes: body.readerEnvelopes as unknown as RecipientEnvelope[],
+    encryptedContent: '',
     hasAttachments: (body.attachmentIds?.length ?? 0) > 0,
     attachmentIds: body.attachmentIds,
     status: 'delivered',

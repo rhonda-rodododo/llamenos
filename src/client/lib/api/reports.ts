@@ -1,7 +1,6 @@
-import type { Ciphertext } from '@shared/crypto-types'
 import type { CreateReportTypeInput, ReportType, UpdateReportTypeInput } from '@shared/types'
 import { hp, request } from './client'
-import type { Conversation, ConversationMessage, MessageKeyEnvelope } from './conversations'
+import type { Conversation, ConversationMessage } from './conversations'
 
 export type { ReportType }
 
@@ -38,10 +37,8 @@ export async function createReport(data: {
   title: string
   category?: string
   reportTypeId?: string
-  encryptedContent: Ciphertext
-  readerEnvelopes: MessageKeyEnvelope[]
-  mlsCiphertext?: string
-  mlsEpoch?: number
+  mlsCiphertext: string
+  mlsEpoch: number
 }) {
   return request<Report>(hp('/reports'), {
     method: 'POST',
@@ -65,11 +62,9 @@ export async function getReportMessages(id: string, params?: { page?: number; li
 export async function sendReportMessage(
   id: string,
   data: {
-    encryptedContent: Ciphertext
-    readerEnvelopes: MessageKeyEnvelope[]
     attachmentIds?: string[]
-    mlsCiphertext?: string
-    mlsEpoch?: number
+    mlsCiphertext: string
+    mlsEpoch: number
   }
 ) {
   return request<ConversationMessage>(hp(`/reports/${id}/messages`), {

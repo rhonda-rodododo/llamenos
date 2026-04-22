@@ -127,8 +127,6 @@ const reportMessagesOptions = (reportId: string | null, auth: ReportMessagesAuth
 
               // Upgrade the message on the server
               await upgradeMessageToMls(reportId, msg.id, {
-                encryptedContent: '' as import('@shared/crypto-types').Ciphertext,
-                readerEnvelopes: [],
                 mlsCiphertext,
                 mlsEpoch: epoch,
               })

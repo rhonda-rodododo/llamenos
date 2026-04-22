@@ -39,26 +39,15 @@ export async function maybeTranscribe(
     })
 
     if (result.text) {
-      // Envelope encryption: single ciphertext, wrapped key for user + admin
-      const adminPubkey = env.ADMIN_DECRYPTION_PUBKEY || env.ADMIN_PUBKEY
-      if (!adminPubkey) {
-        log.error('ADMIN_PUBKEY not configured — cannot encrypt transcription')
-        return
-      }
-      const readerPubkeys = [userPubkey]
-      if (adminPubkey !== userPubkey) readerPubkeys.push(adminPubkey)
-
-      const { encrypted, envelopes } = services.crypto.envelopeEncrypt(
-        result.text,
-        readerPubkeys,
-        LABEL_MESSAGE
-      )
+      // Server-encrypt the transcription at rest (AES-GCM with server key).
+      // Clients will see this as a server-encrypted note; a future MLS claim
+      // path can re-encrypt for group decryption.
+      const encrypted = services.crypto.serverEncrypt(result.text, LABEL_MESSAGE)
 
       await services.records.createNote({
         callId: parentCallSid,
         authorPubkey: 'system:transcription',
         encryptedContent: encrypted as string,
-        adminEnvelopes: envelopes,
       })
 
       // Mark call record as having a transcription and persist the recording SID
@@ -99,23 +88,13 @@ export async function transcribeVoicemail(
     })
 
     if (result.text) {
-      // Voicemails: envelope encryption for admin only
-      const adminPubkey = env.ADMIN_DECRYPTION_PUBKEY || env.ADMIN_PUBKEY
-      if (!adminPubkey) {
-        log.error('ADMIN_PUBKEY not configured — cannot encrypt voicemail')
-        return
-      }
-      const { encrypted, envelopes } = services.crypto.envelopeEncrypt(
-        result.text,
-        [adminPubkey],
-        LABEL_VOICEMAIL_TRANSCRIPT
-      )
+      // Server-encrypt voicemail transcription at rest
+      const encrypted = services.crypto.serverEncrypt(result.text, LABEL_VOICEMAIL_TRANSCRIPT)
 
       await services.records.createNote({
         callId: callSid,
         authorPubkey: 'system:voicemail',
         encryptedContent: encrypted as string,
-        adminEnvelopes: envelopes,
       })
 
       // Mark call record as having a transcription
