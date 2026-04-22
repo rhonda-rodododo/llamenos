@@ -64,6 +64,7 @@ export async function createBlast(data: {
   })
 }
 
+/** @knipignore — blast update API scaffolding for future admin blast management UI */
 export async function updateBlast(id: string, data: Partial<Blast>) {
   return request<{ blast: Blast }>(hp(`/blasts/${id}`), {
     method: 'PATCH',

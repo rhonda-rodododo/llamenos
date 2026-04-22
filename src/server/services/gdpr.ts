@@ -28,6 +28,7 @@ import {
 import type { CryptoService } from '../lib/crypto-service'
 import { AppError } from '../lib/errors'
 
+/** @knipignore — GDPR export shape; used by the data export download endpoint response type */
 export interface GdprExport {
   exportedAt: string
   version: string
@@ -41,6 +42,7 @@ export interface GdprExport {
   hubs: Array<{ hubId: string; roleIds: string[] }>
 }
 
+/** @knipignore — GDPR purge result shape; used by retention purge job return type */
 export interface PurgeSummary {
   callRecordsDeleted: number
   notesDeleted: number

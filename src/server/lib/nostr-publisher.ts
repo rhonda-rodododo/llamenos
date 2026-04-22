@@ -65,6 +65,8 @@ export function deriveServerKeypair(serverSecret: string): {
 /**
  * Sign an event template with the server keypair.
  * Returns a fully signed VerifiedEvent ready for relay submission.
+ *
+ * @knipignore — Nostr event signing utility; used by publisher implementations and tests
  */
 export function signServerEvent(template: EventTemplate, secretKey: Uint8Array): VerifiedEvent {
   return finalizeEvent(template, secretKey)
@@ -76,6 +78,8 @@ export function signServerEvent(template: EventTemplate, secretKey: Uint8Array):
  *
  * The service binding is an internal RPC call within the CF account,
  * so latency is <10ms with no TLS overhead.
+ *
+ * @knipignore — Cloudflare runtime variant; selected at startup based on platform
  */
 export class CFNostrPublisher implements NostrPublisher {
   readonly serverPubkey: string
@@ -121,6 +125,8 @@ export class CFNostrPublisher implements NostrPublisher {
  * - Event queue for events published during reconnection
  * - NIP-42 authentication on connect
  * - Graceful shutdown
+ *
+ * @knipignore — Node.js/Bun runtime variant; selected at startup by createNostrPublisher()
  */
 export class NodeNostrPublisher implements NostrPublisher {
   readonly serverPubkey: string
@@ -322,6 +328,8 @@ export class NodeNostrPublisher implements NostrPublisher {
 /**
  * No-op publisher for deployments without a relay configured.
  * Events are silently dropped. Used when SERVER_NOSTR_SECRET is not set.
+ *
+ * @knipignore — fallback variant; selected at startup when relay is unconfigured
  */
 export class NoopNostrPublisher implements NostrPublisher {
   readonly serverPubkey = ''

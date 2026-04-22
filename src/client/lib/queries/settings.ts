@@ -206,6 +206,7 @@ function useUpdateWebAuthnSettings() {
 // customFieldsOptions / useCustomFields
 // ---------------------------------------------------------------------------
 
+/** @knipignore — query options factory; used by settings-aware components (not yet fully wired) */
 export const customFieldsOptions = (hubId = 'global') =>
   queryOptions({
     queryKey: queryKeys.settings.customFields(),

@@ -4,6 +4,8 @@ import { createTranscriptionService } from './lib/transcription'
 
 /**
  * Read a secret from /run/secrets/ (Docker secrets) or fall back to env var.
+ *
+ * @knipignore — Docker secrets utility; used by container orchestration startup path
  */
 export function readSecret(name: string, envKey?: string): string {
   const filePath = `/run/secrets/${name}`

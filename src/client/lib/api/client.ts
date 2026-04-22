@@ -6,6 +6,7 @@ import { authFacadeClient } from '../auth-facade-client'
 // In production the SPA is hosted on app.* and VITE_API_ORIGIN points at
 // https://api.* so API_BASE is absolute.
 export const API_ORIGIN = import.meta.env.VITE_API_ORIGIN ?? ''
+/** @knipignore — crypto iframe origin config; used by split-origin crypto worker setup */
 export const CRYPTO_ORIGIN = import.meta.env.VITE_CRYPTO_ORIGIN ?? ''
 export const API_BASE = `${API_ORIGIN}/api`
 

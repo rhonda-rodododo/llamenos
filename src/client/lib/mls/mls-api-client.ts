@@ -54,6 +54,8 @@ export function fetchKeyPackage(
 
 /**
  * Get unconsumed key package counts per device for a hub.
+ *
+ * @knipignore — MLS API; used by admin tooling to monitor key package health
  */
 export function fetchKeyPackageCounts(hubId: string): Promise<MlsKeyPackageCountsResponse> {
   return request<MlsKeyPackageCountsResponse>(
@@ -97,6 +99,8 @@ export function fetchCommits(hubId: string, sinceEpoch?: number): Promise<MlsFet
 
 /**
  * Get the current MLS epoch and group state for a hub.
+ *
+ * @knipignore — MLS API; used by admin tooling and future group health dashboard
  */
 export function fetchCurrentEpoch(hubId: string): Promise<MlsCurrentEpochResponse> {
   return request<MlsCurrentEpochResponse>(`/mls/hub/${encodeURIComponent(hubId)}/epoch`)
@@ -118,6 +122,8 @@ export function bootstrapGroup(
 
 /**
  * Purge old epoch commits (admin-only). Keeps the 5 most recent epochs.
+ *
+ * @knipignore — MLS API; used by admin maintenance UI for epoch housekeeping
  */
 export function purgeOldEpochs(hubId: string): Promise<MlsPurgeEpochResponse> {
   return request<MlsPurgeEpochResponse>(`/mls/hub/${encodeURIComponent(hubId)}/commits/purge`, {

@@ -40,6 +40,7 @@ export class NoMatchingEnvelopeError extends Error {
   }
 }
 
+/** @knipignore — error class for unlock factor failures; caught by future factor management UI */
 export class FactorDerivationError extends Error {
   constructor(message: string) {
     super(message)
@@ -235,4 +236,5 @@ export async function getAvailableFactorTypes(): Promise<Set<RootKekEnvelope['fa
 }
 
 // Re-export for callers that need to catch PRF-unsupported specifically
+/** @knipignore — PRF unsupported error re-export; used by WebAuthn factor registration (future UI) */
 export { PrfUnsupportedError } from './webauthn'
