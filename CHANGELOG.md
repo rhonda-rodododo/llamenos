@@ -5,7 +5,69 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.51.1] - 2026-04-15
+
+## 0.51.5 (2026-04-22)
+
+### Fixes
+
+- use draft→publish release flow to avoid immutable-release upload rejection (#218)
+
+## 0.51.4 (2026-04-22)
+
+### Features
+
+- contacts bulk import/merge UI (#187)
+- GDPR erasure + data export UI (#186)
+- P2 Slice 3 — Ed25519SigningKey / X25519EncryptionKey / AesGcmKey wrappers (#191)
+- Slice 4 — hub creation MLS bootstrap (Tier 6 PR #2, H4) (#189)
+- telephony provider setup wizard (OAuth, A2P, provisioning) (#190)
+- Slice 8 — MLS audit entry types (Tier 6 PR #2, H4)
+- wire P2 minor gap features (retention, replies, intake, report, load, teams) (#192)
+- Slice 5 — notes path cutover to MLS (Tier 6 PR #2, H4) (#195)
+- Slice 6 — messages path cutover to MLS (Tier 6 PR #2, H4) (#194)
+- Slice 7 — epoch commits on member add/remove (Tier 6 PR #2, H4) (#208)
+
+### Fixes
+
+- admin nav visibility — hub-admins see Operations group (bans, audit, analytics, health) (#197)
+- contacts tests broken by onCreated navigation to profile (#207)
+- wait for SW activated state instead of checking snapshot (#212)
+
+## 0.51.3 (2026-04-19)
+
+### Features
+
+- complete i18n bigbang for 22 locales
+- Signal contact registration UI + notification channel preference (#174)
+- P2 Slice 2 — DicewarePhrase redacting wrapper (#180)
+- Slice 3 — MlsConversation implementation (#181)
+- P2 Slice 7 — split HKDF labels from LABEL_REGISTRY (#182)
+- P2 Slice 5 — branded SealedFrame record (#184)
+- P2 Slice 6 — parse-don't-validate audit entry (#185)
+- P2 Slice 1 — branded ShamirShare / VerifiedShare (#178)
+
+### Fixes
+
+- resolve critical protobufjs vulnerability
+- update bun.lockb references to bun.lock
+
+## 0.51.2 (2026-04-15)
+
+### Features
+
+- knope-maintained release PR flow (#152)
+- Slice 2 — core-crypto WASM bootstrap in crypto-worker (Tier 6 PR #2, H4) (#164)
+- Slice 1 — DB schema + server routes (Tier 6 PR #2, H4) (#165)
+
+### Fixes
+
+- copy vendor/ before bun install so file: dep resolves (#156)
+- default seed rows render via i18n + bootstrap plaintext passthrough (#151 regression) (#157)
+- switch knope workflows from RELEASE_PAT to GITHUB_TOKEN (#158)
+- audit page crash + e2e test regressions from roleIds double-encoding (#162)
+- nostr-relay — disambiguate CALL_RING events by callSid (#168)
+
+## 0.51.1 (2026-04-15)
 
 ### Bug Fixes
 
@@ -15,7 +77,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.51.1 [skip ci]
 
-## [0.51.0] - 2026-04-15
+## 0.51.0 (2026-04-15)
 
 ### Features
 
@@ -25,7 +87,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.51.0 [skip ci]
 
-## [0.50.6] - 2026-04-14
+## 0.50.6 (2026-04-14)
 
 ### Miscellaneous
 
@@ -35,7 +97,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - remove defensive nostr-relay skips (#135)
 
-## [0.50.5] - 2026-04-14
+## 0.50.5 (2026-04-14)
 
 ### Bug Fixes
 
@@ -45,7 +107,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.50.5 [skip ci]
 
-## [0.50.4] - 2026-04-14
+## 0.50.4 (2026-04-14)
 
 ### Bug Fixes
 
@@ -60,7 +122,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - delete skipped device-fingerprint SAS interaction tests (#136)
 - remove defensive sealKey/telephony skips (#134)
 
-## [0.50.3] - 2026-04-14
+## 0.50.3 (2026-04-14)
 
 ### Miscellaneous
 
@@ -72,7 +134,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - remove dead non-Chromium skip branches (#138)
 - unskip getting-started + delete brittle hub-switcher test (#137)
 
-## [0.50.2] - 2026-04-14
+## 0.50.2 (2026-04-14)
 
 ### Bug Fixes
 
@@ -86,7 +148,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.50.2 [skip ci]
 
-## [0.50.1] - 2026-04-14
+## 0.50.1 (2026-04-14)
 
 ### Bug Fixes
 
@@ -101,7 +163,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.50.1 [skip ci]
 
-## [0.50.0] - 2026-04-14
+## 0.50.0 (2026-04-14)
 
 ### Documentation
 
@@ -116,7 +178,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.50.0 [skip ci]
 
-## [0.49.2] - 2026-04-14
+## 0.49.2 (2026-04-14)
 
 ### Miscellaneous
 
@@ -126,14 +188,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - delete dead gdpr retention + crypto-sandbox-real-boot specs (#133)
 
-## [0.49.1] - 2026-04-14
+## 0.49.1 (2026-04-14)
 
 ### Miscellaneous
 
 - delete superseded legacy helpers (#128)
 - v0.49.1 [skip ci]
 
-## [0.49.0] - 2026-04-14
+## 0.49.0 (2026-04-14)
 
 ### Features
 
@@ -143,7 +205,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.49.0 [skip ci]
 
-## [0.48.7] - 2026-04-14
+## 0.48.7 (2026-04-14)
 
 ### Bug Fixes
 
@@ -153,7 +215,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.48.7 [skip ci]
 
-## [0.48.6] - 2026-04-14
+## 0.48.6 (2026-04-14)
 
 ### Bug Fixes
 
@@ -177,7 +239,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.48.6 [skip ci]
 
-## [0.48.5] - 2026-04-14
+## 0.48.5 (2026-04-14)
 
 ### Bug Fixes
 
@@ -190,7 +252,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.48.5 [skip ci]
 
-## [0.48.4] - 2026-04-14
+## 0.48.4 (2026-04-14)
 
 ### Bug Fixes
 
@@ -200,7 +262,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.48.4 [skip ci]
 
-## [0.48.3] - 2026-04-14
+## 0.48.3 (2026-04-14)
 
 ### Bug Fixes
 
@@ -221,7 +283,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.48.3 [skip ci]
 
-## [0.48.2] - 2026-04-13
+## 0.48.2 (2026-04-13)
 
 ### Miscellaneous
 
@@ -231,7 +293,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - final v2/v3 symbol purge + enable MLS by default (#104)
 
-## [0.48.1] - 2026-04-13
+## 0.48.1 (2026-04-13)
 
 ### Bug Fixes
 
@@ -241,7 +303,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.48.1 [skip ci]
 
-## [0.48.0] - 2026-04-13
+## 0.48.0 (2026-04-13)
 
 ### Features
 
@@ -251,7 +313,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.48.0 [skip ci]
 
-## [0.47.0] - 2026-04-13
+## 0.47.0 (2026-04-13)
 
 ### Features
 
@@ -261,7 +323,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.47.0 [skip ci]
 
-## [0.46.0] - 2026-04-13
+## 0.46.0 (2026-04-13)
 
 ### Bug Fixes
 
@@ -287,7 +349,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - dedupe section-layout primitives into shared module (#93)
 
-## [0.45.0] - 2026-04-12
+## 0.45.0 (2026-04-12)
 
 ### Features
 
@@ -297,7 +359,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.45.0 [skip ci]
 
-## [0.44.0] - 2026-04-12
+## 0.44.0 (2026-04-12)
 
 ### Features
 
@@ -307,7 +369,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.44.0 [skip ci]
 
-## [0.43.0] - 2026-04-12
+## 0.43.0 (2026-04-12)
 
 ### Features
 
@@ -318,7 +380,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.43.0 [skip ci]
 
-## [0.42.2] - 2026-04-12
+## 0.42.2 (2026-04-12)
 
 ### Bug Fixes
 
@@ -328,7 +390,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.42.2 [skip ci]
 
-## [0.42.1] - 2026-04-11
+## 0.42.1 (2026-04-11)
 
 ### Bug Fixes
 
@@ -338,7 +400,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.42.1 [skip ci]
 
-## [0.42.0] - 2026-04-11
+## 0.42.0 (2026-04-11)
 
 ### CI/CD
 
@@ -368,7 +430,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.42.0 [skip ci]
 
-## [0.41.1] - 2026-04-11
+## 0.41.1 (2026-04-11)
 
 ### Bug Fixes
 
@@ -378,7 +440,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.41.1 [skip ci]
 
-## [0.41.0] - 2026-04-10
+## 0.41.0 (2026-04-10)
 
 ### Features
 
@@ -392,7 +454,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - multi-distro abstraction (Debian 12/13 + Ubuntu 22/24) (#49)
 
-## [0.40.0] - 2026-04-10
+## 0.40.0 (2026-04-10)
 
 ### Bug Fixes
 
@@ -435,7 +497,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - add cross-tab lock unit tests + hub-key E2E + testid migration
 - sync edge cases, migration integration test, panic-wipe assertions, docstring fixes
 
-## [0.39.1] - 2026-04-09
+## 0.39.1 (2026-04-09)
 
 ### Bug Fixes
 
@@ -445,7 +507,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.39.1 [skip ci]
 
-## [0.39.0] - 2026-04-08
+## 0.39.0 (2026-04-08)
 
 ### Features
 
@@ -455,7 +517,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.39.0 [skip ci]
 
-## [0.38.2] - 2026-04-08
+## 0.38.2 (2026-04-08)
 
 ### Bug Fixes
 
@@ -465,7 +527,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.38.2 [skip ci]
 
-## [0.38.1] - 2026-04-07
+## 0.38.1 (2026-04-07)
 
 ### Bug Fixes
 
@@ -475,7 +537,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.38.1 [skip ci]
 
-## [0.38.0] - 2026-04-06
+## 0.38.0 (2026-04-06)
 
 ### Features
 
@@ -485,7 +547,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.38.0 [skip ci]
 
-## [0.37.0] - 2026-04-05
+## 0.37.0 (2026-04-05)
 
 ### Features
 
@@ -495,7 +557,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.37.0 [skip ci]
 
-## [0.36.1] - 2026-04-05
+## 0.36.1 (2026-04-05)
 
 ### Bug Fixes
 
@@ -505,7 +567,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.36.1 [skip ci]
 
-## [0.36.0] - 2026-04-04
+## 0.36.0 (2026-04-04)
 
 ### Bug Fixes
 
@@ -522,7 +584,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.36.0 [skip ci]
 
-## [0.35.0] - 2026-04-02
+## 0.35.0 (2026-04-02)
 
 ### Features
 
@@ -532,7 +594,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.35.0 [skip ci]
 
-## [0.34.0] - 2026-04-02
+## 0.34.0 (2026-04-02)
 
 ### Features
 
@@ -542,7 +604,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.34.0 [skip ci]
 
-## [0.33.1] - 2026-04-02
+## 0.33.1 (2026-04-02)
 
 ### Bug Fixes
 
@@ -552,7 +614,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.33.1 [skip ci]
 
-## [0.33.0] - 2026-04-02
+## 0.33.0 (2026-04-02)
 
 ### Features
 
@@ -562,7 +624,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.33.0 [skip ci]
 
-## [0.32.0] - 2026-04-01
+## 0.32.0 (2026-04-01)
 
 ### Features
 
@@ -573,7 +635,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.32.0 [skip ci]
 
-## [0.31.2] - 2026-04-01
+## 0.31.2 (2026-04-01)
 
 ### Bug Fixes
 
@@ -583,7 +645,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.31.2 [skip ci]
 
-## [0.31.1] - 2026-04-01
+## 0.31.1 (2026-04-01)
 
 ### Bug Fixes
 
@@ -593,7 +655,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.31.1 [skip ci]
 
-## [0.31.0] - 2026-03-30
+## 0.31.0 (2026-03-30)
 
 ### Bug Fixes
 
@@ -802,7 +864,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - make settings reference #private on hub key consumers — prevents external access to getHubKey()
 
-## [0.30.0] - 2026-03-30
+## 0.30.0 (2026-03-30)
 
 ### Features
 
@@ -812,7 +874,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.30.0 [skip ci]
 
-## [0.29.2] - 2026-03-29
+## 0.29.2 (2026-03-29)
 
 ### Bug Fixes
 
@@ -824,7 +886,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - remove .dev.vars and Cloudflare Workers references
 - v0.29.2 [skip ci]
 
-## [0.29.1] - 2026-03-29
+## 0.29.1 (2026-03-29)
 
 ### Bug Fixes
 
@@ -834,7 +896,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.29.1 [skip ci]
 
-## [0.29.0] - 2026-03-28
+## 0.29.0 (2026-03-28)
 
 ### Features
 
@@ -844,7 +906,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.29.0 [skip ci]
 
-## [0.28.3] - 2026-03-28
+## 0.28.3 (2026-03-28)
 
 ### Bug Fixes
 
@@ -860,7 +922,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.28.3 [skip ci]
 
-## [0.28.2] - 2026-03-28
+## 0.28.2 (2026-03-28)
 
 ### Bug Fixes
 
@@ -873,7 +935,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.28.2 [skip ci]
 
-## [0.28.1] - 2026-03-28
+## 0.28.1 (2026-03-28)
 
 ### Miscellaneous
 
@@ -883,7 +945,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - comprehensive crypto unit test suite — 396 tests across 3 tiers (#19)
 
-## [0.28.0] - 2026-03-28
+## 0.28.0 (2026-03-28)
 
 ### Bug Fixes
 
@@ -950,7 +1012,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - API routes work with hub-key encrypted org metadata
 
-## [0.27.2] - 2026-03-28
+## 0.27.2 (2026-03-28)
 
 ### Bug Fixes
 
@@ -960,7 +1022,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.27.2 [skip ci]
 
-## [0.27.1] - 2026-03-28
+## 0.27.1 (2026-03-28)
 
 ### Bug Fixes
 
@@ -970,7 +1032,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.27.1 [skip ci]
 
-## [0.27.0] - 2026-03-27
+## 0.27.0 (2026-03-27)
 
 ### Bug Fixes
 
@@ -986,7 +1048,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.27.0 [skip ci]
 
-## [0.26.4] - 2026-03-27
+## 0.26.4 (2026-03-27)
 
 ### Bug Fixes
 
@@ -996,7 +1058,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.26.4 [skip ci]
 
-## [0.26.3] - 2026-03-27
+## 0.26.3 (2026-03-27)
 
 ### Bug Fixes
 
@@ -1011,7 +1073,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.26.3 [skip ci]
 
-## [0.26.2] - 2026-03-26
+## 0.26.2 (2026-03-26)
 
 ### Bug Fixes
 
@@ -1026,7 +1088,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.26.2 [skip ci]
 
-## [0.26.1] - 2026-03-26
+## 0.26.1 (2026-03-26)
 
 ### Bug Fixes
 
@@ -1042,7 +1104,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.26.1 [skip ci]
 
-## [0.26.0] - 2026-03-26
+## 0.26.0 (2026-03-26)
 
 ### Bug Fixes
 
@@ -1069,7 +1131,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.26.0 [skip ci]
 
-## [0.25.2] - 2026-03-26
+## 0.25.2 (2026-03-26)
 
 ### Bug Fixes
 
@@ -1080,7 +1142,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.25.2 [skip ci]
 
-## [0.25.1] - 2026-03-26
+## 0.25.1 (2026-03-26)
 
 ### Bug Fixes
 
@@ -1128,7 +1190,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - DRY up CI workflow with composite actions and fix CI failures
 
-## [0.25.0] - 2026-03-25
+## 0.25.0 (2026-03-25)
 
 ### Bug Fixes
 
@@ -1171,13 +1233,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.25.0 [skip ci]
 
-## [0.24.0] - 2026-03-25
+## 0.24.0 (2026-03-25)
 
 ### Miscellaneous
 
 - v0.24.0 [skip ci]
 
-## [0.23.0] - 2026-03-25
+## 0.23.0 (2026-03-25)
 
 ### Bug Fixes
 
@@ -1267,7 +1329,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - TestAdapter infrastructure + telephony skip removals
 
-## [0.22.0] - 2026-03-24
+## 0.22.0 (2026-03-24)
 
 ### Bug Fixes
 
@@ -1287,7 +1349,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - remove telephony 503 skip conditions from UI tests
 
-## [0.21.1] - 2026-03-24
+## 0.21.1 (2026-03-24)
 
 ### Bug Fixes
 
@@ -1301,7 +1363,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.21.1 [skip ci]
 
-## [0.21.0] - 2026-03-24
+## 0.21.0 (2026-03-24)
 
 ### Bug Fixes
 
@@ -1548,7 +1610,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - fix 3 hub isolation gaps — cross-hub schedule/call updates + Nostr tag scoping
 
-## [0.20.0] - 2026-03-08
+## 0.20.0 (2026-03-08)
 
 ### Bug Fixes
 
@@ -1579,14 +1641,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - remove deploy/coopcloud/ — recipe lives in template repo
 
-## [0.19.2] - 2026-02-27
+## 0.19.2 (2026-02-27)
 
 ### Miscellaneous
 
 - add AGPL-3.0-or-later license
 - v0.19.2 [skip ci]
 
-## [0.19.1] - 2026-02-27
+## 0.19.1 (2026-02-27)
 
 ### Bug Fixes
 
@@ -1596,7 +1658,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.19.1 [skip ci]
 
-## [0.19.0] - 2026-02-27
+## 0.19.0 (2026-02-27)
 
 ### Bug Fixes
 
@@ -1647,7 +1709,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.19.0 [skip ci]
 
-## [0.18.0] - 2026-02-25
+## 0.18.0 (2026-02-25)
 
 ### Bug Fixes
 
@@ -1672,7 +1734,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - add comprehensive tests for messaging epics 68-73
 
-## [0.17.0] - 2026-02-24
+## 0.17.0 (2026-02-24)
 
 ### CI/CD
 
@@ -1686,7 +1748,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.17.0 [skip ci]
 
-## [0.16.1] - 2026-02-24
+## 0.16.1 (2026-02-24)
 
 ### Bug Fixes
 
@@ -1704,7 +1766,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - add test ID infrastructure for maintainable selectors
 
-## [0.16.0] - 2026-02-24
+## 0.16.0 (2026-02-24)
 
 ### Bug Fixes
 
@@ -1728,7 +1790,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - update logo SVG and clean up footer
 - v0.16.0 [skip ci]
 
-## [0.15.0] - 2026-02-24
+## 0.15.0 (2026-02-24)
 
 ### Bug Fixes
 
@@ -1774,7 +1836,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - add next staging environment for pre-release testing
 - v0.15.0 [skip ci]
 
-## [0.14.0] - 2026-02-22
+## 0.14.0 (2026-02-22)
 
 ### Bug Fixes
 
@@ -1788,7 +1850,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.14.0 [skip ci]
 
-## [0.13.0] - 2026-02-21
+## 0.13.0 (2026-02-21)
 
 ### Bug Fixes
 
@@ -1807,7 +1869,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.13.0
 
-## [0.12.0] - 2026-02-19
+## 0.12.0 (2026-02-19)
 
 ### Bug Fixes
 
@@ -1825,7 +1887,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.12.0
 
-## [0.11.1] - 2026-02-19
+## 0.11.1 (2026-02-19)
 
 ### Bug Fixes
 
@@ -1835,7 +1897,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - v0.11.1
 
-## [0.11.0] - 2026-02-19
+## 0.11.0 (2026-02-19)
 
 ### Bug Fixes
 
@@ -1851,7 +1913,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - update changelog for v0.9.1
 - v0.11.0
 
-## [0.9.1] - 2026-02-18
+## 0.9.1 (2026-02-18)
 
 ### Documentation
 
@@ -1865,7 +1927,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - bump version to 0.9.1
 
-## [0.9.0] - 2026-02-18
+## 0.9.0 (2026-02-18)
 
 ### Bug Fixes
 
@@ -1970,64 +2032,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - E2E tests for custom fields in notes, update CLAUDE.md
 - add E2E tests for device linking and fix /link-device public path
 
-
-## 0.51.5 (2026-04-22)
-
-### Fixes
-
-- use draft→publish release flow to avoid immutable-release upload rejection (#218)
-
-## 0.51.4 (2026-04-22)
-
-### Features
-
-- contacts bulk import/merge UI (#187)
-- GDPR erasure + data export UI (#186)
-- P2 Slice 3 — Ed25519SigningKey / X25519EncryptionKey / AesGcmKey wrappers (#191)
-- Slice 4 — hub creation MLS bootstrap (Tier 6 PR #2, H4) (#189)
-- telephony provider setup wizard (OAuth, A2P, provisioning) (#190)
-- Slice 8 — MLS audit entry types (Tier 6 PR #2, H4)
-- wire P2 minor gap features (retention, replies, intake, report, load, teams) (#192)
-- Slice 5 — notes path cutover to MLS (Tier 6 PR #2, H4) (#195)
-- Slice 6 — messages path cutover to MLS (Tier 6 PR #2, H4) (#194)
-- Slice 7 — epoch commits on member add/remove (Tier 6 PR #2, H4) (#208)
-
-### Fixes
-
-- admin nav visibility — hub-admins see Operations group (bans, audit, analytics, health) (#197)
-- contacts tests broken by onCreated navigation to profile (#207)
-- wait for SW activated state instead of checking snapshot (#212)
-
-## 0.51.3 (2026-04-19)
-
-### Features
-
-- complete i18n bigbang for 22 locales
-- Signal contact registration UI + notification channel preference (#174)
-- P2 Slice 2 — DicewarePhrase redacting wrapper (#180)
-- Slice 3 — MlsConversation implementation (#181)
-- P2 Slice 7 — split HKDF labels from LABEL_REGISTRY (#182)
-- P2 Slice 5 — branded SealedFrame record (#184)
-- P2 Slice 6 — parse-don't-validate audit entry (#185)
-- P2 Slice 1 — branded ShamirShare / VerifiedShare (#178)
-
-### Fixes
-
-- resolve critical protobufjs vulnerability
-- update bun.lockb references to bun.lock
-
-## 0.51.2 (2026-04-15)
-
-### Features
-
-- knope-maintained release PR flow (#152)
-- Slice 2 — core-crypto WASM bootstrap in crypto-worker (Tier 6 PR #2, H4) (#164)
-- Slice 1 — DB schema + server routes (Tier 6 PR #2, H4) (#165)
-
-### Fixes
-
-- copy vendor/ before bun install so file: dep resolves (#156)
-- default seed rows render via i18n + bootstrap plaintext passthrough (#151 regression) (#157)
-- switch knope workflows from RELEASE_PAT to GITHUB_TOKEN (#158)
-- audit page crash + e2e test regressions from roleIds double-encoding (#162)
-- nostr-relay — disambiguate CALL_RING events by callSid (#168)
