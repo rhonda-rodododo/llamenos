@@ -1,7 +1,7 @@
+import { createRoute, z } from '@hono/zod-openapi'
 import { hmac } from '@noble/hashes/hmac.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js'
-import { Hono } from 'hono'
 import { getCookie, setCookie } from 'hono/cookie'
 import { createMiddleware } from 'hono/factory'
 import { LABEL_SESSION_META } from '../../shared/crypto-labels'
@@ -27,6 +27,7 @@ import type { CryptoService } from '../lib/crypto-service'
 import { lookupIp } from '../lib/geoip'
 import { uint8ArrayToBase64URL } from '../lib/helpers'
 import { signAccessToken, verifyAccessToken } from '../lib/jwt'
+import { createRouter } from '../lib/openapi'
 import { generateSessionToken, hashSessionToken } from '../lib/session-tokens'
 import {
   generateAuthOptions,
@@ -213,12 +214,28 @@ export async function createUserSession(
 // Router
 // ---------------------------------------------------------------------------
 
-const authFacade = new Hono<AuthFacadeEnv>()
+const authFacade = createRouter<AuthFacadeEnv>()
 
 // ===== Public routes (no auth) =====
 
-// POST /webauthn/login-options
-authFacade.post('/webauthn/login-options', async (c) => {
+const webauthnLoginOptionsRoute = createRoute({
+  method: 'post',
+  path: '/webauthn/login-options',
+  tags: ['Auth'],
+  summary: 'Get WebAuthn login options',
+  responses: {
+    200: {
+      description: 'WebAuthn options',
+      content: { 'application/json': { schema: z.object({}).passthrough() } },
+    },
+    429: {
+      description: 'Rate limited',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+  },
+})
+
+authFacade.openapi(webauthnLoginOptionsRoute, async (c) => {
   const identity = c.get('identity')
 
   // Rate limit
@@ -236,11 +253,40 @@ authFacade.post('/webauthn/login-options', async (c) => {
   const options = await generateAuthOptions(credentials, rpID)
   const challengeId = crypto.randomUUID()
   await identity.storeWebAuthnChallenge({ id: challengeId, challenge: options.challenge })
-  return c.json({ ...options, challengeId })
+  return c.json({ ...options, challengeId }, 200)
 })
 
-// POST /webauthn/login-verify
-authFacade.post('/webauthn/login-verify', async (c) => {
+const webauthnLoginVerifyRoute = createRoute({
+  method: 'post',
+  path: '/webauthn/login-verify',
+  tags: ['Auth'],
+  summary: 'Verify WebAuthn login assertion',
+  request: {
+    body: { content: { 'application/json': { schema: WebAuthnLoginVerifySchema } } },
+  },
+  responses: {
+    200: {
+      description: 'Login successful',
+      content: {
+        'application/json': { schema: z.object({ accessToken: z.string(), pubkey: z.string() }) },
+      },
+    },
+    400: {
+      description: 'Invalid request',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+    401: {
+      description: 'Verification failed',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+    429: {
+      description: 'Rate limited',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+  },
+})
+
+authFacade.openapi(webauthnLoginVerifyRoute, async (c) => {
   const identity = c.get('identity')
 
   // Rate limit
@@ -386,11 +432,34 @@ authFacade.post('/webauthn/login-verify', async (c) => {
     maxAge: SESSION_COOKIE_MAX_AGE,
   })
 
-  return c.json({ accessToken, pubkey: matched.ownerPubkey })
+  return c.json({ accessToken, pubkey: matched.ownerPubkey }, 200)
 })
 
-// POST /invite/accept
-authFacade.post('/invite/accept', async (c) => {
+const inviteAcceptRoute = createRoute({
+  method: 'post',
+  path: '/invite/accept',
+  tags: ['Auth'],
+  summary: 'Accept an invite code',
+  request: {
+    body: { content: { 'application/json': { schema: InviteAcceptSchema } } },
+  },
+  responses: {
+    200: {
+      description: 'Invite valid',
+      content: {
+        'application/json': {
+          schema: z.object({ valid: z.boolean(), roles: z.array(z.string()) }),
+        },
+      },
+    },
+    400: {
+      description: 'Invalid invite',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+  },
+})
+
+authFacade.openapi(inviteAcceptRoute, async (c) => {
   const identity = c.get('identity')
   const parseResult = InviteAcceptSchema.safeParse(await c.req.json())
   if (!parseResult.success) {
@@ -402,11 +471,38 @@ authFacade.post('/invite/accept', async (c) => {
   if (!result.valid) {
     return c.json({ error: result.error ?? 'Invalid invite' }, 400)
   }
-  return c.json({ valid: true, roles: result.roleIds })
+  return c.json({ valid: true, roles: result.roleIds ?? [] }, 200)
 })
 
-// POST /demo-login — issue JWT for a demo account (demo mode only)
-authFacade.post('/demo-login', async (c) => {
+const demoLoginRoute = createRoute({
+  method: 'post',
+  path: '/demo-login',
+  tags: ['Auth'],
+  summary: 'Demo login',
+  request: {
+    body: { content: { 'application/json': { schema: DemoLoginSchema } } },
+  },
+  responses: {
+    200: {
+      description: 'Demo token',
+      content: { 'application/json': { schema: z.object({ token: z.string() }) } },
+    },
+    400: {
+      description: 'Invalid request',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+    403: {
+      description: 'Demo mode not enabled',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+    404: {
+      description: 'Demo account not found',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+  },
+})
+
+authFacade.openapi(demoLoginRoute, async (c) => {
   // Demo mode can be enabled via env var or via setup wizard (database setting)
   const envDemo = c.env.DEMO_MODE === 'true'
   let dbDemo = false
@@ -442,45 +538,32 @@ authFacade.post('/demo-login', async (c) => {
     c.env.JWT_SECRET
   )
 
-  return c.json({ token })
+  return c.json({ token }, 200)
 })
 
 // ===== Authenticated routes =====
+// All routes below include middleware: [jwtAuth] in their createRoute() definition,
+// so no blanket .use() auth guards are needed here.
 
-authFacade.use('/webauthn/register-options', jwtAuth)
-authFacade.use('/webauthn/register-verify', jwtAuth)
-authFacade.use('/userinfo', jwtAuth)
-authFacade.use('/rotation/confirm', jwtAuth)
-authFacade.use('/session/revoke', jwtAuth)
-authFacade.use('/devices', jwtAuth)
-authFacade.use('/devices/*', jwtAuth)
-authFacade.use('/sessions', jwtAuth)
-authFacade.use('/sessions/*', jwtAuth)
-authFacade.use('/passkeys', jwtAuth)
-authFacade.use('/pin/*', jwtAuth)
-authFacade.use('/recovery/*', jwtAuth)
-authFacade.use('/passkeys/*', jwtAuth)
-authFacade.use('/admin/*', jwtAuth)
-authFacade.use('/events', jwtAuth)
-authFacade.use('/events/*', jwtAuth)
-authFacade.use('/signal-contact', jwtAuth)
-authFacade.use('/signal-contact/*', jwtAuth)
-authFacade.use('/security-prefs', jwtAuth)
-authFacade.use('/kek-proof', jwtAuth)
-authFacade.use('/kek-proof/*', jwtAuth)
-// Recovery group:
-//   /enroll, /contribute-share, /user-envelope — require auth at mount level
-//
-//   GET  /:hubId         — requires auth (group config leak); enforced inside recovery-group router
-//   GET  /session/:id    — requires auth (session status leak); enforced inside recovery-group router
-//   POST /initiate       — no auth (recovering user has no credentials), per-IP rate limited inside router
-//   POST /complete       — no auth (recovering user has no credentials)
-authFacade.use('/recovery-group/enroll', jwtAuth)
-authFacade.use('/recovery-group/contribute-share', jwtAuth)
-authFacade.use('/recovery-group/user-envelope', jwtAuth)
+const webauthnRegisterOptionsRoute = createRoute({
+  method: 'post',
+  path: '/webauthn/register-options',
+  tags: ['Auth'],
+  summary: 'Get WebAuthn registration options',
+  middleware: [jwtAuth],
+  responses: {
+    200: {
+      description: 'WebAuthn options',
+      content: { 'application/json': { schema: z.object({}).passthrough() } },
+    },
+    404: {
+      description: 'User not found',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+  },
+})
 
-// POST /webauthn/register-options
-authFacade.post('/webauthn/register-options', async (c) => {
+authFacade.openapi(webauthnRegisterOptionsRoute, async (c) => {
   const identity = c.get('identity')
   const pubkey = c.get('pubkey')
   const user = await identity.getUser(pubkey)
@@ -492,11 +575,31 @@ authFacade.post('/webauthn/register-options', async (c) => {
   const options = await generateRegOptions({ pubkey, name: user.name }, existing, rpID, rpName)
   const challengeId = crypto.randomUUID()
   await identity.storeWebAuthnChallenge({ id: challengeId, challenge: options.challenge })
-  return c.json({ ...options, challengeId })
+  return c.json({ ...options, challengeId }, 200)
 })
 
-// POST /webauthn/register-verify
-authFacade.post('/webauthn/register-verify', async (c) => {
+const webauthnRegisterVerifyRoute = createRoute({
+  method: 'post',
+  path: '/webauthn/register-verify',
+  tags: ['Auth'],
+  summary: 'Verify WebAuthn registration attestation',
+  middleware: [jwtAuth],
+  request: {
+    body: { content: { 'application/json': { schema: WebAuthnRegisterVerifySchema } } },
+  },
+  responses: {
+    200: {
+      description: 'Registration successful',
+      content: { 'application/json': { schema: z.object({ ok: z.boolean() }) } },
+    },
+    400: {
+      description: 'Invalid request or verification failed',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+  },
+})
+
+authFacade.openapi(webauthnRegisterVerifyRoute, async (c) => {
   const identity = c.get('identity')
   const pubkey = c.get('pubkey')
 
@@ -555,14 +658,34 @@ authFacade.post('/webauthn/register-verify', async (c) => {
         )
     }
 
-    return c.json({ ok: true })
+    return c.json({ ok: true }, 200)
   } catch {
     return c.json({ error: 'Verification failed' }, 400)
   }
 })
 
-// POST /token/refresh — CSRF: require Content-Type: application/json
-authFacade.post('/token/refresh', async (c) => {
+const tokenRefreshRoute = createRoute({
+  method: 'post',
+  path: '/token/refresh',
+  tags: ['Auth'],
+  summary: 'Refresh access token',
+  responses: {
+    200: {
+      description: 'New access token',
+      content: { 'application/json': { schema: z.object({ accessToken: z.string() }) } },
+    },
+    401: {
+      description: 'Invalid or expired session',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+    415: {
+      description: 'Invalid Content-Type',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+  },
+})
+
+authFacade.openapi(tokenRefreshRoute, async (c) => {
   const contentType = c.req.header('Content-Type')
   if (!contentType?.includes('application/json')) {
     return c.json({ error: 'Content-Type must be application/json' }, 415)
@@ -666,19 +789,56 @@ authFacade.post('/token/refresh', async (c) => {
     maxAge: SESSION_COOKIE_MAX_AGE,
   })
 
-  return c.json({ accessToken })
+  return c.json({ accessToken }, 200)
 })
 
-// GET /kek-proof/status — whether the server has a KEK proof hash stored
-authFacade.get('/kek-proof/status', async (c) => {
+const kekProofStatusRoute = createRoute({
+  method: 'get',
+  path: '/kek-proof/status',
+  tags: ['Auth'],
+  summary: 'Get KEK proof status',
+  middleware: [jwtAuth],
+  responses: {
+    200: {
+      description: 'KEK proof status',
+      content: { 'application/json': { schema: z.object({ hasProof: z.boolean() }) } },
+    },
+  },
+})
+
+authFacade.openapi(kekProofStatusRoute, async (c) => {
   const pubkey = c.get('pubkey')
   const identity = c.get('identity')
   const stored = await identity.getKekProofHash(pubkey)
-  return c.json({ hasProof: stored !== null })
+  return c.json({ hasProof: stored !== null }, 200)
 })
 
-// POST /kek-proof — set the KEK proof hash (one-time, after first unlock post-migration)
-authFacade.post('/kek-proof', async (c) => {
+const kekProofRoute = createRoute({
+  method: 'post',
+  path: '/kek-proof',
+  tags: ['Auth'],
+  summary: 'Set KEK proof hash',
+  middleware: [jwtAuth],
+  request: {
+    body: { content: { 'application/json': { schema: KekProofSchema } } },
+  },
+  responses: {
+    200: {
+      description: 'Proof set or verified',
+      content: { 'application/json': { schema: z.object({ ok: z.boolean() }) } },
+    },
+    400: {
+      description: 'Invalid request',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+    409: {
+      description: 'Proof already set',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+  },
+})
+
+authFacade.openapi(kekProofRoute, async (c) => {
   const pubkey = c.get('pubkey')
   const parsed = KekProofSchema.safeParse(await c.req.json().catch(() => null))
   if (!parsed.success) {
@@ -693,14 +853,31 @@ authFacade.post('/kek-proof', async (c) => {
     if (!(await identity.verifyKekProof(pubkey, body.proof))) {
       return c.json({ error: 'Proof already set' }, 409)
     }
-    return c.json({ ok: true })
+    return c.json({ ok: true }, 200)
   }
   await identity.setKekProofHash(pubkey, IdentityService.hashKekProof(body.proof))
-  return c.json({ ok: true })
+  return c.json({ ok: true }, 200)
 })
 
-// GET /userinfo — return pubkey + nsec secret for KEK derivation
-authFacade.get('/userinfo', async (c) => {
+const userinfoRoute = createRoute({
+  method: 'get',
+  path: '/userinfo',
+  tags: ['Auth'],
+  summary: 'Get user info',
+  middleware: [jwtAuth],
+  responses: {
+    200: {
+      description: 'User info',
+      content: {
+        'application/json': {
+          schema: z.object({ pubkey: z.string(), nsecSecret: z.string().nullable() }),
+        },
+      },
+    },
+  },
+})
+
+authFacade.openapi(userinfoRoute, async (c) => {
   const pubkey = c.get('pubkey')
   const idpAdapter = c.get('idpAdapter')
 
@@ -713,19 +890,45 @@ authFacade.get('/userinfo', async (c) => {
     // Return null — the client will use a synthetic IdP value for KEK derivation.
   }
 
-  return c.json({ pubkey, nsecSecret })
+  return c.json({ pubkey, nsecSecret }, 200)
 })
 
-// POST /rotation/confirm
-authFacade.post('/rotation/confirm', async (c) => {
+const rotationConfirmRoute = createRoute({
+  method: 'post',
+  path: '/rotation/confirm',
+  tags: ['Auth'],
+  summary: 'Confirm key rotation',
+  middleware: [jwtAuth],
+  responses: {
+    200: {
+      description: 'Rotation confirmed',
+      content: { 'application/json': { schema: z.object({ ok: z.boolean() }) } },
+    },
+  },
+})
+
+authFacade.openapi(rotationConfirmRoute, async (c) => {
   const pubkey = c.get('pubkey')
   const idpAdapter = c.get('idpAdapter')
   await idpAdapter.confirmRotation(pubkey)
-  return c.json({ ok: true })
+  return c.json({ ok: true }, 200)
 })
 
-// POST /session/revoke
-authFacade.post('/session/revoke', async (c) => {
+const sessionRevokeRoute = createRoute({
+  method: 'post',
+  path: '/session/revoke',
+  tags: ['Auth'],
+  summary: 'Revoke current session',
+  middleware: [jwtAuth],
+  responses: {
+    200: {
+      description: 'Session revoked',
+      content: { 'application/json': { schema: z.object({ ok: z.boolean() }) } },
+    },
+  },
+})
+
+authFacade.openapi(sessionRevokeRoute, async (c) => {
   const pubkey = c.get('pubkey')
   const sessions = c.get('sessions')
   const idpAdapter = c.get('idpAdapter')
@@ -777,31 +980,71 @@ authFacade.post('/session/revoke', async (c) => {
     maxAge: 0,
   })
 
-  return c.json({ ok: true })
+  return c.json({ ok: true }, 200)
 })
 
-// GET /sessions — list current user's active sessions
-authFacade.get('/sessions', async (c) => {
+const listSessionsRoute = createRoute({
+  method: 'get',
+  path: '/sessions',
+  tags: ['Auth'],
+  summary: 'List active sessions',
+  middleware: [jwtAuth],
+  responses: {
+    200: {
+      description: 'Active sessions',
+      content: {
+        'application/json': { schema: z.object({ sessions: z.array(z.object({}).passthrough()) }) },
+      },
+    },
+  },
+})
+
+authFacade.openapi(listSessionsRoute, async (c) => {
   const pubkey = c.get('pubkey')
   const sessions = c.get('sessions')
   const sessionIdCookie = getCookie(c, 'llamenos-session-id')
   const rows = await sessions.listForUser(pubkey)
-  return c.json({
-    sessions: rows.map((r) => ({
-      id: r.id,
-      createdAt: r.createdAt.toISOString(),
-      lastSeenAt: r.lastSeenAt.toISOString(),
-      expiresAt: r.expiresAt.toISOString(),
-      isCurrent: r.id === sessionIdCookie,
-      encryptedMeta: r.encryptedMeta,
-      metaEnvelope: r.metaEnvelope,
-      credentialId: r.credentialId,
-    })),
-  })
+  return c.json(
+    {
+      sessions: rows.map((r) => ({
+        id: r.id,
+        createdAt: r.createdAt.toISOString(),
+        lastSeenAt: r.lastSeenAt.toISOString(),
+        expiresAt: r.expiresAt.toISOString(),
+        isCurrent: r.id === sessionIdCookie,
+        encryptedMeta: r.encryptedMeta,
+        metaEnvelope: r.metaEnvelope,
+        credentialId: r.credentialId,
+      })),
+    },
+    200
+  )
 })
 
-// DELETE /sessions/:id — revoke a specific session
-authFacade.delete('/sessions/:id', async (c) => {
+const deleteSessionRoute = createRoute({
+  method: 'delete',
+  path: '/sessions/{id}',
+  tags: ['Auth'],
+  summary: 'Revoke a specific session',
+  middleware: [jwtAuth],
+  request: {
+    params: z.object({
+      id: z.string().openapi({ param: { name: 'id', in: 'path' }, example: 'sess-abc123' }),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Session revoked',
+      content: { 'application/json': { schema: z.object({ ok: z.boolean() }) } },
+    },
+    404: {
+      description: 'Session not found',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+  },
+})
+
+authFacade.openapi(deleteSessionRoute, async (c) => {
   const pubkey = c.get('pubkey')
   const sessions = c.get('sessions')
   const id = c.req.param('id')
@@ -819,11 +1062,24 @@ authFacade.delete('/sessions/:id', async (c) => {
   } catch (err) {
     log.error('auth event recording failed', err instanceof Error ? err : new Error(String(err)))
   }
-  return c.json({ ok: true })
+  return c.json({ ok: true }, 200)
 })
 
-// POST /sessions/revoke-others — revoke all except current
-authFacade.post('/sessions/revoke-others', async (c) => {
+const revokeOthersRoute = createRoute({
+  method: 'post',
+  path: '/sessions/revoke-others',
+  tags: ['Auth'],
+  summary: 'Revoke all other sessions',
+  middleware: [jwtAuth],
+  responses: {
+    200: {
+      description: 'Other sessions revoked',
+      content: { 'application/json': { schema: z.object({ revokedCount: z.number() }) } },
+    },
+  },
+})
+
+authFacade.openapi(revokeOthersRoute, async (c) => {
   const pubkey = c.get('pubkey')
   const sessions = c.get('sessions')
   const sessionIdCookie = getCookie(c, 'llamenos-session-id')
@@ -837,11 +1093,47 @@ authFacade.post('/sessions/revoke-others', async (c) => {
   } catch (err) {
     log.error('auth event recording failed', err instanceof Error ? err : new Error(String(err)))
   }
-  return c.json({ revokedCount: count })
+  return c.json({ revokedCount: count }, 200)
 })
 
-// POST /sessions/lockdown — tiered emergency lockdown (A/B/C)
-authFacade.post('/sessions/lockdown', async (c) => {
+const lockdownRoute = createRoute({
+  method: 'post',
+  path: '/sessions/lockdown',
+  tags: ['Auth'],
+  summary: 'Emergency session lockdown',
+  middleware: [jwtAuth],
+  request: {
+    body: { content: { 'application/json': { schema: LockdownRequestSchema } } },
+  },
+  responses: {
+    200: {
+      description: 'Lockdown result',
+      content: { 'application/json': { schema: z.object({}).passthrough() } },
+    },
+    400: {
+      description: 'Invalid request',
+      content: {
+        'application/json': {
+          schema: z.object({ error: z.string(), details: z.any().optional() }),
+        },
+      },
+    },
+    401: {
+      description: 'Invalid PIN proof',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+    409: {
+      description: 'Unlock required first',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+    429: {
+      description: 'Rate limited',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+  },
+})
+
+authFacade.openapi(lockdownRoute, async (c) => {
   const pubkey = c.get('pubkey')
   if (isRateLimited(`lockdown:${pubkey}`, LIMIT_LOCKDOWN_PER_15MIN, 15 * 60 * 1000)) {
     return c.json({ error: 'Too many lockdown attempts' }, 429)
@@ -881,11 +1173,43 @@ authFacade.post('/sessions/lockdown', async (c) => {
       maxAge: 0,
     })
   }
-  return c.json(result)
+  return c.json(result, 200)
 })
 
-// POST /pin/change — store new encryptedSecretKey after client-side PIN rotation
-authFacade.post('/pin/change', async (c) => {
+const pinChangeRoute = createRoute({
+  method: 'post',
+  path: '/pin/change',
+  tags: ['Auth'],
+  summary: 'Change PIN',
+  middleware: [jwtAuth],
+  request: {
+    body: { content: { 'application/json': { schema: PinChangeSchema } } },
+  },
+  responses: {
+    200: {
+      description: 'PIN changed',
+      content: { 'application/json': { schema: z.object({ ok: z.boolean() }) } },
+    },
+    400: {
+      description: 'Invalid request',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+    401: {
+      description: 'Invalid current PIN proof',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+    409: {
+      description: 'Unlock required first',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+    429: {
+      description: 'Rate limited',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+  },
+})
+
+authFacade.openapi(pinChangeRoute, async (c) => {
   const pubkey = c.get('pubkey')
   if (isRateLimited(`pin-change:${pubkey}`, LIMIT_PIN_CHANGE_PER_HOUR, 60 * 60 * 1000)) {
     return c.json({ error: 'Too many PIN change attempts' }, 429)
@@ -925,11 +1249,43 @@ authFacade.post('/pin/change', async (c) => {
         log.error('notification failed', err instanceof Error ? err : new Error(String(err)))
       )
   }
-  return c.json({ ok: true })
+  return c.json({ ok: true }, 200)
 })
 
-// POST /recovery/rotate — store new encryptedSecretKey after recovery key rotation
-authFacade.post('/recovery/rotate', async (c) => {
+const recoveryRotateRoute = createRoute({
+  method: 'post',
+  path: '/recovery/rotate',
+  tags: ['Auth'],
+  summary: 'Rotate recovery key',
+  middleware: [jwtAuth],
+  request: {
+    body: { content: { 'application/json': { schema: RecoveryRotateSchema } } },
+  },
+  responses: {
+    200: {
+      description: 'Recovery key rotated',
+      content: { 'application/json': { schema: z.object({ ok: z.boolean() }) } },
+    },
+    400: {
+      description: 'Invalid request',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+    401: {
+      description: 'Invalid current PIN proof',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+    409: {
+      description: 'Unlock required first',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+    429: {
+      description: 'Rate limited',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+  },
+})
+
+authFacade.openapi(recoveryRotateRoute, async (c) => {
   const pubkey = c.get('pubkey')
   if (
     isRateLimited(`recovery-rotate:${pubkey}`, LIMIT_RECOVERY_ROTATE_PER_DAY, 24 * 60 * 60 * 1000)
@@ -968,32 +1324,81 @@ authFacade.post('/recovery/rotate', async (c) => {
         log.error('notification failed', err instanceof Error ? err : new Error(String(err)))
       )
   }
-  return c.json({ ok: true })
+  return c.json({ ok: true }, 200)
 })
 
-// GET /devices — list WebAuthn credentials
-authFacade.get('/devices', async (c) => {
+const listDevicesRoute = createRoute({
+  method: 'get',
+  path: '/devices',
+  tags: ['Auth'],
+  summary: 'List WebAuthn credentials (devices)',
+  middleware: [jwtAuth],
+  responses: {
+    200: {
+      description: 'Credentials list',
+      content: {
+        'application/json': {
+          schema: z.object({
+            credentials: z.array(z.object({}).passthrough()),
+            warning: z.string().optional(),
+          }),
+        },
+      },
+    },
+  },
+})
+
+authFacade.openapi(listDevicesRoute, async (c) => {
   const identity = c.get('identity')
   const pubkey = c.get('pubkey')
   const credentials = await identity.getWebAuthnCredentials(pubkey)
-  return c.json({
-    credentials: credentials.map((cr) => ({
-      id: cr.id,
-      label: cr.label,
-      backedUp: cr.backedUp,
-      createdAt: cr.createdAt,
-      lastUsedAt: cr.lastUsedAt,
-      // E2EE envelope fields for client-side label decryption
-      ...(cr.encryptedLabel && cr.labelEnvelopes
-        ? { encryptedLabel: cr.encryptedLabel, labelEnvelopes: cr.labelEnvelopes }
-        : {}),
-    })),
-    warning: credentials.length === 1 ? 'Register a backup device to prevent lockout' : undefined,
-  })
+  return c.json(
+    {
+      credentials: credentials.map((cr) => ({
+        id: cr.id,
+        label: cr.label,
+        backedUp: cr.backedUp,
+        createdAt: cr.createdAt,
+        lastUsedAt: cr.lastUsedAt,
+        // E2EE envelope fields for client-side label decryption
+        ...(cr.encryptedLabel && cr.labelEnvelopes
+          ? { encryptedLabel: cr.encryptedLabel, labelEnvelopes: cr.labelEnvelopes }
+          : {}),
+      })),
+      warning: credentials.length === 1 ? 'Register a backup device to prevent lockout' : undefined,
+    },
+    200
+  )
 })
 
-// POST /admin/re-enroll/:pubkey — admin-only: revoke all sessions + delete all WebAuthn credentials
-authFacade.post('/admin/re-enroll/:pubkey', async (c) => {
+const adminReEnrollRoute = createRoute({
+  method: 'post',
+  path: '/admin/re-enroll/{pubkey}',
+  tags: ['Auth'],
+  summary: 'Admin re-enroll user',
+  middleware: [jwtAuth],
+  request: {
+    params: z.object({
+      pubkey: z.string().openapi({ param: { name: 'pubkey', in: 'path' }, example: 'npub1...' }),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Re-enrollment successful',
+      content: { 'application/json': { schema: z.object({ success: z.boolean() }) } },
+    },
+    403: {
+      description: 'Forbidden',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+    404: {
+      description: 'User not found',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+  },
+})
+
+authFacade.openapi(adminReEnrollRoute, async (c) => {
   const permissions = c.get('permissions')
   if (!permissions.includes('users:update') && !permissions.includes('*')) {
     return c.json({ error: 'Forbidden' }, 403)
@@ -1013,11 +1418,35 @@ authFacade.post('/admin/re-enroll/:pubkey', async (c) => {
     await identity.deleteWebAuthnCredential(targetPubkey, cred.id)
   }
 
-  return c.json({ success: true })
+  return c.json({ success: true }, 200)
 })
 
-// POST /enroll — admin-only: create IdP user for a pubkey and return nsecSecret
-authFacade.post('/enroll', jwtAuth, async (c) => {
+const enrollRoute = createRoute({
+  method: 'post',
+  path: '/enroll',
+  tags: ['Auth'],
+  summary: 'Enroll user in IdP',
+  middleware: [jwtAuth],
+  request: {
+    body: { content: { 'application/json': { schema: EnrollRequestSchema } } },
+  },
+  responses: {
+    200: {
+      description: 'Enrollment successful',
+      content: { 'application/json': { schema: z.object({ nsecSecret: z.string() }) } },
+    },
+    400: {
+      description: 'Invalid pubkey',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+    403: {
+      description: 'Forbidden',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+  },
+})
+
+authFacade.openapi(enrollRoute, async (c) => {
   const permissions = c.get('permissions')
   if (!permissions.includes('users:create') && !permissions.includes('*')) {
     return c.json({ error: 'Forbidden' }, 403)
@@ -1035,7 +1464,7 @@ authFacade.post('/enroll', jwtAuth, async (c) => {
   const existing = await idpAdapter.getUser(pubkey)
   if (existing) {
     const nsecSecret = await idpAdapter.getNsecSecret(pubkey)
-    return c.json({ nsecSecret: Buffer.from(nsecSecret).toString('hex') })
+    return c.json({ nsecSecret: Buffer.from(nsecSecret).toString('hex') }, 200)
   }
 
   try {
@@ -1046,32 +1475,86 @@ authFacade.post('/enroll', jwtAuth, async (c) => {
     if (!raceCheck) throw new Error(`Failed to create IdP user for ${pubkey}`)
   }
   const nsecSecret = await idpAdapter.getNsecSecret(pubkey)
-  return c.json({ nsecSecret: Buffer.from(nsecSecret).toString('hex') })
+  return c.json({ nsecSecret: Buffer.from(nsecSecret).toString('hex') }, 200)
 })
 
-// GET /passkeys — list credentials (preferred path)
-authFacade.get('/passkeys', async (c) => {
+const listPasskeysRoute = createRoute({
+  method: 'get',
+  path: '/passkeys',
+  tags: ['Auth'],
+  summary: 'List passkeys',
+  middleware: [jwtAuth],
+  responses: {
+    200: {
+      description: 'Passkeys list',
+      content: {
+        'application/json': {
+          schema: z.object({
+            credentials: z.array(z.object({}).passthrough()),
+            warning: z.string().optional(),
+          }),
+        },
+      },
+    },
+  },
+})
+
+authFacade.openapi(listPasskeysRoute, async (c) => {
   const identity = c.get('identity')
   const pubkey = c.get('pubkey')
   const credentials = await identity.getWebAuthnCredentials(pubkey)
-  return c.json({
-    credentials: credentials.map((cr) => ({
-      id: cr.id,
-      label: cr.label,
-      transports: cr.transports,
-      backedUp: cr.backedUp,
-      createdAt: cr.createdAt,
-      lastUsedAt: cr.lastUsedAt,
-      ...(cr.encryptedLabel && cr.labelEnvelopes
-        ? { encryptedLabel: cr.encryptedLabel, labelEnvelopes: cr.labelEnvelopes }
-        : {}),
-    })),
-    warning: credentials.length === 1 ? 'Register a backup device to prevent lockout' : undefined,
-  })
+  return c.json(
+    {
+      credentials: credentials.map((cr) => ({
+        id: cr.id,
+        label: cr.label,
+        transports: cr.transports,
+        backedUp: cr.backedUp,
+        createdAt: cr.createdAt,
+        lastUsedAt: cr.lastUsedAt,
+        ...(cr.encryptedLabel && cr.labelEnvelopes
+          ? { encryptedLabel: cr.encryptedLabel, labelEnvelopes: cr.labelEnvelopes }
+          : {}),
+      })),
+      warning: credentials.length === 1 ? 'Register a backup device to prevent lockout' : undefined,
+    },
+    200
+  )
 })
 
-// PATCH /passkeys/:id — rename label
-authFacade.patch('/passkeys/:id', async (c) => {
+const renamePasskeyRoute = createRoute({
+  method: 'patch',
+  path: '/passkeys/{id}',
+  tags: ['Auth'],
+  summary: 'Rename a passkey',
+  middleware: [jwtAuth],
+  request: {
+    params: z.object({
+      id: z.string().openapi({ param: { name: 'id', in: 'path' }, example: 'cred-abc123' }),
+    }),
+    body: { content: { 'application/json': { schema: PasskeyRenameSchema } } },
+  },
+  responses: {
+    200: {
+      description: 'Passkey renamed',
+      content: { 'application/json': { schema: z.object({ ok: z.boolean() }) } },
+    },
+    400: {
+      description: 'Invalid request',
+      content: {
+        'application/json': {
+          schema: z.object({ error: z.string(), details: z.any().optional() }),
+        },
+      },
+    },
+    404: {
+      description: 'Credential not found',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+  },
+})
+
+authFacade.openapi(renamePasskeyRoute, async (c) => {
   const identity = c.get('identity')
   const pubkey = c.get('pubkey')
   const credId = decodeURIComponent(c.req.param('id'))
@@ -1102,14 +1585,40 @@ authFacade.patch('/passkeys/:id', async (c) => {
     } catch (err) {
       log.error('auth event recording failed', err instanceof Error ? err : new Error(String(err)))
     }
-    return c.json({ ok: true })
+    return c.json({ ok: true }, 200)
   } catch {
     return c.json({ error: 'Credential not found' }, 404)
   }
 })
 
-// DELETE /passkeys/:id — mirrors /devices/:id
-authFacade.delete('/passkeys/:id', async (c) => {
+const deletePasskeyRoute = createRoute({
+  method: 'delete',
+  path: '/passkeys/{id}',
+  tags: ['Auth'],
+  summary: 'Delete a passkey',
+  middleware: [jwtAuth],
+  request: {
+    params: z.object({
+      id: z.string().openapi({ param: { name: 'id', in: 'path' }, example: 'cred-abc123' }),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Passkey deleted',
+      content: { 'application/json': { schema: z.object({ ok: z.boolean() }) } },
+    },
+    400: {
+      description: 'Invalid credential ID',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+    404: {
+      description: 'Credential not found',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+  },
+})
+
+authFacade.openapi(deletePasskeyRoute, async (c) => {
   const identity = c.get('identity')
   const pubkey = c.get('pubkey')
   const credId = decodeURIComponent(c.req.param('id'))
@@ -1142,11 +1651,37 @@ authFacade.delete('/passkeys/:id', async (c) => {
         )
     }
   }
-  return c.json({ ok: true })
+  return c.json({ ok: true }, 200)
 })
 
-// DELETE /devices/:id — delete a credential
-authFacade.delete('/devices/:id', async (c) => {
+const deleteDeviceRoute = createRoute({
+  method: 'delete',
+  path: '/devices/{id}',
+  tags: ['Auth'],
+  summary: 'Delete a device (WebAuthn credential)',
+  middleware: [jwtAuth],
+  request: {
+    params: z.object({
+      id: z.string().openapi({ param: { name: 'id', in: 'path' }, example: 'cred-abc123' }),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Device deleted',
+      content: { 'application/json': { schema: z.object({ ok: z.boolean() }) } },
+    },
+    400: {
+      description: 'Invalid credential ID',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+    404: {
+      description: 'Credential not found',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+  },
+})
+
+authFacade.openapi(deleteDeviceRoute, async (c) => {
   const identity = c.get('identity')
   const pubkey = c.get('pubkey')
   const credId = decodeURIComponent(c.req.param('id'))
@@ -1180,7 +1715,7 @@ authFacade.delete('/devices/:id', async (c) => {
         )
     }
   }
-  return c.json({ ok: true })
+  return c.json({ ok: true }, 200)
 })
 
 // ---------------------------------------------------------------------------
@@ -1205,8 +1740,30 @@ function serializeAuthEvent(r: {
   }
 }
 
-// GET /events?limit=&since=
-authFacade.get('/events', async (c) => {
+const listEventsRoute = createRoute({
+  method: 'get',
+  path: '/events',
+  tags: ['Auth'],
+  summary: 'List auth events',
+  middleware: [jwtAuth],
+  request: {
+    query: AuthEventListQuerySchema,
+  },
+  responses: {
+    200: {
+      description: 'Auth events',
+      content: {
+        'application/json': { schema: z.object({ events: z.array(z.object({}).passthrough()) }) },
+      },
+    },
+    400: {
+      description: 'Invalid query params',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+  },
+})
+
+authFacade.openapi(listEventsRoute, async (c) => {
   const pubkey = c.get('pubkey')
   const authEvents = c.get('authEvents')
   const parsed = AuthEventListQuerySchema.safeParse({
@@ -1220,23 +1777,69 @@ authFacade.get('/events', async (c) => {
     limit: parsed.data.limit,
     since: parsed.data.since ? new Date(parsed.data.since) : undefined,
   })
-  return c.json({ events: rows.map(serializeAuthEvent) })
+  return c.json({ events: rows.map(serializeAuthEvent) }, 200)
 })
 
-// GET /events/export — full JSON export (unpaginated up to 200)
-authFacade.get('/events/export', async (c) => {
+const exportEventsRoute = createRoute({
+  method: 'get',
+  path: '/events/export',
+  tags: ['Auth'],
+  summary: 'Export auth events',
+  middleware: [jwtAuth],
+  responses: {
+    200: {
+      description: 'Exported events',
+      content: {
+        'application/json': {
+          schema: z.object({
+            userPubkey: z.string(),
+            exportedAt: z.string(),
+            events: z.array(z.object({}).passthrough()),
+          }),
+        },
+      },
+    },
+  },
+})
+
+authFacade.openapi(exportEventsRoute, async (c) => {
   const pubkey = c.get('pubkey')
   const authEvents = c.get('authEvents')
   const rows = await authEvents.listForUser(pubkey, { limit: 200 })
-  return c.json({
-    userPubkey: pubkey,
-    exportedAt: new Date().toISOString(),
-    events: rows.map(serializeAuthEvent),
-  })
+  return c.json(
+    {
+      userPubkey: pubkey,
+      exportedAt: new Date().toISOString(),
+      events: rows.map(serializeAuthEvent),
+    },
+    200
+  )
 })
 
-// POST /events/:id/report — mark an event as suspicious; raise admin audit entry
-authFacade.post('/events/:id/report', async (c) => {
+const reportEventRoute = createRoute({
+  method: 'post',
+  path: '/events/{id}/report',
+  tags: ['Auth'],
+  summary: 'Report suspicious auth event',
+  middleware: [jwtAuth],
+  request: {
+    params: z.object({
+      id: z.string().openapi({ param: { name: 'id', in: 'path' }, example: 'evt-abc123' }),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Event reported',
+      content: { 'application/json': { schema: z.object({ ok: z.boolean() }) } },
+    },
+    404: {
+      description: 'Event not found',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+  },
+})
+
+authFacade.openapi(reportEventRoute, async (c) => {
   const pubkey = c.get('pubkey')
   const authEvents = c.get('authEvents')
   const id = c.req.param('id')
@@ -1254,39 +1857,103 @@ authFacade.post('/events/:id/report', async (c) => {
   } catch (err) {
     log.error('audit entry recording failed', err instanceof Error ? err : new Error(String(err)))
   }
-  return c.json({ ok: true })
+  return c.json({ ok: true }, 200)
 })
 
 // ---------------------------------------------------------------------------
 // Signal contact endpoints
 // ---------------------------------------------------------------------------
 
-authFacade.get('/signal-contact', async (c) => {
+const getSignalContactRoute = createRoute({
+  method: 'get',
+  path: '/signal-contact',
+  tags: ['Auth'],
+  summary: 'Get Signal contact',
+  middleware: [jwtAuth],
+  responses: {
+    200: {
+      description: 'Signal contact',
+      content: { 'application/json': { schema: z.object({ contact: z.any() }) } },
+    },
+  },
+})
+
+authFacade.openapi(getSignalContactRoute, async (c) => {
   const pubkey = c.get('pubkey')
   const svc = c.get('signalContacts')
   const contact = await svc.findByUser(pubkey)
-  if (!contact) return c.json({ contact: null })
-  return c.json({
-    contact: {
-      identifierHash: contact.identifierHash,
-      identifierCiphertext: contact.identifierCiphertext,
-      identifierEnvelope: contact.identifierEnvelope,
-      identifierType: contact.identifierType,
-      verifiedAt: contact.verifiedAt?.toISOString() ?? null,
-      updatedAt: contact.updatedAt.toISOString(),
+  if (!contact) return c.json({ contact: null }, 200)
+  return c.json(
+    {
+      contact: {
+        identifierHash: contact.identifierHash,
+        identifierCiphertext: contact.identifierCiphertext,
+        identifierEnvelope: contact.identifierEnvelope,
+        identifierType: contact.identifierType,
+        verifiedAt: contact.verifiedAt?.toISOString() ?? null,
+        updatedAt: contact.updatedAt.toISOString(),
+      },
     },
-  })
+    200
+  )
 })
 
-authFacade.get('/signal-contact/hmac-key', async (c) => {
+const getSignalHmacKeyRoute = createRoute({
+  method: 'get',
+  path: '/signal-contact/hmac-key',
+  tags: ['Auth'],
+  summary: 'Get Signal contact HMAC key',
+  middleware: [jwtAuth],
+  responses: {
+    200: {
+      description: 'HMAC key',
+      content: { 'application/json': { schema: z.object({ key: z.string() }) } },
+    },
+  },
+})
+
+authFacade.openapi(getSignalHmacKeyRoute, async (c) => {
   const pubkey = c.get('pubkey')
   const key = bytesToHex(
     hmac(sha256, utf8ToBytes(c.env.HMAC_SECRET), utf8ToBytes(`signal-contact:${pubkey}`))
   )
-  return c.json({ key })
+  return c.json({ key }, 200)
 })
 
-authFacade.post('/signal-contact', async (c) => {
+const registerSignalContactRoute = createRoute({
+  method: 'post',
+  path: '/signal-contact',
+  tags: ['Auth'],
+  summary: 'Register Signal contact',
+  middleware: [jwtAuth],
+  request: {
+    body: { content: { 'application/json': { schema: SignalContactRegisterSchema } } },
+  },
+  responses: {
+    200: {
+      description: 'Contact registered',
+      content: { 'application/json': { schema: z.object({ ok: z.boolean() }) } },
+    },
+    400: {
+      description: 'Invalid request',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+    429: {
+      description: 'Rate limited',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+    502: {
+      description: 'Notifier error',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+    503: {
+      description: 'Signal notifier not configured',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+  },
+})
+
+authFacade.openapi(registerSignalContactRoute, async (c) => {
   const pubkey = c.get('pubkey')
   if (isRateLimited(`signal-contact:${pubkey}`, 5, 60 * 60 * 1000)) {
     return c.json({ error: 'Too many contact updates' }, 429)
@@ -1340,10 +2007,24 @@ authFacade.post('/signal-contact', async (c) => {
     payload: { meta: { identifierType: parsed.data.identifierType } },
   })
 
-  return c.json({ ok: true })
+  return c.json({ ok: true }, 200)
 })
 
-authFacade.delete('/signal-contact', async (c) => {
+const deleteSignalContactRoute = createRoute({
+  method: 'delete',
+  path: '/signal-contact',
+  tags: ['Auth'],
+  summary: 'Delete Signal contact',
+  middleware: [jwtAuth],
+  responses: {
+    200: {
+      description: 'Contact deleted',
+      content: { 'application/json': { schema: z.object({ ok: z.boolean() }) } },
+    },
+  },
+})
+
+authFacade.openapi(deleteSignalContactRoute, async (c) => {
   const pubkey = c.get('pubkey')
   const svc = c.get('signalContacts')
   const contact = await svc.findByUser(pubkey)
@@ -1365,29 +2046,67 @@ authFacade.delete('/signal-contact', async (c) => {
     }
     await svc.deleteByUser(pubkey)
   }
-  return c.json({ ok: true })
+  return c.json({ ok: true }, 200)
 })
 
 // ---------------------------------------------------------------------------
 // Security prefs endpoints
 // ---------------------------------------------------------------------------
 
-authFacade.get('/security-prefs', async (c) => {
+const getSecurityPrefsRoute = createRoute({
+  method: 'get',
+  path: '/security-prefs',
+  tags: ['Auth'],
+  summary: 'Get security preferences',
+  middleware: [jwtAuth],
+  responses: {
+    200: {
+      description: 'Security preferences',
+      content: { 'application/json': { schema: z.object({}).passthrough() } },
+    },
+  },
+})
+
+authFacade.openapi(getSecurityPrefsRoute, async (c) => {
   const pubkey = c.get('pubkey')
   const svc = c.get('securityPrefs')
   const row = await svc.get(pubkey)
-  return c.json({
-    autoLockMs: row.autoLockMs,
-    disappearingTimerDays: row.disappearingTimerDays,
-    digestCadence: row.digestCadence,
-    alertOnNewDevice: row.alertOnNewDevice,
-    alertOnPasskeyChange: row.alertOnPasskeyChange,
-    alertOnPinChange: row.alertOnPinChange,
-    notificationChannel: row.notificationChannel,
-  })
+  return c.json(
+    {
+      autoLockMs: row.autoLockMs,
+      disappearingTimerDays: row.disappearingTimerDays,
+      digestCadence: row.digestCadence,
+      alertOnNewDevice: row.alertOnNewDevice,
+      alertOnPasskeyChange: row.alertOnPasskeyChange,
+      alertOnPinChange: row.alertOnPinChange,
+      notificationChannel: row.notificationChannel,
+    },
+    200
+  )
 })
 
-authFacade.patch('/security-prefs', async (c) => {
+const updateSecurityPrefsRoute = createRoute({
+  method: 'patch',
+  path: '/security-prefs',
+  tags: ['Auth'],
+  summary: 'Update security preferences',
+  middleware: [jwtAuth],
+  request: {
+    body: { content: { 'application/json': { schema: UpdateSecurityPrefsSchema } } },
+  },
+  responses: {
+    200: {
+      description: 'Updated preferences',
+      content: { 'application/json': { schema: z.object({}).passthrough() } },
+    },
+    400: {
+      description: 'Invalid request',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
+  },
+})
+
+authFacade.openapi(updateSecurityPrefsRoute, async (c) => {
   const pubkey = c.get('pubkey')
   const parsed = UpdateSecurityPrefsSchema.safeParse(await c.req.json())
   if (!parsed.success) {
@@ -1395,15 +2114,18 @@ authFacade.patch('/security-prefs', async (c) => {
   }
   const svc = c.get('securityPrefs')
   const row = await svc.update(pubkey, parsed.data)
-  return c.json({
-    autoLockMs: row.autoLockMs,
-    disappearingTimerDays: row.disappearingTimerDays,
-    digestCadence: row.digestCadence,
-    alertOnNewDevice: row.alertOnNewDevice,
-    alertOnPasskeyChange: row.alertOnPasskeyChange,
-    alertOnPinChange: row.alertOnPinChange,
-    notificationChannel: row.notificationChannel,
-  })
+  return c.json(
+    {
+      autoLockMs: row.autoLockMs,
+      disappearingTimerDays: row.disappearingTimerDays,
+      digestCadence: row.digestCadence,
+      alertOnNewDevice: row.alertOnNewDevice,
+      alertOnPasskeyChange: row.alertOnPasskeyChange,
+      alertOnPinChange: row.alertOnPinChange,
+      notificationChannel: row.notificationChannel,
+    },
+    200
+  )
 })
 
 // --- Recovery Group routes ---
