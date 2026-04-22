@@ -52,18 +52,20 @@ test.describe('File upload lifecycle', () => {
       conversationId,
       recipientEnvelopes: [
         {
-          v: 2,
+          v: 3,
           labelId: 0,
+          enc: 'dGVzdA',
+          ct: 'dGVzdA',
           pubkey: adminPubkey,
-          wrappedKey: 'test-key-hex',
-          ephemeralPubkey: 'test-ephem-hex',
         },
       ],
       encryptedMetadata: [
         {
+          v: 3,
+          labelId: 0,
+          enc: 'dGVzdA',
+          ct: 'dGVzdA',
           pubkey: adminPubkey,
-          encryptedContent: 'test-meta-hex',
-          ephemeralPubkey: 'test-ephem-hex',
         },
       ],
     })
@@ -136,10 +138,8 @@ test.describe('File upload lifecycle', () => {
       totalSize: 100,
       totalChunks: 3,
       conversationId,
-      recipientEnvelopes: [
-        { v: 2, labelId: 0, pubkey: adminPubkey, wrappedKey: 'k', ephemeralPubkey: 'e' },
-      ],
-      encryptedMetadata: [{ pubkey: adminPubkey, encryptedContent: 'm', ephemeralPubkey: 'e' }],
+      recipientEnvelopes: [{ v: 3, labelId: 0, enc: 'dGVzdA', ct: 'dGVzdA', pubkey: adminPubkey }],
+      encryptedMetadata: [{ v: 3, labelId: 0, enc: 'dGVzdA', ct: 'dGVzdA', pubkey: adminPubkey }],
     })
     const initData = await initRes.json()
     const uploadId = initData.uploadId as string

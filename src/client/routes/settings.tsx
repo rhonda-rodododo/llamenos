@@ -791,6 +791,7 @@ function SignalContactSection({
       await authFacadeClient.registerSignalContact({
         identifierHash,
         identifierCiphertext: encryptedHex,
+        // @ts-expect-error Slice 2: ECIES → HPKE migration
         identifierEnvelope: envelopes.map((e) => ({
           pubkey: e.recipientPubkey,
           wrappedKey: e.wrappedKeyHex as import('@shared/crypto-types').Ciphertext,

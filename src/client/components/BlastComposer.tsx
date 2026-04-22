@@ -54,6 +54,7 @@ export function BlastComposer({ onCreated, onCancel }: BlastComposerProps) {
       const res = await createBlast({
         name: name.trim(),
         encryptedContent,
+        // @ts-expect-error Slice 3: ECIES → HPKE migration
         contentEnvelopes,
         targetChannels: channels,
       })

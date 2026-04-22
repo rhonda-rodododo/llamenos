@@ -17,6 +17,7 @@ import type {
 } from '@shared/schemas/providers'
 import type { SetupState } from '@shared/schemas/settings'
 import type { Ciphertext } from './crypto-types'
+import type { HpkeEnvelope } from './hpke-envelope'
 
 // --- Branded CryptoKey types (P2 Slice 3) ---
 // Phantom-symbol brands prevent passing the wrong algorithm's CryptoKey
@@ -67,37 +68,28 @@ export interface DeviceKeypair {
   isPaperKey: boolean
 }
 
-// --- Versioned ECIES Key Envelope ---
+// --- Versioned Envelope (HPKE v3) ---
 
 /**
- * Wire-format versioned ECIES key envelope with embedded label identity.
- * The `labelId` byte is looked up against LABEL_REGISTRY; a receiver that
- * expected a different label will refuse to unwrap (CryptoLabelMismatchError).
+ * Wire-format envelope for asymmetric encryption.
+ * Since the HPKE migration (pre-production), this is an alias for HpkeEnvelope.
+ * v3 = HPKE RFC 9180 (DHKEM(X25519) + HKDF-SHA256 + AES-256-GCM).
  */
-export interface Envelope {
-  v: 2
-  labelId: number
-  wrappedKey: Ciphertext
-  ephemeralPubkey: string
-}
+export type Envelope = HpkeEnvelope
 
-// --- ECIES Key Envelopes ---
-// These use the branded Ciphertext type for internal type safety.
-// The schema equivalents in @shared/schemas/records use plain strings (for zod validation).
+// --- HPKE Key Envelopes ---
+// These use the HpkeEnvelope base shape for the v3 wire format.
+// The schema equivalents in @shared/schemas/records use HpkeEnvelopeSchema.
 // Keep these as the canonical types for app code; schemas are for API validation.
 
 /**
- * Unified ECIES-wrapped symmetric key for one recipient.
- * Used everywhere: notes, messages, call records, hub keys.
+ * HPKE-sealed envelope for one recipient.
+ * Used everywhere: PII fields, blasts, call records, hub keys.
+ * The `pubkey` field identifies the recipient (hex X25519 public key).
  */
-export interface RecipientEnvelope {
+export interface RecipientEnvelope extends HpkeEnvelope {
   pubkey: string
-  wrappedKey: Ciphertext
-  ephemeralPubkey: string
 }
-
-/** @deprecated Use RecipientEnvelope instead. Kept for gradual migration. */
-export type KeyEnvelope = Omit<RecipientEnvelope, 'pubkey'>
 
 // --- Telephony Provider Config ---
 
@@ -335,17 +327,19 @@ export interface EncryptedFileMetadata {
 }
 
 /**
- * ECIES-wrapped file encryption key for one recipient.
- * Extends Envelope with a recipient pubkey tag for multi-recipient selection.
+ * HPKE-sealed file encryption key for one recipient.
+ * Extends HpkeEnvelope with a recipient pubkey tag for multi-recipient selection.
  */
-export interface FileKeyEnvelope extends Envelope {
+export interface FileKeyEnvelope extends HpkeEnvelope {
   pubkey: string
 }
 
-export interface EncryptedMetaItem {
+/**
+ * HPKE-sealed file metadata for one recipient.
+ * The entire EncryptedFileMetadata JSON is sealed inside the HPKE ciphertext.
+ */
+export interface EncryptedMetaItem extends HpkeEnvelope {
   pubkey: string
-  encryptedContent: Ciphertext
-  ephemeralPubkey: string
 }
 
 /** Value stored in NotePayload.fields for a file custom field. */

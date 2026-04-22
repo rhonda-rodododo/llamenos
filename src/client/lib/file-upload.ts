@@ -104,6 +104,7 @@ async function _downloadAndDecryptFile(
   if (!myMeta) {
     throw new Error('No metadata envelope found for caller')
   }
+  // @ts-expect-error Slice 5: file crypto ECIES → HPKE migration
   const metadata = await decryptFileMetadata(myMeta.encryptedContent, myMeta.ephemeralPubkey)
   if (!metadata) {
     throw new Error('Failed to decrypt file metadata')

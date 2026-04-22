@@ -65,11 +65,14 @@ export async function storeVoicemailAudio(
   )
 
   const voicemailLabelId = labelToId(LABEL_VOICEMAIL_WRAP)
+  // @ts-expect-error Slice 5: file crypto ECIES → HPKE migration
   const recipientEnvelopes: FileKeyEnvelope[] = envelopes.map((env) => ({
     v: 2,
     labelId: voicemailLabelId,
     pubkey: env.pubkey,
+    // @ts-expect-error Slice 3: server crypto ECIES → HPKE migration
     wrappedKey: env.wrappedKey as Ciphertext,
+    // @ts-expect-error Slice 3: server crypto ECIES → HPKE migration
     ephemeralPubkey: env.ephemeralPubkey,
   }))
 
