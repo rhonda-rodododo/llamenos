@@ -7,8 +7,10 @@ import type { AppEnv } from '../types'
  * so that zod validation failures return 400 with structured error messages
  * instead of throwing unhandled errors.
  */
-export function createRouter() {
-  return new OpenAPIHono<AppEnv>({
+import type { Env } from 'hono'
+
+export function createRouter<T extends Env = AppEnv>() {
+  return new OpenAPIHono<T>({
     defaultHook: (result, c) => {
       if (!result.success) {
         const issues = result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
