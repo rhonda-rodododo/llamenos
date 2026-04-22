@@ -53,6 +53,7 @@ export function symmetricDecrypt(
  * ECIES key wrapping for a single recipient.
  * Generates ephemeral secp256k1 keypair, derives shared secret via ECDH,
  * derives symmetric key via SHA-256(label || sharedX), wraps with XChaCha20-Poly1305.
+ * @deprecated Slice 7 — will be deleted. Use hpkeSeal from @shared/hpke-primitives.
  */
 export function eciesWrapKey(
   key: Uint8Array,
@@ -90,6 +91,7 @@ export function eciesWrapKey(
 
 /**
  * ECIES key unwrapping. Recovers the symmetric key from an ECIES envelope.
+ * @deprecated Slice 7 — will be deleted. Use hpkeOpen from @shared/hpke-primitives.
  */
 export function eciesUnwrapKey(
   envelope: { wrappedKey: string | Ciphertext; ephemeralPubkey: string },
@@ -194,13 +196,20 @@ export function isValidNsec(nsec: string): boolean {
 
 // --- Envelope types ---
 
-/** A symmetric key wrapped via ECIES for a single recipient (no pubkey tag). */
+/**
+ * A symmetric key wrapped via ECIES for a single recipient (no pubkey tag).
+ * @deprecated Slice 7 — will be deleted. Use HpkeEnvelope from @shared/hpke-envelope.
+ * ECIES-specific key envelope shape (wrappedKey + ephemeralPubkey).
+ */
 export interface KeyEnvelope {
   wrappedKey: Ciphertext // hex: nonce(24) + ciphertext(32 key + 16 tag)
   ephemeralPubkey: string // hex: compressed 33-byte pubkey (66 chars)
 }
 
-/** A KeyEnvelope tagged with the recipient's x-only pubkey (for multi-recipient scenarios). */
+/**
+ * A KeyEnvelope tagged with the recipient's x-only pubkey (for multi-recipient scenarios).
+ * @deprecated Slice 7 — will be deleted. Use RecipientEnvelope from @shared/types.
+ */
 export interface RecipientKeyEnvelope extends KeyEnvelope {
   pubkey: string // recipient's x-only pubkey (hex, 64 chars)
 }
@@ -208,6 +217,7 @@ export interface RecipientKeyEnvelope extends KeyEnvelope {
 /**
  * ECIES key unwrap with explicit secret key — for server-side and test usage
  * where no crypto worker is available. Mirror of eciesUnwrapKey but takes secretKey directly.
+ * @deprecated Slice 7 — will be deleted. Use hpkeOpen from @shared/hpke-primitives.
  */
 export function eciesUnwrapKeyWithSecret(
   envelope: KeyEnvelope,
@@ -239,6 +249,7 @@ export type { Envelope }
  * Thrown when an Envelope's embedded labelId does not match the expected
  * CryptoLabel, or when the envelope version is not 2.
  * This enforces the "triple-redundant label defense": brand + HKDF + AEAD AAD + wire id.
+ * @deprecated Slice 7 — will be deleted. Use HpkeLabelMismatchError from @shared/hpke-primitives.
  */
 export class CryptoLabelMismatchError extends Error {
   constructor(detail: string | { expected: CryptoLabel; actual: CryptoLabel }) {
@@ -258,6 +269,7 @@ export class CryptoLabelMismatchError extends Error {
  * @param env            The versioned envelope to unwrap.
  * @param unwrapSecret   Caller-supplied unwrap function (crypto worker, server key, etc.)
  * @param expectedLabel  The CryptoLabel the caller expects this envelope to have been sealed with.
+ * @deprecated Slice 7 — will be deleted. Use hpkeOpen from @shared/hpke-primitives.
  */
 export async function decryptEnvelope(
   env: Envelope,
