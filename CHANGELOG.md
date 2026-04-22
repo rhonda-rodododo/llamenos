@@ -1971,6 +1971,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - add E2E tests for device linking and fix /link-device public path
 
 
+## 0.51.4 (2026-04-22)
+
+### Features
+
+- contacts bulk import/merge UI (#187)
+- GDPR erasure + data export UI (#186)
+- P2 Slice 3 — Ed25519SigningKey / X25519EncryptionKey / AesGcmKey wrappers (#191)
+- Slice 4 — hub creation MLS bootstrap (Tier 6 PR #2, H4) (#189)
+- telephony provider setup wizard (OAuth, A2P, provisioning) (#190)
+- Slice 8 — MLS audit entry types (Tier 6 PR #2, H4)
+- wire P2 minor gap features (retention, replies, intake, report, load, teams) (#192)
+- Slice 5 — notes path cutover to MLS (Tier 6 PR #2, H4) (#195)
+- Slice 6 — messages path cutover to MLS (Tier 6 PR #2, H4) (#194)
+- Slice 7 — epoch commits on member add/remove (Tier 6 PR #2, H4) (#208)
+
+### Fixes
+
+- admin nav visibility — hub-admins see Operations group (bans, audit, analytics, health) (#197)
+- contacts tests broken by onCreated navigation to profile (#207)
+- wait for SW activated state instead of checking snapshot (#212)
+
 ## 0.51.3 (2026-04-19)
 
 ### Features
