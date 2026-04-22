@@ -6,6 +6,7 @@ import { Scalar } from '@scalar/hono-api-reference'
 import { Hono } from 'hono'
 import { createMiddleware } from 'hono/factory'
 import type { IdPAdapter } from './idp/adapter'
+import { createRouter } from './lib/openapi'
 import messagingRoutes from './messaging/router'
 import { auth } from './middleware/auth'
 import { cors } from './middleware/cors'
@@ -159,7 +160,7 @@ api.route('/', devRoutes)
 api.route('/auth', authRoutes)
 
 // Auth facade — bridge AppEnv services to AuthFacadeEnv variables
-const authFacadeBridge = new Hono<AppEnv>()
+const authFacadeBridge = createRouter()
 authFacadeBridge.use('*', async (c, next) => {
   const services = c.get('services')
   if (!_idpAdapter) {
@@ -200,7 +201,7 @@ api.route('/invites', invitesRoutes)
 api.route('/provision', provisioningRoutes)
 
 // Signal registration (authenticated admin routes — must be before webhook router)
-const signalAdmin = new Hono<AppEnv>()
+const signalAdmin = createRouter()
 signalAdmin.use('*', auth)
 signalAdmin.route('/', signalRegistrationRoutes)
 api.route('/messaging/signal', signalAdmin)
