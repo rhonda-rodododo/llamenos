@@ -203,7 +203,14 @@
     "create": "Create Note",
     "createFirst": "Create Your First Note",
     "date": "Date",
-    "detail": "Note Details",
+    "detail": {
+      "title": "Note Details",
+      "forbidden": "You don't have permission to view this note",
+      "notFound": "Note not found",
+      "editFromCallPage": "Edit notes from the call page",
+      "callContext": "Related Call",
+      "viewCall": "View Call Details"
+    },
     "edit": "Edit Note",
     "editing": "Editing...",
     "empty": "No notes",
@@ -2053,5 +2060,31 @@
     "team": "Team",
     "assignToTeam": "Assign to team...",
     "contactAssigned": "Assigned to team"
+  },
+  "intakes": {
+    "title": "Intake Queue",
+    "statusAll": "All",
+    "statusPending": "Pending",
+    "statusReviewed": "Reviewed",
+    "statusMerged": "Merged",
+    "statusDismissed": "Dismissed",
+    "empty": "No intakes found",
+    "detail": "Intake Detail",
+    "detailTitle": "Intake Detail",
+    "submittedBy": "Submitted by",
+    "linkedContact": "Linked contact",
+    "linkedCall": "Linked call",
+    "createdAt": "Created",
+    "reviewedByLabel": "Reviewed by",
+    "encryptedNote": "Payload is end-to-end encrypted",
+    "review": "Review",
+    "merge": "Merge",
+    "dismiss": "Dismiss",
+    "selectOne": "Select an intake to view details",
+    "statusUpdated": "Intake status updated",
+    "updateError": "Failed to update intake",
+    "viewDetail": "View full detail",
+    "notFound": "Intake not found",
+    "payloadLocked": "Unlock to view payload"
   }
 }

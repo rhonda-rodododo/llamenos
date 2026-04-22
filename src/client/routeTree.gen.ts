@@ -38,6 +38,7 @@ import { Route as SecurityPasskeysRouteImport } from './routes/security.passkeys
 import { Route as SecurityHistoryRouteImport } from './routes/security.history'
 import { Route as SecurityFactorsRouteImport } from './routes/security.factors'
 import { Route as NotesNoteIdRouteImport } from './routes/notes_.$noteId'
+import { Route as IntakesIntakeIdRouteImport } from './routes/intakes_.$intakeId'
 import { Route as ContactsContactIdRouteImport } from './routes/contacts_.$contactId'
 import { Route as CallsCallIdRouteImport } from './routes/calls.$callId'
 import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
@@ -188,6 +189,11 @@ const NotesNoteIdRoute = NotesNoteIdRouteImport.update({
   path: '/notes/$noteId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const IntakesIntakeIdRoute = IntakesIntakeIdRouteImport.update({
+  id: '/intakes_/$intakeId',
+  path: '/intakes/$intakeId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ContactsContactIdRoute = ContactsContactIdRouteImport.update({
   id: '/contacts_/$contactId',
   path: '/contacts/$contactId',
@@ -236,6 +242,7 @@ export interface FileRoutesByFullPath {
   '/admin/settings': typeof AdminSettingsRoute
   '/calls/$callId': typeof CallsCallIdRoute
   '/contacts/$contactId': typeof ContactsContactIdRoute
+  '/intakes/$intakeId': typeof IntakesIntakeIdRoute
   '/notes/$noteId': typeof NotesNoteIdRoute
   '/security/factors': typeof SecurityFactorsRoute
   '/security/history': typeof SecurityHistoryRoute
@@ -270,6 +277,7 @@ export interface FileRoutesByTo {
   '/admin/settings': typeof AdminSettingsRoute
   '/calls/$callId': typeof CallsCallIdRoute
   '/contacts/$contactId': typeof ContactsContactIdRoute
+  '/intakes/$intakeId': typeof IntakesIntakeIdRoute
   '/notes/$noteId': typeof NotesNoteIdRoute
   '/security/factors': typeof SecurityFactorsRoute
   '/security/history': typeof SecurityHistoryRoute
@@ -306,6 +314,7 @@ export interface FileRoutesById {
   '/admin/settings': typeof AdminSettingsRoute
   '/calls/$callId': typeof CallsCallIdRoute
   '/contacts_/$contactId': typeof ContactsContactIdRoute
+  '/intakes_/$intakeId': typeof IntakesIntakeIdRoute
   '/notes_/$noteId': typeof NotesNoteIdRoute
   '/security/factors': typeof SecurityFactorsRoute
   '/security/history': typeof SecurityHistoryRoute
@@ -343,6 +352,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/calls/$callId'
     | '/contacts/$contactId'
+    | '/intakes/$intakeId'
     | '/notes/$noteId'
     | '/security/factors'
     | '/security/history'
@@ -377,6 +387,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/calls/$callId'
     | '/contacts/$contactId'
+    | '/intakes/$intakeId'
     | '/notes/$noteId'
     | '/security/factors'
     | '/security/history'
@@ -412,6 +423,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/calls/$callId'
     | '/contacts_/$contactId'
+    | '/intakes_/$intakeId'
     | '/notes_/$noteId'
     | '/security/factors'
     | '/security/history'
@@ -445,6 +457,7 @@ export interface RootRouteChildren {
   ShiftsRoute: typeof ShiftsRoute
   UsersRoute: typeof UsersRoute
   ContactsContactIdRoute: typeof ContactsContactIdRoute
+  IntakesIntakeIdRoute: typeof IntakesIntakeIdRoute
   NotesNoteIdRoute: typeof NotesNoteIdRoute
   UsersPubkeyRoute: typeof UsersPubkeyRoute
 }
@@ -654,6 +667,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof NotesNoteIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/intakes_/$intakeId': {
+      id: '/intakes_/$intakeId'
+      path: '/intakes/$intakeId'
+      fullPath: '/intakes/$intakeId'
+      preLoaderRoute: typeof IntakesIntakeIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/contacts_/$contactId': {
       id: '/contacts_/$contactId'
       path: '/contacts/$contactId'
@@ -753,6 +773,7 @@ const rootRouteChildren: RootRouteChildren = {
   ShiftsRoute: ShiftsRoute,
   UsersRoute: UsersRoute,
   ContactsContactIdRoute: ContactsContactIdRoute,
+  IntakesIntakeIdRoute: IntakesIntakeIdRoute,
   NotesNoteIdRoute: NotesNoteIdRoute,
   UsersPubkeyRoute: UsersPubkeyRoute,
 }

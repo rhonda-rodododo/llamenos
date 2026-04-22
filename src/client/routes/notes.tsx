@@ -27,6 +27,7 @@ import {
   ChevronRight,
   Download,
   Lock,
+  MessageSquare,
   Mic,
   Pencil,
   Plus,
@@ -402,15 +403,30 @@ function NotesPage() {
                         )}
                       </div>
                       {editingId !== note.id && (
-                        <Button
-                          data-testid="note-edit-btn"
-                          variant="ghost"
-                          size="icon-xs"
-                          onClick={() => setEditingId(note.id)}
-                          aria-label={t('a11y.editItem')}
-                        >
-                          <Pencil className="h-3 w-3" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            data-testid="note-edit-btn"
+                            variant="ghost"
+                            size="icon-xs"
+                            onClick={() => setEditingId(note.id)}
+                            aria-label={t('a11y.editItem')}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          <Link
+                            to="/notes/$noteId"
+                            params={{ noteId: note.id }}
+                            data-testid="note-view-detail-btn"
+                          >
+                            <Button
+                              variant="ghost"
+                              size="icon-xs"
+                              aria-label={t('notes.detail.title')}
+                            >
+                              <MessageSquare className="h-3 w-3" />
+                            </Button>
+                          </Link>
+                        </div>
                       )}
                     </div>
                   </div>

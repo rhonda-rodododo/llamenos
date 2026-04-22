@@ -13,7 +13,7 @@ import type { IntakeRecord } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { useIntake, useIntakes, useUpdateIntakeStatus } from '@/lib/queries/intakes'
 import { useToast } from '@/lib/toast'
-import { createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute } from '@tanstack/react-router'
 import { CheckCircle2, ClipboardList, Eye, Merge, X } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -173,6 +173,17 @@ function IntakesPage() {
                   {t('intakes.encryptedNote', {
                     defaultValue: 'Payload is end-to-end encrypted',
                   })}
+                </div>
+
+                <div className="pt-2">
+                  <Link
+                    to="/intakes/$intakeId"
+                    params={{ intakeId: selectedIntake.id }}
+                    className="text-sm text-primary hover:underline"
+                    data-testid="intake-view-detail-link"
+                  >
+                    {t('intakes.viewDetail', { defaultValue: 'View full detail' })}
+                  </Link>
                 </div>
 
                 {/* Action buttons — gated by contacts:triage */}

@@ -13,9 +13,17 @@ import {
   submitIntake,
   updateIntakeStatus,
 } from '@/lib/api'
+import { decryptObjectFields } from '@/lib/decrypt-fields'
+import * as keyManager from '@/lib/key-manager'
+import { LABEL_CONTACT_INTAKE } from '@shared/crypto-labels'
 import type { RecipientEnvelope } from '@shared/types'
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from './keys'
+
+export interface DecryptedIntake extends IntakeRecord {
+  decryptedPayload?: string
+  payload?: unknown
+}
 
 // ---------------------------------------------------------------------------
 // intakesListOptions
@@ -43,12 +51,32 @@ export function useIntakes(status?: string) {
 // intakeDetailOptions / useIntake
 // ---------------------------------------------------------------------------
 
+const INTAKE_FIELDS = ['encryptedPayload'] as const
+
 const intakeDetailOptions = (id: string) =>
   queryOptions({
     queryKey: queryKeys.intakes.detail(id),
-    queryFn: async () => {
+    queryFn: async (): Promise<DecryptedIntake> => {
       const { intake } = await getIntake(id)
-      return intake
+      const pubkey = await keyManager.getPublicKeyHex()
+      if (pubkey && (await keyManager.isUnlocked())) {
+        await decryptObjectFields(
+          intake as unknown as Record<string, unknown>,
+          pubkey,
+          LABEL_CONTACT_INTAKE,
+          INTAKE_FIELDS
+        )
+        const decrypted = (intake as unknown as Record<string, unknown>).payload
+        if (typeof decrypted === 'string') {
+          ;(intake as DecryptedIntake).decryptedPayload = decrypted
+          try {
+            ;(intake as DecryptedIntake).payload = JSON.parse(decrypted)
+          } catch {
+            ;(intake as DecryptedIntake).payload = decrypted
+          }
+        }
+      }
+      return intake as DecryptedIntake
     },
     staleTime: 30 * 1000,
     enabled: !!id,
