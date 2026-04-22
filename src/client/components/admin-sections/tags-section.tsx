@@ -1,3 +1,6 @@
+import { Pencil, Plus, Save, Trash2, X } from 'lucide-react'
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { SectionBody, SectionDescription } from '@/components/section-layout'
 import { TagBadge } from '@/components/tag-input'
@@ -10,9 +13,6 @@ import { encryptHubField } from '@/lib/hub-field-crypto'
 import { useCreateTag, useDeleteTag, useTags, useUpdateTag } from '@/lib/queries/tags'
 import { useToast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
-import { Pencil, Plus, Save, Trash2, X } from 'lucide-react'
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 interface TagFormData {
   name: string

@@ -1,31 +1,6 @@
-import { CommandPalette, triggerCommandPalette } from '@/components/command-palette'
-import { DemoBanner } from '@/components/demo-banner'
-import { ErrorBoundary } from '@/components/error-boundary'
-import { HubSwitcher } from '@/components/hub-switcher'
-import { KeyMismatchBanner } from '@/components/key-mismatch-banner'
-import { KeyboardShortcutsDialog } from '@/components/keyboard-shortcuts-dialog'
-import { LanguageSelect } from '@/components/language-select'
-import { LogoMark } from '@/components/logo-mark'
-import { NoteSheet } from '@/components/note-sheet'
-import { NotificationPromptBanner } from '@/components/notification-prompt-banner'
-import { OfflineBanner } from '@/components/offline-banner'
-import { PanicWipeIndicator } from '@/components/panic-wipe-indicator'
-import { PwaInstallBanner } from '@/components/pwa-install-banner'
-import { useAuth } from '@/lib/auth'
-import { useConfig, useHasMessaging } from '@/lib/config'
-import { cryptoWorker } from '@/lib/crypto-worker-client'
-import { useCalls, useShiftStatus } from '@/lib/hooks'
-import { getHubKeyForId } from '@/lib/hub-key-cache'
-import * as keyManager from '@/lib/key-manager'
-import { NostrProvider, useRelay } from '@/lib/nostr/context'
-import { subscribeToPush } from '@/lib/push-subscription'
-import { queryClient } from '@/lib/query-client'
-import { useTheme } from '@/lib/theme'
-import { useKeyboardShortcuts } from '@/lib/use-keyboard-shortcuts'
-import { setSFrameOrchestratorDeps } from '@/lib/webrtc/sframe-orchestrator'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
-import { Link, Outlet, createRootRoute, useLocation, useNavigate } from '@tanstack/react-router'
+import { createRootRoute, Link, Outlet, useLocation, useNavigate } from '@tanstack/react-router'
 import {
   Building2,
   ClipboardList,
@@ -54,6 +29,31 @@ import {
 } from 'lucide-react'
 import { type ReactNode, useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { CommandPalette, triggerCommandPalette } from '@/components/command-palette'
+import { DemoBanner } from '@/components/demo-banner'
+import { ErrorBoundary } from '@/components/error-boundary'
+import { HubSwitcher } from '@/components/hub-switcher'
+import { KeyMismatchBanner } from '@/components/key-mismatch-banner'
+import { KeyboardShortcutsDialog } from '@/components/keyboard-shortcuts-dialog'
+import { LanguageSelect } from '@/components/language-select'
+import { LogoMark } from '@/components/logo-mark'
+import { NoteSheet } from '@/components/note-sheet'
+import { NotificationPromptBanner } from '@/components/notification-prompt-banner'
+import { OfflineBanner } from '@/components/offline-banner'
+import { PanicWipeIndicator } from '@/components/panic-wipe-indicator'
+import { PwaInstallBanner } from '@/components/pwa-install-banner'
+import { useAuth } from '@/lib/auth'
+import { useConfig, useHasMessaging } from '@/lib/config'
+import { cryptoWorker } from '@/lib/crypto-worker-client'
+import { useCalls, useShiftStatus } from '@/lib/hooks'
+import { getHubKeyForId } from '@/lib/hub-key-cache'
+import * as keyManager from '@/lib/key-manager'
+import { NostrProvider, useRelay } from '@/lib/nostr/context'
+import { subscribeToPush } from '@/lib/push-subscription'
+import { queryClient } from '@/lib/query-client'
+import { useTheme } from '@/lib/theme'
+import { useKeyboardShortcuts } from '@/lib/use-keyboard-shortcuts'
+import { setSFrameOrchestratorDeps } from '@/lib/webrtc/sframe-orchestrator'
 
 export const Route = createRootRoute({
   component: RootLayout,
@@ -322,7 +322,7 @@ function AuthenticatedLayout() {
   const hasMessaging = useHasMessaging()
   const { theme, setTheme } = useTheme()
   const navigate = useNavigate()
-  const location = useLocation()
+  const _location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { currentCall } = useCalls()
   const { onShift, currentShift, nextShift } = useShiftStatus()
@@ -343,7 +343,7 @@ function AuthenticatedLayout() {
   // Close sidebar on navigation
   useEffect(() => {
     setSidebarOpen(false)
-  }, [location.pathname])
+  }, [])
 
   return (
     <div className="flex h-screen">

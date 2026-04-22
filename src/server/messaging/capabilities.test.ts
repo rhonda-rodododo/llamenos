@@ -255,7 +255,7 @@ describe('MESSAGING_CAPABILITIES', () => {
         telegramIncoming: 'https://app.example.com/api/messaging/telegram/webhook',
       }
 
-      const result = await MESSAGING_CAPABILITIES.telegram.configureWebhooks!(config, webhookUrls)
+      const result = await MESSAGING_CAPABILITIES.telegram.configureWebhooks?.(config, webhookUrls)
 
       expect(result.ok).toBe(true)
       expect(result.details?.telegramIncoming).toBe(
@@ -271,7 +271,7 @@ describe('MESSAGING_CAPABILITIES', () => {
 
     it('telegram configureWebhooks returns error when telegramIncoming URL is missing', async () => {
       const config = { enabled: true, botToken: '123:ABC' }
-      const result = await MESSAGING_CAPABILITIES.telegram.configureWebhooks!(config, {})
+      const result = await MESSAGING_CAPABILITIES.telegram.configureWebhooks?.(config, {})
       expect(result.ok).toBe(false)
       expect(result.error).toContain('Missing telegram webhook URL')
     })
@@ -287,7 +287,7 @@ describe('MESSAGING_CAPABILITIES', () => {
       const config = { enabled: true, botToken: '123:ABC' }
       const webhookUrls = { telegramIncoming: 'http://invalid' }
 
-      const result = await MESSAGING_CAPABILITIES.telegram.configureWebhooks!(config, webhookUrls)
+      const result = await MESSAGING_CAPABILITIES.telegram.configureWebhooks?.(config, webhookUrls)
       expect(result.ok).toBe(false)
       expect(result.error).toBe('Invalid URL')
     })
@@ -298,7 +298,7 @@ describe('MESSAGING_CAPABILITIES', () => {
       const config = { enabled: true, botToken: '123:ABC' }
       const webhookUrls = { telegramIncoming: 'https://app.example.com/webhook' }
 
-      const result = await MESSAGING_CAPABILITIES.telegram.configureWebhooks!(config, webhookUrls)
+      const result = await MESSAGING_CAPABILITIES.telegram.configureWebhooks?.(config, webhookUrls)
       expect(result.ok).toBe(false)
       expect(result.error).toContain('DNS resolution failed')
     })

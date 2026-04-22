@@ -11,12 +11,11 @@
 
 import { DEFAULT_LANGUAGE, IVR_LANGUAGES } from '../../shared/languages'
 import {
-  type TelnyxClientState,
-  TelnyxWebhookEventSchema,
   decodeTelnyxClientState,
   encodeTelnyxClientState,
+  TelnyxWebhookEventSchema,
 } from '../../shared/schemas/external/telnyx-voice'
-import { IVR_PROMPTS, getPrompt, getVoicemailThanks } from '../../shared/voice-prompts'
+import { getPrompt, getVoicemailThanks, IVR_PROMPTS } from '../../shared/voice-prompts'
 import { createLogger } from '../lib/logger'
 import type {
   AudioUrlMap,
@@ -314,7 +313,7 @@ export class TelnyxAdapter implements TelephonyAdapter {
 
   async handleCallAnswered(params: CallAnsweredParams): Promise<TelephonyResponse> {
     const hubParam = hubQueryParam(params.hubId)
-    const recordingCallbackUrl = `${params.callbackUrl}/telephony/call-recording?parentCallSid=${params.parentCallSid}&pubkey=${params.userPubkey}${hubParam}`
+    const _recordingCallbackUrl = `${params.callbackUrl}/telephony/call-recording?parentCallSid=${params.parentCallSid}&pubkey=${params.userPubkey}${hubParam}`
 
     // Bridge the caller and user
     await this.client.command(params.parentCallSid, 'bridge', {
@@ -366,8 +365,8 @@ export class TelnyxAdapter implements TelephonyAdapter {
   }
 
   async handleWaitMusic(
-    lang: string,
-    audioUrls?: AudioUrlMap,
+    _lang: string,
+    _audioUrls?: AudioUrlMap,
     queueTime?: number,
     queueTimeout?: number
   ): Promise<TelephonyResponse> {
@@ -387,7 +386,7 @@ export class TelnyxAdapter implements TelephonyAdapter {
     // For Telnyx, the speak + hangup commands are issued asynchronously
     // We fire-and-forget the commands and return empty response
     const { voice, language } = getTelnyxVoice(lang)
-    const thanksText = getVoicemailThanks(lang)
+    const _thanksText = getVoicemailThanks(lang)
 
     // Note: These are fire-and-forget — we can't await in a sync method
     // The route handler should call this after recording.saved webhook
@@ -396,7 +395,7 @@ export class TelnyxAdapter implements TelephonyAdapter {
     return this.emptyTelephonyResponse()
   }
 
-  handleUnavailable(lang: string, _audioUrls?: AudioUrlMap): TelephonyResponse {
+  handleUnavailable(_lang: string, _audioUrls?: AudioUrlMap): TelephonyResponse {
     // Same pattern as voicemailComplete — async commands issued by route handler
     return this.emptyTelephonyResponse()
   }
@@ -590,7 +589,7 @@ export class TelnyxAdapter implements TelephonyAdapter {
 
     // For Telnyx, queue time is tracked via client_state or external timer
     // Extract from client_state if available, otherwise return 0
-    const clientState = payload.client_state ? decodeTelnyxClientState(payload.client_state) : null
+    const _clientState = payload.client_state ? decodeTelnyxClientState(payload.client_state) : null
 
     return {
       queueTime: 0, // Queue time tracking is handled by CallRouterService

@@ -3,13 +3,13 @@ import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import { LABEL_HUB_FIELD } from '@shared/crypto-labels'
 import { createHpkeSuite } from '@shared/crypto-suite'
 import type { Ciphertext } from '@shared/crypto-types'
-import { type X25519EncryptionKey, asX25519EncryptionKey } from '@shared/types'
+import { asX25519EncryptionKey, type X25519EncryptionKey } from '@shared/types'
 import {
-  HubKeyWrapError,
   decryptFromHub,
   decryptFromHubWithError,
   encryptForHub,
   generateHubKey,
+  HubKeyWrapError,
   planRotationCascade,
   rotateHubKeyClkr,
   unwrapHubKeyForDevice,
@@ -538,7 +538,7 @@ describe('rotateHubKeyClkr', () => {
       const env = result.deviceEnvelopes.find((e) => e.deviceId === device.id)
       expect(env).toBeDefined()
       const recovered = await unwrapHubKeyForDevice(
-        env!.envelope,
+        env?.envelope,
         device.kp.privateKey,
         device.id,
         HUB_ID

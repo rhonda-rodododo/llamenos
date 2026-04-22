@@ -1,8 +1,8 @@
+import { createFileRoute } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
 import { LogoMark } from '@/components/logo-mark'
 import { SetupWizard } from '@/components/setup/SetupWizard'
 import { useConfig } from '@/lib/config'
-import { createFileRoute } from '@tanstack/react-router'
-import { useTranslation } from 'react-i18next'
 
 export const Route = createFileRoute('/setup')({
   component: SetupPage,

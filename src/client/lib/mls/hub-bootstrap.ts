@@ -47,7 +47,7 @@ export async function bootstrapMlsForNewHub(
         creatorDeviceId: deviceId,
       })
       log('Emitted mls_group_init audit entry for hub %s', hubId)
-    } catch (auditErr) {
+    } catch (_auditErr) {
       log('Audit emission failed for hub %s (non-fatal)', hubId)
     }
 

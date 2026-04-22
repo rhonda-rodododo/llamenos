@@ -18,10 +18,10 @@ import {
   LABEL_BLAST_CONTENT,
 } from './crypto-labels'
 import {
-  type RecipientKeyEnvelope,
   eciesUnwrapKeyWithSecret,
   eciesWrapKey,
   hkdfDerive,
+  type RecipientKeyEnvelope,
 } from './crypto-primitives'
 import type { Ciphertext } from './crypto-types'
 import type { BlastContent } from './types'

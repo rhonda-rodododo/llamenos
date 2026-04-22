@@ -9,7 +9,6 @@
  */
 
 import { LABEL_BLAST_CONTENT } from '@shared/crypto-labels'
-import { eciesUnwrapKey } from '@shared/crypto-primitives'
 import type { Ciphertext } from '@shared/crypto-types'
 import type { MessagingChannelType } from '@shared/types'
 import { getMessagingAdapter } from '../lib/adapters'
@@ -166,7 +165,7 @@ export class BlastProcessor {
       }
       const key = channel.type
       if (!channelBatches.has(key)) channelBatches.set(key, [])
-      channelBatches.get(key)!.push({ sub, channel })
+      channelBatches.get(key)?.push({ sub, channel })
     }
 
     // Each channel type runs its own queue concurrently. Within a channel we
@@ -234,7 +233,7 @@ export class BlastProcessor {
               const body = `${blastText}\n\n${footer}`
 
               try {
-                const result = await adapter!.sendMessage({
+                const result = await adapter?.sendMessage({
                   recipientIdentifier: identifier,
                   body,
                 })

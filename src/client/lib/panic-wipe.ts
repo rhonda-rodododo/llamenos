@@ -8,7 +8,7 @@
 
 import { createDebugLog } from '@/lib/debug-log'
 import * as keyManager from './key-manager'
-import { SESSION_TOKEN_KEY, clearCapsule } from './session-capsule'
+import { clearCapsule, SESSION_TOKEN_KEY } from './session-capsule'
 
 const log = createDebugLog('llamenos:panic-wipe')
 

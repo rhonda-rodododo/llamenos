@@ -192,7 +192,7 @@ describe('BlastProcessor', () => {
       (call: unknown[]) => (call[1] as Record<string, unknown>).status === 'sending'
     )
     expect(promotionCall).toBeDefined()
-    expect(promotionCall![0]).toBe('blast-1')
+    expect(promotionCall?.[0]).toBe('blast-1')
 
     // Should have logged blastScheduled audit entry
     expect(services.records.addAuditEntry).toHaveBeenCalledWith(
@@ -217,9 +217,9 @@ describe('BlastProcessor', () => {
     services.blasts.listSubscribers = mock(() => Promise.resolve(subs))
 
     // After the first batch boundary (i=50), return cancelled status
-    let getBlastCallCount = 0
+    let _getBlastCallCount = 0
     services.blasts.getBlast = mock((_id: string) => {
-      getBlastCallCount++
+      _getBlastCallCount++
       return Promise.resolve(makeBlast({ status: 'cancelled' }))
     })
 

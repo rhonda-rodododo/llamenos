@@ -1,11 +1,11 @@
+import { createFileRoute } from '@tanstack/react-router'
+import { Bell } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { usePreferences, useUpdatePreferences } from '@/lib/queries/preferences'
-import { createFileRoute } from '@tanstack/react-router'
-import { Bell } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
 
 export const Route = createFileRoute('/preferences')({
   component: PreferencesPage,

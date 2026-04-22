@@ -1,7 +1,7 @@
-import { useNotificationPermission } from '@/lib/use-notification-permission'
 import { Bell, X } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useNotificationPermission } from '@/lib/use-notification-permission'
 
 const DISMISS_KEY = 'llamenos-notification-prompt-dismissed'
 

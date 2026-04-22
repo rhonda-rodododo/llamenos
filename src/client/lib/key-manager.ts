@@ -13,20 +13,18 @@
 
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { asPubkeyHash16 } from '@shared/crypto-types'
-import { type UserInfo, authFacadeClient } from './auth-facade-client'
+import { authFacadeClient, type UserInfo } from './auth-facade-client'
 import { LOCK_CHANNEL_NAME, type LockMessage, parseLockMessage } from './cross-tab-messages'
 import { cryptoWorker } from './crypto-worker-client'
 import { createDebugLog } from './debug-log'
 import {
-  type EncryptedKeyData,
-  type KEKFactors,
-  SYNTHETIC_ISSUERS,
-  type SyntheticIssuer,
   isValidPin as _isValidPin,
   clearStoredKey,
   deriveKEK,
+  type EncryptedKeyData,
   encryptNsec,
   loadEncryptedKey,
+  SYNTHETIC_ISSUERS,
   storeEncryptedKey,
   syntheticIdpValue,
 } from './key-store'

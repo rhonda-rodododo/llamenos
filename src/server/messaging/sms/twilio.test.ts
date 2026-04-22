@@ -327,9 +327,9 @@ describe('TwilioSMSAdapter', () => {
       const update = await adapter.parseStatusWebhook(request)
 
       expect(update).not.toBeNull()
-      expect(update!.externalId).toBe('SM_STATUS_001')
-      expect(update!.status).toBe('delivered')
-      expect(update!.failureReason).toBeUndefined()
+      expect(update?.externalId).toBe('SM_STATUS_001')
+      expect(update?.status).toBe('delivered')
+      expect(update?.failureReason).toBeUndefined()
     })
 
     it('maps Twilio "failed" status with error details', async () => {
@@ -343,8 +343,8 @@ describe('TwilioSMSAdapter', () => {
       const update = await adapter.parseStatusWebhook(request)
 
       expect(update).not.toBeNull()
-      expect(update!.status).toBe('failed')
-      expect(update!.failureReason).toBe('30006: Landline or unreachable carrier')
+      expect(update?.status).toBe('failed')
+      expect(update?.failureReason).toBe('30006: Landline or unreachable carrier')
     })
 
     it('maps "queued" and "sending" to "pending"', async () => {
@@ -355,7 +355,7 @@ describe('TwilioSMSAdapter', () => {
         })
 
         const update = await adapter.parseStatusWebhook(request)
-        expect(update!.status).toBe('pending')
+        expect(update?.status).toBe('pending')
       }
     })
 
@@ -366,7 +366,7 @@ describe('TwilioSMSAdapter', () => {
       })
 
       const update = await adapter.parseStatusWebhook(request)
-      expect(update!.status).toBe('failed')
+      expect(update?.status).toBe('failed')
     })
 
     it('returns null for unknown status values', async () => {

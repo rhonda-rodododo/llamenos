@@ -5,7 +5,7 @@
  * incremental verification. Uses in-process fetch + cache store stubs
  * so the verifier never touches a real network or IDB.
  */
-import { beforeAll, beforeEach, describe, expect, test } from 'bun:test'
+import { beforeEach, describe, expect, test } from 'bun:test'
 import { schnorr } from '@noble/curves/secp256k1.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { computeEntryHash } from '@shared/lib/audit-entry-hash'
@@ -14,12 +14,7 @@ import type {
   SignedAuditEntry,
   UnsignedAuditEntry,
 } from '@shared/schemas/audit-entries'
-import {
-  type ChainCacheRow,
-  type ChainCacheStore,
-  ChainVerificationError,
-  verifyAuditChain,
-} from './audit-chain-verifier'
+import { type ChainCacheRow, type ChainCacheStore, verifyAuditChain } from './audit-chain-verifier'
 
 // ---- fixtures ----
 

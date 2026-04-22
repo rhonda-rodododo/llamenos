@@ -1,3 +1,8 @@
+import type { PermissionMeta } from '@shared/permissions'
+import { PERMISSION_GROUP_LABELS } from '@shared/permissions'
+import { ChevronDown, ChevronRight, Lock, Pencil, Plus, Save, Trash2, X } from 'lucide-react'
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { SectionBody, SectionDescription } from '@/components/section-layout'
 import { Badge } from '@/components/ui/badge'
@@ -17,11 +22,6 @@ import {
 } from '@/lib/queries/roles'
 import { useToast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
-import type { PermissionMeta } from '@shared/permissions'
-import { PERMISSION_GROUP_LABELS } from '@shared/permissions'
-import { ChevronDown, ChevronRight, Lock, Pencil, Plus, Save, Trash2, X } from 'lucide-react'
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 interface RoleFormData {
   name: string
@@ -48,7 +48,7 @@ function ScopeGroup({
   for (const perm of scopePerms) {
     const prefix = perm.key.replace(/-(own|assigned|all)$/, '')
     if (!groups.has(prefix)) groups.set(prefix, [])
-    groups.get(prefix)!.push(perm)
+    groups.get(prefix)?.push(perm)
   }
 
   return (

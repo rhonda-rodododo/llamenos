@@ -3,7 +3,6 @@ import { EncryptedMetaItemSchema, FileKeyEnvelopeSchema } from '../../shared/sch
 import type { UploadInit } from '../../shared/types'
 import { createRouter } from '../lib/openapi'
 import { checkPermission, requirePermission } from '../middleware/permission-guard'
-import type { AppEnv } from '../types'
 
 const MAX_UPLOAD_SIZE = 100 * 1024 * 1024 // 100 MB
 const MAX_CHUNK_SIZE = 10 * 1024 * 1024 // 10 MB

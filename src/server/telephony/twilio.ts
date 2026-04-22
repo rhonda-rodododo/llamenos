@@ -1,5 +1,5 @@
 import { DEFAULT_LANGUAGE, IVR_LANGUAGES } from '../../shared/languages'
-import { IVR_PROMPTS, getPrompt, getVoicemailThanks } from '../../shared/voice-prompts'
+import { getPrompt, getVoicemailThanks, IVR_PROMPTS } from '../../shared/voice-prompts'
 import { createLogger } from '../lib/logger'
 import type {
   AudioUrlMap,
@@ -82,7 +82,7 @@ function hubXmlParam(hubId?: string): string {
 }
 
 /** Build hub query param suffix for non-XML URLs */
-function hubQueryParam(hubId?: string): string {
+function _hubQueryParam(hubId?: string): string {
   return hubId ? `&hub=${encodeURIComponent(hubId)}` : ''
 }
 

@@ -1,6 +1,6 @@
-import { useAuth } from '@/lib/auth'
 import { LABEL_SESSION_META } from '@shared/crypto-labels'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useAuth } from '@/lib/auth'
 import * as api from '../api/security'
 import { decryptEnvelopeJson } from '../decrypt-fields'
 import { queryKeys } from './keys'

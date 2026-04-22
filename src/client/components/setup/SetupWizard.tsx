@@ -1,3 +1,14 @@
+import type {
+  ChannelType,
+  SignalConfig,
+  TelephonyProviderDraft,
+  WhatsAppConfig,
+} from '@shared/types'
+import { useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
+import { ArrowLeft, ArrowRight, KeyRound, SkipForward } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LogoMark } from '@/components/logo-mark'
 import { PinInput } from '@/components/pin-input'
 import { Button } from '@/components/ui/button'
@@ -11,17 +22,6 @@ import * as keyManager from '@/lib/key-manager'
 import { bootstrapMlsForNewHub } from '@/lib/mls/hub-bootstrap'
 import { queryKeys } from '@/lib/queries/keys'
 import { useToast } from '@/lib/toast'
-import type {
-  ChannelType,
-  SignalConfig,
-  TelephonyProviderDraft,
-  WhatsAppConfig,
-} from '@shared/types'
-import { useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from '@tanstack/react-router'
-import { ArrowLeft, ArrowRight, KeyRound, SkipForward } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 import { AdminBootstrap } from './AdminBootstrap'
 import { StepChannels } from './StepChannels'
 import { StepIdentity } from './StepIdentity'
@@ -93,7 +93,7 @@ export function SetupWizard({ needsBootstrap = false }: { needsBootstrap?: boole
     // Short delay to let the new step render before focusing
     const timer = setTimeout(() => stepHeadingRef.current?.focus(), 50)
     return () => clearTimeout(timer)
-  }, [step])
+  }, [])
 
   // Escape key goes back one step
   useEffect(() => {

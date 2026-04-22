@@ -1,5 +1,5 @@
 import { DEFAULT_LANGUAGE, IVR_LANGUAGES } from '../../shared/languages'
-import { IVR_PROMPTS, getPrompt } from '../../shared/voice-prompts'
+import { getPrompt, IVR_PROMPTS } from '../../shared/voice-prompts'
 import type {
   AudioUrlMap,
   CallAnsweredParams,
@@ -81,27 +81,6 @@ export class FreeSwitchAdapter extends SipBridgeAdapter {
     if (audioUrl) return `\n    <playback file="${escapeXml(audioUrl)}"/>`
     const content = text ?? getPrompt(promptKey, lang)
     return this.speak(content, lang)
-  }
-
-  /**
-   * Generate digit gathering elements.
-   * Uses <bind> with a digit pattern and callback URL.
-   */
-  private gatherDigits(
-    prompt: string,
-    numDigits: number,
-    callbackPath: string,
-    hubId?: string,
-    timeout?: number
-  ): string {
-    const timeoutMs = (timeout || 8) * 1000
-    const callbackUrl = this.buildCallbackUrl(callbackPath, hubId)
-    const digitPattern = numDigits === 1 ? '~\\d' : `~\\d{${numDigits}}`
-    return [
-      this.speak(prompt, 'en'),
-      `\n    <bind strip="#">${digitPattern} ${escapeXml(callbackUrl)}</bind>`,
-      `\n    <pause milliseconds="${timeoutMs}"/>`,
-    ].join('')
   }
 
   private buildCallbackUrl(path: string, hubId?: string): string {

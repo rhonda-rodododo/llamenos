@@ -240,7 +240,7 @@ describe('AuthentikAdapter', () => {
       let patchedAttributes: Record<string, string> | undefined
 
       globalThis.fetch = asFetch(
-        mock((url: string, init?: RequestInit) => {
+        mock((_url: string, init?: RequestInit) => {
           const method = init?.method ?? 'GET'
           if (method === 'GET') {
             return Promise.resolve(
@@ -292,7 +292,7 @@ describe('AuthentikAdapter', () => {
       let patchedAttributes: Record<string, string> | undefined
 
       globalThis.fetch = asFetch(
-        mock((url: string, init?: RequestInit) => {
+        mock((_url: string, init?: RequestInit) => {
           const method = init?.method ?? 'GET'
           if (method === 'GET') {
             return Promise.resolve(listResponse([userWithBoth]))

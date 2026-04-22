@@ -1,10 +1,10 @@
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { geocodingAutocomplete, geocodingReverse } from '@/lib/api'
 import type { LocationFieldValue, LocationPrecision, LocationResult } from '@shared/types'
 import { ExternalLink, Loader2, MapPin, Navigation, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { geocodingAutocomplete, geocodingReverse } from '@/lib/api'
 
 interface LocationFieldProps {
   value: LocationFieldValue | null

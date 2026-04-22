@@ -1,8 +1,10 @@
+import { Mic, MicOff, Monitor, PhoneCall, PhoneOff } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth'
 import {
-  type E2eeStatus,
-  type WebRtcState,
   destroyWebRtc,
+  type E2eeStatus,
   getE2eeReason,
   getE2eeStatus,
   getState,
@@ -12,12 +14,10 @@ import {
   onE2eeStatusChange,
   onStateChange,
   toggleMute,
+  type WebRtcState,
   acceptCall as webrtcAccept,
   hangupCall as webrtcHangup,
 } from '@/lib/webrtc/manager'
-import { Mic, MicOff, Monitor, PhoneCall, PhoneOff } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 import { ActiveCallBadge, type E2eeBadgeState } from './call/ActiveCallBadge'
 import { E2eeFallbackBanner, type E2eeFallbackReason } from './call/E2eeFallbackBanner'
 import { Badge } from './ui/badge'

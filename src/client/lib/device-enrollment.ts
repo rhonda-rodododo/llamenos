@@ -156,7 +156,6 @@ export class NewDeviceEnrollmentMachine {
   private _enrollmentNonce: string | null = null
   private _sessionId: string | null = null
   private _primarySigningPub: string | null = null
-  private _primaryEncryptionPub: string | null = null
   private _failReason: string | null = null
 
   get state(): EnrollmentState {

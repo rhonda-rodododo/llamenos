@@ -7,18 +7,20 @@
  * and PATCHing the record back.
  */
 
+import type { FileRecord } from '@shared/types'
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  type ConversationMessage,
-  type Report,
-  type ReportType,
   assignReport,
+  type ConversationMessage,
   claimMessage,
   getReport,
   getReportCategories,
   getReportFiles,
   getReportMessages,
-  listReportTypes,
   listReports,
+  listReportTypes,
+  type Report,
+  type ReportType,
   sendReportMessage,
   updateReport,
   upgradeMessageToMls,
@@ -29,8 +31,6 @@ import { decryptHubField } from '@/lib/hub-field-crypto'
 import * as keyManager from '@/lib/key-manager'
 import { getMlsConversation } from '@/lib/mls/get-mls-conversation'
 import * as mlsApi from '@/lib/mls/mls-api-client'
-import type { FileRecord } from '@shared/types'
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from './keys'
 
 // ---------------------------------------------------------------------------
@@ -195,8 +195,10 @@ export function useUpdateReport() {
     mutationFn: ({
       reportId,
       data,
-    }: { reportId: string; data: Parameters<typeof updateReport>[1] }) =>
-      updateReport(reportId, data),
+    }: {
+      reportId: string
+      data: Parameters<typeof updateReport>[1]
+    }) => updateReport(reportId, data),
     onSuccess: (_result, variables) => {
       // If the report was closed, immediately remove it from all cached lists and
       // skip immediate cache invalidation. This matches the original useState behavior

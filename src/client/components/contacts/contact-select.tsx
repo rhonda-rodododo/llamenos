@@ -1,3 +1,7 @@
+import { CONTACT_TYPE_LABELS, type ContactType } from '@shared/types'
+import { Check, ChevronsUpDown, X } from 'lucide-react'
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -11,10 +15,6 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useContacts } from '@/lib/queries/contacts'
 import { cn } from '@/lib/utils'
-import { CONTACT_TYPE_LABELS, type ContactType } from '@shared/types'
-import { Check, ChevronsUpDown, X } from 'lucide-react'
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 /** ContactRecord with decrypted displayName field populated by decrypt-on-fetch. */
 type DecryptedContactRecord = {

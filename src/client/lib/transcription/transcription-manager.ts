@@ -277,7 +277,7 @@ export class TranscriptionManager {
       }, 600_000) // 10 min for long recordings
 
       // Temporarily intercept this specific chunk result
-      const originalHandler = this.worker!.onmessage
+      const originalHandler = this.worker?.onmessage
       this.worker!.onmessage = (event: MessageEvent) => {
         const msg = event.data
         if (msg.type === 'chunk_result' && msg.chunkIndex === chunkIndex) {
@@ -296,7 +296,7 @@ export class TranscriptionManager {
         }
       }
 
-      this.worker!.postMessage(
+      this.worker?.postMessage(
         {
           type: 'transcribe_chunk',
           audio: pcmFloat32.buffer,

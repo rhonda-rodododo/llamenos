@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { generateDeviceKeypair } from './device-identity'
 import {
-  InMemoryDeviceKeypairStorage,
-  MultipleDeviceKeypairsError,
   clearDeviceKeypairStore,
   forceInsertRawDeviceKeypair,
   getDeviceKeypair,
+  InMemoryDeviceKeypairStorage,
+  MultipleDeviceKeypairsError,
   putDeviceKeypair,
   setDeviceKeypairStorage,
 } from './device-identity-store'
@@ -21,9 +21,9 @@ describe('device-identity-store', () => {
     await putDeviceKeypair(kp)
     const loaded = await getDeviceKeypair()
     expect(loaded).not.toBeNull()
-    expect(loaded!.deviceId).toBe(kp.deviceId)
-    expect(loaded!.signing.publicKey).toEqual(kp.signing.publicKey)
-    expect(loaded!.encryption.publicKey).toEqual(kp.encryption.publicKey)
+    expect(loaded?.deviceId).toBe(kp.deviceId)
+    expect(loaded?.signing.publicKey).toEqual(kp.signing.publicKey)
+    expect(loaded?.encryption.publicKey).toEqual(kp.encryption.publicKey)
   })
 
   test('loaded signing private key still works non-extractably', async () => {
@@ -31,9 +31,9 @@ describe('device-identity-store', () => {
     await putDeviceKeypair(kp)
     const loaded = await getDeviceKeypair()
     const msg = new TextEncoder().encode('hello')
-    const sig = await crypto.subtle.sign({ name: 'Ed25519' }, loaded!.signing.privateKey, msg)
+    const sig = await crypto.subtle.sign({ name: 'Ed25519' }, loaded?.signing.privateKey, msg)
     expect(sig.byteLength).toBe(64)
-    await expect(crypto.subtle.exportKey('raw', loaded!.signing.privateKey)).rejects.toThrow()
+    await expect(crypto.subtle.exportKey('raw', loaded?.signing.privateKey)).rejects.toThrow()
   })
 
   test('empty store returns null', async () => {
@@ -56,14 +56,14 @@ describe('device-identity-store', () => {
     await putDeviceKeypair(a)
     await putDeviceKeypair(b)
     const loaded = await getDeviceKeypair()
-    expect(loaded!.deviceId).toBe(b.deviceId)
+    expect(loaded?.deviceId).toBe(b.deviceId)
   })
 
   test('preserves isPaperKey flag', async () => {
     const kp = await generateDeviceKeypair({ isPaperKey: true })
     await putDeviceKeypair(kp)
     const loaded = await getDeviceKeypair()
-    expect(loaded!.isPaperKey).toBe(true)
+    expect(loaded?.isPaperKey).toBe(true)
   })
 
   test('clearDeviceKeypairStore empties the store', async () => {

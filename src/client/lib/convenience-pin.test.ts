@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import {
+  __setStorageForTests,
   ConveniencePinFormatError,
   ConveniencePinLockedError,
   ConveniencePinMismatchError,
-  __setStorageForTests,
   clearConveniencePin,
   enterConveniencePin,
   hasConveniencePin,

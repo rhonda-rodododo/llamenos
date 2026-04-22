@@ -2,12 +2,12 @@ import { describe, expect, test } from 'bun:test'
 import { secp256k1 } from '@noble/curves/secp256k1.js'
 import { bytesToHex } from '@noble/hashes/utils.js'
 import {
-  type ShamirShare,
-  type VerifiedShare,
   combineAndVerifyShares,
   commitShare,
   generateRecoveryGroupKeyPair,
+  type ShamirShare,
   splitRecoveryGroupSecret,
+  type VerifiedShare,
   verifyAndBrandShare,
   verifyShareCommitment,
 } from './recovery-group-share'

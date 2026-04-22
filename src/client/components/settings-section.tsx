@@ -1,11 +1,11 @@
+import { ChevronDown, Link as LinkIcon } from 'lucide-react'
+import { type ReactNode, useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { useToast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
-import { ChevronDown, Link as LinkIcon } from 'lucide-react'
-import { type ReactNode, useCallback, useEffect, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 /**
  * Persists which settings sections are expanded across navigations via sessionStorage.

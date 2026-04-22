@@ -1,3 +1,6 @@
+import { Archive, Download, Shield, ShieldOff, Trash2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { PhoneInput } from '@/components/phone-input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -15,13 +18,10 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
-import { type Hub, type HubExportCategory, exportHubData } from '@/lib/api'
+import { exportHubData, type Hub, type HubExportCategory } from '@/lib/api'
 import { encryptHubField } from '@/lib/hub-field-crypto'
 import type { useArchiveHub, useDeleteHub, useUpdateHub } from '@/lib/queries/hubs'
 import type { useToast } from '@/lib/toast'
-import { Archive, Download, Shield, ShieldOff, Trash2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 const EXPORT_CATEGORIES: { key: HubExportCategory; labelKey: string }[] = [
   { key: 'notes', labelKey: 'hub.export.categories.notes' },
@@ -397,13 +397,7 @@ export function HubsEditDialog({
   )
 }
 
-function ExportPanel({
-  hub,
-  toast,
-}: {
-  hub: Hub
-  toast: ReturnType<typeof useToast>['toast']
-}) {
+function ExportPanel({ hub, toast }: { hub: Hub; toast: ReturnType<typeof useToast>['toast'] }) {
   const { t } = useTranslation()
   const [exporting, setExporting] = useState(false)
   const [selectedCategories, setSelectedCategories] = useState<Set<HubExportCategory>>(

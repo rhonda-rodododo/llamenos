@@ -29,10 +29,10 @@
 // signal on top of the binary verifier's single-client integrity check.
 
 import {
+  runBinaryVerifier,
   type VerifierConfig,
   VerifierFailure,
   type VerifierResult,
-  runBinaryVerifier,
 } from './binary-verifier'
 import { startBootGossip } from './boot-gossip'
 

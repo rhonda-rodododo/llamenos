@@ -19,9 +19,9 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { generateDeviceKeypair } from './device-identity'
 import {
-  InMemoryDeviceKeypairStorage,
   clearDeviceKeypairStore,
   getDeviceKeypair,
+  InMemoryDeviceKeypairStorage,
   putDeviceKeypair,
   setDeviceKeypairStorage,
 } from './device-identity-store'
@@ -73,16 +73,16 @@ describe('device-identity bootstrap wiring', () => {
     // a stub or skip persistence.
     const loaded = await getDeviceKeypair()
     expect(loaded).not.toBeNull()
-    expect(loaded!.isPaperKey).toBe(false)
-    expect(loaded!.signing.publicKey).toBeInstanceOf(Uint8Array)
-    expect(loaded!.signing.publicKey.length).toBe(32)
-    expect(loaded!.encryption.publicKey).toBeInstanceOf(Uint8Array)
-    expect(loaded!.encryption.publicKey.length).toBe(32)
-    expect(loaded!.deviceId).toMatch(
+    expect(loaded?.isPaperKey).toBe(false)
+    expect(loaded?.signing.publicKey).toBeInstanceOf(Uint8Array)
+    expect(loaded?.signing.publicKey.length).toBe(32)
+    expect(loaded?.encryption.publicKey).toBeInstanceOf(Uint8Array)
+    expect(loaded?.encryption.publicKey.length).toBe(32)
+    expect(loaded?.deviceId).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
     )
     // Private keys must survive the store round-trip as non-extractable.
-    await expect(crypto.subtle.exportKey('raw', loaded!.signing.privateKey)).rejects.toThrow()
+    await expect(crypto.subtle.exportKey('raw', loaded?.signing.privateKey)).rejects.toThrow()
   })
 
   test('unlock after bootstrap loads the existing keypair, not a fresh one', async () => {
@@ -98,10 +98,10 @@ describe('device-identity bootstrap wiring', () => {
     // Assert: same keypair object — the unlock path did not regenerate,
     // and the pubkeys are byte-identical to the bootstrap keypair.
     expect(loaded).not.toBeNull()
-    expect(loaded!.deviceId).toBe(original!.deviceId)
-    expect(loaded!.signing.publicKey).toEqual(original!.signing.publicKey)
-    expect(loaded!.encryption.publicKey).toEqual(original!.encryption.publicKey)
-    expect(loaded!.createdAt).toBe(original!.createdAt)
+    expect(loaded?.deviceId).toBe(original?.deviceId)
+    expect(loaded?.signing.publicKey).toEqual(original?.signing.publicKey)
+    expect(loaded?.encryption.publicKey).toEqual(original?.encryption.publicKey)
+    expect(loaded?.createdAt).toBe(original?.createdAt)
   })
 
   test('unlock on a fresh device (no bootstrap yet) returns null without throwing', async () => {
@@ -124,6 +124,6 @@ describe('device-identity bootstrap wiring', () => {
     // Then simulate a later unlock.
     const afterUnlock = await loadDeviceKeypairSafe()
     expect(afterUnlock).not.toBeNull()
-    expect(afterUnlock!.deviceId).toBe(original!.deviceId)
+    expect(afterUnlock?.deviceId).toBe(original?.deviceId)
   })
 })

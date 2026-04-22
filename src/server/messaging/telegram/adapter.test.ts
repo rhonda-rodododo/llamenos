@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
+import { beforeEach, describe, expect, mock, test } from 'bun:test'
 import type { TelegramConfig } from '../../../shared/types'
 import type { CryptoService } from '../../lib/crypto-service'
 import { TelegramAdapter } from './adapter'

@@ -6,8 +6,8 @@ import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { LABEL_FILE_KEY, LABEL_FILE_METADATA, labelToId } from '@shared/crypto-labels'
 import {
-  type KeyEnvelope,
   eciesUnwrapKeyWithSecret,
+  type KeyEnvelope,
   symmetricDecrypt,
 } from '@shared/crypto-primitives'
 import type { Ciphertext } from '@shared/crypto-types'
@@ -229,7 +229,7 @@ describe('file-crypto envelope', () => {
     const fileId2 = crypto.randomUUID()
 
     const result1 = await encryptFile(file1, fileId1, [publicKeyHex])
-    const result2 = await encryptFile(file2, fileId2, [publicKeyHex])
+    const _result2 = await encryptFile(file2, fileId2, [publicKeyHex])
 
     // Try to decrypt file1's content using file2's fileId (cross-file substitution)
     await expect(

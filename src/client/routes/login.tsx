@@ -1,3 +1,20 @@
+import { isValidNsec } from '@shared/crypto-primitives'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import {
+  ArrowRight,
+  Fingerprint,
+  Key,
+  KeyRound,
+  LogIn,
+  Monitor,
+  Moon,
+  Shield,
+  Smartphone,
+  Sun,
+  Upload,
+} from 'lucide-react'
+import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { CookiesRequired } from '@/components/cookies-required'
 import { DemoAccountPicker } from '@/components/demo-account-picker'
 import { LanguageSelect } from '@/components/language-select'
@@ -26,24 +43,6 @@ import * as keyManager from '@/lib/key-manager'
 import { hasStoredKey } from '@/lib/key-manager'
 import { useTheme } from '@/lib/theme'
 import { isWebAuthnAvailable } from '@/lib/webauthn'
-import { isValidNsec } from '@shared/crypto-primitives'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { Link } from '@tanstack/react-router'
-import {
-  ArrowRight,
-  Fingerprint,
-  Key,
-  KeyRound,
-  LogIn,
-  Monitor,
-  Moon,
-  Shield,
-  Smartphone,
-  Sun,
-  Upload,
-} from 'lucide-react'
-import { useRef, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 export const Route = createFileRoute('/login')({
   component: LoginPage,
@@ -71,7 +70,7 @@ function LoginPage() {
   const storedKeyExists = hasStoredKey()
 
   // Recovery state
-  const [recoveryMode, setRecoveryMode] = useState<'none' | 'nsec' | 'backup'>('none')
+  const [recoveryMode, _setRecoveryMode] = useState<'none' | 'nsec' | 'backup'>('none')
   const [nsec, setNsec] = useState('')
   const [backupFile, setBackupFile] = useState<import('@/lib/backup').BackupFile | null>(null)
   const [recoveryPin, setRecoveryPin] = useState('')
@@ -805,7 +804,10 @@ function LoginPage() {
 function PinUnlockInline({
   onUnlock,
   onWipe,
-}: { onUnlock: (pin: string) => Promise<boolean>; onWipe: () => void }) {
+}: {
+  onUnlock: (pin: string) => Promise<boolean>
+  onWipe: () => void
+}) {
   const { t } = useTranslation()
   const [pin, setPin] = useState('')
   const [error, setError] = useState(false)

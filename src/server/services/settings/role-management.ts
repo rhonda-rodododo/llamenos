@@ -1,7 +1,7 @@
 import type { Ciphertext } from '@shared/crypto-types'
 import { eq, inArray, sql } from 'drizzle-orm'
-import { DEFAULT_ROLES } from '../../../shared/permissions'
 import type { Role } from '../../../shared/permissions'
+import { DEFAULT_ROLES } from '../../../shared/permissions'
 import type { Database } from '../../db'
 import { hubKeys, roles } from '../../db/schema'
 import type { TtlCache } from '../../lib/cache'

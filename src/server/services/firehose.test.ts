@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'bun:test'
-import { FirehoseService } from './firehose'
-
 import type { Database } from '../db'
 import type { CryptoService } from '../lib/crypto-service'
+import { FirehoseService } from './firehose'
 
 // Minimal mocks — these methods don't touch db or crypto service
-const mockDb = {} as Database
-const mockCrypto = {} as CryptoService
+const _mockDb = {} as Database
+const _mockCrypto = {} as CryptoService
 
 describe('FirehoseService', () => {
   it('should be constructable', () => {

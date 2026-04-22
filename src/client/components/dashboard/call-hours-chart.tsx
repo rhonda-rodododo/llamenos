@@ -1,7 +1,7 @@
-import { Skeleton } from '@/components/ui/skeleton'
-import type { CallHourBucket } from '@/lib/api'
 import { useTranslation } from 'react-i18next'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Skeleton } from '@/components/ui/skeleton'
+import type { CallHourBucket } from '@/lib/api'
 
 interface Props {
   data: CallHourBucket[]

@@ -25,12 +25,14 @@ describe('SFrameKeyEventPayloadSchema', () => {
     expect(() => SFrameKeyEventPayloadSchema.parse(base)).not.toThrow()
   })
 
-  test.each(['initial', 'rotate_join', 'rotate_leave', 'rotate_scheduled'] as const)(
-    'accepts reason %s',
-    (reason) => {
-      expect(() => SFrameKeyEventPayloadSchema.parse({ ...base, reason })).not.toThrow()
-    }
-  )
+  test.each([
+    'initial',
+    'rotate_join',
+    'rotate_leave',
+    'rotate_scheduled',
+  ] as const)('accepts reason %s', (reason) => {
+    expect(() => SFrameKeyEventPayloadSchema.parse({ ...base, reason })).not.toThrow()
+  })
 
   test('rejects keyId > 127', () => {
     expect(() => SFrameKeyEventPayloadSchema.parse({ ...base, keyId: 128 })).toThrow()

@@ -1,11 +1,11 @@
+import { Upload, X } from 'lucide-react'
+import { useCallback, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { UploadProgress } from '@/components/UploadProgress'
 import { Button } from '@/components/ui/button'
 import { chunkedUpload } from '@/lib/chunked-upload'
 import { encryptFile } from '@/lib/file-crypto'
 import { useToast } from '@/lib/toast'
-import { Upload, X } from 'lucide-react'
-import { useCallback, useRef, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 interface FileUploadProps {
   conversationId: string

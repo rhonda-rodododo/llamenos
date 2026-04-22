@@ -1,18 +1,18 @@
+import { CheckCircle2, Clock, Loader2, Phone, Shield, XCircle } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
-  type SignalRegistrationStatus,
   getSignalRegistrationStatus,
+  type SignalRegistrationStatus,
   startSignalRegistration,
   verifySignalRegistration,
 } from '@/lib/api'
 import { useToast } from '@/lib/toast'
-import { CheckCircle2, Clock, Loader2, Phone, Shield, XCircle } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 interface SignalRegistrationFlowProps {
   isConfigured: boolean

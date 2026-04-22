@@ -1,3 +1,8 @@
+import { type LocationPrecision, MAX_CUSTOM_FIELDS } from '@shared/types'
+import { useQueryClient } from '@tanstack/react-query'
+import { ChevronDown, ChevronUp, Plus, Save, Trash2 } from 'lucide-react'
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { SectionBody, SectionDescription } from '@/components/section-layout'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -17,11 +22,6 @@ import { encryptHubField } from '@/lib/hub-field-crypto'
 import { queryKeys } from '@/lib/queries/keys'
 import { useCustomFields } from '@/lib/queries/settings'
 import { useToast } from '@/lib/toast'
-import { type LocationPrecision, MAX_CUSTOM_FIELDS } from '@shared/types'
-import { useQueryClient } from '@tanstack/react-query'
-import { ChevronDown, ChevronUp, Plus, Save, Trash2 } from 'lucide-react'
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 export function CustomFieldsSection() {
   const { t } = useTranslation()

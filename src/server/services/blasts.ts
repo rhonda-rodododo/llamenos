@@ -51,11 +51,9 @@ export function selectChannel(sub: Subscriber, targetChannels: string[]): Subscr
 }
 
 export class BlastService {
-  #settings: SettingsService
-
   constructor(
     protected readonly db: Database,
-    private readonly crypto: CryptoService,
+    readonly _crypto: CryptoService,
     settings: SettingsService
   ) {
     this.#settings = settings

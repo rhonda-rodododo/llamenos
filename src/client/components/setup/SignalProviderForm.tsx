@@ -1,12 +1,12 @@
+import type { SignalConfig } from '@shared/types'
+import { Copy, Loader2, Shield } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { testSignalBridge } from '@/lib/api'
 import { useToast } from '@/lib/toast'
-import type { SignalConfig } from '@shared/types'
-import { Copy, Loader2, Shield } from 'lucide-react'
-import { useMemo, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 import type { SetupData } from './SetupWizard'
 import { WebhookConfirmation } from './WebhookConfirmation'
 
@@ -44,7 +44,7 @@ export function SignalProviderForm({ data, onChange }: Props) {
     }
   }
 
-  function copyWebhookUrl() {
+  function _copyWebhookUrl() {
     const url = `${window.location.origin}/api/messaging/signal/webhook`
     navigator.clipboard.writeText(url)
     toast(t('setup.webhookCopied'), 'success')

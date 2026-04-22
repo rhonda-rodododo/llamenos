@@ -3,7 +3,6 @@ import type { Ciphertext } from '@shared/crypto-types'
 import { CreateReportTypeSchema, UpdateReportTypeSchema } from '@shared/schemas/report-types'
 import { createRouter } from '../lib/openapi'
 import { requirePermission } from '../middleware/permission-guard'
-import type { AppEnv } from '../types'
 
 const reportTypesRoutes = createRouter()
 

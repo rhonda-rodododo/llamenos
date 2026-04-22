@@ -41,7 +41,7 @@ export function useNostrSubscription(
     }
     // Resubscribe when relay instance, hub, kinds, or enabled state changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [relay, hubId, kinds.join(','), enabled, state])
+  }, [relay, hubId, enabled, state, kinds])
 }
 
 /**
@@ -55,7 +55,7 @@ export function useNostrSubscription(
  * @param handler - Callback receiving (raw Nostr event, decrypted Llamenos event)
  * @param enabled - Set to false to disable all subscriptions (default: true)
  */
-function useMultiHubNostrSubscription(
+function _useMultiHubNostrSubscription(
   hubIds: string[] | undefined,
   kinds: number[],
   handler: NostrEventHandler,
@@ -67,7 +67,7 @@ function useMultiHubNostrSubscription(
   handlerRef.current = handler
 
   // Stable key for dependency comparison — avoids resubscribing on array identity changes
-  const hubIdsKey = hubIds?.join(',') ?? ''
+  const _hubIdsKey = hubIds?.join(',') ?? ''
 
   useEffect(() => {
     if (!relay || !hubIds?.length || !enabled || state !== 'connected') return
@@ -82,5 +82,5 @@ function useMultiHubNostrSubscription(
       for (const subId of subIds) relay.unsubscribe(subId)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [relay, hubIdsKey, kinds.join(','), enabled, state])
+  }, [relay, enabled, state, kinds, hubIds.map, hubIds?.length])
 }

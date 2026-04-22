@@ -1,3 +1,8 @@
+import type { ReportType } from '@shared/types'
+import { useQueryClient } from '@tanstack/react-query'
+import { Archive, ArchiveRestore, Plus, Save, Star } from 'lucide-react'
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { SectionBody, SectionDescription } from '@/components/section-layout'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -18,11 +23,6 @@ import { queryKeys } from '@/lib/queries/keys'
 import { useReportTypes } from '@/lib/queries/reports'
 import { useCustomFields } from '@/lib/queries/settings'
 import { useToast } from '@/lib/toast'
-import type { ReportType } from '@shared/types'
-import { useQueryClient } from '@tanstack/react-query'
-import { Archive, ArchiveRestore, Plus, Save, Star } from 'lucide-react'
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 interface EditingState {
   id?: string

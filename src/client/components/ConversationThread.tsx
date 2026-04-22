@@ -1,8 +1,8 @@
-import { MessageStatusIcon } from '@/components/MessageStatusIcon'
-import type { ConversationMessage } from '@/lib/api'
 import { ArrowDown, Loader2, Lock } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { MessageStatusIcon } from '@/components/MessageStatusIcon'
+import type { ConversationMessage } from '@/lib/api'
 
 interface ConversationThreadProps {
   conversationId: string

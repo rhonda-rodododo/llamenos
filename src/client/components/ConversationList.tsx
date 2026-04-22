@@ -1,8 +1,8 @@
-import { ChannelBadge } from '@/components/ChannelBadge'
-import type { Conversation } from '@/lib/api'
 import { Clock, MessageSquare, User } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { ChannelBadge } from '@/components/ChannelBadge'
+import type { Conversation } from '@/lib/api'
 
 interface ConversationListProps {
   conversations: Conversation[]

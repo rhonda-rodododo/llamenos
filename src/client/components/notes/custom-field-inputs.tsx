@@ -1,3 +1,5 @@
+import type { CustomFieldDefinition, FileFieldValue, LocationFieldValue } from '@shared/types'
+import { useTranslation } from 'react-i18next'
 import { ContactSelect } from '@/components/contacts/contact-select'
 import { FileFieldInput } from '@/components/custom-fields/file-field-input'
 import { Input } from '@/components/ui/input'
@@ -11,8 +13,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import type { CustomFieldDefinition, FileFieldValue, LocationFieldValue } from '@shared/types'
-import { useTranslation } from 'react-i18next'
 
 type FieldValue = string | string[] | number | boolean | FileFieldValue
 
@@ -72,7 +72,7 @@ export function CustomFieldInputs({
  * Validate custom field values. Returns a map of field ID -> error message.
  * Empty map means all valid.
  */
-function validateCustomFields(
+function _validateCustomFields(
   fields: CustomFieldDefinition[],
   values: Record<string, FieldValue>,
   t: (key: string, opts?: Record<string, unknown>) => string,

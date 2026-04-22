@@ -20,12 +20,7 @@ import {
   LABEL_MASTER_USER_SIGNING,
 } from '@shared/crypto-labels'
 import type { DeviceCrossSignPayload, UserCrossSignPayload } from '@shared/schemas/sigchain'
-import {
-  type AesGcmKey,
-  type Ed25519SigningKey,
-  asAesGcmKey,
-  asEd25519SigningKey,
-} from '@shared/types'
+import { type AesGcmKey, asEd25519SigningKey, type Ed25519SigningKey } from '@shared/types'
 
 // ---- PKCS8 DER wrapper (same as puk.ts) ----
 

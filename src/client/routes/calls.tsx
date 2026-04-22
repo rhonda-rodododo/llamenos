@@ -1,14 +1,4 @@
-import { RecordingPlayer } from '@/components/recording-player'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { VoicemailPlayer } from '@/components/voicemail-player'
-import { useAuth } from '@/lib/auth'
-import { useCallHistory } from '@/lib/queries/calls'
-import { useUsers } from '@/lib/queries/users'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { Link } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import {
   ChevronLeft,
   ChevronRight,
@@ -24,6 +14,15 @@ import {
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { RecordingPlayer } from '@/components/recording-player'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { VoicemailPlayer } from '@/components/voicemail-player'
+import { useAuth } from '@/lib/auth'
+import { useCallHistory } from '@/lib/queries/calls'
+import { useUsers } from '@/lib/queries/users'
 
 type CallsSearch = {
   page: number
