@@ -1905,7 +1905,24 @@
       "eraseConfirmTitle": "Confirm Immediate Erasure",
       "eraseConfirmDescription": "This will immediately and permanently erase all data for this user. This action cannot be undone.",
       "eraseSuccess": "User erased successfully.",
-      "eraseError": "Erasure failed. Please try again."
+      "eraseError": "Erasure failed. Please try again.",
+      "requestsTitle": "Erasure Requests",
+      "noRequests": "No erasure requests found.",
+      "requestedAt": "Requested {{date}}",
+      "executesIn": "Executes in ~{{hours}}h",
+      "filter": {
+        "all": "All",
+        "pending": "Pending",
+        "executed": "Executed",
+        "cancelled": "Cancelled"
+      },
+      "status": {
+        "pending": "Pending",
+        "processing": "Processing",
+        "completed": "Completed",
+        "executed": "Executed",
+        "cancelled": "Cancelled"
+      }
     }
   },
   "providerWizard": {

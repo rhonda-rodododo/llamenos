@@ -226,6 +226,23 @@ export class GdprService {
 
   // ------------------------------------------------------------------ Erasure Requests
 
+  async listErasureRequests(
+    statusFilter?: GdprErasureRequest['status']
+  ): Promise<GdprErasureRequest[]> {
+    const conditions = statusFilter ? [eq(gdprErasureRequests.status, statusFilter)] : []
+    const rows = await this.db
+      .select()
+      .from(gdprErasureRequests)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(sql`${gdprErasureRequests.requestedAt} DESC`)
+    return rows.map((row) => ({
+      pubkey: row.pubkey,
+      requestedAt: row.requestedAt.toISOString(),
+      executeAt: row.executeAt.toISOString(),
+      status: row.status as GdprErasureRequest['status'],
+    }))
+  }
+
   async getErasureRequest(pubkey: string): Promise<GdprErasureRequest | null> {
     const rows = await this.db
       .select()
