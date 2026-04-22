@@ -131,9 +131,12 @@ function CallDetailPage() {
           const isTranscription = note.authorPubkey.startsWith('system:transcription')
           let payload: NotePayload
           if (isTranscription && note.ephemeralPubkey && hasNsec && unlocked) {
+            // Slice 4: note will carry HpkeEnvelope; for now cast ECIES fields
             const text =
-              (await decryptTranscription(note.encryptedContent ?? '', note.ephemeralPubkey)) ||
-              '[Decryption failed]'
+              (await decryptTranscription(
+                note.encryptedContent as unknown as import('@shared/hpke-envelope').HpkeEnvelope,
+                note.id
+              )) || '[Decryption failed]'
             payload = { text }
           } else if (isTranscription && !note.ephemeralPubkey) {
             payload = { text: note.encryptedContent ?? '' }
@@ -166,9 +169,18 @@ function CallDetailPage() {
         call.adminEnvelopes?.length &&
         unlocked
       ) {
-        const meta = await decryptCallRecord(call.encryptedContent, call.adminEnvelopes, publicKey)
-        if (meta) {
-          result = { ...result, answeredBy: meta.answeredBy, callerNumber: meta.callerNumber }
+        // Slice 4: adminEnvelopes will carry HpkeEnvelope per recipient
+        const adminEnvelope = call.adminEnvelopes.find(
+          (e: { pubkey: string }) => e.pubkey === publicKey
+        )
+        if (adminEnvelope) {
+          const meta = await decryptCallRecord(
+            adminEnvelope as unknown as import('@shared/hpke-envelope').HpkeEnvelope,
+            call.id
+          )
+          if (meta) {
+            result = { ...result, answeredBy: meta.answeredBy, callerNumber: meta.callerNumber }
+          }
         }
       }
 

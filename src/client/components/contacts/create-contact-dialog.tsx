@@ -1,6 +1,6 @@
-import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import { type CryptoLabel, LABEL_CONTACT_PII, LABEL_CONTACT_SUMMARY } from '@shared/crypto-labels'
 import type { Ciphertext, HmacHash } from '@shared/crypto-types'
+import type { HpkeEnvelope } from '@shared/hpke-envelope'
 import type { RecipientEnvelope } from '@shared/types'
 import { AlertTriangle, Loader2, Lock } from 'lucide-react'
 import { useCallback, useState } from 'react'
@@ -38,30 +38,28 @@ import { useCreateContact } from '@/lib/queries/contacts'
 import { useToast } from '@/lib/toast'
 
 /**
- * Envelope-encrypt plaintext for multiple recipients via the crypto worker.
- * Keeps the random message key material inside the worker rather than the
- * main thread, and reuses the canonical ECIES/XChaCha primitive stack.
+ * HPKE-seal plaintext for multiple recipients via the crypto worker.
+ * Each recipient gets their own HpkeEnvelope containing the full ciphertext —
+ * no shared symmetric key, no wrappedKey.
+ *
+ * Slice 2: Migrated from ECIES envelope encryption. The return shape still
+ * includes `encrypted` for API compatibility until Slice 4 updates the
+ * server's contact endpoints to accept HpkeEnvelope arrays.
  */
-async function envelopeEncryptViaWorker(
+async function hpkeSealForRecipients(
   plaintext: string,
   recipientPubkeys: string[],
-  label: CryptoLabel
+  label: CryptoLabel,
+  recordId: string,
+  fieldName: string
 ): Promise<{ encrypted: Ciphertext; envelopes: RecipientEnvelope[] }> {
-  const { encryptedHex, envelopes } = await cryptoWorker.envelopeEncryptField(
-    plaintext,
-    recipientPubkeys,
-    label,
-    utf8ToBytes(label)
-  )
-  return {
-    encrypted: encryptedHex as Ciphertext,
-    // @ts-expect-error Slice 2: ECIES → HPKE migration
-    envelopes: envelopes.map((e) => ({
-      pubkey: e.recipientPubkey,
-      wrappedKey: e.wrappedKeyHex as Ciphertext,
-      ephemeralPubkey: e.ephemeralPubkeyHex,
-    })),
+  const hpkeEnvelopes: Array<{ pubkey: string } & HpkeEnvelope> = []
+  for (const pubkey of recipientPubkeys) {
+    // @ts-expect-error Slice 4: recipientPubkeys are secp256k1 x-only hex; HPKE needs raw X25519 bytes
+    const envelope = await cryptoWorker.hpkeSeal(plaintext, pubkey, label, recordId, fieldName)
+    hpkeEnvelopes.push({ pubkey, ...envelope })
   }
+  return { encrypted: '' as Ciphertext, envelopes: hpkeEnvelopes }
 }
 
 interface Props {
@@ -166,22 +164,29 @@ export function CreateContactDialog({ open, onOpenChange, onCreated }: Props) {
 
       const tags = form.tags
 
+      // Client-generated ID for AAD binding (HPKE requires recordId at seal time)
+      const contactId = crypto.randomUUID()
+
       // Encrypt Tier 1: display name (required)
       const { encrypted: encryptedDisplayName, envelopes: displayNameEnvelopes } =
-        await envelopeEncryptViaWorker(
+        await hpkeSealForRecipients(
           form.displayName.trim(),
           summaryPubkeys,
-          LABEL_CONTACT_SUMMARY
+          LABEL_CONTACT_SUMMARY,
+          contactId,
+          'displayName'
         )
 
       // Encrypt notes if present
       let encryptedNotes: string | undefined
       let notesEnvelopes: RecipientEnvelope[] | undefined
       if (form.notes.trim()) {
-        const result = await envelopeEncryptViaWorker(
+        const result = await hpkeSealForRecipients(
           form.notes.trim(),
           summaryPubkeys,
-          LABEL_CONTACT_SUMMARY
+          LABEL_CONTACT_SUMMARY,
+          contactId,
+          'notes'
         )
         encryptedNotes = result.encrypted
         notesEnvelopes = result.envelopes
@@ -196,10 +201,12 @@ export function CreateContactDialog({ open, onOpenChange, onCreated }: Props) {
 
       if (canViewPii) {
         if (form.fullName.trim()) {
-          const result = await envelopeEncryptViaWorker(
+          const result = await hpkeSealForRecipients(
             form.fullName.trim(),
             piiPubkeys,
-            LABEL_CONTACT_PII
+            LABEL_CONTACT_PII,
+            contactId,
+            'fullName'
           )
           encryptedFullName = result.encrypted
           fullNameEnvelopes = result.envelopes
@@ -209,10 +216,12 @@ export function CreateContactDialog({ open, onOpenChange, onCreated }: Props) {
           // Get HMAC from server (client doesn't have the HMAC secret)
           const { identifierHash: hash } = await hashContactPhone(form.phone.trim())
           identifierHash = hash as HmacHash
-          const result = await envelopeEncryptViaWorker(
+          const result = await hpkeSealForRecipients(
             form.phone.trim(),
             piiPubkeys,
-            LABEL_CONTACT_PII
+            LABEL_CONTACT_PII,
+            contactId,
+            'phone'
           )
           encryptedPhone = result.encrypted
           phoneEnvelopes = result.envelopes
@@ -367,7 +376,7 @@ export function CreateContactDialog({ open, onOpenChange, onCreated }: Props) {
                   placeholder={t('contacts.placeholders.phone', '+1 555 000 0000')}
                 />
                 {/* Dedup check happens on blur via the wrapper div */}
-                <div onBlur={handlePhoneBlur} tabIndex={-1} role="presentation">
+                <div onBlur={handlePhoneBlur}>
                   {checkingDup && (
                     <p className="flex items-center gap-1 text-xs text-muted-foreground">
                       <Loader2 className="size-3 animate-spin" />

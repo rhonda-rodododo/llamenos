@@ -36,9 +36,11 @@ export function useAuthEvents(limit = 50) {
           const envelope = e.payloadEnvelope.find((env) => env.pubkey === publicKey)
           const payload = envelope
             ? await decryptEnvelopeJson<AuthEventPayloadDecrypted>(
-                e.encryptedPayload,
-                envelope,
-                LABEL_AUTH_EVENT
+                // Slice 4: payloadEnvelope will carry HpkeEnvelope per recipient
+                envelope as unknown as import('@shared/hpke-envelope').HpkeEnvelope,
+                LABEL_AUTH_EVENT,
+                e.id,
+                'payload'
               )
             : null
           return {

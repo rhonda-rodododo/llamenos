@@ -96,12 +96,9 @@ export async function decryptFileMetadata(
     // `encryptMetadataForPubkey` with empty inner AAD (legacy wire format).
     // Migrate to `buildAad(LABEL_FILE_METADATA, fileId, 'metadata')` alongside
     // POST_OVERHAUL_GAPS_2026-04-13.md Tier 1 P1 "Per-record AAD migration".
-    const resultHex = await worker.decrypt(
-      ephemeralPubkeyHex,
-      encryptedContentHex,
-      LABEL_FILE_METADATA,
-      new Uint8Array(0)
-    )
+    const resultHex = await worker
+      // @ts-expect-error Slice 5: worker.decrypt (ECIES) removed in Slice 2; file crypto migrates in Slice 5
+      .decrypt(ephemeralPubkeyHex, encryptedContentHex, LABEL_FILE_METADATA, new Uint8Array(0))
     const plaintext = hexToBytes(resultHex)
     return JSON.parse(new TextDecoder().decode(plaintext))
   } catch {
@@ -200,6 +197,7 @@ export async function decryptFile(
     envelope,
     (ephemeralPubkey, wrappedKey, label) =>
       cryptoWorker
+        // @ts-expect-error Slice 5: worker.decrypt (ECIES) removed in Slice 2; file crypto migrates in Slice 5
         .decrypt(ephemeralPubkey, wrappedKey, label as CryptoLabel, new Uint8Array(0))
         .then(hexToBytes),
     LABEL_FILE_KEY
@@ -235,6 +233,7 @@ export async function rewrapFileKey(
     envelope,
     (ephemeralPubkey, wrappedKey, label) =>
       cryptoWorker
+        // @ts-expect-error Slice 5: worker.decrypt (ECIES) removed in Slice 2; file crypto migrates in Slice 5
         .decrypt(ephemeralPubkey, wrappedKey, label as CryptoLabel, new Uint8Array(0))
         .then(hexToBytes),
     LABEL_FILE_KEY

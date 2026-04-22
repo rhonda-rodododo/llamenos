@@ -33,9 +33,11 @@ export function useSessions() {
           const envelope = s.metaEnvelope.find((e) => e.pubkey === publicKey)
           const meta = envelope
             ? await decryptEnvelopeJson<SessionMetaDecrypted>(
-                s.encryptedMeta,
-                envelope,
-                LABEL_SESSION_META
+                // Slice 4: metaEnvelope will carry HpkeEnvelope per recipient
+                envelope as unknown as import('@shared/hpke-envelope').HpkeEnvelope,
+                LABEL_SESSION_META,
+                s.id,
+                'meta'
               )
             : null
           return {

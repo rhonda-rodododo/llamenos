@@ -10,6 +10,7 @@
  *   - All other notes            → always visible
  */
 
+import type { HpkeEnvelope } from '@shared/hpke-envelope'
 import type { NotePayload } from '@shared/types'
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -159,8 +160,11 @@ const notesListOptions = (filters: NoteFilters | undefined, auth: NotesAuth, hub
 
         if (isTranscription && note.ephemeralPubkey && hasNsec && unlocked) {
           const text =
-            (await decryptTranscription(note.encryptedContent ?? '', note.ephemeralPubkey)) ||
-            '[Decryption failed]'
+            // Slice 4: note will carry HpkeEnvelope; for now cast ECIES fields
+            (await decryptTranscription(
+              note.encryptedContent as unknown as HpkeEnvelope,
+              note.id
+            )) || '[Decryption failed]'
           payload = { text }
         } else if (isTranscription && !note.ephemeralPubkey) {
           payload = { text: note.encryptedContent ?? '' }
@@ -211,8 +215,11 @@ const noteDetailOptions = (noteId: string, auth: NotesAuth, hubId: string) =>
 
       if (isTranscription && rawNote.ephemeralPubkey && hasNsec && unlocked) {
         const text =
-          (await decryptTranscription(rawNote.encryptedContent ?? '', rawNote.ephemeralPubkey)) ||
-          '[Decryption failed]'
+          // Slice 4: note will carry HpkeEnvelope; for now cast ECIES fields
+          (await decryptTranscription(
+            rawNote.encryptedContent as unknown as HpkeEnvelope,
+            rawNote.id
+          )) || '[Decryption failed]'
         payload = { text }
       } else if (isTranscription && !rawNote.ephemeralPubkey) {
         payload = { text: rawNote.encryptedContent ?? '' }
@@ -345,8 +352,11 @@ const noteRepliesOptions = (noteId: string, auth: NotesAuth, hubId: string) =>
 
         if (isTranscription && reply.ephemeralPubkey && hasNsec && unlocked) {
           const text =
-            (await decryptTranscription(reply.encryptedContent ?? '', reply.ephemeralPubkey)) ||
-            '[Decryption failed]'
+            // Slice 4: note will carry HpkeEnvelope; for now cast ECIES fields
+            (await decryptTranscription(
+              reply.encryptedContent as unknown as HpkeEnvelope,
+              reply.id
+            )) || '[Decryption failed]'
           payload = { text }
         } else if (isTranscription && !reply.ephemeralPubkey) {
           payload = { text: reply.encryptedContent ?? '' }

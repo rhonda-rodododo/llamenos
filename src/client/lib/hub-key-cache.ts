@@ -2,7 +2,7 @@
  * Hub Key Cache
  *
  * Fetches and caches per-hub symmetric keys for Nostr event decryption and
- * hub-field AEAD. Each hub has a 32-byte key distributed as ECIES-wrapped
+ * hub-field AEAD. Each hub has a 32-byte key distributed as HPKE-wrapped
  * envelopes. After login, call `loadHubKeysForUser()` to populate the cache.
  *
  * The cache holds two representations per hub:
@@ -19,10 +19,11 @@
  * re-renders and can be accessed from the RelayManager callback.
  */
 
+import { hexToBytes } from '@noble/hashes/utils.js'
 import { LABEL_HUB_KEY_WRAP } from '@shared/crypto-labels'
-import type { KeyEnvelope } from '@shared/crypto-primitives'
+import type { HpkeEnvelope } from '@shared/hpke-envelope'
 import { getMyHubKeyEnvelope } from './api'
-import { eciesUnwrapKey } from './crypto-worker-helpers'
+import { hpkeOpenField } from './crypto-worker-helpers'
 import { importHubKeyCryptoKey } from './hub-field-crypto'
 
 interface CachedHubKey {
@@ -79,12 +80,11 @@ export async function loadHubKeysForUser(hubIds: string[]): Promise<void> {
       try {
         const raw = await getMyHubKeyEnvelope(hubId)
         if (!raw) return
-        // Normalize: server may return ephemeralPk or ephemeralPubkey
-        const envelope: KeyEnvelope = {
-          wrappedKey: raw.wrappedKey,
-          ephemeralPubkey: raw.ephemeralPubkey || raw.ephemeralPk || '',
-        }
-        const hubKeyBytes = await eciesUnwrapKey(envelope, LABEL_HUB_KEY_WRAP)
+        // Slice 6 will update the server endpoint to return HpkeEnvelope directly.
+        // Until then, the cast is safe only after the TRUNCATE migration.
+        const envelope = raw as unknown as HpkeEnvelope
+        const hubKeyHex = await hpkeOpenField(envelope, LABEL_HUB_KEY_WRAP, hubId, 'hub-key')
+        const hubKeyBytes = hexToBytes(hubKeyHex)
         const cryptoKey = await importHubKeyCryptoKey(hubKeyBytes)
         // Only write if this load is still the current generation
         if (cacheGeneration === myGeneration) {

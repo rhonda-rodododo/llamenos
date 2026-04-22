@@ -1,6 +1,5 @@
 // @knipignore
 // Called by Signal notification settings UI (not yet wired) — server endpoints live in auth-facade.ts
-import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import { LABEL_SIGNAL_CONTACT } from '@shared/crypto-labels'
 import { normalizeSignalIdentifier } from '@shared/signal-identifier-normalize'
 import { API_BASE } from './api/client'
@@ -29,6 +28,8 @@ export interface RegisterSignalContactOpts {
   plaintextIdentifier: string
   identifierType: 'phone' | 'username'
   userPubkey: string
+  /** Recipient's X25519 HPKE public key (raw 32 bytes). */
+  recipientHpkePubkey: Uint8Array
 }
 
 export async function registerSignalContact(opts: RegisterSignalContactOpts): Promise<void> {
@@ -37,20 +38,21 @@ export async function registerSignalContact(opts: RegisterSignalContactOpts): Pr
   const normalized = normalizeSignalIdentifier(opts.plaintextIdentifier, opts.identifierType)
   const identifierHash = await cryptoWorker.computeHmac(normalized, userHmacKey)
 
-  // Envelope-encrypt the identifier for the user so they can retrieve + display it later
-  const { encryptedHex, envelopes } = await cryptoWorker.envelopeEncryptField(
+  // HPKE-seal the identifier for the user so they can retrieve + display it later.
+  // Each recipient gets their own HpkeEnvelope (no shared symmetric key).
+  const contactId = crypto.randomUUID()
+  const envelope = await cryptoWorker.hpkeSeal(
     JSON.stringify({ identifier: normalized, type: opts.identifierType }),
-    [opts.userPubkey],
+    opts.recipientHpkePubkey,
     LABEL_SIGNAL_CONTACT,
-    utf8ToBytes(LABEL_SIGNAL_CONTACT)
+    contactId,
+    'identifier'
   )
 
-  // Single server call — the app server proxies registration to the notifier
-  // sidecar using its own API key. Clients never talk to the notifier directly.
   await postContact({
+    id: contactId,
     identifierHash,
-    identifierCiphertext: encryptedHex,
-    identifierEnvelope: envelopes,
+    identifierEnvelope: { pubkey: opts.userPubkey, ...envelope },
     identifierType: opts.identifierType,
     plaintextIdentifier: normalized,
   })

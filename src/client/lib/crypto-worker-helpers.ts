@@ -1,150 +1,93 @@
 /**
  * Async crypto helpers that delegate secret-key operations to the crypto worker.
- * The secret key never touches the main thread — all ECDH is performed inside the worker.
+ * The secret key never touches the main thread — all HPKE operations are
+ * performed inside the worker.
  *
  * These functions require a browser context (Web Worker + cryptoWorker singleton).
- * For pure/server-side usage, see @shared/crypto-envelopes and @shared/crypto-primitives.
+ * For pure/server-side usage, see @shared/hpke-primitives.
+ *
+ * Slice 2: Migrated from ECIES (eciesUnwrapKey + XChaCha20 symmetric decrypt)
+ * to HPKE single-shot open. Each helper now takes an HpkeEnvelope directly —
+ * the per-recipient envelope IS the ciphertext (no separate encryptedContent
+ * blob + key-wrapped symmetric key).
  */
 
-import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
-import { utf8ToBytes } from '@noble/ciphers/utils.js'
-import { hexToBytes } from '@noble/hashes/utils.js'
-import {
-  type CryptoLabel,
-  LABEL_BLAST_CONTENT,
-  LABEL_CALL_META,
-  LABEL_NOTE_KEY,
-  LABEL_TRANSCRIPTION,
-} from '@shared/crypto-labels'
-import type { KeyEnvelope, RecipientKeyEnvelope } from '@shared/crypto-primitives'
+import type { CryptoLabel } from '@shared/crypto-labels'
+import { LABEL_BLAST_CONTENT, LABEL_CALL_META, LABEL_TRANSCRIPTION } from '@shared/crypto-labels'
+import type { HpkeEnvelope } from '@shared/hpke-envelope'
 import type { BlastContent, NotePayload } from '@shared/types'
 import { cryptoWorker } from './crypto-worker-client'
 
 /**
- * Unwrap a 32-byte symmetric key from an ECIES envelope via the crypto worker.
- * The secret key never touches the main thread.
- * Must use the same `label` that was used during wrapping.
+ * HPKE open a per-recipient envelope via the crypto worker.
+ * The worker holds the non-extractable HPKE private key — secret key
+ * never touches the main thread.
+ *
+ * @param envelope      The HpkeEnvelope for the current user.
+ * @param label         The domain-separation CryptoLabel.
+ * @param recordId      Record ID used in AAD binding.
+ * @param fieldName     Field name used in AAD binding.
+ * @returns Decrypted plaintext string.
  */
-export async function eciesUnwrapKey(
-  envelope: KeyEnvelope,
-  label: CryptoLabel
-): Promise<Uint8Array> {
-  // TODO(tier-1 per-record-aad): ECIES key-wraps produced by
-  // `@shared/crypto-primitives` `eciesWrapKey` today seal with an empty
-  // inner AEAD AAD. Migrate both sides to
-  // `buildAad(label, recordId, fieldName)` alongside
-  // POST_OVERHAUL_GAPS_2026-04-13.md Tier 1 P1 "Per-record AAD migration".
-  const resultHex = await cryptoWorker.decrypt(
-    envelope.ephemeralPubkey,
-    envelope.wrappedKey,
-    label,
-    new Uint8Array(0)
-  )
-  return hexToBytes(resultHex)
+export async function hpkeOpenField(
+  envelope: HpkeEnvelope,
+  label: CryptoLabel,
+  recordId: string,
+  fieldName: string
+): Promise<string> {
+  return cryptoWorker.hpkeOpen(envelope, label, recordId, fieldName)
 }
 
 /**
- * Decrypt a note using the appropriate envelope for the current user.
- * Secret key operations are delegated to the crypto worker.
- */
-export async function decryptNote(
-  encryptedContent: string,
-  envelope: KeyEnvelope
-): Promise<NotePayload | null> {
-  try {
-    const noteKey = await eciesUnwrapKey(envelope, LABEL_NOTE_KEY)
-    const data = hexToBytes(encryptedContent)
-    const nonce = data.slice(0, 24)
-    const ciphertext = data.slice(24)
-    const cipher = xchacha20poly1305(noteKey, nonce)
-    const plaintext = cipher.decrypt(ciphertext)
-    const decoded = new TextDecoder().decode(plaintext)
-    try {
-      const parsed = JSON.parse(decoded)
-      if (parsed && typeof parsed === 'object' && typeof parsed.text === 'string') {
-        return parsed as NotePayload
-      }
-    } catch {
-      // Not JSON
-    }
-    return { text: decoded }
-  } catch {
-    return null
-  }
-}
-
-/**
- * Decrypt blast content using the crypto worker (main thread, no secret key access).
- * Used by the client UI when the worker is unlocked.
+ * Decrypt blast content from an HPKE envelope.
+ * Returns parsed BlastContent or null on failure.
+ *
+ * @param envelope  The current user's HPKE envelope from the blast's contentEnvelopes.
+ * @param blastId   Blast record ID for AAD binding.
  */
 export async function decryptBlastContent(
-  encryptedContent: string,
-  contentEnvelopes: RecipientKeyEnvelope[],
-  readerPubkey: string
+  envelope: HpkeEnvelope,
+  blastId: string
 ): Promise<BlastContent | null> {
   try {
-    const envelope = contentEnvelopes.find((e) => e.pubkey === readerPubkey)
-    if (!envelope) return null
-
-    const blastKey = await eciesUnwrapKey(envelope, LABEL_BLAST_CONTENT)
-
-    const data = hexToBytes(encryptedContent)
-    const nonce = data.slice(0, 24)
-    const ciphertext = data.slice(24)
-    const cipher = xchacha20poly1305(blastKey, nonce)
-    const plaintext = cipher.decrypt(ciphertext)
-    return JSON.parse(new TextDecoder().decode(plaintext)) as BlastContent
+    const plaintext = await cryptoWorker.hpkeOpen(envelope, LABEL_BLAST_CONTENT, blastId, 'content')
+    return JSON.parse(plaintext) as BlastContent
   } catch {
     return null
   }
 }
 
 /**
- * Decrypt a call record's encrypted metadata.
+ * Decrypt a call record's encrypted metadata from an HPKE envelope.
  * Returns the decrypted fields or null if decryption fails.
- * Secret key operations are delegated to the crypto worker.
+ *
+ * @param envelope  The current user's HPKE envelope from the call's adminEnvelopes.
+ * @param callId    Call record ID for AAD binding.
  */
 export async function decryptCallRecord(
-  encryptedContent: string,
-  adminEnvelopes: RecipientKeyEnvelope[],
-  readerPubkey: string
+  envelope: HpkeEnvelope,
+  callId: string
 ): Promise<{ answeredBy: string | null; callerNumber: string } | null> {
   try {
-    const envelope = adminEnvelopes.find((e) => e.pubkey === readerPubkey)
-    if (!envelope) return null
-
-    const recordKey = await eciesUnwrapKey(envelope, LABEL_CALL_META)
-    const data = hexToBytes(encryptedContent)
-    const nonce = data.slice(0, 24)
-    const ciphertext = data.slice(24)
-    const cipher = xchacha20poly1305(recordKey, nonce, utf8ToBytes(LABEL_CALL_META))
-    const plaintext = cipher.decrypt(ciphertext)
-    return JSON.parse(new TextDecoder().decode(plaintext))
+    const plaintext = await cryptoWorker.hpkeOpen(envelope, LABEL_CALL_META, callId, 'call-meta')
+    return JSON.parse(plaintext)
   } catch {
     return null
   }
 }
 
 /**
- * Decrypt a transcription using the crypto worker.
- * The worker performs ECDH + domain-separated key derivation + XChaCha20-Poly1305 decrypt.
+ * Decrypt a transcription from an HPKE envelope.
+ *
+ * @param envelope  The current user's HPKE envelope for the transcription.
+ * @param noteId    Note/call record ID for AAD binding.
  */
 export async function decryptTranscription(
-  packed: string,
-  ephemeralPubkeyHex: string
+  envelope: HpkeEnvelope,
+  noteId: string
 ): Promise<string | null> {
   try {
-    // TODO(tier-1 per-record-aad): transcription wire format seals with
-    // empty inner AEAD AAD. Migrate to
-    // `buildAad(LABEL_TRANSCRIPTION, callId, 'transcript')` alongside
-    // POST_OVERHAUL_GAPS_2026-04-13.md Tier 1 P1 "Per-record AAD migration".
-    const resultHex = await cryptoWorker.decrypt(
-      ephemeralPubkeyHex,
-      packed,
-      LABEL_TRANSCRIPTION,
-      new Uint8Array(0)
-    )
-    return new TextDecoder().decode(hexToBytes(resultHex))
+    return await cryptoWorker.hpkeOpen(envelope, LABEL_TRANSCRIPTION, noteId, 'transcript')
   } catch {
     return null
   }

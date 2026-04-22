@@ -145,7 +145,7 @@ function SettingsPage() {
     Promise.all(promises)
       .catch(() => toast(t('common.error'), 'error'))
       .finally(() => setLoading(false))
-  }, [toast, t])
+  }, [])
 
   // Scroll to deep-linked section after loading
   useEffect(() => {
@@ -779,31 +779,30 @@ function SignalContactSection({
       const { utf8ToBytes, bytesToHex } = await import('@noble/hashes/utils.js')
       const identifierHash = bytesToHex(hmac(sha256, utf8ToBytes(hmacKey), utf8ToBytes(normalized)))
 
-      // Envelope-encrypt the identifier for self
+      // HPKE-seal the identifier for self
       const { LABEL_SIGNAL_CONTACT } = await import('@shared/crypto-labels')
-      const { encryptedHex, envelopes } = await cryptoWorker.envelopeEncryptField(
+      const contactId = crypto.randomUUID()
+      const envelope = await cryptoWorker.hpkeSeal(
         normalized,
-        [publicKey],
+        // Slice 4: will be X25519 pubkey raw bytes; for now cast hex string
+        publicKey as unknown as Uint8Array,
         LABEL_SIGNAL_CONTACT,
-        utf8ToBytes(LABEL_SIGNAL_CONTACT)
+        contactId,
+        'identifier'
       )
 
       await authFacadeClient.registerSignalContact({
+        id: contactId,
         identifierHash,
-        identifierCiphertext: encryptedHex,
-        // @ts-expect-error Slice 2: ECIES → HPKE migration
-        identifierEnvelope: envelopes.map((e) => ({
-          pubkey: e.recipientPubkey,
-          wrappedKey: e.wrappedKeyHex as import('@shared/crypto-types').Ciphertext,
-          ephemeralPubkey: e.ephemeralPubkeyHex,
-        })),
+        // @ts-expect-error Slice 4: API expects RecipientEnvelope, HPKE returns HpkeEnvelope
+        identifierEnvelope: { pubkey: publicKey, ...envelope },
         identifierType,
         plaintextIdentifier: normalized,
       })
 
       setContact({
         identifierType,
-        identifierCiphertext: encryptedHex,
+        identifierCiphertext: envelope.ct,
         verifiedAt: new Date().toISOString(),
       })
       setIdentifier('')

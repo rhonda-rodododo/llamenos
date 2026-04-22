@@ -1,6 +1,6 @@
-import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import { type CryptoLabel, LABEL_CONTACT_PII, LABEL_CONTACT_SUMMARY } from '@shared/crypto-labels'
 import type { Ciphertext } from '@shared/crypto-types'
+import type { HpkeEnvelope } from '@shared/hpke-envelope'
 import type { RecipientEnvelope } from '@shared/types'
 import { AlertTriangle, CheckCircle2, FileUp, Loader2, Upload, X } from 'lucide-react'
 import { useCallback, useRef, useState } from 'react'
@@ -166,26 +166,27 @@ function parseJSON(text: string): ParseResult {
   return { ok: true, rows, warnings }
 }
 
-async function envelopeEncrypt(
+/**
+ * HPKE-seal plaintext for multiple recipients via the crypto worker.
+ * Each recipient gets their own HpkeEnvelope — no shared symmetric key.
+ *
+ * Slice 2: Migrated from ECIES envelope encryption. Return shape still
+ * includes `encrypted` for API compat until Slice 4 updates server endpoints.
+ */
+async function hpkeSealForRecipients(
   plaintext: string,
   recipientPubkeys: string[],
-  label: CryptoLabel
+  label: CryptoLabel,
+  recordId: string,
+  fieldName: string
 ): Promise<{ encrypted: Ciphertext; envelopes: RecipientEnvelope[] }> {
-  const { encryptedHex, envelopes } = await cryptoWorker.envelopeEncryptField(
-    plaintext,
-    recipientPubkeys,
-    label,
-    utf8ToBytes(label)
-  )
-  return {
-    encrypted: encryptedHex as Ciphertext,
-    // @ts-expect-error Slice 2: ECIES → HPKE migration
-    envelopes: envelopes.map((e) => ({
-      pubkey: e.recipientPubkey,
-      wrappedKey: e.wrappedKeyHex as Ciphertext,
-      ephemeralPubkey: e.ephemeralPubkeyHex,
-    })),
+  const hpkeEnvelopes: Array<{ pubkey: string } & HpkeEnvelope> = []
+  for (const pubkey of recipientPubkeys) {
+    // @ts-expect-error Slice 4: recipientPubkeys are secp256k1 x-only hex; HPKE needs raw X25519 bytes
+    const envelope = await cryptoWorker.hpkeSeal(plaintext, pubkey, label, recordId, fieldName)
+    hpkeEnvelopes.push({ pubkey, ...envelope })
   }
+  return { encrypted: '' as Ciphertext, envelopes: hpkeEnvelopes }
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -280,7 +281,7 @@ export function ImportContactsDialog({
   )
 
   async function handleImport() {
-    if (!parseResult?.ok) return
+    if (!parseResult || !parseResult.ok) return
 
     const unlocked = await keyManager.isUnlocked()
     if (!unlocked) {
@@ -311,14 +312,28 @@ export function ImportContactsDialog({
 
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i]
+        // Client-generated ID for AAD binding (HPKE requires recordId at seal time)
+        const contactId = crypto.randomUUID()
 
         const { encrypted: encryptedDisplayName, envelopes: displayNameEnvelopes } =
-          await envelopeEncrypt(row.displayName, summaryPubkeys, LABEL_CONTACT_SUMMARY)
+          await hpkeSealForRecipients(
+            row.displayName,
+            summaryPubkeys,
+            LABEL_CONTACT_SUMMARY,
+            contactId,
+            'displayName'
+          )
 
         let encryptedFullName: string | undefined
         let fullNameEnvelopes: RecipientEnvelope[] | undefined
         if (row.fullName) {
-          const r = await envelopeEncrypt(row.fullName, piiPubkeys, LABEL_CONTACT_PII)
+          const r = await hpkeSealForRecipients(
+            row.fullName,
+            piiPubkeys,
+            LABEL_CONTACT_PII,
+            contactId,
+            'fullName'
+          )
           encryptedFullName = r.encrypted
           fullNameEnvelopes = r.envelopes
         }
@@ -326,7 +341,13 @@ export function ImportContactsDialog({
         let encryptedPhone: string | undefined
         let phoneEnvelopes: RecipientEnvelope[] | undefined
         if (row.phone) {
-          const r = await envelopeEncrypt(row.phone, piiPubkeys, LABEL_CONTACT_PII)
+          const r = await hpkeSealForRecipients(
+            row.phone,
+            piiPubkeys,
+            LABEL_CONTACT_PII,
+            contactId,
+            'phone'
+          )
           encryptedPhone = r.encrypted
           phoneEnvelopes = r.envelopes
         }
@@ -351,7 +372,7 @@ export function ImportContactsDialog({
       setProgress(100)
       setResult(res)
       setStage('done')
-    } catch (_err) {
+    } catch (err) {
       toast.error(t('contacts.importFailed', { defaultValue: 'Import failed' }))
       setStage('preview')
     }
