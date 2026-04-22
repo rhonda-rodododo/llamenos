@@ -12,6 +12,8 @@ import { cryptoWorker } from './crypto-worker-client'
  * {@link SignedAuditEntry}. This is the sole transition between the two
  * types — no other code path may construct a `SignedAuditEntry` from an
  * `UnsignedAuditEntry`.
+ *
+ * @knipignore — audit log signing scaffolding; called from audit entry submission UI (not yet built)
  */
 export async function signAuditEntry(unsigned: UnsignedAuditEntry): Promise<SignedAuditEntry> {
   const entryHash = computeEntryHash(unsigned)

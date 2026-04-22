@@ -5,6 +5,49 @@
     "@server/*": ["./src/server/*"],
     "@shared/*": ["./src/shared/*"]
   },
+  "entry": [
+    "src/shared/schemas/**",
+    "src/shared/types.ts",
+    "src/shared/voice-prompts.ts",
+    "src/shared/warrant-canary.ts",
+    "src/shared/demo-accounts.ts",
+    "src/client/lib/api/**",
+    "src/client/lib/queries/**",
+    "src/client/lib/cross-signing.ts",
+    "src/client/lib/device-enrollment.ts",
+    "src/client/lib/hub-key-manager.ts",
+    "src/client/lib/native-curves-check.ts",
+    "src/client/lib/paper-key.ts",
+    "src/client/lib/provisioning.ts",
+    "src/client/lib/puk.ts",
+    "src/client/lib/binary-verifier.ts",
+    "src/client/lib/recovery-group-tier3.ts",
+    "src/client/lib/transcription/**",
+    "src/client/lib/unlock-factors.ts",
+    "src/client/lib/user-sigchain-verifier.ts",
+    "src/client/lib/webrtc/**",
+    "src/client/components/section-layout/**",
+    "src/server/env.ts",
+    "src/server/idp/**",
+    "src/server/jobs/**",
+    "src/server/types.ts",
+    "src/server/lib/**",
+    "src/server/services/**",
+    "src/server/messaging/capabilities.ts",
+    "src/server/messaging/whatsapp/factory.ts",
+    "src/server/messaging/whatsapp/types.ts",
+    "src/server/provider-setup/types.ts",
+    "src/server/telephony/telnyx-api.ts",
+    "tests/fixtures/**",
+    "tests/helpers/**",
+    "tests/test-ids.ts",
+    "tests/api-helpers.ts",
+    "tests/global-setup.ts",
+    "tests/api-global-setup.ts",
+    "scripts/**",
+    "src/client/service-worker.ts",
+    "src/client/lib/signal-contact-registration.ts"
+  ],
   "ignore": [
     "sip-bridge/**",
     "signal-notifier/**",
@@ -22,10 +65,10 @@
     "playwright.vm.config.ts"
   ],
   "ignoreDependencies": [
-    "@wireapp/core-crypto",
-    "fflate",
     "jssip",
     "plivo-browser-sdk",
-    "sonner"
-  ]
+    "workbox-precaching",
+    "workbox-routing"
+  ],
+  "tags": ["-knipignore"]
 }

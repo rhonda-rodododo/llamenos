@@ -1,8 +1,10 @@
 import {
   type ErasureRequest,
+  adminEraseUser,
   cancelAccountErasure,
   downloadMyData,
   getMyErasureRequest,
+  listErasureRequests,
   requestAccountErasure,
 } from '@/lib/api'
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -69,6 +71,35 @@ export function useExportMyData() {
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Admin: useErasureRequests — list all erasure requests
+// ---------------------------------------------------------------------------
+
+const erasureRequestsOptions = (statusFilter?: ErasureRequest['status']) =>
+  queryOptions({
+    queryKey: queryKeys.gdpr.erasureRequests(statusFilter),
+    queryFn: (): Promise<ErasureRequest[]> => listErasureRequests(statusFilter),
+    staleTime: 30_000,
+  })
+
+export function useErasureRequests(statusFilter?: ErasureRequest['status']) {
+  return useQuery(erasureRequestsOptions(statusFilter))
+}
+
+// ---------------------------------------------------------------------------
+// Admin: useAdminEraseUser — immediate erasure
+// ---------------------------------------------------------------------------
+
+export function useAdminEraseUser() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (targetPubkey: string): Promise<{ ok: true }> => adminEraseUser(targetPubkey),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.gdpr.all })
     },
   })
 }

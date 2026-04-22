@@ -237,6 +237,8 @@ function rowToEntry(row: typeof signedAuditEntries.$inferSelect): SignedAuditEnt
  * Build an {@link AuditLogService} bound to a Drizzle database. The returned
  * service exposes the verification path plus read helpers used by the audit
  * routes.
+ *
+ * @knipignore — factory for testable audit log service; used by integration test suite
  */
 export function createDrizzleAuditLogService(db: Database): DrizzleAuditLogService {
   return new DrizzleAuditLogService(db)

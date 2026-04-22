@@ -43,7 +43,7 @@ jobs:
       version: ${{ steps.read.outputs.version }}
     steps:
       - name: Checkout merge commit
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ github.event.pull_request.merge_commit_sha }}
           fetch-depth: 0
@@ -61,7 +61,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ github.event.pull_request.merge_commit_sha }}
       - uses: ./.github/actions/setup-bun
@@ -109,7 +109,7 @@ jobs:
 
     steps:
       - name: Checkout merge commit
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ github.event.pull_request.merge_commit_sha }}
           fetch-depth: 0
@@ -247,14 +247,17 @@ jobs:
         env:
           NEW_VERSION: ${{ needs.check.outputs.version }}
         run: |
-          # Extract the section between the first ## [VERSION] header and the next ## header
+          # Extract the section between the first ## VERSION (DATE) header and the next ## header
           BODY=$(awk -v ver="$NEW_VERSION" '
-            /^## \[/ {
+            /^## / {
               if (found) exit
-              if (index($0, "[" ver "]")) { found=1; next }
+              if (index($0, ver)) { found=1; next }
             }
             found { print }
           ' CHANGELOG.md)
+          if [ -z "$BODY" ]; then
+            echo "::warning::No changelog section found for v${NEW_VERSION}"
+          fi
           # Write to file to avoid shell escaping issues
           echo "$BODY" > release-notes.md
           echo "--- Release notes ---"
@@ -296,6 +299,7 @@ jobs:
         run: gh release edit "v${NEW_VERSION}" --draft=false
 
       - name: Dispatch demo VPS deploy
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NEW_VERSION: ${{ needs.check.outputs.version }}

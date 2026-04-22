@@ -231,6 +231,7 @@ export const queryKeys = {
   gdpr: {
     all: ['gdpr'] as const,
     myErasureRequest: () => ['gdpr', 'myErasureRequest'] as const,
+    erasureRequests: (status?: string) => ['gdpr', 'erasureRequests', status ?? ''] as const,
   },
 
   // Provider setup wizard — operational metadata (status, webhook URLs, A2P state).

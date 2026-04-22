@@ -28,6 +28,7 @@ import {
 import type { CryptoService } from '../lib/crypto-service'
 import { AppError } from '../lib/errors'
 
+/** @knipignore — GDPR export shape; used by the data export download endpoint response type */
 export interface GdprExport {
   exportedAt: string
   version: string
@@ -41,6 +42,7 @@ export interface GdprExport {
   hubs: Array<{ hubId: string; roleIds: string[] }>
 }
 
+/** @knipignore — GDPR purge result shape; used by retention purge job return type */
 export interface PurgeSummary {
   callRecordsDeleted: number
   notesDeleted: number
@@ -223,6 +225,23 @@ export class GdprService {
   }
 
   // ------------------------------------------------------------------ Erasure Requests
+
+  async listErasureRequests(
+    statusFilter?: GdprErasureRequest['status']
+  ): Promise<GdprErasureRequest[]> {
+    const conditions = statusFilter ? [eq(gdprErasureRequests.status, statusFilter)] : []
+    const rows = await this.db
+      .select()
+      .from(gdprErasureRequests)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(sql`${gdprErasureRequests.requestedAt} DESC`)
+    return rows.map((row) => ({
+      pubkey: row.pubkey,
+      requestedAt: row.requestedAt.toISOString(),
+      executeAt: row.executeAt.toISOString(),
+      status: row.status as GdprErasureRequest['status'],
+    }))
+  }
 
   async getErasureRequest(pubkey: string): Promise<GdprErasureRequest | null> {
     const rows = await this.db

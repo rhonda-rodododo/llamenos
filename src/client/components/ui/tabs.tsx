@@ -76,4 +76,6 @@ function TabsContent({ className, ...props }: React.ComponentProps<typeof TabsPr
   )
 }
 
-export { Tabs, TabsList, TabsTrigger, TabsContent, tabsListVariants }
+export { Tabs, TabsList, TabsTrigger, TabsContent }
+/** @knipignore — shadcn component API; tabsListVariants exported for consumer variant customization */
+export { tabsListVariants }

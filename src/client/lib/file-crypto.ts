@@ -216,6 +216,8 @@ export async function decryptFile(
 /**
  * Re-wrap a file's symmetric key for a new recipient.
  * Admin decrypts the key via worker, then re-encrypts for the new pubkey.
+ *
+ * @knipignore — file key re-wrapping scaffolding for future file sharing / access transfer UI
  */
 export async function rewrapFileKey(
   envelope: Envelope,

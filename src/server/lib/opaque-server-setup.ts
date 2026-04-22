@@ -85,6 +85,8 @@ export async function getOrCreateServerSetup(
  * this purpose becomes unusable — the new blob has no relationship to
  * the old one. Callers are responsible for auditing the rotation and
  * notifying users that they must re-register.
+ *
+ * @knipignore — OPAQUE credential rotation; used by admin key-rotation endpoint (not yet wired)
  */
 export async function rotateServerSetup(db: Database, purpose: OpaquePurpose): Promise<string> {
   const freshSetup = await opaqueServer.createSetup()
@@ -104,6 +106,8 @@ export async function rotateServerSetup(db: Database, purpose: OpaquePurpose): P
  * Test-only hook: drop the in-process cache so successive calls hit
  * the database again. Used by integration tests that truncate the
  * `opaque_server_setup` table between runs.
+ *
+ * @knipignore — integration test reset hook; called by API test suite setup
  */
 export function _test_resetServerSetupCache(): void {
   setupCache.clear()

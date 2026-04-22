@@ -43,7 +43,11 @@ async function loadSignedManifest(): Promise<unknown> {
   return json
 }
 
-/** Test hook: clear the in-process cache so a fresh path/file is re-read. */
+/**
+ * Test hook: clear the in-process cache so a fresh path/file is re-read.
+ *
+ * @knipignore — integration test reset hook; called by API test suite setup
+ */
 export function _resetReleaseManifestCacheForTests(): void {
   cache = null
 }

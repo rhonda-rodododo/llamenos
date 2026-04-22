@@ -44,10 +44,15 @@ mock.module('./crypto-worker-client', () => ({
 // Imported lazily after the mock is installed (see beforeAll).
 let keyManager: typeof import('./key-manager')
 
-/** Wait for all pending microtasks so MockBroadcastChannel delivery fires. */
+/**
+ * Yield to the microtask queue so that async lock() chains (cryptoWorker.lock
+ * + clearCapsule + notifyCallbacks) that were started synchronously — e.g.
+ * from an inbound BroadcastChannel message handler — have a chance to advance.
+ * MockBroadcastHub now delivers synchronously, so no microtask flush is needed
+ * for message delivery itself; this helper is retained for the handler→lock()
+ * async chain in tests 2 and 3.
+ */
 async function flushMicrotasks() {
-  // Two round-trips: one for the posted message's queueMicrotask delivery,
-  // one for the handler's subsequent lock() → broadcastLock() sync path.
   await Promise.resolve()
   await Promise.resolve()
 }

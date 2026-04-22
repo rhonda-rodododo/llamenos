@@ -151,7 +151,11 @@ function isInitiateRateLimited(ip: string): boolean {
   return entry.count > INITIATE_MAX_PER_WINDOW
 }
 
-/** Test-only hook to reset the in-process rate-limit state between suites. */
+/**
+ * Test-only hook to reset the in-process rate-limit state between suites.
+ *
+ * @knipignore — integration test reset hook; called by API test suite setup
+ */
 export function __resetInitiateRateLimitForTests(): void {
   initiateRate.clear()
 }

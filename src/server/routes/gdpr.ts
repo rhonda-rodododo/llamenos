@@ -179,6 +179,34 @@ gdpr.openapi(cancelErasureRoute, async (c) => {
   return c.json({ ok: true }, 200)
 })
 
+// ── GET /erasure-requests — admin: list all erasure requests ──
+
+const listErasureRequestsRoute = createRoute({
+  method: 'get',
+  path: '/erasure-requests',
+  tags: ['GDPR'],
+  summary: 'List all erasure requests (admin)',
+  middleware: [requirePermission('gdpr:admin')],
+  request: {
+    query: z.object({
+      status: z.enum(['pending', 'cancelled', 'executed']).optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'List of erasure requests',
+      content: { 'application/json': { schema: z.object({}).passthrough() } },
+    },
+  },
+})
+
+gdpr.openapi(listErasureRequestsRoute, async (c) => {
+  const services = c.get('services')
+  const { status } = c.req.valid('query')
+  const requests = await services.gdpr.listErasureRequests(status)
+  return c.json({ requests }, 200)
+})
+
 // ── DELETE /{targetPubkey} — admin-initiated immediate erasure ──
 
 const adminEraseRoute = createRoute({

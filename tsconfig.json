@@ -12,6 +12,7 @@
     "isolatedModules": true,
     "noEmit": true,
     "types": ["bun-types"],
+    "ignoreDeprecations": "6.0",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "baseUrl": ".",
     "paths": {

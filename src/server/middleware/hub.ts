@@ -41,6 +41,8 @@ export async function hubContext(c: Context<AppEnv>, next: Next): Promise<Respon
 
 /**
  * Check if user has a specific permission in the current hub context.
+ *
+ * @knipignore — permission check utility; used by route handlers and integration tests
  */
 export function checkHubPermission(hubPermissions: string[], required: string): boolean {
   return permissionGranted(hubPermissions, required)
@@ -49,6 +51,8 @@ export function checkHubPermission(hubPermissions: string[], required: string): 
 /**
  * Middleware that requires the user to have specific permissions in the current hub.
  * Must be used after hubContext middleware.
+ *
+ * @knipignore — hub permission middleware factory; used by route handlers requiring fine-grained access
  */
 export function requireHubPermission(...required: string[]) {
   return async (c: Context<AppEnv>, next: Next): Promise<Response | undefined> => {

@@ -85,8 +85,8 @@ Full report: [`docs/security/SECURITY_OVERHAUL_COMPLETION_AUDIT_2026-04-14.md`](
 - [ ] CLKR-during-revoke integration test (Tier 3)
 - [ ] Behavioral CSP iframe-escape Playwright test (Tier 4)
 - [ ] Behavioral SameSite CSRF test (Tier 4)
-- [ ] `DeviceService.findDeviceBySigningPubkey` revoked-device filter (Tier 3)
-- [ ] SFrame key-distribution inline HPKE binding (Tier 5)
+- [x] ~~`DeviceService.findDeviceBySigningPubkey` revoked-device filter (Tier 3)~~ — merged 2026-04-14 (`a8d68be3`), PR #146. Adversarial unit tests added in this PR.
+- [x] ~~SFrame key-distribution inline HPKE binding (Tier 5)~~ — merged 2026-04-14 (`0d969522`), PR #149. Adversarial unit tests added in this PR.
 - [x] ~~`items-key` per-artifact AAD binding (Tier 1)~~ — merged 2026-04-14 (`5e53f3bc`), PR #150.
 - [x] ~~**Doc drift sweep:** CLAUDE.md security bullet corrections (lines 100/106/115), HPKE_MIGRATION_NOTES + POST_OVERHAUL_GAPS + AEAD_AUDIT `EnvelopeV3`/`envelope-v3` rename cleanup.~~ — this PR.
 
