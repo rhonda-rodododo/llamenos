@@ -103,7 +103,7 @@
     "@types/react-dom": "^19.2.3",
     "@types/web-push": "^3.6.4",
     "@types/ws": "^8.18.1",
-    "@vitejs/plugin-react": "^5.2.0",
+    "@vitejs/plugin-react": "^6.0.1",
     "concurrently": "^9.2.1",
     "drizzle-kit": "^0.31.10",
     "fake-indexeddb": "^6.2.5",
