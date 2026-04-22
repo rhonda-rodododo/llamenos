@@ -1,3 +1,7 @@
+import { TELEPHONY_PROVIDER_LABELS, type TelephonyProviderDraft } from '@shared/types'
+import { Check } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -7,10 +11,6 @@ import {
   updateTelephonyProvider,
 } from '@/lib/api'
 import { useToast } from '@/lib/toast'
-import { TELEPHONY_PROVIDER_LABELS, type TelephonyProviderDraft } from '@shared/types'
-import { Check } from 'lucide-react'
-import { useMemo, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 import { OAuthConnectButton } from './OAuthConnectButton'
 import { PhoneNumberSelector } from './PhoneNumberSelector'
 import type { SetupData } from './SetupWizard'

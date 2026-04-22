@@ -8,7 +8,7 @@ import { hubStorageCredentials, hubStorageSettings } from '../db/schema/storage'
 import { createLogger } from '../lib/logger'
 import { createRouter } from '../lib/openapi'
 import { checkPermission, requirePermission } from '../middleware/permission-guard'
-import { type AppEnv, STORAGE_NAMESPACES, type StorageNamespace } from '../types'
+import { STORAGE_NAMESPACES, type StorageNamespace } from '../types'
 
 const log = createLogger('routes.hubs')
 

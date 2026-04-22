@@ -26,13 +26,13 @@
 
 import { describe, expect, test } from 'bun:test'
 import { createHpkeSuite } from '@shared/crypto-suite'
-import { type DeviceKeypair, asEd25519SigningKey, asX25519EncryptionKey } from '@shared/types'
+import { asEd25519SigningKey, asX25519EncryptionKey, type DeviceKeypair } from '@shared/types'
 import {
-  type RotatePukResult,
   createInitialPuk,
   decryptOldGenWrap,
   derivePukSubkeys,
   openPukEnvelope,
+  type RotatePukResult,
   rotatePuk,
 } from './puk'
 
@@ -137,11 +137,11 @@ describe('PUK rotation — interruption inside rotatePuk', () => {
     // Rotation succeeded — we get exactly one envelope.
     expect(rotated.newEnvelopes).toHaveLength(1)
     expect(rotated.newGen).toBe(initial.generation + 1)
-    expect(rotated.newEnvelopes[0]!.deviceId).toBe(device.deviceId)
+    expect(rotated.newEnvelopes[0]?.deviceId).toBe(device.deviceId)
 
     // The new seed can be recovered by opening the envelope.
     const recoveredSeed = await openPukEnvelope(
-      rotated.newEnvelopes[0]!.envelope,
+      rotated.newEnvelopes[0]?.envelope,
       device.encryptionPrivateBytes,
       device.deviceId
     )

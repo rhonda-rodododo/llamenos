@@ -1,6 +1,6 @@
-import type { MessageDeliveryStatus } from '@/lib/api'
 import { AlertCircle, Check, CheckCheck, Clock } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import type { MessageDeliveryStatus } from '@/lib/api'
 
 interface MessageStatusIconProps {
   status?: MessageDeliveryStatus

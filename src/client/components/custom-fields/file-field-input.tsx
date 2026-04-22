@@ -1,11 +1,11 @@
-import { Button } from '@/components/ui/button'
-import { Progress } from '@/components/ui/progress'
-import { useAuth } from '@/lib/auth'
-import { uploadEncryptedFile } from '@/lib/file-upload'
 import type { CustomFieldDefinition, FileFieldValue } from '@shared/types'
 import { File as FileIcon, Upload, X } from 'lucide-react'
 import { useCallback, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Button } from '@/components/ui/button'
+import { Progress } from '@/components/ui/progress'
+import { useAuth } from '@/lib/auth'
+import { uploadEncryptedFile } from '@/lib/file-upload'
 
 interface Props {
   definition: CustomFieldDefinition

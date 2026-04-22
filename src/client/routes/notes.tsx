@@ -1,3 +1,19 @@
+import type { FileFieldValue, NotePayload } from '@shared/types'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import {
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Lock,
+  Mic,
+  Pencil,
+  Plus,
+  Search,
+  StickyNote,
+  X,
+} from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { NewNoteForm } from '@/components/notes/new-note-form'
 import { NoteEditForm } from '@/components/notes/note-edit-form'
 import { RecordingPlayer } from '@/components/recording-player'
@@ -20,23 +36,6 @@ import {
 } from '@/lib/queries/notes'
 import { useUsers } from '@/lib/queries/users'
 import { useToast } from '@/lib/toast'
-import type { FileFieldValue, NotePayload } from '@shared/types'
-import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
-import {
-  ChevronLeft,
-  ChevronRight,
-  Download,
-  Lock,
-  Mic,
-  Pencil,
-  Plus,
-  Save,
-  Search,
-  StickyNote,
-  X,
-} from 'lucide-react'
-import { useMemo, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 type NotesSearch = { page: number; callId: string; search: string }
 

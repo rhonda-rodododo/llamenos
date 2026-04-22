@@ -9,11 +9,11 @@
  * → decrypted value written to `foo`.
  */
 
-import { createDebugLog } from '@/lib/debug-log'
 import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import { type CryptoLabel, LABEL_USER_PII } from '@shared/crypto-labels'
 import type { RecipientEnvelope } from '@shared/types'
-import { CryptoWorkerLockedError, cryptoWorker, isWorkerLockedError } from './crypto-worker-client'
+import { createDebugLog } from '@/lib/debug-log'
+import { cryptoWorker, isWorkerLockedError } from './crypto-worker-client'
 import * as keyManager from './key-manager'
 
 const log = createDebugLog('llamenos:decrypt')

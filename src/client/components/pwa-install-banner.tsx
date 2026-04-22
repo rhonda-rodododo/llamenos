@@ -1,7 +1,7 @@
-import { usePwaInstall } from '@/lib/use-pwa-install'
 import { Download, X } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { usePwaInstall } from '@/lib/use-pwa-install'
 
 const DISMISS_KEY = 'llamenos-pwa-install-dismissed'
 

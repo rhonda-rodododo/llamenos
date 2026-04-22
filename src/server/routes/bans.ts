@@ -3,7 +3,6 @@ import { HMAC_PHONE_PREFIX } from '@shared/crypto-labels'
 import { isValidE164 } from '../lib/helpers'
 import { createRouter } from '../lib/openapi'
 import { requirePermission } from '../middleware/permission-guard'
-import type { AppEnv } from '../types'
 
 const bans = createRouter()
 

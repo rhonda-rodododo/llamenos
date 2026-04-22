@@ -1,5 +1,9 @@
+import { createFileRoute } from '@tanstack/react-router'
+import { Plus, ShieldBan, Trash2, Upload } from 'lucide-react'
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ConfirmDialog } from '@/components/confirm-dialog'
-import { PhoneInput, isValidE164 } from '@/components/phone-input'
+import { isValidE164, PhoneInput } from '@/components/phone-input'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -8,10 +12,6 @@ import type { BanEntry } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { useAddBan, useBans, useBulkAddBans, useRemoveBan } from '@/lib/queries/bans'
 import { useToast } from '@/lib/toast'
-import { createFileRoute } from '@tanstack/react-router'
-import { Plus, ShieldBan, Trash2, Upload } from 'lucide-react'
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 export const Route = createFileRoute('/bans')({
   component: BansPage,
@@ -179,13 +179,7 @@ function AddBanForm({
   )
 }
 
-function BanRow({
-  ban,
-  removeBan,
-}: {
-  ban: BanEntry
-  removeBan: ReturnType<typeof useRemoveBan>
-}) {
+function BanRow({ ban, removeBan }: { ban: BanEntry; removeBan: ReturnType<typeof useRemoveBan> }) {
   const { t } = useTranslation()
   const { toast } = useToast()
   const [showConfirm, setShowConfirm] = useState(false)

@@ -82,16 +82,16 @@ export type BufferEnvelopeJson = z.infer<typeof BufferEnvelopeJsonSchema>
 
 // ── Extraction Types (internal, not API-facing) ──
 
-const ExtractedReportFieldsSchema = z.record(z.string(), z.string())
+const _ExtractedReportFieldsSchema = z.record(z.string(), z.string())
 
-const SourceMessageSchema = z.object({
+const _SourceMessageSchema = z.object({
   signalUsername: z.string(),
   timestamp: z.string(),
   content: z.string(),
   messageId: z.string(),
 })
 
-const ResolvedLocationSchema = z.object({
+const _ResolvedLocationSchema = z.object({
   fieldName: z.string(),
   rawText: z.string(),
   resolved: z

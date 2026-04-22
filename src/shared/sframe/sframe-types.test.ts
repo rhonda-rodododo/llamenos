@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'bun:test'
 import {
-  type CiphertextBytes,
-  type PlaintextBytes,
-  type SealedFrame,
   asCiphertextBytes,
   asPlaintextBytes,
   asSealedFrame,
+  type CiphertextBytes,
+  type PlaintextBytes,
+  type SealedFrame,
 } from './sframe-types.js'
 
 describe('SFrame byte brands', () => {

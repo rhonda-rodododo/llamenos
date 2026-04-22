@@ -19,7 +19,7 @@ describe('ProviderHealthService', () => {
 
     const status = service.getHealthStatus()
     expect(status.telephony).not.toBeNull()
-    expect(status.telephony!.status).toBe('healthy')
+    expect(status.telephony?.status).toBe('healthy')
   })
 
   test('degraded after first failure, down after 3 consecutive failures', async () => {
@@ -52,7 +52,7 @@ describe('ProviderHealthService', () => {
     expect(r3.error).toBe('timeout')
 
     const status = service.getHealthStatus()
-    expect(status.telephony!.status).toBe('down')
+    expect(status.telephony?.status).toBe('down')
   })
 
   test('recovery from down to healthy resets failure count', async () => {
@@ -66,7 +66,7 @@ describe('ProviderHealthService', () => {
     for (let i = 0; i < 3; i++) {
       await service.checkProvider('telephony', 'active', failingAdapter)
     }
-    expect(service.getHealthStatus().telephony!.status).toBe('down')
+    expect(service.getHealthStatus().telephony?.status).toBe('down')
 
     const healthyAdapter = {
       async testConnection() {

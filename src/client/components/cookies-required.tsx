@@ -1,9 +1,9 @@
-import { LogoMark } from '@/components/logo-mark'
-import { Button } from '@/components/ui/button'
-import { areCookiesBlocked, resetCookieDetection } from '@/lib/cookie-detection'
 import { Cookie } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { LogoMark } from '@/components/logo-mark'
+import { Button } from '@/components/ui/button'
+import { areCookiesBlocked, resetCookieDetection } from '@/lib/cookie-detection'
 
 /**
  * Interstitial shown on /login when the browser has cookies disabled. The

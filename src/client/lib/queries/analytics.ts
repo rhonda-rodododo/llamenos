@@ -5,18 +5,18 @@
  * only fire when the analytics section is expanded. staleTime is 5 minutes.
  */
 
+import { queryOptions, useQuery } from '@tanstack/react-query'
 import {
   type CallHourBucket,
   type CallVolumeDay,
-  type UserStatEntry,
   getCallAnalytics,
   getCallHoursAnalytics,
   getGlobalCallAnalytics,
   getGlobalCallHoursAnalytics,
   getGlobalUserStats,
   getUserStats,
+  type UserStatEntry,
 } from '@/lib/api'
-import { queryOptions, useQuery } from '@tanstack/react-query'
 import { queryKeys } from './keys'
 
 const STALE_5_MIN = 5 * 60_000

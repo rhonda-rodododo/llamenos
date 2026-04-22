@@ -14,13 +14,14 @@ import { getWebRtcToken } from '../api'
 import { createDebugLog } from '../debug-log'
 
 const log = createDebugLog('llamenos:webrtc')
+
 import { PlivoWebRTCAdapter } from './adapters/plivo'
 import { SipWebRTCAdapter } from './adapters/sip'
 import { TwilioWebRTCAdapter } from './adapters/twilio'
 import { VonageWebRTCAdapter } from './adapters/vonage'
-import { SFrameWiringError, buildSFrameCallHook } from './sframe-call-hook'
+import { buildSFrameCallHook, SFrameWiringError } from './sframe-call-hook'
 import type { SFramePeerConnectionHook } from './sframe-hook-types'
-import { type SFrameWorkerClient, getSFrameWorker } from './sframe-worker-client'
+import { getSFrameWorker, type SFrameWorkerClient } from './sframe-worker-client'
 import type { StateChangeHandler, WebRTCAdapter, WebRtcState } from './types'
 
 // Re-export types consumed by other modules
@@ -57,7 +58,7 @@ let currentState: WebRtcState = 'idle'
 const stateHandlers = new Set<StateChangeHandler>()
 
 let adapter: WebRTCAdapter | null = null
-let currentProvider: string | null = null
+let _currentProvider: string | null = null
 let incomingCallSid: string | null = null
 let refreshTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -293,7 +294,7 @@ export async function initWebRtc(forceRefresh = false): Promise<void> {
     clearRefreshTimer()
     adapter.destroy()
     adapter = null
-    currentProvider = null
+    _currentProvider = null
     incomingCallSid = null
   }
 
@@ -301,7 +302,7 @@ export async function initWebRtc(forceRefresh = false): Promise<void> {
 
   try {
     const { token, provider, ttl } = await getWebRtcToken()
-    currentProvider = provider
+    _currentProvider = provider
 
     // Resolve SFrame worker once per init. If the worker cannot be loaded
     // (no RTCRtpScriptTransform, no Worker, or the singleton threw) the call
@@ -455,7 +456,7 @@ export function destroyWebRtc(): void {
     adapter.destroy()
     adapter = null
   }
-  currentProvider = null
+  _currentProvider = null
   incomingCallSid = null
   // Release per-manager SFrame bindings. The worker singleton itself is NOT
   // terminated here — other tabs / future inits can reuse it.

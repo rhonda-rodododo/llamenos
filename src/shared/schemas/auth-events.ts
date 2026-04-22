@@ -35,11 +35,11 @@ const AuthEventListResponseSchema = z.object({
   events: z.array(AuthEventSchema),
 })
 
-const ReportEventParamsSchema = z.object({
+const _ReportEventParamsSchema = z.object({
   id: z.string().uuid(),
 })
 
-const ReportEventResponseSchema = z.object({
+const _ReportEventResponseSchema = z.object({
   ok: z.boolean(),
 })
 

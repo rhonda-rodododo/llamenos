@@ -68,7 +68,7 @@ describe('authenticateRequest', () => {
     const req = new Request('http://localhost/', { headers: { Authorization: `Bearer ${token}` } })
     const result = await authenticateRequest(req, mockIdentity)
     expect(result).not.toBeNull()
-    expect(result!.pubkey).toBe(TEST_PUBKEY)
+    expect(result?.pubkey).toBe(TEST_PUBKEY)
   })
   test('throws when JWT_SECRET empty', async () => {
     const saved = process.env.JWT_SECRET

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { SFRAME_CIPHER_SUITE, deriveBaseKey, importAesKey } from './cipher-suite.js'
+import { deriveBaseKey, importAesKey, SFRAME_CIPHER_SUITE } from './cipher-suite.js'
 
 describe('SFrame cipher suite', () => {
   test('pins AES-128-GCM with SHA-256', () => {

@@ -7,8 +7,8 @@ import type { RootKekEnvelopeBundle } from '@shared/schemas/root-kek-envelope'
 // (e.g. crypto-worker-client.test.ts, panic-wipe.test.ts, recovery-phrase.test.ts).
 import * as realCryptoWorkerClientNS from './crypto-worker-client'
 import * as realOpaqueClientNS from './opaque-client'
-import { DicewarePhrase } from './recovery-phrase'
 import * as realRecoveryPhraseNS from './recovery-phrase'
+import { DicewarePhrase } from './recovery-phrase'
 import * as realWebauthnNS from './webauthn'
 
 // Snapshot to plain objects at import time. ES module namespaces are live

@@ -1,6 +1,6 @@
 import type { Loggable } from '@shared/logger-types'
 import { getLogContext } from './log-context'
-import { type LogLevel, type RateLimits, createRateLimiter } from './log-rate-limiter'
+import { createRateLimiter, type LogLevel, type RateLimits } from './log-rate-limiter'
 import { redact } from './log-redactor'
 
 const LEVEL_PRIORITY: Record<LogLevel, number> = { debug: 0, info: 1, warn: 2, error: 3 }

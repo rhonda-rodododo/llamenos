@@ -7,6 +7,7 @@ import type {
 import { isSFrameSupported } from './feature-detect.js'
 
 export type { SFrameDegradedNotification }
+
 type SFrameDegradedListener = (ev: SFrameDegradedNotification) => void
 
 /**

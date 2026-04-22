@@ -62,7 +62,7 @@ describe('handleMlsInit', () => {
   const mockDatabaseKey = mock((_bytes: Uint8Array) => ({}))
   const mockClientId = mock((_bytes: Uint8Array) => ({}))
 
-  const loaderModule = mock.module('./mls/core-crypto-loader', () => ({
+  const _loaderModule = mock.module('./mls/core-crypto-loader', () => ({
     loadCoreCrypto: () =>
       Promise.resolve({
         CoreCrypto: {

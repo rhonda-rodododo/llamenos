@@ -1,7 +1,7 @@
 import { createRoute, z } from '@hono/zod-openapi'
 import { createRouter } from '../../lib/openapi'
 import { requirePermission } from '../../middleware/permission-guard'
-import { ErrorSchema, baseMiddleware, getContactUpdateScope } from './shared'
+import { baseMiddleware, ErrorSchema, getContactUpdateScope } from './shared'
 
 const bulk = createRouter()
 
@@ -75,7 +75,7 @@ bulk.openapi(bulkUpdateRoute, async (c) => {
       if (contact) {
         let currentTags = (contact.tags as string[]) ?? []
         if (body.addTags) currentTags = [...new Set([...currentTags, ...body.addTags])]
-        if (body.removeTags) currentTags = currentTags.filter((t) => !body.removeTags!.includes(t))
+        if (body.removeTags) currentTags = currentTags.filter((t) => !body.removeTags?.includes(t))
         updateData.tags = currentTags
       }
     }

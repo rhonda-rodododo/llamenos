@@ -1,3 +1,7 @@
+import { createFileRoute } from '@tanstack/react-router'
+import { Lock, MessageSquare, UserCheck, UserCog, X } from 'lucide-react'
+import { useCallback, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ChannelBadge } from '@/components/ChannelBadge'
 import { ConversationList } from '@/components/ConversationList'
 import { ConversationThread } from '@/components/ConversationThread'
@@ -19,10 +23,6 @@ import {
 } from '@/lib/queries/conversations'
 import { useToast } from '@/lib/toast'
 import { useDecryptedArray } from '@/lib/use-decrypted'
-import { createFileRoute } from '@tanstack/react-router'
-import { Lock, MessageSquare, UserCheck, UserCog, X } from 'lucide-react'
-import { useCallback, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 export const Route = createFileRoute('/conversations')({
   component: ConversationsPage,

@@ -1,9 +1,9 @@
-import { SectionBody, SectionDescription } from '@/components/section-layout'
-import { API_BASE } from '@/lib/api/client'
-import { setAutoLockMs } from '@/lib/key-manager'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { SectionBody, SectionDescription } from '@/components/section-layout'
+import { API_BASE } from '@/lib/api/client'
+import { setAutoLockMs } from '@/lib/key-manager'
 
 interface Prefs {
   autoLockMs: number

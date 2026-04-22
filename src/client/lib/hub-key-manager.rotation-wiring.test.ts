@@ -6,13 +6,13 @@
  * runtime).
  */
 import { describe, expect, mock, test } from 'bun:test'
+import { createHpkeSuite } from '@shared/crypto-suite'
+import { asX25519EncryptionKey } from '@shared/types'
 // Eagerly import the real module so mock.module can preserve its other
 // named exports and only override `clearChainCache`. Without this, bun's
 // process-wide mock.module would strip named exports and break sibling
 // tests that import `verifyAuditChain` / `ChainVerificationError`.
 import * as realVerifier from '@/lib/audit-chain-verifier'
-import { createHpkeSuite } from '@shared/crypto-suite'
-import { asX25519EncryptionKey } from '@shared/types'
 
 const clearCalls: string[] = []
 const mockClearChainCache = mock(async (hubId: string) => {

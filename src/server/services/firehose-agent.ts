@@ -58,7 +58,7 @@ export class FirehoseAgentService {
   private extractionFailureCounts = new Map<string, number>()
 
   constructor(
-    private readonly db: Database,
+    readonly _db: Database,
     private readonly crypto: CryptoService,
     private readonly firehose: FirehoseService,
     private readonly conversations: ConversationService,
@@ -565,7 +565,7 @@ export class FirehoseAgentService {
     // Report type name would need hub-key decryption — use ID as fallback
     const reportTypeName = connection.reportTypeId
 
-    const message = [
+    const _message = [
       `[Llamenos] Firehose report submitted from "${connectionDisplayName}"`,
       `Report type: ${reportTypeName} | Confidence: ${confidence.toFixed(2)}`,
       `Reply STOP-${shortCode} to disable Signal notifications for this connection.`,

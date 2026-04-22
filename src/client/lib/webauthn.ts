@@ -6,7 +6,7 @@
 
 import { LABEL_KEK_PRF, LABEL_PRF_KEK_SALT_V1 } from '@shared/crypto-labels'
 import { startAuthentication, startRegistration } from '@simplewebauthn/browser'
-import { type WebAuthnCredentialInfo, authFacadeClient } from './auth-facade-client'
+import { authFacadeClient, type WebAuthnCredentialInfo } from './auth-facade-client'
 
 /**
  * Thrown when a WebAuthn operation expected PRF support but the authenticator
@@ -99,7 +99,7 @@ export async function registerCredential(label: string): Promise<void> {
  * support in the client extension results. Callers must treat this as a
  * hard failure for PRF-primary onboarding and fall back to OPAQUE.
  */
-async function registerPrfCredential(label: string): Promise<void> {
+async function _registerPrfCredential(label: string): Promise<void> {
   if (!isWebAuthnAvailable()) throw new PrfUnsupportedError('WebAuthn not available')
 
   const optionsResponse = await authFacadeClient.getRegisterOptions()

@@ -27,12 +27,12 @@ import type { HpkeEnvelope } from '@shared/hpke-envelope'
 import { buildAad, hpkeOpen, hpkeSeal } from '@shared/hpke-primitives'
 import {
   type AesGcmKey,
-  type DeviceKeypair,
-  type Ed25519SigningKey,
-  type X25519EncryptionKey,
   asAesGcmKey,
   asEd25519SigningKey,
   asX25519EncryptionKey,
+  type DeviceKeypair,
+  type Ed25519SigningKey,
+  type X25519EncryptionKey,
 } from '@shared/types'
 
 export interface PukSubkeys {

@@ -100,7 +100,7 @@ export class TranscriptionManager {
           () => reject(new Error('Model initialization timed out')),
           300_000
         ) // 5 min for download
-        const originalHandler = this.worker?.onmessage
+        const originalHandler = this.worker!.onmessage
         this.worker!.onmessage = (event) => {
           const msg = event.data
           if (msg.type === 'ready') {
@@ -201,7 +201,9 @@ export class TranscriptionManager {
     this.captureNode?.port.postMessage({ type: 'stop' })
 
     // Stop microphone
-    this.mediaStream?.getTracks().forEach((track) => track.stop())
+    this.mediaStream?.getTracks().forEach((track) => {
+      track.stop()
+    })
 
     // Wait for all pending transcription chunks to complete
     if (this.pendingChunks.size > 0) {
@@ -296,7 +298,7 @@ export class TranscriptionManager {
         }
       }
 
-      this.worker!.postMessage(
+      this.worker?.postMessage(
         {
           type: 'transcribe_chunk',
           audio: pcmFloat32.buffer,
@@ -313,7 +315,9 @@ export class TranscriptionManager {
   async dispose(): Promise<void> {
     // Stop audio capture
     this.captureNode?.port.postMessage({ type: 'stop' })
-    this.mediaStream?.getTracks().forEach((track) => track.stop())
+    this.mediaStream?.getTracks().forEach((track) => {
+      track.stop()
+    })
 
     if (this.audioContext && this.audioContext.state !== 'closed') {
       await this.audioContext.close()

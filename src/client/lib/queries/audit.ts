@@ -12,15 +12,15 @@
  * trust set.
  */
 
-import { listAuditLog, listGlobalAuditLog } from '@/lib/api'
-import { ChainVerificationError, verifyAuditChain } from '@/lib/audit-chain-verifier'
-import { decryptArrayFields } from '@/lib/decrypt-fields'
-import * as keyManager from '@/lib/key-manager'
 import { LABEL_USER_PII } from '@shared/crypto-labels'
 import type { AuditLogEntry } from '@shared/schemas'
 import type { SignedAuditEntry } from '@shared/schemas/audit-entries'
 import type { User } from '@shared/schemas/users'
 import { queryOptions, useQuery } from '@tanstack/react-query'
+import { listAuditLog, listGlobalAuditLog } from '@/lib/api'
+import { ChainVerificationError, verifyAuditChain } from '@/lib/audit-chain-verifier'
+import { decryptArrayFields } from '@/lib/decrypt-fields'
+import * as keyManager from '@/lib/key-manager'
 import { queryKeys } from './keys'
 import { useUsers } from './users'
 

@@ -5,7 +5,7 @@ import { permissionGranted, resolveHubPermissions } from '@shared/permissions'
 import type { RecipientEnvelope } from '@shared/types'
 import { createRouter } from '../../lib/openapi'
 import { requirePermission } from '../../middleware/permission-guard'
-import { CallIdParamSchema, ErrorSchema, PassthroughSchema, baseMiddleware } from './shared'
+import { baseMiddleware, CallIdParamSchema, ErrorSchema, PassthroughSchema } from './shared'
 
 const discovery = createRouter()
 

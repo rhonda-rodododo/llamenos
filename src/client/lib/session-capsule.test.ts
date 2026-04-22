@@ -10,17 +10,17 @@ import {
   asSessionToken,
 } from '@shared/crypto-types'
 import { MockBroadcastChannel, MockBroadcastHub } from './__test-helpers__/mock-broadcast-channel'
+import type { SessionCapsule } from './session-capsule'
 import {
-  SESSION_TOKEN_KEY,
   __resetExpiryDebounceForTests,
   __setSyncChannelFactoryForTests,
   clearCapsule,
   loadCapsule,
   parseSessionCapsule,
+  SESSION_TOKEN_KEY,
   storeCapsule,
   updateAutoLockExpiry,
 } from './session-capsule'
-import type { SessionCapsule } from './session-capsule'
 
 const PUBKEY_HASH = asPubkeyHash16('abcdef0123456789')
 const OTHER_HASH = asPubkeyHash16('0123456789abcdef')

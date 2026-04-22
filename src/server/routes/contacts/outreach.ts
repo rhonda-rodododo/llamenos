@@ -3,7 +3,7 @@ import type { MessagingChannelType } from '@shared/types'
 import { getMessagingAdapter } from '../../lib/adapters'
 import { createRouter } from '../../lib/openapi'
 import { requirePermission } from '../../middleware/permission-guard'
-import { ErrorSchema, IdParamSchema, baseMiddleware } from './shared'
+import { baseMiddleware, ErrorSchema, IdParamSchema } from './shared'
 
 const outreach = createRouter()
 

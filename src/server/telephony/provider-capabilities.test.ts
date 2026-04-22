@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { type IncomingMessage, type ServerResponse, createServer } from 'node:http'
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import {
   TelephonyProviderConfigSchema,
@@ -95,7 +95,7 @@ describe('provider Zod schemas', () => {
 
 describe('Twilio capabilities', () => {
   test('testConnection succeeds with valid credentials', async () => {
-    const mock = await startMockApi((req, res) => {
+    const mock = await startMockApi((_req, res) => {
       res.writeHead(200, { 'Content-Type': 'application/json' })
       res.end(JSON.stringify({ sid: 'AC123', friendly_name: 'Test Account', status: 'active' }))
     })
@@ -116,7 +116,7 @@ describe('Twilio capabilities', () => {
   })
 
   test('testConnection fails with 401', async () => {
-    const mock = await startMockApi((req, res) => {
+    const mock = await startMockApi((_req, res) => {
       res.writeHead(401)
       res.end('Unauthorized')
     })
@@ -200,7 +200,7 @@ const providerTests = [
 for (const p of providerTests) {
   describe(`${p.name} capabilities`, () => {
     test('testConnection succeeds', async () => {
-      const mock = await startMockApi((req, res) => {
+      const mock = await startMockApi((_req, res) => {
         res.writeHead(200, { 'Content-Type': 'application/json' })
         res.end(JSON.stringify(p.successResponse))
       })
@@ -214,7 +214,7 @@ for (const p of providerTests) {
     })
 
     test('testConnection fails with 401', async () => {
-      const mock = await startMockApi((req, res) => {
+      const mock = await startMockApi((_req, res) => {
         res.writeHead(401)
         res.end('Unauthorized')
       })

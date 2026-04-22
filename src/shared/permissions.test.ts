@@ -1,23 +1,22 @@
 import { describe, expect, test } from 'bun:test'
 import {
   DEFAULT_ROLES,
+  getEffectiveScope,
+  getPermissionsByDomain,
+  hasPermission,
   PERMISSION_CATALOG,
   PERMISSION_GROUP_LABELS,
   type Permission,
   type PermissionDomain,
   type PermissionMeta,
   type PermissionOrWildcard,
-  type ScopeLevel,
-  type WildcardPermission,
-  getEffectiveScope,
-  getPermissionsByDomain,
-  hasPermission,
   permissionGranted,
+  type WildcardPermission,
 } from './permissions'
 
 describe('typed permission catalog', () => {
   test('every permission has label, group, and subgroup', () => {
-    for (const [key, meta] of Object.entries(PERMISSION_CATALOG)) {
+    for (const [_key, meta] of Object.entries(PERMISSION_CATALOG)) {
       expect(meta.label).toBeTruthy()
       expect(meta.group).toBeTruthy()
       expect(['scope', 'actions', 'tiers']).toContain(meta.subgroup)
@@ -49,7 +48,7 @@ describe('typed permission catalog', () => {
   })
 
   test('tier permissions have a tier field', () => {
-    for (const [key, meta] of Object.entries(PERMISSION_CATALOG)) {
+    for (const [_key, meta] of Object.entries(PERMISSION_CATALOG)) {
       if (meta.subgroup === 'tiers') {
         expect((meta as PermissionMeta).tier).toBeTruthy()
       }
@@ -57,7 +56,7 @@ describe('typed permission catalog', () => {
   })
 
   test('non-scope/non-tier permissions do NOT have scope or tier fields', () => {
-    for (const [key, meta] of Object.entries(PERMISSION_CATALOG)) {
+    for (const [_key, meta] of Object.entries(PERMISSION_CATALOG)) {
       if (meta.subgroup === 'actions') {
         expect((meta as PermissionMeta).scope).toBeUndefined()
         expect((meta as PermissionMeta).tier).toBeUndefined()
@@ -202,8 +201,8 @@ describe('case manager role', () => {
   test('Case Manager role exists in DEFAULT_ROLES', () => {
     const cm = DEFAULT_ROLES.find((r) => r.id === 'role-case-manager')
     expect(cm).toBeDefined()
-    expect(cm!.isDefault).toBe(true)
-    expect(cm!.isSystem).toBe(false)
+    expect(cm?.isDefault).toBe(true)
+    expect(cm?.isSystem).toBe(false)
   })
 
   test('Case Manager has expected permissions', () => {

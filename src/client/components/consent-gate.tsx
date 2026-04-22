@@ -1,9 +1,9 @@
-import { Button } from '@/components/ui/button'
-import { useConsent } from '@/lib/consent'
 import { CONSENT_VERSION } from '@shared/types'
 import { ShieldCheck } from 'lucide-react'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Button } from '@/components/ui/button'
+import { useConsent } from '@/lib/consent'
 
 interface ConsentGateProps {
   isKeyUnlocked: boolean

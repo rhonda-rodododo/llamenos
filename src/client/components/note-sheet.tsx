@@ -1,12 +1,7 @@
-import { useAuth } from '@/lib/auth'
-import { useConfig } from '@/lib/config'
-import { getMlsConversation } from '@/lib/mls/get-mls-conversation'
-import { toBase64 } from '@/lib/mls/mls-api-client'
-import { useNoteSheet } from '@/lib/note-sheet-context'
-import { useDraft } from '@/lib/use-draft'
+import type { NotePayload } from '@shared/types'
+import { Clock, Lock, Save } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -28,14 +23,17 @@ import {
 } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
 import { type CustomFieldDefinition, createNote, updateNote } from '@/lib/api'
+import { useAuth } from '@/lib/auth'
+import { useConfig } from '@/lib/config'
+import { getMlsConversation } from '@/lib/mls/get-mls-conversation'
+import { toBase64 } from '@/lib/mls/mls-api-client'
+import { useNoteSheet } from '@/lib/note-sheet-context'
 import { useCallHistory } from '@/lib/queries/calls'
 import { queryKeys } from '@/lib/queries/keys'
-import { cacheNotePlaintext } from '@/lib/queries/notes'
-import { useCustomFields } from '@/lib/queries/notes'
+import { cacheNotePlaintext, useCustomFields } from '@/lib/queries/notes'
 import { queryClient } from '@/lib/query-client'
 import { useToast } from '@/lib/toast'
-import type { NotePayload } from '@shared/types'
-import { Clock, Lock, Save } from 'lucide-react'
+import { useDraft } from '@/lib/use-draft'
 
 export function NoteSheet() {
   const { t } = useTranslation()
@@ -73,7 +71,19 @@ export function NoteSheet() {
         }
       }
     }
-  }, [isOpen, mode, initialText, initialCallId])
+  }, [
+    isOpen,
+    mode,
+    initialText,
+    initialCallId,
+    initialFields,
+    draft.setText,
+    draft.fields,
+    draft.text,
+    draft.setFieldValue,
+    draft.setCallId,
+    draft.callId,
+  ])
 
   function validateFields(): boolean {
     const errors: Record<string, string> = {}

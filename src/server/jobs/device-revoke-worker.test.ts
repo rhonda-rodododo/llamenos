@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from 'bun:test'
-import { DeviceRevokeWorker } from './device-revoke-worker'
 import type { DeviceRevokeJob, HubRotationRequest } from './device-revoke-worker'
+import { DeviceRevokeWorker } from './device-revoke-worker'
 
 // ── Helpers ──
 
@@ -32,7 +32,7 @@ function createTestWorker(options: {
   const worker = new DeviceRevokeWorker(mockDb)
 
   // Override the DB-hitting methods with test doubles
-  const origProcessRevocation = worker.processRevocation.bind(worker)
+  const _origProcessRevocation = worker.processRevocation.bind(worker)
 
   // Mock: verify device is revoked
   // We override the private-ish DB calls by patching the prototype methods
@@ -80,7 +80,7 @@ function createTestWorker(options: {
   // The cleanest way is to wrap processRevocation to inject the device check.
   const deviceRecord = options.device
   // biome-ignore lint/suspicious/noExplicitAny: test monkey-patching
-  const origSelect = (worker as any).db
+  const _origSelect = (worker as any).db
 
   // Replace processRevocation with a version that mocks the device lookup
   worker.processRevocation = async (job: DeviceRevokeJob) => {
@@ -331,7 +331,7 @@ describe('DeviceRevokeWorker', () => {
   describe('processHubRotation', () => {
     test('stores rotation data via transaction', async () => {
       // For this test we need the real processHubRotation with a mock DB
-      const txOps: Array<{ method: string; args: unknown[] }> = []
+      const _txOps: Array<{ method: string; args: unknown[] }> = []
 
       const mockTx = {
         delete: mock((_table: unknown) => ({

@@ -68,6 +68,5 @@ function CardFooter({ className, ...props }: React.ComponentProps<'div'>) {
   )
 }
 
-export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent }
 /** @knipignore — shadcn component API; CardAction exported for header action slot composition */
-export { CardAction }
+export { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }

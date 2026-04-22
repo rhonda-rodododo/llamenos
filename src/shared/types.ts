@@ -1,23 +1,21 @@
-import type { BlastContent, BlastSettings, BlastStats } from '@shared/schemas/blasts'
+import type { BlastSettings, BlastStats } from '@shared/schemas/blasts'
 import type {
-  CallPreference,
   ChannelType,
   ContactType,
   CustomFieldContext,
   LocationPrecision,
-  MessageDeliveryStatus,
   MessagingChannelType,
   RiskLevel,
 } from '@shared/schemas/common'
 import type { RetentionSettings } from '@shared/schemas/gdpr'
 import type {
   RCSConfig,
-  SMSConfig,
   SignalBridgeConfig as SignalConfig,
+  SMSConfig,
   TelegramConfig,
   WhatsAppConfig,
 } from '@shared/schemas/providers'
-import type { EnabledChannels, SetupState } from '@shared/schemas/settings'
+import type { SetupState } from '@shared/schemas/settings'
 import type { Ciphertext } from './crypto-types'
 import type { HpkeEnvelope } from './hpke-envelope'
 
@@ -68,23 +66,6 @@ export interface DeviceKeypair {
   }
   createdAt: string // ISO 8601
   isPaperKey: boolean
-}
-
-interface DeviceMetadata {
-  deviceId: string
-  signingPubkey: string // hex
-  encryptionPubkey: string // hex
-  encryptedDisplayName: string
-  addedByDeviceId: string | null
-  revokedAt: string | null
-  createdAt: string
-  lastSeenAt: string
-}
-
-interface PukState {
-  generation: number
-  signPubkey: string // hex
-  dhPubkey: string // hex
 }
 
 // --- Versioned Envelope (HPKE v3) ---
@@ -214,7 +195,7 @@ export const GEOCODING_PROVIDER_LABELS: Record<GeocodingProvider, string> = {
   geoapify: 'Geoapify',
 }
 
-const DEFAULT_GEOCODING_CONFIG: GeocodingConfigAdmin = {
+const _DEFAULT_GEOCODING_CONFIG: GeocodingConfigAdmin = {
   provider: null,
   apiKey: '',
   countries: [],
@@ -243,7 +224,7 @@ export const CONTACT_TYPE_LABELS: Record<ContactType, string> = {
   other: 'Other',
 }
 
-const RISK_LEVEL_LABELS: Record<RiskLevel, string> = {
+const _RISK_LEVEL_LABELS: Record<RiskLevel, string> = {
   low: 'Low',
   medium: 'Medium',
   high: 'High',
@@ -256,21 +237,6 @@ export interface RelationshipPayload {
   toContactId: string
   relationship: string
   isEmergency: boolean
-}
-
-/** Contact summary fields (Tier 1 — all members with contacts:envelope-summary) */
-interface ContactSummary {
-  displayName: string
-  notes: string
-  languages: string[]
-}
-
-/** Contact PII fields (Tier 2 — per-field encrypted for contacts:envelope-full) */
-interface ContactPIIBlob {
-  emailAddresses: string[]
-  address: string
-  dateOfBirth: string
-  identifiers: { label: string; value: string }[]
 }
 
 /** Custom field definition — uses branded Ciphertext for encrypted fields.
@@ -425,10 +391,10 @@ export interface NotePayload {
 
 export const MAX_CUSTOM_FIELDS = 20
 export const MAX_SELECT_OPTIONS = 50
-const MAX_FIELD_NAME_LENGTH = 50
-const MAX_FIELD_LABEL_LENGTH = 200
-const MAX_OPTION_LENGTH = 200
-const FIELD_NAME_REGEX = /^[a-zA-Z0-9_]+$/
+const _MAX_FIELD_NAME_LENGTH = 50
+const _MAX_FIELD_LABEL_LENGTH = 200
+const _MAX_OPTION_LENGTH = 200
+const _FIELD_NAME_REGEX = /^[a-zA-Z0-9_]+$/
 
 /** Check if a custom field should appear in a given context */
 export function fieldMatchesContext(
@@ -438,7 +404,7 @@ export function fieldMatchesContext(
   return field.context === context || field.context === 'all'
 }
 
-const CUSTOM_FIELD_CONTEXT_LABELS: Record<CustomFieldContext, string> = {
+const _CUSTOM_FIELD_CONTEXT_LABELS: Record<CustomFieldContext, string> = {
   'call-notes': 'Call Notes',
   'conversation-notes': 'Conversation Notes',
   reports: 'Reports',
@@ -448,9 +414,9 @@ const CUSTOM_FIELD_CONTEXT_LABELS: Record<CustomFieldContext, string> = {
 // --- Messaging Channel Types (re-exported from schema) ---
 
 export type {
+  ChannelType,
   MessageDeliveryStatus,
   MessagingChannelType,
-  ChannelType,
 } from '@shared/schemas/common'
 
 /** Transport security level for each channel */
@@ -480,13 +446,12 @@ export const CHANNEL_LABELS: Record<ChannelType, string> = {
 // SignalConfig is SignalBridgeConfig in the schema — re-exported with alias for compatibility
 
 export type {
-  SMSConfig,
-  WhatsAppConfig,
   RCSConfig,
+  SignalBridgeConfig as SignalConfig,
+  SMSConfig,
   TelegramConfig,
+  WhatsAppConfig,
 } from '@shared/schemas/providers'
-
-export type { SignalBridgeConfig as SignalConfig } from '@shared/schemas/providers'
 
 export interface MessagingConfig {
   enabledChannels: MessagingChannelType[]
@@ -551,7 +516,7 @@ export interface Blast {
   stats: BlastStats
 }
 
-export type { BlastContent, BlastStats, BlastSettings } from '@shared/schemas/blasts'
+export type { BlastContent, BlastSettings, BlastStats } from '@shared/schemas/blasts'
 
 export const DEFAULT_BLAST_SETTINGS: BlastSettings = {
   subscribeKeyword: 'JOIN',
@@ -566,7 +531,7 @@ export const DEFAULT_BLAST_SETTINGS: BlastSettings = {
 
 // --- Setup State (re-exported from schema) ---
 
-export type { SetupState, EnabledChannels } from '@shared/schemas/settings'
+export type { EnabledChannels, SetupState } from '@shared/schemas/settings'
 
 export const DEFAULT_SETUP_STATE: SetupState = {
   setupCompleted: false,
@@ -607,11 +572,6 @@ export interface GdprErasureRequest {
 // --- Hub Types (re-exported from schema) ---
 
 export type { Hub } from '@shared/schemas/settings'
-
-interface HubRoleAssignment {
-  hubId: string
-  roleIds: string[]
-}
 
 // --- Provider OAuth Auto-Config Types (Epic 48) ---
 

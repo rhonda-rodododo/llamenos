@@ -1,3 +1,6 @@
+import { Building2, Pencil, Phone, Plus, Shield, ShieldOff } from 'lucide-react'
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { PhoneInput } from '@/components/phone-input'
 import { SectionBody, SectionDescription } from '@/components/section-layout'
 import { Badge } from '@/components/ui/badge'
@@ -25,9 +28,6 @@ import {
   useUpdateHub,
 } from '@/lib/queries/hubs'
 import { useToast } from '@/lib/toast'
-import { Building2, Pencil, Phone, Plus, Shield, ShieldOff } from 'lucide-react'
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
 import { HubsEditDialog } from './hubs-edit-dialog'
 
 export function HubsSection() {

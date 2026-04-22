@@ -8,6 +8,25 @@
  *   4. Webhook URLs — copy/auto-configure, then save
  */
 
+import { TELEPHONY_PROVIDER_LABELS, type TelephonyProviderDraft } from '@shared/types'
+import { useQueryClient } from '@tanstack/react-query'
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  CheckCircle2,
+  Copy,
+  ExternalLink,
+  Loader2,
+  Phone,
+  RefreshCw,
+  Search,
+  Settings,
+  SkipForward,
+  XCircle,
+} from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -38,25 +57,6 @@ import {
   useWebhookUrls,
 } from '@/lib/queries/provider-setup'
 import { useToast } from '@/lib/toast'
-import { TELEPHONY_PROVIDER_LABELS, type TelephonyProviderDraft } from '@shared/types'
-import { useQueryClient } from '@tanstack/react-query'
-import {
-  ArrowLeft,
-  ArrowRight,
-  Check,
-  CheckCircle2,
-  Copy,
-  ExternalLink,
-  Loader2,
-  Phone,
-  RefreshCw,
-  Search,
-  Settings,
-  SkipForward,
-  XCircle,
-} from 'lucide-react'
-import { useCallback, useMemo, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 // ---------------------------------------------------------------------------
 // Types

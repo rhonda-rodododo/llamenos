@@ -37,32 +37,6 @@ export class VonageWebRTCAdapter implements WebRTCAdapter {
     this.#sframeHook = options.sframeHook
   }
 
-  /**
-   * Install SFrame transforms on a Vonage RTCPeerConnection. The Vonage
-   * Client SDK heavily abstracts the pc and does not currently expose it
-   * through a stable surface — this helper is the insertion point where a
-   * future wiring pass will hand the real pc reference to the caller-provided
-   * hook. Until then, calling this with a valid pc just runs the hook and
-   * surfaces errors through the adapter's event bus.
-   *
-   * TODO(tier-5): locate the Vonage SDK accessor for the underlying
-   * RTCPeerConnection and call `installHook` from the same callback that
-   * creates it (likely inside a callInvite or callConnecting handler).
-   */
-  #installHook(pc: RTCPeerConnection, callId: string): void {
-    const hook = this.#sframeHook
-    if (!hook) return
-    void Promise.resolve(hook(pc, { callId, direction: 'inbound' })).catch((err) => {
-      this.#emit('error', err instanceof Error ? err : new Error(String(err)))
-      try {
-        pc.close()
-      } catch {
-        /* best-effort */
-      }
-      this.disconnect()
-    })
-  }
-
   // ---------------------------------------------------------------------------
   // Event bus
   // ---------------------------------------------------------------------------
@@ -71,7 +45,7 @@ export class VonageWebRTCAdapter implements WebRTCAdapter {
     if (!this.#handlers.has(event)) {
       this.#handlers.set(event, new Set())
     }
-    this.#handlers.get(event)!.add(handler as WebRtcEventHandler<WebRtcEvent>)
+    this.#handlers.get(event)?.add(handler as WebRtcEventHandler<WebRtcEvent>)
   }
 
   off<E extends WebRtcEvent>(event: E, handler: WebRtcEventHandler<E>): void {

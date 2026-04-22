@@ -1,3 +1,7 @@
+import { createFileRoute } from '@tanstack/react-router'
+import { CalendarPlus, Clock, LifeBuoy, Pencil, Trash2, Users } from 'lucide-react'
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -18,10 +22,6 @@ import {
 } from '@/lib/queries/shifts'
 import { useUsers } from '@/lib/queries/users'
 import { useToast } from '@/lib/toast'
-import { createFileRoute } from '@tanstack/react-router'
-import { CalendarPlus, Clock, LifeBuoy, Pencil, Trash2, Users } from 'lucide-react'
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 export const Route = createFileRoute('/shifts')({
   component: ShiftsPage,

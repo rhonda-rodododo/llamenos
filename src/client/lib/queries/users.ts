@@ -6,18 +6,18 @@
  * users cache on success.
  */
 
+import { LABEL_USER_PII } from '@shared/crypto-labels'
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  type User,
   createUser,
   deleteUser,
   getUserUnmasked,
   listUsers,
+  type User,
   updateUser,
 } from '@/lib/api'
 import { decryptArrayFields, decryptObjectFields } from '@/lib/decrypt-fields'
 import * as keyManager from '@/lib/key-manager'
-import { LABEL_USER_PII } from '@shared/crypto-labels'
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from './keys'
 
 // ---------------------------------------------------------------------------

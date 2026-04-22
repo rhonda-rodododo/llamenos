@@ -1,4 +1,3 @@
-import { EFF_LARGE_WORDLIST } from '@/assets/eff-large-wordlist'
 /**
  * Diceware recovery phrase primitives.
  *
@@ -14,6 +13,7 @@ import { hkdf } from '@noble/hashes/hkdf.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes, utf8ToBytes } from '@noble/hashes/utils.js'
 import { LABEL_RECOVERY_PHRASE_KEK } from '@shared/crypto-labels'
+import { EFF_LARGE_WORDLIST } from '@/assets/eff-large-wordlist'
 
 const WORDLIST_SIZE = 7776
 

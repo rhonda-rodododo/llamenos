@@ -1,3 +1,7 @@
+import { PERMISSION_GROUP_LABELS } from '@shared/permissions'
+import { Lock, Pencil, Plus, Trash2 } from 'lucide-react'
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { SectionBody, SectionDescription } from '@/components/section-layout'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -22,10 +26,6 @@ import {
   useUpdateRole,
 } from '@/lib/queries/roles'
 import { useToast } from '@/lib/toast'
-import { PERMISSION_GROUP_LABELS } from '@shared/permissions'
-import { Lock, Pencil, Plus, Trash2 } from 'lucide-react'
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 interface RoleFormData {
   name: string

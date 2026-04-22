@@ -1,3 +1,6 @@
+import { Check, ChevronsUpDown, X } from 'lucide-react'
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/badge'
 import {
   Command,
@@ -10,9 +13,6 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { User } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { Check, ChevronsUpDown, X } from 'lucide-react'
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 interface UserMultiSelectProps {
   users: User[]

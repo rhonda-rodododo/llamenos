@@ -6,10 +6,10 @@
  * change infrequently.
  */
 
-import { type Tag, createTag, deleteTag, listTags, updateTag } from '@/lib/api'
-import { decryptHubField } from '@/lib/hub-field-crypto'
 import type { Ciphertext } from '@shared/crypto-types'
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { createTag, deleteTag, listTags, type Tag, updateTag } from '@/lib/api'
+import { decryptHubField } from '@/lib/hub-field-crypto'
 import { queryKeys } from './keys'
 
 // ---------------------------------------------------------------------------

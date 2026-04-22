@@ -22,7 +22,7 @@ import {
   BandwidthWebhookEventSchema,
   mapBandwidthDisconnectCause,
 } from '../../shared/schemas/external/bandwidth-voice'
-import { IVR_PROMPTS, getPrompt, getVoicemailThanks } from '../../shared/voice-prompts'
+import { getPrompt, getVoicemailThanks, IVR_PROMPTS } from '../../shared/voice-prompts'
 import { createLogger } from '../lib/logger'
 import type {
   AudioUrlMap,

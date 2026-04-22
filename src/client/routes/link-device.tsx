@@ -1,19 +1,3 @@
-import { LanguageSelect } from '@/components/language-select'
-import { LogoMark } from '@/components/logo-mark'
-import { PinInput } from '@/components/pin-input'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useConfig } from '@/lib/config'
-import * as keyManager from '@/lib/key-manager'
-import { hasStoredKey } from '@/lib/key-manager'
-import {
-  type ProvisioningSession,
-  computeSASForNewDevice,
-  createProvisioningRoom,
-  decryptProvisionedNsec,
-  pollProvisioningRoom,
-} from '@/lib/provisioning'
-import { useTheme } from '@/lib/theme'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
   CheckCircle2,
@@ -28,6 +12,22 @@ import {
 import { QRCodeSVG } from 'qrcode.react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { LanguageSelect } from '@/components/language-select'
+import { LogoMark } from '@/components/logo-mark'
+import { PinInput } from '@/components/pin-input'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { useConfig } from '@/lib/config'
+import * as keyManager from '@/lib/key-manager'
+import { hasStoredKey } from '@/lib/key-manager'
+import {
+  computeSASForNewDevice,
+  createProvisioningRoom,
+  decryptProvisionedNsec,
+  type ProvisioningSession,
+  pollProvisioningRoom,
+} from '@/lib/provisioning'
+import { useTheme } from '@/lib/theme'
 
 export const Route = createFileRoute('/link-device')({
   component: LinkDevicePage,

@@ -2,7 +2,7 @@ import { createRoute, z } from '@hono/zod-openapi'
 import { getTelephony } from '../lib/adapters'
 import { createRouter } from '../lib/openapi'
 import { checkPermission, requirePermission } from '../middleware/permission-guard'
-import type { AppEnv, AuditLogEntry } from '../types'
+import type { AuditLogEntry } from '../types'
 
 const calls = createRouter()
 

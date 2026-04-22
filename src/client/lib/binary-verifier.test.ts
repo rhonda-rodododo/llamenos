@@ -3,10 +3,10 @@ import { ed25519 } from '@noble/curves/ed25519.js'
 import { bytesToHex } from '@noble/hashes/utils.js'
 import type { ReleaseManifest } from '@shared/schemas/gossip-version'
 import {
-  VerifierFailure,
   canonicalizeJson,
   listLoadedResources,
   runBinaryVerifier,
+  VerifierFailure,
   verifyManifestSignature,
   verifyOrThrow,
 } from './binary-verifier'

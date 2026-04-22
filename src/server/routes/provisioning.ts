@@ -2,7 +2,6 @@ import { createRoute, z } from '@hono/zod-openapi'
 import { HMAC_IP_PREFIX } from '@shared/crypto-labels'
 import { createRouter } from '../lib/openapi'
 import { auth } from '../middleware/auth'
-import type { AppEnv } from '../types'
 
 const provisioning = createRouter()
 

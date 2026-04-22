@@ -16,7 +16,6 @@ import { maybeTranscribe, transcribeVoicemail } from '../lib/transcription-manag
 import { storeVoicemailAudio } from '../lib/voicemail-storage'
 import type { Services } from '../services'
 import type { AppEnv, CallSettings } from '../types'
-import type { Env } from '../types'
 
 /**
  * Determine whether the call should go to voicemail, ring users, or play unavailable.

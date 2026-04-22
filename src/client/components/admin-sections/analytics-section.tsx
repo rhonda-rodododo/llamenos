@@ -1,11 +1,3 @@
-import { SectionBody, SectionDescription } from '@/components/section-layout'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  useGlobalCallAnalytics,
-  useGlobalCallHoursAnalytics,
-  useGlobalUserStatsAnalytics,
-} from '@/lib/queries/analytics'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -19,6 +11,14 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { SectionBody, SectionDescription } from '@/components/section-layout'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  useGlobalCallAnalytics,
+  useGlobalCallHoursAnalytics,
+  useGlobalUserStatsAnalytics,
+} from '@/lib/queries/analytics'
 
 /**
  * Super-admin-only section for cross-hub analytics.

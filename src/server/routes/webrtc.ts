@@ -2,7 +2,6 @@ import { createRoute, z } from '@hono/zod-openapi'
 import { createLogger } from '../lib/logger'
 import { createRouter } from '../lib/openapi'
 import { generateWebRtcToken, isWebRtcConfigured } from '../telephony/webrtc-tokens'
-import type { AppEnv } from '../types'
 
 const log = createLogger('routes.webrtc')
 

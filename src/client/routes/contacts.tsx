@@ -1,3 +1,7 @@
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { BookUser, Plus, Search, Tag, Trash2, Upload, Users, X } from 'lucide-react'
+import { useCallback, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { CreateContactDialog } from '@/components/contacts/create-contact-dialog'
 import { ImportContactsDialog } from '@/components/contacts/import-contacts-dialog'
 import { TagBadge, TagInput, useTagLookup } from '@/components/tag-input'
@@ -27,13 +31,8 @@ import {
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useConfig } from '@/lib/config'
-
 import { useBulkDeleteContacts, useBulkUpdateContacts, useContacts } from '@/lib/queries/contacts'
 import { useAssignTeamContacts, useTeamContacts, useTeams } from '@/lib/queries/teams'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { BookUser, Plus, Search, Tag, Trash2, Upload, Users, X } from 'lucide-react'
-import { useCallback, useMemo, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 /** ContactRecord augmented with fields populated by decryptObjectFields */
 type DecryptedContact = {

@@ -6,18 +6,18 @@
  * invalidate the full shifts cache on success.
  */
 
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  type Shift,
   createShift,
   deleteShift,
   getFallbackGroup,
   getMyShiftStatus,
   listShifts,
+  type Shift,
   setFallbackGroup,
   updateShift,
 } from '@/lib/api'
 import { decryptHubField } from '@/lib/hub-field-crypto'
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from './keys'
 
 // ---------------------------------------------------------------------------

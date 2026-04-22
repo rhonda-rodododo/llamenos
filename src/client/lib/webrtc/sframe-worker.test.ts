@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 import {
+  clearWorkerState,
   DEGRADED_CONSECUTIVE_THRESHOLD,
   DEGRADED_WINDOW_MS,
-  clearWorkerState,
   handleRequest,
   newDegradedTracker,
   recordOp,

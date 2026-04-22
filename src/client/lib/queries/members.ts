@@ -6,6 +6,7 @@
  * coordinate the server-side member change with client-side MLS operations.
  */
 
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { addHubMember, removeHubMember } from '@/lib/api'
 import { logMlsMembersAdded, logMlsMembersRemoved } from '@/lib/audit-log-client'
 import { cryptoWorker } from '@/lib/crypto-worker-client'
@@ -14,7 +15,6 @@ import { getDeviceKeypair } from '@/lib/device-identity-store'
 import { getMlsConversation } from '@/lib/mls/get-mls-conversation'
 import * as mlsApi from '@/lib/mls/mls-api-client'
 import { fromBase64 } from '@/lib/mls/mls-api-client'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from './keys'
 
 const log = createDebugLog('llamenos:members')

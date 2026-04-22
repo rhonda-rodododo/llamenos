@@ -1,3 +1,6 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   SectionActions,
   SectionBody,
@@ -11,12 +14,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { type WebAuthnSettings, getWebAuthnSettings, updateWebAuthnSettings } from '@/lib/api'
+import { getWebAuthnSettings, updateWebAuthnSettings, type WebAuthnSettings } from '@/lib/api'
 import { queryKeys } from '@/lib/queries/keys'
 import { useToast } from '@/lib/toast'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 type Enforcement = 'none' | 'admins' | 'everyone'
 
