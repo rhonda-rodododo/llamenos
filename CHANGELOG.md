@@ -1971,6 +1971,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - add E2E tests for device linking and fix /link-device public path
 
 
+## 0.51.5 (2026-04-22)
+
+### Fixes
+
+- use draft→publish release flow to avoid immutable-release upload rejection (#218)
+
 ## 0.51.4 (2026-04-22)
 
 ### Features
