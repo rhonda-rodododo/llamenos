@@ -7,7 +7,7 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  workers: process.env.CI ? 4 : parseInt(process.env.PLAYWRIGHT_WORKERS || "3"),
+  workers: process.env.CI ? 4 : parseInt(process.env.PLAYWRIGHT_WORKERS || "6"),
   reporter: process.env.CI
     ? [
         ["github"],
@@ -62,6 +62,14 @@ export default defineConfig({
       // UI E2E tests — full browser
       name: "ui",
       testDir: "./tests/ui",
+      use: { ...devices["Desktop Chrome"] },
+      testIgnore: /bootstrap\.spec\.ts/,
+      dependencies: ["setup"],
+    },
+    {
+      // UI Screenshot tests for the website and docs — full browser
+      name: "screenshot",
+      testDir: "./tests/screenshot",
       use: { ...devices["Desktop Chrome"] },
       testIgnore: /bootstrap\.spec\.ts/,
       dependencies: ["setup"],
