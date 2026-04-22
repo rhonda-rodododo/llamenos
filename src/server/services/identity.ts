@@ -64,21 +64,21 @@ export class IdentityService {
   }
 
   async createUser(data: CreateUserData): Promise<User> {
-    // E2EE envelope-encrypt PII for user + admin pubkeys
+    // E2EE envelope-encrypt PII for user + admin pubkeys (no server-key fallback)
     const adminPubkeys = (await this.getSuperAdminPubkeys()).filter(isValidPubkey)
     const piiRecipients = [
       ...new Set([...(isValidPubkey(data.pubkey) ? [data.pubkey] : []), ...adminPubkeys]),
     ]
+    if (piiRecipients.length === 0) {
+      throw new AppError(500, 'Cannot create user: no valid envelope recipients for PII encryption')
+    }
 
-    const nameEnvelope =
-      data.name && piiRecipients.length > 0
-        ? this.crypto.envelopeEncrypt(data.name, piiRecipients, LABEL_USER_PII)
-        : undefined
-
-    const phoneEnvelope =
-      data.phone && piiRecipients.length > 0
-        ? this.crypto.envelopeEncrypt(data.phone, piiRecipients, LABEL_USER_PII)
-        : undefined
+    const nameEnvelope = this.crypto.envelopeEncrypt(data.name ?? '', piiRecipients, LABEL_USER_PII)
+    const phoneEnvelope = this.crypto.envelopeEncrypt(
+      data.phone ?? '',
+      piiRecipients,
+      LABEL_USER_PII
+    )
 
     const [row] = await this.db
       .insert(users)
@@ -93,16 +93,10 @@ export class IdentityService {
         profileCompleted: false,
         onBreak: false,
         callPreference: 'phone',
-        // E2EE phone: use envelope ciphertext if available, fallback to server-key
-        encryptedPhone: phoneEnvelope
-          ? phoneEnvelope.encrypted
-          : this.crypto.serverEncrypt(data.phone ?? '', LABEL_USER_PII),
-        ...(phoneEnvelope ? { phoneEnvelopes: phoneEnvelope.envelopes } : {}),
-        // E2EE name: use envelope ciphertext if available, fallback to server-key
-        encryptedName: nameEnvelope
-          ? nameEnvelope.encrypted
-          : this.crypto.serverEncrypt(data.name ?? '', LABEL_USER_PII),
-        ...(nameEnvelope ? { nameEnvelopes: nameEnvelope.envelopes } : {}),
+        encryptedPhone: phoneEnvelope.encrypted,
+        phoneEnvelopes: phoneEnvelope.envelopes,
+        encryptedName: nameEnvelope.encrypted,
+        nameEnvelopes: nameEnvelope.envelopes,
       })
       .returning()
     return this.#rowToUser(row)
@@ -123,7 +117,7 @@ export class IdentityService {
       }
     }
 
-    // E2EE envelope-encrypt PII if being updated (for user + admin pubkeys)
+    // E2EE envelope-encrypt PII if being updated (no server-key fallback)
     type EnvelopeResult = {
       encrypted: Ciphertext
       envelopes: import('@shared/types').RecipientEnvelope[]
@@ -136,21 +130,22 @@ export class IdentityService {
       const piiRecipients = [
         ...new Set([...(isValidPubkey(pubkey) ? [pubkey] : []), ...adminPubkeys]),
       ]
-      if (piiRecipients.length > 0) {
-        if (allowed.name !== undefined) {
-          nameEnvelope = this.crypto.envelopeEncrypt(
-            allowed.name as string,
-            piiRecipients,
-            LABEL_USER_PII
-          )
-        }
-        if (allowed.phone !== undefined) {
-          phoneEnvelope = this.crypto.envelopeEncrypt(
-            allowed.phone as string,
-            piiRecipients,
-            LABEL_USER_PII
-          )
-        }
+      if (piiRecipients.length === 0) {
+        throw new AppError(500, 'Cannot update PII: no valid envelope recipients')
+      }
+      if (allowed.name !== undefined) {
+        nameEnvelope = this.crypto.envelopeEncrypt(
+          allowed.name as string,
+          piiRecipients,
+          LABEL_USER_PII
+        )
+      }
+      if (allowed.phone !== undefined) {
+        phoneEnvelope = this.crypto.envelopeEncrypt(
+          allowed.phone as string,
+          piiRecipients,
+          LABEL_USER_PII
+        )
       }
     }
 
@@ -182,21 +177,17 @@ export class IdentityService {
         ...(allowed.messagingEnabled !== undefined
           ? { messagingEnabled: allowed.messagingEnabled as boolean }
           : {}),
-        // Encrypted columns — E2EE envelope with server-key fallback
-        ...(allowed.phone !== undefined
+        // Encrypted columns — E2EE envelope only (Phase 2D: no server-key fallback)
+        ...(phoneEnvelope
           ? {
-              encryptedPhone: phoneEnvelope
-                ? phoneEnvelope.encrypted
-                : this.crypto.serverEncrypt(allowed.phone as string, LABEL_USER_PII),
-              ...(phoneEnvelope ? { phoneEnvelopes: phoneEnvelope.envelopes } : {}),
+              encryptedPhone: phoneEnvelope.encrypted,
+              phoneEnvelopes: phoneEnvelope.envelopes,
             }
           : {}),
-        ...(allowed.name !== undefined
+        ...(nameEnvelope
           ? {
-              encryptedName: nameEnvelope
-                ? nameEnvelope.encrypted
-                : this.crypto.serverEncrypt(allowed.name as string, LABEL_USER_PII),
-              ...(nameEnvelope ? { nameEnvelopes: nameEnvelope.envelopes } : {}),
+              encryptedName: nameEnvelope.encrypted,
+              nameEnvelopes: nameEnvelope.envelopes,
             }
           : {}),
       })
@@ -226,17 +217,13 @@ export class IdentityService {
       const adminExists = existing.some((r) => (r.roles as string[]).includes('role-super-admin'))
       if (adminExists) throw new AppError(403, 'Admin already exists')
 
-      // Encrypt bootstrap admin fields with E2EE envelopes
-      const recipients = isValidPubkey(pubkey) ? [pubkey] : []
-      const nameEnvelope =
-        recipients.length > 0
-          ? this.crypto.envelopeEncrypt('Admin', recipients, LABEL_USER_PII)
-          : undefined
-      // Bootstrap admin has no phone — envelope-encrypt empty string for consistency
-      const phoneEnvelope =
-        recipients.length > 0
-          ? this.crypto.envelopeEncrypt('', recipients, LABEL_USER_PII)
-          : undefined
+      // E2EE envelope-encrypt bootstrap admin PII (no server-key fallback)
+      if (!isValidPubkey(pubkey)) {
+        throw new AppError(400, 'Invalid pubkey for bootstrap admin')
+      }
+      const recipients = [pubkey]
+      const nameEnvelope = this.crypto.envelopeEncrypt('Admin', recipients, LABEL_USER_PII)
+      const phoneEnvelope = this.crypto.envelopeEncrypt('', recipients, LABEL_USER_PII)
 
       const [row] = await tx
         .insert(users)
@@ -251,16 +238,10 @@ export class IdentityService {
           profileCompleted: false,
           onBreak: false,
           callPreference: 'phone',
-          // E2EE phone: use envelope ciphertext if available, fallback to server-key
-          encryptedPhone: phoneEnvelope
-            ? phoneEnvelope.encrypted
-            : this.crypto.serverEncrypt('', LABEL_USER_PII),
-          ...(phoneEnvelope ? { phoneEnvelopes: phoneEnvelope.envelopes } : {}),
-          // E2EE name: use envelope ciphertext if available, fallback to server-key
-          encryptedName: nameEnvelope
-            ? nameEnvelope.encrypted
-            : this.crypto.serverEncrypt('Admin', LABEL_USER_PII),
-          ...(nameEnvelope ? { nameEnvelopes: nameEnvelope.envelopes } : {}),
+          encryptedPhone: phoneEnvelope.encrypted,
+          phoneEnvelopes: phoneEnvelope.envelopes,
+          encryptedName: nameEnvelope.encrypted,
+          nameEnvelopes: nameEnvelope.envelopes,
         })
         .returning()
       return this.#rowToUser(row)
@@ -323,19 +304,22 @@ export class IdentityService {
     const code = crypto.randomUUID()
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
 
-    // Invite names always use server encryption so validateInvite (public, no auth)
-    // can decrypt the name for the welcome page. E2EE envelopes are stored alongside
-    // for authenticated admin list decryption. The user record created on redeem
-    // uses proper E2EE-only encryption.
-    //
-    // Phone: envelope-encrypt for admin(s) who created the invite. Server also needs
-    // phone for invite delivery (SMS/Signal/WhatsApp), so we keep a server-key copy.
-    // The envelope is stored alongside for admin-only decryption.
+    // E2EE envelope-encrypt invite PII for admin(s) (no server-key fallback).
+    // Phone: envelope-only for creating admin. Invite delivery receives the
+    // recipient phone directly in the send request — not from the stored invite.
+    // Name: server-encrypted copy retained for validateInvite (public, no auth)
+    // welcome page; envelope stored alongside for admin list decryption.
     const adminPubkeys = (await this.getSuperAdminPubkeys()).filter(isValidPubkey)
-    const phoneEnvelope =
-      data.phone && adminPubkeys.length > 0
-        ? this.crypto.envelopeEncrypt(data.phone, adminPubkeys, LABEL_USER_PII)
-        : undefined
+    if (adminPubkeys.length === 0) {
+      throw new AppError(500, 'Cannot create invite: no admin pubkeys for PII encryption')
+    }
+
+    const phoneEnvelope = this.crypto.envelopeEncrypt(
+      data.phone ?? '',
+      adminPubkeys,
+      LABEL_USER_PII
+    )
+    const nameEnvelope = this.crypto.envelopeEncrypt(data.name ?? '', adminPubkeys, LABEL_USER_PII)
 
     const [row] = await this.db
       .insert(inviteCodes)
@@ -344,12 +328,11 @@ export class IdentityService {
         roleIds: data.roleIds ?? ['role-volunteer'],
         createdBy: data.createdBy,
         expiresAt,
-        // Server-key phone for delivery operations + E2EE envelopes for admin decryption
-        encryptedPhone: phoneEnvelope
-          ? phoneEnvelope.encrypted
-          : this.crypto.serverEncrypt(data.phone ?? '', LABEL_USER_PII),
-        ...(phoneEnvelope ? { phoneEnvelopes: phoneEnvelope.envelopes } : {}),
+        encryptedPhone: phoneEnvelope.encrypted,
+        phoneEnvelopes: phoneEnvelope.envelopes,
+        // Server-encrypted name for validateInvite welcome page + E2EE envelopes for admin list
         encryptedName: this.crypto.serverEncrypt(data.name ?? '', LABEL_USER_PII),
+        nameEnvelopes: nameEnvelope.envelopes,
       })
       .returning()
     return this.#rowToInvite(row)
@@ -391,35 +374,31 @@ export class IdentityService {
         .set({ usedAt: new Date(), usedBy: data.pubkey })
         .where(eq(inviteCodes.code, data.code))
 
-      // Decrypt invite PII from encrypted columns
-      let invitePhone = ''
-      try {
-        invitePhone = this.crypto.serverDecrypt(invite.encryptedPhone as Ciphertext, LABEL_USER_PII)
-      } catch {
-        /* E2EE-only — leave empty */
-      }
-
+      // Invite phone is E2EE (Phase 2D) — server cannot decrypt.
+      // Invite name has a server-encrypted copy for validateInvite.
+      // The new user gets empty phone/name — they fill in during profile setup.
       let inviteName = ''
       try {
         inviteName = this.crypto.serverDecrypt(invite.encryptedName as Ciphertext, LABEL_USER_PII)
       } catch {
-        /* E2EE-only — leave empty */
+        // E2EE-only name — leave empty, user fills in during profile setup
       }
 
-      // Encrypt user PII with E2EE envelopes
+      // E2EE envelope-encrypt the new user's PII (no server-key fallback)
       const adminPubkeys = (await this.getSuperAdminPubkeys()).filter(isValidPubkey)
       const piiRecipients = [
         ...new Set([...(isValidPubkey(data.pubkey) ? [data.pubkey] : []), ...adminPubkeys]),
       ]
+      if (piiRecipients.length === 0) {
+        throw new AppError(
+          500,
+          'Cannot create user: no valid envelope recipients for PII encryption'
+        )
+      }
 
-      const nameEnvelope =
-        inviteName && piiRecipients.length > 0
-          ? this.crypto.envelopeEncrypt(inviteName, piiRecipients, LABEL_USER_PII)
-          : undefined
-      const phoneEnvelope =
-        invitePhone && piiRecipients.length > 0
-          ? this.crypto.envelopeEncrypt(invitePhone, piiRecipients, LABEL_USER_PII)
-          : undefined
+      const nameEnvelope = this.crypto.envelopeEncrypt(inviteName, piiRecipients, LABEL_USER_PII)
+      // Phone: empty for now — user enters their own phone during profile setup
+      const phoneEnvelope = this.crypto.envelopeEncrypt('', piiRecipients, LABEL_USER_PII)
 
       // Create user
       const [row] = await tx
@@ -435,16 +414,10 @@ export class IdentityService {
           profileCompleted: false,
           onBreak: false,
           callPreference: 'phone',
-          // E2EE phone: use envelope ciphertext if available, fallback to server-key
-          encryptedPhone: phoneEnvelope
-            ? phoneEnvelope.encrypted
-            : this.crypto.serverEncrypt(invitePhone, LABEL_USER_PII),
-          ...(phoneEnvelope ? { phoneEnvelopes: phoneEnvelope.envelopes } : {}),
-          // E2EE name: use envelope ciphertext if available, fallback to server-key
-          encryptedName: nameEnvelope
-            ? nameEnvelope.encrypted
-            : this.crypto.serverEncrypt(inviteName, LABEL_USER_PII),
-          ...(nameEnvelope ? { nameEnvelopes: nameEnvelope.envelopes } : {}),
+          encryptedPhone: phoneEnvelope.encrypted,
+          phoneEnvelopes: phoneEnvelope.envelopes,
+          encryptedName: nameEnvelope.encrypted,
+          nameEnvelopes: nameEnvelope.envelopes,
         })
         .returning()
       return this.#rowToUser(row)
@@ -753,38 +726,14 @@ export class IdentityService {
   // ------------------------------------------------------------------ Private helpers
 
   #rowToUser(r: typeof users.$inferSelect): User {
-    // Name: if envelopes exist, this is E2EE — server can't decrypt.
-    // Otherwise try server-key decrypt for legacy data.
-    let name = ''
+    // Phase 2D: all user PII is E2EE (envelope-encrypted). Server never decrypts.
     const nameEnvelopes = (r.nameEnvelopes as import('@shared/types').RecipientEnvelope[]) ?? []
-    if (nameEnvelopes.length > 0) {
-      name = '[encrypted]'
-    } else if (r.encryptedName) {
-      try {
-        name = this.crypto.serverDecrypt(r.encryptedName as Ciphertext, LABEL_USER_PII)
-      } catch {
-        // Decryption failed — leave empty
-      }
-    }
-
-    // Phone: if envelopes exist, this is E2EE — server can't decrypt.
-    // Otherwise try server-key decrypt (guard: empty ciphertext = GDPR-erased).
-    let phone = ''
     const phoneEnvelopes = (r.phoneEnvelopes as import('@shared/types').RecipientEnvelope[]) ?? []
-    if (phoneEnvelopes.length > 0) {
-      phone = '[encrypted]'
-    } else if (r.encryptedPhone) {
-      try {
-        phone = this.crypto.serverDecrypt(r.encryptedPhone as Ciphertext, LABEL_USER_PII)
-      } catch {
-        // Decryption failed — leave empty
-      }
-    }
 
     return {
       pubkey: r.pubkey,
-      name,
-      phone,
+      name: nameEnvelopes.length > 0 ? '[encrypted]' : '',
+      phone: phoneEnvelopes.length > 0 ? '[encrypted]' : '',
       roles: r.roles as string[],
       hubRoles: r.hubRoles as Array<{ hubId: string; roleIds: string[] }>,
       active: r.active,
@@ -802,22 +751,17 @@ export class IdentityService {
       messagingEnabled: r.messagingEnabled ?? undefined,
       // E2EE envelope fields for client-side decryption
       ...(nameEnvelopes.length > 0
-        ? {
-            encryptedName: r.encryptedName as string,
-            nameEnvelopes,
-          }
+        ? { encryptedName: r.encryptedName as string, nameEnvelopes }
         : {}),
       ...(phoneEnvelopes.length > 0
-        ? {
-            encryptedPhone: r.encryptedPhone as string,
-            phoneEnvelopes,
-          }
+        ? { encryptedPhone: r.encryptedPhone as string, phoneEnvelopes }
         : {}),
     }
   }
 
   #rowToInvite(r: typeof inviteCodes.$inferSelect): InviteCode {
-    // Name: if envelopes exist, this is E2EE — server can't decrypt.
+    // Name: server-encrypted copy exists for validateInvite welcome page.
+    // Envelopes stored alongside for admin list decryption (client-side).
     const inviteNameEnvelopes =
       (r.nameEnvelopes as import('@shared/types').RecipientEnvelope[]) ?? []
     let name = ''
@@ -827,28 +771,18 @@ export class IdentityService {
       try {
         name = this.crypto.serverDecrypt(r.encryptedName as Ciphertext, LABEL_USER_PII)
       } catch {
-        // Decryption failed — leave empty
+        name = ''
       }
     }
 
-    // Phone: if envelopes exist, this is E2EE — server can't decrypt.
+    // Phone: Phase 2D — E2EE only, server never decrypts.
     const invitePhoneEnvelopes =
       (r.phoneEnvelopes as import('@shared/types').RecipientEnvelope[]) ?? []
-    let phone = ''
-    if (invitePhoneEnvelopes.length > 0) {
-      phone = '[encrypted]'
-    } else if (r.encryptedPhone) {
-      try {
-        phone = this.crypto.serverDecrypt(r.encryptedPhone as Ciphertext, LABEL_USER_PII)
-      } catch {
-        // Decryption failed — leave empty
-      }
-    }
 
     return {
       code: r.code,
       name,
-      phone,
+      phone: invitePhoneEnvelopes.length > 0 ? '[encrypted]' : '',
       roleIds: r.roleIds as string[],
       createdBy: r.createdBy,
       createdAt: r.createdAt.toISOString(),
@@ -860,16 +794,10 @@ export class IdentityService {
       deliverySentAt: r.deliverySentAt?.toISOString() ?? undefined,
       // E2EE envelope fields for client-side decryption
       ...(inviteNameEnvelopes.length > 0
-        ? {
-            encryptedName: r.encryptedName as string,
-            nameEnvelopes: inviteNameEnvelopes,
-          }
+        ? { encryptedName: r.encryptedName as string, nameEnvelopes: inviteNameEnvelopes }
         : {}),
       ...(invitePhoneEnvelopes.length > 0
-        ? {
-            encryptedPhone: r.encryptedPhone as string,
-            phoneEnvelopes: invitePhoneEnvelopes,
-          }
+        ? { encryptedPhone: r.encryptedPhone as string, phoneEnvelopes: invitePhoneEnvelopes }
         : {}),
     }
   }
