@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'bun:test'
 import { permissionGranted } from '@shared/permissions'
 import { adminNavConfig } from './admin-nav-config'
-import { canSee, canSeeGroup } from './admin-nav-visibility'
 import type { NavAuthContext } from './admin-nav-visibility'
+import { canSee, canSeeGroup } from './admin-nav-visibility'
 
 /** Hub-admin permissions from DEFAULT_ROLES in shared/permissions.ts */
 const HUB_ADMIN_PERMISSIONS = [
