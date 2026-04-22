@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
 import type { CryptoLabel } from '@shared/crypto-labels'
-// Eagerly import the real module so the mock.module factory can spread its
-// named exports. Otherwise bun's process-wide mock.module strips them and
-// breaks sibling test files that import CryptoWorkerLockedError / CryptoWorkerClient.
+// Eagerly import real modules so mock.module factories can spread named exports.
+// bun's process-wide mock.module would otherwise strip them and break sibling
+// test files that import from these specifiers.
 import * as realCryptoWorkerClient from './crypto-worker-client'
 import { CryptoWorkerLockedError } from './crypto-worker-client'
+import * as realKeyManager from './key-manager'
 
 // We need to mock the crypto-worker-client module and key-manager module
 // before importing decrypt-fields
@@ -38,6 +39,7 @@ mock.module('./crypto-worker-client', () => ({
 }))
 
 mock.module('./key-manager', () => ({
+  ...realKeyManager,
   lock: () => {
     lockCallCount++
     return mockLock()
