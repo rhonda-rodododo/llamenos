@@ -8,8 +8,9 @@
 #   2. Read the new version from package.json (knope already bumped it)
 #   3. Build the app (needed for CHECKSUMS and attestation)
 #   4. Generate SBOM, sign with cosign keyless, GPG sign checksums
-#   5. Run `knope release` to create the git tag + GitHub Release
-#   6. Upload signed artifacts to the GitHub Release via gh CLI
+#   5. Create git tag, then a **draft** GitHub Release with artifacts
+#      (draft-first avoids GitHub's immutable-release upload rejection)
+#   6. Publish the release (draft → published)
 #   7. Call docker.yml to publish versioned Docker images
 #
 # release.yml explicitly dispatches auto-deploy-demo.yml at the end, because
@@ -230,22 +231,45 @@ jobs:
           gpg --verify CHECKSUMS.txt.asc CHECKSUMS.txt
           echo "GPG signature verified successfully"
 
-      - name: Install knope
-        uses: knope-dev/action@19617851f9f13ab2f27a05989c55efb18aca3675 # v2.1.2
-        with:
-          version: 0.22.4
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create tag and GitHub Release via knope
+      - name: Create git tag (idempotent for retries)
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: knope release --verbose
+          NEW_VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          if git rev-parse "v${NEW_VERSION}" >/dev/null 2>&1; then
+            echo "Tag v${NEW_VERSION} already exists locally — skipping"
+          else
+            git tag "v${NEW_VERSION}"
+          fi
+          git push origin "v${NEW_VERSION}" --force
 
-      - name: Upload signed artifacts to GitHub Release
+      - name: Extract changelog section for this version
+        id: changelog
+        env:
+          NEW_VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          # Extract the section between the first ## [VERSION] header and the next ## header
+          BODY=$(awk -v ver="$NEW_VERSION" '
+            /^## \[/ {
+              if (found) exit
+              if (index($0, "[" ver "]")) { found=1; next }
+            }
+            found { print }
+          ' CHANGELOG.md)
+          # Write to file to avoid shell escaping issues
+          echo "$BODY" > release-notes.md
+          echo "--- Release notes ---"
+          cat release-notes.md
+
+      - name: Create draft GitHub Release and upload artifacts
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NEW_VERSION: ${{ needs.check.outputs.version }}
         run: |
+          # Clean up any broken release from a prior failed run
+          if gh release view "v${NEW_VERSION}" >/dev/null 2>&1; then
+            echo "Deleting stale release v${NEW_VERSION} from previous attempt"
+            gh release delete "v${NEW_VERSION}" --yes
+          fi
           ARTIFACTS=()
           for f in \
             CHECKSUMS.txt \
@@ -259,7 +283,17 @@ jobs:
             sbom.cdx.json.att; do
             [ -f "$f" ] && ARTIFACTS+=("$f")
           done
-          gh release upload "v${NEW_VERSION}" "${ARTIFACTS[@]}" --clobber
+          gh release create "v${NEW_VERSION}" \
+            --draft \
+            --title "v${NEW_VERSION}" \
+            --notes-file release-notes.md \
+            "${ARTIFACTS[@]}"
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEW_VERSION: ${{ needs.check.outputs.version }}
+        run: gh release edit "v${NEW_VERSION}" --draft=false
 
       - name: Dispatch demo VPS deploy
         env:
