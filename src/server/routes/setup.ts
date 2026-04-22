@@ -1,4 +1,5 @@
 import { createRoute, z } from '@hono/zod-openapi'
+import { hexToBytes } from '@noble/hashes/utils.js'
 import { createRouter } from '../lib/openapi'
 import { validateExternalUrl } from '../lib/ssrf-guard'
 import { requirePermission } from '../middleware/permission-guard'
@@ -116,7 +117,7 @@ setup.openapi(completeSetupRoute, async (c) => {
         roleIds: ['role-super-admin'],
       })
       // Generate and distribute hub key so field decryption works immediately
-      const { envelopes } = services.crypto.generateAndWrapHubKey([pubkey])
+      const { envelopes } = await services.hpke.generateAndWrapHubKey([hexToBytes(pubkey)])
       await services.settings.setHubKeyEnvelopes(newHub.id, envelopes)
     }
   } catch {

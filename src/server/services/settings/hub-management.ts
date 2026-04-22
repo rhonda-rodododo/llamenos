@@ -1,4 +1,5 @@
 import type { Ciphertext } from '@shared/crypto-types'
+import type { HpkeEnvelope } from '@shared/hpke-envelope'
 import { eq, inArray, sql } from 'drizzle-orm'
 import type { Hub } from '../../../shared/types'
 import type { Database } from '../../db'
@@ -226,9 +227,8 @@ export async function deleteHub(db: Database, id: string): Promise<void> {
 export async function getHubKeyEnvelopes(db: Database, hubId: string): Promise<HubKeyEntry[]> {
   const rows = await db.select().from(hubKeys).where(eq(hubKeys.hubId, hubId))
   return rows.map((r) => ({
-    pubkey: r.pubkey,
-    wrappedKey: r.encryptedKey,
-    ephemeralPubkey: r.ephemeralPubkey ?? '',
+    pubkeyHex: r.pubkey,
+    envelope: JSON.parse(r.envelope) as HpkeEnvelope,
   }))
 }
 
@@ -249,9 +249,8 @@ export async function setHubKeyEnvelopes(
     await db.insert(hubKeys).values(
       envelopes.map((e) => ({
         hubId,
-        pubkey: e.pubkey,
-        encryptedKey: e.wrappedKey,
-        ephemeralPubkey: e.ephemeralPubkey || null,
+        pubkey: e.pubkeyHex,
+        envelope: JSON.stringify(e.envelope),
       }))
     )
   }
@@ -268,11 +267,10 @@ export async function getHubKeyRaw(
     const envelopes = await db.select().from(hubKeys).where(eq(hubKeys.hubId, hubId))
     if (envelopes.length === 0) return null
     try {
-      return cryptoService.unwrapHubKey(
+      return await cryptoService.hpke.unwrapHubKey(
         envelopes.map((r) => ({
-          pubkey: r.pubkey,
-          wrappedKey: r.encryptedKey,
-          ephemeralPubkey: r.ephemeralPubkey ?? '',
+          pubkeyHex: r.pubkey,
+          envelope: JSON.parse(r.envelope) as HpkeEnvelope,
         }))
       )
     } catch {

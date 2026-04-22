@@ -424,6 +424,10 @@ export const LABEL_REGISTRY = [
   //   44: LABEL_ITEMS_KEY_EXPORT (llamenos:items-key-export:v1)
   //   45: LABEL_NOTE_EPOCH_KEY   (llamenos:note-epoch-key:v1)
   //   46: LABEL_MLS_PROVISION    (llamenos:mls-provision:v1)
+  // Slice 3: server-side envelope labels (ECIES → HPKE migration)
+  LABEL_USER_PII, // 47
+  LABEL_SESSION_META, // 48
+  LABEL_FIREHOSE_BUFFER_ENCRYPT, // 49
 ] as const satisfies readonly CryptoLabel[]
 
 export function labelToId(label: CryptoLabel): number {

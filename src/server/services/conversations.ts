@@ -73,7 +73,7 @@ export class ConversationService {
         ]),
       ]
       if (recipientPubkeys.length > 0) {
-        const envelope = this.crypto.envelopeEncrypt(
+        const envelope = await this.crypto.envelopeEncrypt(
           data.contactLast4,
           recipientPubkeys,
           LABEL_USER_PII

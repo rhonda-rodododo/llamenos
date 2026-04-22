@@ -102,11 +102,11 @@ export class RecordsService {
     ]
     const phoneEnvelope =
       recipientPubkeys.length > 0
-        ? this.crypto.envelopeEncrypt(data.phone, recipientPubkeys, LABEL_USER_PII)
+        ? await this.crypto.envelopeEncrypt(data.phone, recipientPubkeys, LABEL_USER_PII)
         : undefined
     const reasonEnvelope =
       data.reason && recipientPubkeys.length > 0
-        ? this.crypto.envelopeEncrypt(data.reason, recipientPubkeys, LABEL_USER_PII)
+        ? await this.crypto.envelopeEncrypt(data.reason, recipientPubkeys, LABEL_USER_PII)
         : undefined
 
     // E2EE phone+reason: use envelope ciphertext if available, fallback to server-key
@@ -155,8 +155,8 @@ export class RecordsService {
     })
     if (newPhones.length === 0) return 0
     const bulkAdminPubkeys = (await this.#getSuperAdminPubkeys()).filter(isValidPubkey)
-    await this.db.insert(bans).values(
-      newPhones.map((phone) => {
+    const banValues = await Promise.all(
+      newPhones.map(async (phone) => {
         const phoneHash = this.crypto.hmac(phone, HMAC_PHONE_PREFIX)
         const recipientPubkeys = [
           ...new Set([
@@ -166,11 +166,11 @@ export class RecordsService {
         ]
         const phoneEnvelope =
           recipientPubkeys.length > 0
-            ? this.crypto.envelopeEncrypt(phone, recipientPubkeys, LABEL_USER_PII)
+            ? await this.crypto.envelopeEncrypt(phone, recipientPubkeys, LABEL_USER_PII)
             : undefined
         const reasonEnvelope =
           data.reason && recipientPubkeys.length > 0
-            ? this.crypto.envelopeEncrypt(data.reason, recipientPubkeys, LABEL_USER_PII)
+            ? await this.crypto.envelopeEncrypt(data.reason, recipientPubkeys, LABEL_USER_PII)
             : undefined
         return {
           id: crypto.randomUUID(),
@@ -189,6 +189,7 @@ export class RecordsService {
         }
       })
     )
+    await this.db.insert(bans).values(banValues)
     return newPhones.length
   }
 
@@ -227,7 +228,11 @@ export class RecordsService {
     let callerLast4Envelopes: RecipientEnvelope[] = []
     if (data.callerLast4 && data.adminEnvelopes && data.adminEnvelopes.length > 0) {
       const adminPubkeys = data.adminEnvelopes.map((e) => e.pubkey)
-      const envelope = this.crypto.envelopeEncrypt(data.callerLast4, adminPubkeys, LABEL_USER_PII)
+      const envelope = await this.crypto.envelopeEncrypt(
+        data.callerLast4,
+        adminPubkeys,
+        LABEL_USER_PII
+      )
       encryptedCallerLast4 = envelope.encrypted
       callerLast4Envelopes = envelope.envelopes
     }

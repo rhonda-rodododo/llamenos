@@ -618,9 +618,8 @@ export interface CreateHubData {
 }
 
 export interface HubKeyEntry {
-  pubkey: string
-  wrappedKey: string
-  ephemeralPubkey: string
+  pubkeyHex: string
+  envelope: import('@shared/hpke-envelope').HpkeEnvelope
 }
 
 export interface CaptchaEntry {

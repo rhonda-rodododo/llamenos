@@ -95,9 +95,13 @@ export class PushService {
 
     // E2EE envelope-encrypt device label for the user's own pubkey (client-side decryption)
     // Only attempt if pubkey looks like a valid 64-char hex secp256k1 x-only pubkey
-    let labelEnvelope: ReturnType<CryptoService['envelopeEncrypt']> | undefined
+    let labelEnvelope: Awaited<ReturnType<CryptoService['envelopeEncrypt']>> | undefined
     if (data.deviceLabel && /^[0-9a-f]{64}$/i.test(data.pubkey)) {
-      labelEnvelope = this.crypto.envelopeEncrypt(data.deviceLabel, [data.pubkey], LABEL_USER_PII)
+      labelEnvelope = await this.crypto.envelopeEncrypt(
+        data.deviceLabel,
+        [data.pubkey],
+        LABEL_USER_PII
+      )
     }
 
     // E2EE device label: use envelope ciphertext if available, fallback to server-key

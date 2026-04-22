@@ -484,6 +484,27 @@
       "when": 1776902400000,
       "tag": "0067_mls_epoch_commits_drop_device_fk",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1776988800000,
+      "tag": "0068_hpke_slice1_truncate",
+      "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1777075200000,
+      "tag": "0069_phase2d_envelope_phone",
+      "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1777161600000,
+      "tag": "0070_hpke_slice3_hub_keys",
+      "breakpoints": true
     }
   ]
 }

@@ -3,6 +3,7 @@ import path from 'node:path'
 import { createDatabase } from '@server/db'
 import { rateLimitCounters } from '@server/db/schema'
 import { CryptoService } from '@server/lib/crypto-service'
+import { HpkeService } from '@server/lib/hpke-service'
 import { SettingsService } from '@server/services/settings'
 import { eq, sql } from 'drizzle-orm'
 import { migrate } from 'drizzle-orm/bun-sql/migrator'
@@ -21,7 +22,8 @@ beforeAll(async () => {
   await migrate(db, {
     migrationsFolder: path.resolve(import.meta.dir, '../../../drizzle/migrations'),
   })
-  service = new SettingsService(db, new CryptoService('', ''))
+  const hpke = new HpkeService('')
+  service = new SettingsService(db, new CryptoService('', '', hpke))
 })
 
 afterAll(async () => {

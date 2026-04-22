@@ -203,11 +203,10 @@ async function getHubKeyForRoles(
     const envelopes = await db.select().from(hubKeys).where(eq(hubKeys.hubId, hubId))
     if (envelopes.length === 0) return null
     try {
-      return cryptoService.unwrapHubKey(
+      return await cryptoService.hpke.unwrapHubKey(
         envelopes.map((r) => ({
-          pubkey: r.pubkey,
-          wrappedKey: r.encryptedKey,
-          ephemeralPubkey: r.ephemeralPubkey ?? '',
+          pubkeyHex: r.pubkey,
+          envelope: JSON.parse(r.envelope) as import('@shared/hpke-envelope').HpkeEnvelope,
         }))
       )
     } catch {

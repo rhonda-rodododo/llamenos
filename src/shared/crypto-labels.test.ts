@@ -115,8 +115,8 @@ describe('Tier 6 crypto labels', () => {
 })
 
 describe('Slice 7: HKDF label split', () => {
-  test('LABEL_REGISTRY has 42 entries after removing 5 HKDF-only labels', () => {
-    expect(LABEL_REGISTRY.length).toBe(42)
+  test('LABEL_REGISTRY has 45 entries (42 base + 3 Slice 3 server envelope labels)', () => {
+    expect(LABEL_REGISTRY.length).toBe(45)
   })
 
   test('LABEL_SFRAME_RATCHET is a plain string not in registry', () => {

@@ -1,4 +1,5 @@
 import { createRoute, z } from '@hono/zod-openapi'
+import { hexToBytes } from '@noble/hashes/utils.js'
 import { HMAC_IP_PREFIX } from '@shared/crypto-labels'
 import { resolvePermissions } from '@shared/permissions'
 import { setCookie } from 'hono/cookie'
@@ -123,7 +124,10 @@ invites.openapi(redeemRoute, async (c) => {
       // Distribute hub key envelope: unwrap server's copy, re-wrap for new member
       const existingEnvelopes = await services.settings.getHubKeyEnvelopes(defaultHub.id)
       if (existingEnvelopes.length > 0) {
-        const newEnvelope = services.crypto.wrapHubKeyForNewMember(existingEnvelopes, body.pubkey)
+        const newEnvelope = await services.hpke.wrapHubKeyForNewMember(
+          existingEnvelopes,
+          hexToBytes(body.pubkey)
+        )
         await services.settings.setHubKeyEnvelopes(defaultHub.id, [
           ...existingEnvelopes,
           newEnvelope,

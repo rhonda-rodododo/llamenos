@@ -657,17 +657,10 @@ routes.openapi(getKeyEnvelopeRoute, async (c) => {
   const services = c.get('services')
 
   const envelopes = await services.settings.getHubKeyEnvelopes(hubId)
-  const myEnvelope = envelopes.find((e) => e.pubkey === pubkey)
+  const myEnvelope = envelopes.find((e) => e.pubkeyHex === pubkey)
   if (!myEnvelope) return c.json({ error: 'not_a_member' }, 404)
 
-  return c.json(
-    {
-      wrappedKey: myEnvelope.wrappedKey,
-      ephemeralPubkey: myEnvelope.ephemeralPubkey,
-      ephemeralPk: myEnvelope.ephemeralPubkey, // backwards compat
-    },
-    200
-  )
+  return c.json(myEnvelope.envelope, 200)
 })
 
 // ── GET /{hubId}/key — get my hub key (membership required) ──
@@ -713,10 +706,10 @@ routes.openapi(getHubKeyRoute, async (c) => {
   if (!hub) return c.json({ error: 'Hub not found' }, 404)
 
   const envelopes = await services.settings.getHubKeyEnvelopes(hubId)
-  const myEnvelope = envelopes.find((e) => e.pubkey === pubkey)
+  const myEnvelope = envelopes.find((e) => e.pubkeyHex === pubkey)
   if (!myEnvelope) return c.json({ error: 'No key envelope for this user' }, 404)
 
-  return c.json({ envelope: myEnvelope }, 200)
+  return c.json({ envelope: myEnvelope.envelope }, 200)
 })
 
 // ── PUT /{hubId}/key — set hub key envelopes ──
@@ -735,9 +728,13 @@ const setHubKeyRoute = createRoute({
           schema: z.object({
             envelopes: z.array(
               z.object({
-                pubkey: z.string(),
-                wrappedKey: z.string(),
-                ephemeralPubkey: z.string(),
+                pubkeyHex: z.string(),
+                envelope: z.object({
+                  v: z.literal(3),
+                  labelId: z.number(),
+                  enc: z.string(),
+                  ct: z.string(),
+                }),
               })
             ),
           }),

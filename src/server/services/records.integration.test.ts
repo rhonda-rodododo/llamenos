@@ -3,6 +3,7 @@ import path from 'node:path'
 import { createDatabase } from '@server/db'
 import { auditLog } from '@server/db/schema'
 import { CryptoService } from '@server/lib/crypto-service'
+import { HpkeService } from '@server/lib/hpke-service'
 import { RecordsService } from '@server/services/records'
 import { eq } from 'drizzle-orm'
 import { migrate } from 'drizzle-orm/bun-sql/migrator'
@@ -22,7 +23,8 @@ beforeAll(async () => {
   await migrate(db, {
     migrationsFolder: path.resolve(import.meta.dir, '../../../drizzle/migrations'),
   })
-  service = new RecordsService(db, new CryptoService('', ''))
+  const hpke = new HpkeService('')
+  service = new RecordsService(db, new CryptoService('', '', hpke))
 })
 
 afterAll(async () => {
@@ -61,7 +63,8 @@ describe('audit-chain', () => {
 
   test('tampered entry breaks hash chain verification', async () => {
     const hub = `${RUN_PREFIX}-t4`
-    const cryptoSvc = new CryptoService('', '')
+    const hpke2 = new HpkeService('')
+    const cryptoSvc = new CryptoService('', '', hpke2)
     const { LABEL_AUDIT_EVENT } = await import('@shared/crypto-labels')
     type CT = import('@shared/crypto-types').Ciphertext
 

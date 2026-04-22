@@ -441,7 +441,7 @@ async function handleFirehoseMessage(
   }
 
   const readerPubkeys = [connection.agentPubkey, adminPubkey]
-  const encrypted = services.crypto.envelopeEncrypt(
+  const encrypted = await services.crypto.envelopeEncrypt(
     incoming.body || '',
     readerPubkeys,
     LABEL_FIREHOSE_BUFFER_ENCRYPT
@@ -454,7 +454,7 @@ async function handleFirehoseMessage(
     username: incoming.metadata?.senderName || incoming.senderIdentifier,
     timestamp: incoming.timestamp,
   })
-  const encryptedSender = services.crypto.envelopeEncrypt(
+  const encryptedSender = await services.crypto.envelopeEncrypt(
     senderInfo,
     [connection.agentPubkey, adminPubkey],
     LABEL_FIREHOSE_BUFFER_ENCRYPT

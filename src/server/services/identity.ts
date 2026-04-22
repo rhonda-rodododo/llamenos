@@ -77,8 +77,12 @@ export class IdentityService {
       throw new AppError(500, 'Cannot create user: no valid envelope recipients for PII encryption')
     }
 
-    const nameEnvelope = this.crypto.envelopeEncrypt(data.name ?? '', piiRecipients, LABEL_USER_PII)
-    const phoneEnvelope = this.crypto.envelopeEncrypt(
+    const nameEnvelope = await this.crypto.envelopeEncrypt(
+      data.name ?? '',
+      piiRecipients,
+      LABEL_USER_PII
+    )
+    const phoneEnvelope = await this.crypto.envelopeEncrypt(
       data.phone ?? '',
       piiRecipients,
       LABEL_USER_PII
@@ -138,14 +142,14 @@ export class IdentityService {
         throw new AppError(500, 'Cannot update PII: no valid envelope recipients')
       }
       if (allowed.name !== undefined) {
-        nameEnvelope = this.crypto.envelopeEncrypt(
+        nameEnvelope = await this.crypto.envelopeEncrypt(
           allowed.name as string,
           piiRecipients,
           LABEL_USER_PII
         )
       }
       if (allowed.phone !== undefined) {
-        phoneEnvelope = this.crypto.envelopeEncrypt(
+        phoneEnvelope = await this.crypto.envelopeEncrypt(
           allowed.phone as string,
           piiRecipients,
           LABEL_USER_PII
@@ -226,8 +230,8 @@ export class IdentityService {
         throw new AppError(400, 'Invalid pubkey for bootstrap admin')
       }
       const recipients = [pubkey]
-      const nameEnvelope = this.crypto.envelopeEncrypt('Admin', recipients, LABEL_USER_PII)
-      const phoneEnvelope = this.crypto.envelopeEncrypt('', recipients, LABEL_USER_PII)
+      const nameEnvelope = await this.crypto.envelopeEncrypt('Admin', recipients, LABEL_USER_PII)
+      const phoneEnvelope = await this.crypto.envelopeEncrypt('', recipients, LABEL_USER_PII)
 
       const [row] = await tx
         .insert(users)
@@ -318,19 +322,14 @@ export class IdentityService {
       throw new AppError(500, 'Cannot create invite: no admin pubkeys for PII encryption')
     }
 
-    // Include server pubkey so the server can envelope-decrypt the name
-    // for the validateInvite welcome page without a separate server-key copy.
-    const serverPubkey = this.crypto.getServerPubkey()
-    const nameRecipients = [...new Set([...adminPubkeys, serverPubkey])]
-
-    const phoneEnvelope = this.crypto.envelopeEncrypt(
+    const phoneEnvelope = await this.crypto.envelopeEncrypt(
       data.phone ?? '',
       adminPubkeys,
       LABEL_USER_PII
     )
-    const nameEnvelope = this.crypto.envelopeEncrypt(
+    const nameEnvelope = await this.crypto.envelopeEncrypt(
       data.name ?? '',
-      nameRecipients,
+      adminPubkeys,
       LABEL_USER_PII
     )
 
@@ -413,9 +412,13 @@ export class IdentityService {
         )
       }
 
-      const nameEnvelope = this.crypto.envelopeEncrypt(inviteName, piiRecipients, LABEL_USER_PII)
+      const nameEnvelope = await this.crypto.envelopeEncrypt(
+        inviteName,
+        piiRecipients,
+        LABEL_USER_PII
+      )
       // Phone: empty for now — user enters their own phone during profile setup
-      const phoneEnvelope = this.crypto.envelopeEncrypt('', piiRecipients, LABEL_USER_PII)
+      const phoneEnvelope = await this.crypto.envelopeEncrypt('', piiRecipients, LABEL_USER_PII)
 
       // Create user
       const [row] = await tx
@@ -483,7 +486,7 @@ export class IdentityService {
     // E2EE encrypt label for the credential owner's pubkey
     const labelEnvelope =
       cred.label && isValidPubkey(data.pubkey)
-        ? this.crypto.envelopeEncrypt(cred.label, [data.pubkey], LABEL_USER_PII)
+        ? await this.crypto.envelopeEncrypt(cred.label, [data.pubkey], LABEL_USER_PII)
         : undefined
 
     await this.db.insert(webauthnCredentials).values({

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { LABEL_VOICEMAIL_WRAP, labelToId } from '@shared/crypto-labels'
+import { LABEL_VOICEMAIL_WRAP } from '@shared/crypto-labels'
 import type { Ciphertext } from '@shared/crypto-types'
 import type { FileKeyEnvelope } from '@shared/types'
 import type { CryptoService } from '../lib/crypto-service'
@@ -57,24 +57,15 @@ export async function storeVoicemailAudio(
     return 'oversized'
   }
 
-  // 3. Encrypt audio with ECIES envelopes for each admin
-  const { encrypted, envelopes } = crypto.envelopeEncryptBinary(
+  // 3. Encrypt audio with HPKE envelopes for each admin
+  const { encrypted, envelopes } = await crypto.envelopeEncryptBinary(
     audioBytes,
     adminPubkeys,
     LABEL_VOICEMAIL_WRAP
   )
 
-  const voicemailLabelId = labelToId(LABEL_VOICEMAIL_WRAP)
-  // @ts-expect-error Slice 5: file crypto ECIES → HPKE migration
-  const recipientEnvelopes: FileKeyEnvelope[] = envelopes.map((env) => ({
-    v: 2,
-    labelId: voicemailLabelId,
-    pubkey: env.pubkey,
-    // @ts-expect-error Slice 3: server crypto ECIES → HPKE migration
-    wrappedKey: env.wrappedKey as Ciphertext,
-    // @ts-expect-error Slice 3: server crypto ECIES → HPKE migration
-    ephemeralPubkey: env.ephemeralPubkey,
-  }))
+  // RecipientEnvelope and FileKeyEnvelope are structurally identical (HpkeEnvelope + pubkey)
+  const recipientEnvelopes = envelopes as FileKeyEnvelope[]
 
   // 4. Store encrypted blob in object storage via FilesService
   const fileId = randomUUID()

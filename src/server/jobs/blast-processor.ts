@@ -13,8 +13,8 @@ import type { Ciphertext } from '@shared/crypto-types'
 import type { MessagingChannelType } from '@shared/types'
 import { getMessagingAdapter } from '../lib/adapters'
 import type { CryptoService } from '../lib/crypto-service'
+import type { HpkeService } from '../lib/hpke-service'
 import { createLogger } from '../lib/logger'
-import { deriveServerKeypair } from '../lib/nostr-publisher'
 import type { MessagingAdapter } from '../messaging/adapter'
 import type { Services } from '../services'
 import { matchesBlastFilters, selectChannel } from '../services/blasts'
@@ -54,13 +54,13 @@ const CONCURRENCY = 10
 export class BlastProcessor {
   private readonly services: Services
   private readonly crypto: CryptoService
-  private readonly serverSecret: string
+  private readonly hpke: HpkeService
   private processing = false
 
-  constructor(services: Services, crypto: CryptoService, serverSecret: string) {
+  constructor(services: Services, crypto: CryptoService, hpke: HpkeService) {
     this.services = services
     this.crypto = crypto
-    this.serverSecret = serverSecret
+    this.hpke = hpke
   }
 
   /**
@@ -115,10 +115,10 @@ export class BlastProcessor {
       return
     }
 
-    // Decrypt blast content from server's ECIES envelope
+    // Decrypt blast content from server's HPKE envelope
     let blastText: string
     try {
-      blastText = this._decryptBlastContent(blast)
+      blastText = await this._decryptBlastContent(blast)
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err)
       log.error('Failed to decrypt blast content', err, { blastId: blast.id })
@@ -308,10 +308,10 @@ export class BlastProcessor {
 
   // ── Overridable helpers for testing ──
 
-  /** Get the hub's decrypted hub key. Override in tests. */
+  /** Get the hub's decrypted hub key via HpkeService. Override in tests. */
   async _getHubKey(hubId: string): Promise<Uint8Array> {
     const envelopes = await this.services.settings.getHubKeyEnvelopes(hubId)
-    return this.crypto.unwrapHubKey(envelopes)
+    return this.hpke.unwrapHubKey(envelopes)
   }
 
   /**
@@ -334,27 +334,23 @@ export class BlastProcessor {
   }
 
   /**
-   * Decrypt blast content from the server's ECIES envelope.
-   * Derives server keypair, finds matching envelope, unwraps the blast key,
-   * then decrypts the content and returns the plaintext message text.
+   * Decrypt blast content from the server's HPKE envelope.
+   * Finds the server's envelope, opens with HpkeService, and returns
+   * the plaintext message text.
    */
-  _decryptBlastContent(blast: Blast): string {
-    const { secretKey, pubkey } = deriveServerKeypair(this.serverSecret)
-
-    const envelope = blast.contentEnvelopes.find((e) => e.pubkey === pubkey)
+  async _decryptBlastContent(blast: Blast): Promise<string> {
+    const serverPubHex = await this.hpke.getServerPubkeyHex()
+    const envelope = blast.contentEnvelopes.find((e) => e.pubkey === serverPubHex)
     if (!envelope) {
-      throw new Error(`No blast content envelope for server pubkey ${pubkey}`)
+      throw new Error(`No blast content envelope for server pubkey ${serverPubHex}`)
     }
 
-    // ECIES-unwrap the per-blast symmetric key and decrypt content
-    const plaintext = this.crypto.envelopeDecrypt(
+    const plaintext = await this.crypto.envelopeDecrypt(
       blast.encryptedContent as Ciphertext,
       envelope,
-      secretKey,
       LABEL_BLAST_CONTENT
     )
 
-    // Parse JSON payload and return text field
     const payload = JSON.parse(plaintext) as { text: string }
     return payload.text
   }
@@ -372,9 +368,9 @@ export class BlastProcessor {
 export function scheduleBlastProcessor(
   services: Services,
   crypto: CryptoService,
-  serverSecret: string
+  hpke: HpkeService
 ): NodeJS.Timeout {
-  const processor = new BlastProcessor(services, crypto, serverSecret)
+  const processor = new BlastProcessor(services, crypto, hpke)
   // Run once immediately on startup (resume any in-progress blasts)
   processor.processOnce().catch((err) => log.error('Initial run failed', err))
   return setInterval(() => {

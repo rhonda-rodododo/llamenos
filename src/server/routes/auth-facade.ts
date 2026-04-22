@@ -193,7 +193,7 @@ export async function createUserSession(
     lat: geo.lat,
     lon: geo.lon,
   })
-  const { encrypted, envelopes } = params.crypto.envelopeEncrypt(
+  const { encrypted, envelopes } = await params.crypto.envelopeEncrypt(
     metaPlain,
     [params.pubkey],
     LABEL_SESSION_META

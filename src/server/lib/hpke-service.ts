@@ -208,10 +208,61 @@ export class HpkeService {
     )
     return { pubkeyHex: hex, envelope }
   }
+
+  /**
+   * Return the server's HPKE public key as a 64-char hex string.
+   * Used by callers that need the hex pubkey for DB storage and
+   * envelope recipient lists.
+   */
+  async getServerPubkeyHex(): Promise<string> {
+    return toHex(await this.getPublicKeyBytes())
+  }
+
+  /**
+   * Convenience: seal for a recipient given their pubkey as hex.
+   * Avoids the caller needing to hex-decode.
+   */
+  async sealForHex(
+    plaintext: Uint8Array,
+    recipientPubkeyHex: string,
+    label: CryptoLabel,
+    recordId: string,
+    fieldName: string
+  ): Promise<HpkeEnvelope> {
+    return this.sealFor(plaintext, fromHex(recipientPubkeyHex), label, recordId, fieldName)
+  }
+
+  /**
+   * Open an HPKE envelope with an explicit private key (not the server's).
+   * Used by tests and any code path that decrypts on behalf of a
+   * non-server identity.
+   */
+  async openWithKey(
+    envelope: HpkeEnvelope,
+    privateKey: X25519EncryptionKey,
+    expectedLabel: CryptoLabel,
+    recordId: string,
+    fieldName: string
+  ): Promise<Uint8Array> {
+    return hpkeOpen(
+      envelope,
+      privateKey,
+      expectedLabel,
+      buildAad(expectedLabel, recordId, fieldName)
+    )
+  }
 }
 
 function toHex(bytes: Uint8Array): string {
   let s = ''
   for (const b of bytes) s += b.toString(16).padStart(2, '0')
   return s
+}
+
+function fromHex(hex: string): Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2)
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = Number.parseInt(hex.slice(i, i + 2), 16)
+  }
+  return bytes
 }

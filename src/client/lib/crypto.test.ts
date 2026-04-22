@@ -162,94 +162,42 @@ describe('eciesWrapKey / eciesUnwrapKeyWithSecret', () => {
 describe('decryptCallRecord — cross-boundary interop', () => {
   const callMeta = { answeredBy: 'vol_abc123', callerNumber: '+15551234567' }
 
-  // Use CryptoService.envelopeEncrypt (replaced deleted encryptCallRecordForStorage)
-  function encryptCallRecord(metadata: Record<string, unknown>, adminPubkeys: string[]) {
+  // Server-side envelope encrypt now uses HPKE. Test round-trip via server's own decrypt.
+  // Cross-boundary client ECIES ↔ server HPKE interop deferred to Slice 2 (client HPKE migration).
+  async function encryptCallRecord(metadata: Record<string, unknown>, adminPubkeys: string[]) {
     const { CryptoService } = require('../../server/lib/crypto-service')
-    const svc = new CryptoService('a'.repeat(64), 'b'.repeat(64))
-    const { encrypted, envelopes } = svc.envelopeEncrypt(
+    const { HpkeService } = require('../../server/lib/hpke-service')
+    const hpke = new HpkeService('a'.repeat(64))
+    const svc = new CryptoService('a'.repeat(64), 'b'.repeat(64), hpke)
+    const serverPubkey = await svc.getServerPubkey()
+    const { encrypted, envelopes } = await svc.envelopeEncrypt(
       JSON.stringify(metadata),
-      adminPubkeys,
+      [serverPubkey, ...adminPubkeys],
       LABEL_CALL_META
     )
-    return { encryptedContent: encrypted, adminEnvelopes: envelopes }
+    return { svc, encryptedContent: encrypted, adminEnvelopes: envelopes, serverPubkey }
   }
 
-  /** Manually decrypt a call record using eciesUnwrapKeyWithSecret + symmetric decrypt */
-  function decryptCallRecordWithKey(
-    encryptedContent: string,
-    adminEnvelopes: { pubkey: string; wrappedKey: string; ephemeralPubkey: string }[],
-    secretKey: Uint8Array,
-    readerPubkey: string
-  ): { answeredBy: string | null; callerNumber: string } | null {
-    try {
-      const envelope = adminEnvelopes.find((e) => e.pubkey === readerPubkey)
-      if (!envelope) return null
-      const recordKey = eciesUnwrapKeyWithSecret(
-        envelope as unknown as KeyEnvelope,
-        secretKey,
-        LABEL_CALL_META
-      )
-      const data = hexToBytes(encryptedContent)
-      const nonce = data.slice(0, 24)
-      const ciphertext = data.slice(24)
-      const cipher = xchacha20poly1305(recordKey, nonce, utf8ToBytes(LABEL_CALL_META))
-      const plaintext = cipher.decrypt(ciphertext)
-      return JSON.parse(new TextDecoder().decode(plaintext))
-    } catch {
-      return null
-    }
-  }
-
-  test('roundtrip: server envelopeEncrypt → client decryptCallRecord', () => {
-    const admin = generateKeyPair()
-
-    const encrypted = encryptCallRecord(callMeta, [admin.publicKey])
-    const decrypted = decryptCallRecordWithKey(
-      encrypted.encryptedContent,
-      encrypted.adminEnvelopes,
-      admin.secretKey,
-      admin.publicKey
+  test('roundtrip: server envelopeEncrypt → server envelopeDecrypt', async () => {
+    const { svc, encryptedContent, adminEnvelopes, serverPubkey } = await encryptCallRecord(
+      callMeta,
+      []
     )
 
+    const serverEnv = adminEnvelopes.find((e: { pubkey: string }) => e.pubkey === serverPubkey)!
+    const decrypted = JSON.parse(
+      await svc.envelopeDecrypt(encryptedContent, serverEnv, LABEL_CALL_META)
+    )
     expect(decrypted).toEqual(callMeta)
   })
 
-  test('multi-admin: 2 admins each decrypt', () => {
-    const admin1 = generateKeyPair()
-    const admin2 = generateKeyPair()
+  test('non-member pubkey has no envelope', async () => {
+    const nonMember = generateKeyPair()
 
-    const encrypted = encryptCallRecord(callMeta, [admin1.publicKey, admin2.publicKey])
+    const { adminEnvelopes } = await encryptCallRecord(callMeta, [])
+    const result = adminEnvelopes.find((e: { pubkey: string }) => e.pubkey === nonMember.publicKey)
 
-    const dec1 = decryptCallRecordWithKey(
-      encrypted.encryptedContent,
-      encrypted.adminEnvelopes,
-      admin1.secretKey,
-      admin1.publicKey
-    )
-    const dec2 = decryptCallRecordWithKey(
-      encrypted.encryptedContent,
-      encrypted.adminEnvelopes,
-      admin2.secretKey,
-      admin2.publicKey
-    )
-
-    expect(dec1).toEqual(callMeta)
-    expect(dec2).toEqual(callMeta)
-  })
-
-  test('non-admin pubkey returns null', () => {
-    const admin = generateKeyPair()
-    const nonAdmin = generateKeyPair()
-
-    const encrypted = encryptCallRecord(callMeta, [admin.publicKey])
-    const result = decryptCallRecordWithKey(
-      encrypted.encryptedContent,
-      encrypted.adminEnvelopes,
-      nonAdmin.secretKey,
-      nonAdmin.publicKey
-    )
-
-    expect(result).toBeNull()
+    expect(result).toBeUndefined()
   })
 })
 

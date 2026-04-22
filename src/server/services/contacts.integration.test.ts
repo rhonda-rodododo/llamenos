@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import path from 'node:path'
 import { createDatabase } from '@server/db'
 import { CryptoService } from '@server/lib/crypto-service'
+import { HpkeService } from '@server/lib/hpke-service'
 import { ContactService } from '@server/services/contacts'
 import type { Ciphertext, HmacHash } from '@shared/crypto-types'
 import { migrate } from 'drizzle-orm/bun-sql/migrator'
@@ -15,7 +16,8 @@ const RUN_PREFIX = `test-hub-contacts-${crypto.randomUUID().slice(0, 8)}`
 
 let db: ReturnType<typeof createDatabase>
 let service: ContactService
-const cryptoSvc = new CryptoService('0'.repeat(64), '1'.repeat(64))
+const hpkeSvc = new HpkeService('0'.repeat(64))
+const cryptoSvc = new CryptoService('0'.repeat(64), '1'.repeat(64), hpkeSvc)
 
 // Helpers to produce branded types without real encryption in tests
 const fakeCiphertext = (s: string) => s as Ciphertext
