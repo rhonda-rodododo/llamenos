@@ -3,8 +3,12 @@
  *
  * Each `MockBroadcastHub` represents one browsing-context-group. All
  * `MockBroadcastChannel`s sharing the same hub deliver postMessage calls
- * asynchronously to every OTHER channel on the hub, mirroring real
- * BroadcastChannel semantics (messages do not echo back to the sender).
+ * synchronously to every OTHER channel on the hub (sender is excluded, same
+ * as real BroadcastChannel). Delivery is intentionally synchronous — real
+ * async delivery is exercised by the UI E2E suite against a real browser.
+ * Synchronous delivery eliminates microtask-ordering flakiness in unit tests
+ * that would otherwise require fragile `await flushMicrotasks()` calls tuned
+ * to the exact depth of the queueMicrotask chain.
  *
  * Used by `session-capsule.test.ts` to exercise the cross-tab token sync
  * protocol and by `key-manager.test.ts` to exercise the lock-broadcast
@@ -17,7 +21,7 @@
  *   const chB = new MockBroadcastChannel(hub)
  *   chB.onmessage = (e) => console.log('tab B got', e.data)
  *   chA.postMessage({ type: 'hello' })
- *   // → queueMicrotask → chB.onmessage fires; chA does not receive its own post.
+ *   // → chB.onmessage fires synchronously; chA does not receive its own post.
  */
 
 type Listener = (e: MessageEvent<unknown>) => void
@@ -31,14 +35,14 @@ export class MockBroadcastHub {
     this.channels.delete(ch)
   }
   deliver(sender: MockBroadcastChannel, data: unknown) {
-    for (const ch of this.channels) {
-      if (ch === sender || ch.isClosed()) continue
-      // Deliver asynchronously, same as real BroadcastChannel
-      queueMicrotask(() => {
-        const event = { data } as MessageEvent<unknown>
-        if (ch.onmessage) ch.onmessage(event)
-        for (const l of ch.listeners()) l(event)
-      })
+    // Snapshot the channel set before iterating so that any onmessage handler
+    // that triggers a nested postMessage (and thus a nested deliver) does not
+    // see a partially-iterated live Set.
+    const targets = [...this.channels].filter((ch) => ch !== sender && !ch.isClosed())
+    for (const ch of targets) {
+      const event = { data } as MessageEvent<unknown>
+      if (ch.onmessage) ch.onmessage(event)
+      for (const l of ch.listeners()) l(event)
     }
   }
 }
