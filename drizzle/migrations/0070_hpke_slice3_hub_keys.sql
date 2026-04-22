@@ -32,4 +32,4 @@ ALTER TABLE hub_keys ADD COLUMN envelope text NOT NULL DEFAULT '{}';
 ALTER TABLE hub_keys ALTER COLUMN envelope DROP DEFAULT;
 
 -- Reset hub setup state so fresh hub key generation uses the new schema
-UPDATE hubs SET setup_state = '{"setupCompleted":false,"completedSteps":[],"pendingChannels":[],"selectedChannels":[],"demoMode":false}'::jsonb;
+UPDATE setup_state SET state = '{"setupCompleted":false,"completedSteps":[],"pendingChannels":[],"selectedChannels":[],"demoMode":false}'::jsonb;

@@ -52,4 +52,4 @@ CASCADE;
 
 -- Reset all hub setup state so the next login triggers fresh hub key generation
 -- with the new HPKE envelope format.
-UPDATE hubs SET setup_state = '{"setupCompleted":false,"completedSteps":[],"pendingChannels":[],"selectedChannels":[],"demoMode":false}'::jsonb;
+UPDATE setup_state SET state = '{"setupCompleted":false,"completedSteps":[],"pendingChannels":[],"selectedChannels":[],"demoMode":false}'::jsonb;
