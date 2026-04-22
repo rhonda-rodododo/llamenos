@@ -247,14 +247,17 @@ jobs:
         env:
           NEW_VERSION: ${{ needs.check.outputs.version }}
         run: |
-          # Extract the section between the first ## [VERSION] header and the next ## header
+          # Extract the section between the first ## VERSION (DATE) header and the next ## header
           BODY=$(awk -v ver="$NEW_VERSION" '
-            /^## \[/ {
+            /^## / {
               if (found) exit
-              if (index($0, "[" ver "]")) { found=1; next }
+              if (index($0, ver)) { found=1; next }
             }
             found { print }
           ' CHANGELOG.md)
+          if [ -z "$BODY" ]; then
+            echo "::warning::No changelog section found for v${NEW_VERSION}"
+          fi
           # Write to file to avoid shell escaping issues
           echo "$BODY" > release-notes.md
           echo "--- Release notes ---"

@@ -602,6 +602,7 @@ export async function geocodingReverse(lat: number, lon: number) {
   })
 }
 
+/** @knipignore — geocoding config API scaffolding for future client-side geocoding feature */
 export async function getGeocodingConfig() {
   return request<GeocodingConfig>('/geocoding/config')
 }

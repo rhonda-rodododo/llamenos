@@ -43,6 +43,7 @@ import type { CryptoService } from '../../lib/crypto-service'
 import { AppError } from '../../lib/errors'
 import type { CreateHubData, HubKeyEntry } from '../../types'
 
+/** @knipignore — hub row mapper; exported for use by test utilities and future cross-service hub loading */
 export function rowToHub(r: typeof hubs.$inferSelect): Hub {
   return {
     id: r.id,

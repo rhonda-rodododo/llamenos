@@ -352,10 +352,12 @@ async function generateFreeSwitchToken(
 
 // --- Crypto helpers ---
 
+/** @knipignore — base64url encoding utility; exported for use by WebRTC token tests */
 export function base64urlEncode(str: string): string {
   return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
+/** @knipignore — base64url bytes encoding utility; exported for use by WebRTC token tests */
 export function base64urlEncodeBytes(bytes: Uint8Array): string {
   let binary = ''
   for (const byte of bytes) binary += String.fromCharCode(byte)

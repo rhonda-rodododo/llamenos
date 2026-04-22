@@ -42,6 +42,7 @@ export type UserSigchainErrorCode =
   | 'cross_sign_missing_master_signing_key'
   | 'cross_sign_inner_signature_invalid'
 
+/** @knipignore — sigchain verification error class; used by future sigchain audit UI */
 export class UserSigchainError extends Error {
   readonly name = 'UserSigchainError'
   constructor(

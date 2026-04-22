@@ -182,4 +182,5 @@ export class SessionService {
   }
 }
 
+/** @knipignore — session metadata crypto label re-export; used by session encryption/decryption callers */
 export { LABEL_SESSION_META }

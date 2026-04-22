@@ -123,4 +123,5 @@ export async function parseKeyEvent(inputs: ParseKeyEventInputs): Promise<Uint8A
   )
 }
 
+/** @knipignore — SFrame crypto label re-export; used by SFrame test utilities and future call security audit */
 export { LABEL_SFRAME_CALL_SECRET }

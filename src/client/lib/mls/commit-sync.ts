@@ -46,6 +46,8 @@ export async function syncMlsCommits(hubId: string): Promise<number> {
  *
  * Runs an immediate sync on mount, then polls at `POLL_INTERVAL_MS`.
  * Stops when the component unmounts or the hub changes.
+ *
+ * @knipignore — MLS commit sync hook; used by the root layout component once it's wired up
  */
 export function useMlsCommitSync(): void {
   const { currentHubId } = useConfig()
