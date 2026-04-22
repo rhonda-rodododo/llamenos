@@ -428,6 +428,9 @@ export const LABEL_REGISTRY = [
   LABEL_USER_PII, // 47
   LABEL_SESSION_META, // 48
   LABEL_FIREHOSE_BUFFER_ENCRYPT, // 49
+  // User auth event + signal contact envelopes
+  LABEL_AUTH_EVENT, // 50
+  LABEL_SIGNAL_CONTACT, // 51
 ] as const satisfies readonly CryptoLabel[]
 
 export function labelToId(label: CryptoLabel): number {
