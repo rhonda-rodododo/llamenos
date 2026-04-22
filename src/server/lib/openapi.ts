@@ -1,6 +1,4 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
-import type { AppEnv } from '../types'
-
 /**
  * Create an OpenAPIHono instance with the standard validation error hook.
  * All route files should use this instead of `new OpenAPIHono<AppEnv>()` directly
@@ -8,6 +6,7 @@ import type { AppEnv } from '../types'
  * instead of throwing unhandled errors.
  */
 import type { Env } from 'hono'
+import type { AppEnv } from '../types'
 
 export function createRouter<T extends Env = AppEnv>() {
   return new OpenAPIHono<T>({
