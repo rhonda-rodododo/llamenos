@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:test'
+import { beforeEach, describe, expect, it, mock } from 'bun:test'
 import { HMAC_PHONE_PREFIX } from '@shared/crypto-labels'
 import type { RCSConfig } from '@shared/types'
 import type { CryptoService } from '../../lib/crypto-service'

@@ -3,7 +3,10 @@ import { cn } from '@/lib/utils'
 export function LogoMark({
   className,
   size = 'md',
-}: { className?: string; size?: 'sm' | 'md' | 'lg' | 'xl' }) {
+}: {
+  className?: string
+  size?: 'sm' | 'md' | 'lg' | 'xl'
+}) {
   const sizes = {
     sm: 'h-6 w-6',
     md: 'h-8 w-8',

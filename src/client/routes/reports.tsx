@@ -1,3 +1,19 @@
+import { createFileRoute } from '@tanstack/react-router'
+import {
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  FileText,
+  Loader2,
+  Lock,
+  Paperclip,
+  Plus,
+  Send,
+  UserCheck,
+  X,
+} from 'lucide-react'
+import { useCallback, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { FilePreview } from '@/components/FilePreview'
 import { FileUpload } from '@/components/FileUpload'
 import { ReportForm } from '@/components/ReportForm'
@@ -26,22 +42,6 @@ import {
   useUpdateReport,
 } from '@/lib/queries/reports'
 import { useToast } from '@/lib/toast'
-import { createFileRoute } from '@tanstack/react-router'
-import {
-  AlertCircle,
-  CheckCircle2,
-  Clock,
-  FileText,
-  Loader2,
-  Lock,
-  Paperclip,
-  Plus,
-  Send,
-  UserCheck,
-  X,
-} from 'lucide-react'
-import { useCallback, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 export const Route = createFileRoute('/reports')({
   component: ReportsPage,
@@ -243,13 +243,7 @@ function ReportCard({
   )
 }
 
-function ReportDetail({
-  report,
-  isAdmin,
-}: {
-  report: Report
-  isAdmin: boolean
-}) {
+function ReportDetail({ report, isAdmin }: { report: Report; isAdmin: boolean }) {
   const { t } = useTranslation()
   const { hasNsec, publicKey, hasPermission, adminDecryptionPubkey } = useAuth()
   const { toast } = useToast()

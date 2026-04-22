@@ -1,5 +1,5 @@
-import { TelnyxConfigSchema } from '@shared/schemas/providers'
 import type { TelnyxConfig } from '@shared/schemas/providers'
+import { TelnyxConfigSchema } from '@shared/schemas/providers'
 import type {
   AutoConfigResult,
   ConnectionTestResult,

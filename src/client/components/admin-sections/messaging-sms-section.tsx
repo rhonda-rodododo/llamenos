@@ -1,15 +1,3 @@
-import { SectionBanner, SectionBody, SectionDescription } from '@/components/section-layout'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
-import {
-  type TelephonyProviderConfig,
-  getSetupState,
-  getTelephonyProvider,
-  updateSetupState,
-} from '@/lib/api'
-import { queryKeys } from '@/lib/queries/keys'
-import { useToast } from '@/lib/toast'
 import {
   CHANNEL_LABELS,
   CHANNEL_SECURITY,
@@ -20,6 +8,18 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, FileText, Globe, MessageSquare, Phone, Shield } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { SectionBanner, SectionBody, SectionDescription } from '@/components/section-layout'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import {
+  getSetupState,
+  getTelephonyProvider,
+  type TelephonyProviderConfig,
+  updateSetupState,
+} from '@/lib/api'
+import { queryKeys } from '@/lib/queries/keys'
+import { useToast } from '@/lib/toast'
 
 const SLUG = 'messaging-sms'
 

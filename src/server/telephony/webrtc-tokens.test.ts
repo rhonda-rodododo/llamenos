@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { afterEach, describe, expect, test } from 'bun:test'
 import type {
   AsteriskConfig,
   PlivoConfig,
@@ -16,14 +16,14 @@ function decodeJwtPayload(token: string): Record<string, unknown> {
   const parts = token.split('.')
   if (parts.length !== 3) throw new Error(`Expected 3 JWT parts, got ${parts.length}`)
   // base64url → base64 → decode
-  const b64 = parts[1]!.replace(/-/g, '+').replace(/_/g, '/')
+  const b64 = parts[1]?.replace(/-/g, '+').replace(/_/g, '/')
   const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4)
   return JSON.parse(atob(padded))
 }
 
 function decodeJwtHeader(token: string): Record<string, unknown> {
   const parts = token.split('.')
-  const b64 = parts[0]!.replace(/-/g, '+').replace(/_/g, '/')
+  const b64 = parts[0]?.replace(/-/g, '+').replace(/_/g, '/')
   const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4)
   return JSON.parse(atob(padded))
 }
@@ -269,20 +269,20 @@ describe('generateWebRtcToken — Telnyx', () => {
 
     expect(stub.calls).toHaveLength(2)
     const [create, token] = stub.calls
-    expect(create!.url).toBe('https://telnyx.test/v2/telephony_credentials')
-    expect(create!.init?.method).toBe('POST')
-    const createAuth = new Headers(create!.init?.headers).get('Authorization')
+    expect(create?.url).toBe('https://telnyx.test/v2/telephony_credentials')
+    expect(create?.init?.method).toBe('POST')
+    const createAuth = new Headers(create?.init?.headers).get('Authorization')
     expect(createAuth).toBe(`Bearer ${telnyxConfig.apiKey}`)
-    const body = JSON.parse(String(create!.init?.body)) as {
+    const body = JSON.parse(String(create?.init?.body)) as {
       connection_id: string
       name: string
     }
     expect(body.connection_id).toBe('1234567890')
     expect(body.name).toContain(identity)
 
-    expect(token!.url).toBe('https://telnyx.test/v2/telephony_credentials/cred-abc-123/token')
-    expect(token!.init?.method).toBe('POST')
-    const tokenAuth = new Headers(token!.init?.headers).get('Authorization')
+    expect(token?.url).toBe('https://telnyx.test/v2/telephony_credentials/cred-abc-123/token')
+    expect(token?.init?.method).toBe('POST')
+    const tokenAuth = new Headers(token?.init?.headers).get('Authorization')
     expect(tokenAuth).toBe(`Bearer ${telnyxConfig.apiKey}`)
   })
 

@@ -8,7 +8,7 @@ export const LockdownRequestSchema = z.object({
   pinProof: z.string().min(1),
 })
 
-const LockdownResponseSchema = z.object({
+const _LockdownResponseSchema = z.object({
   tier: LockdownTierSchema,
   revokedSessions: z.number().int().min(0),
   deletedPasskeys: z.number().int().min(0),

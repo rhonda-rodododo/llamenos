@@ -4,7 +4,6 @@ import { createRouter } from '../lib/openapi'
 import { requirePermission } from '../middleware/permission-guard'
 import { OAuthStateError, ProviderApiError, ProviderSetup } from '../provider-setup/index'
 import { TELEPHONY_CAPABILITIES } from '../telephony/capabilities'
-import type { AppEnv } from '../types'
 
 const providerSetup = createRouter()
 

@@ -1,16 +1,16 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Bot, Timer } from 'lucide-react'
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { AdvancedReveal } from '@/components/admin-shell/advanced-reveal'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { SectionBody, SectionDescription, SectionField } from '@/components/section-layout'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { type SpamSettings, getSpamSettings, updateSpamSettings } from '@/lib/api'
+import { getSpamSettings, type SpamSettings, updateSpamSettings } from '@/lib/api'
 import { queryKeys } from '@/lib/queries/keys'
 import { useToast } from '@/lib/toast'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bot, Timer } from 'lucide-react'
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 type PendingToggleKey = 'captcha' | 'rateLimit'
 
@@ -109,7 +109,7 @@ export function SpamProtectionSection() {
                 type="number"
                 value={settings.captchaMaxAttempts}
                 onChange={(e) => {
-                  const val = Math.max(1, Math.min(5, Number.parseInt(e.target.value) || 2))
+                  const val = Math.max(1, Math.min(5, Number.parseInt(e.target.value, 10) || 2))
                   saveMutation.mutate({ captchaMaxAttempts: val })
                 }}
                 min={1}
@@ -129,7 +129,7 @@ export function SpamProtectionSection() {
                 type="number"
                 value={settings.maxCallsPerMinute}
                 onChange={(e) => {
-                  const val = Number.parseInt(e.target.value) || 3
+                  const val = Number.parseInt(e.target.value, 10) || 3
                   saveMutation.mutate({ maxCallsPerMinute: val })
                 }}
                 min={1}
@@ -143,7 +143,7 @@ export function SpamProtectionSection() {
                 type="number"
                 value={settings.blockDurationMinutes}
                 onChange={(e) => {
-                  const val = Number.parseInt(e.target.value) || 30
+                  const val = Number.parseInt(e.target.value, 10) || 30
                   saveMutation.mutate({ blockDurationMinutes: val })
                 }}
                 min={1}

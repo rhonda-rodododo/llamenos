@@ -18,7 +18,7 @@ export async function getMessagingConfig(
     .from(messagingConfig)
     .where(eq(messagingConfig.hubId, hId))
     .limit(1)
-  if (!rows[0] || !rows[0].config) return { ...DEFAULT_MESSAGING_CONFIG }
+  if (!rows[0]?.config) return { ...DEFAULT_MESSAGING_CONFIG }
   const configStr = rows[0].config
   let json: string
   try {

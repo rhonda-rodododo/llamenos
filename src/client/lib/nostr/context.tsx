@@ -5,7 +5,7 @@
  * disconnects on sign-out, and exposes relay state to the component tree.
  */
 
-import { type ReactNode, createContext, useContext, useEffect, useRef, useState } from 'react'
+import { createContext, type ReactNode, useContext, useEffect, useRef, useState } from 'react'
 import { RelayManager } from './relay'
 import type { RelayState } from './types'
 

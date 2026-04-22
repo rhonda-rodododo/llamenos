@@ -5,10 +5,12 @@
  * invalidate the full bans cache on success.
  */
 
+import { LABEL_USER_PII } from '@shared/crypto-labels'
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  type BanEntry,
   addBan,
   addGlobalBan,
+  type BanEntry,
   bulkAddBans,
   bulkAddGlobalBans,
   listBans,
@@ -18,8 +20,6 @@ import {
 } from '@/lib/api'
 import { decryptArrayFields } from '@/lib/decrypt-fields'
 import * as keyManager from '@/lib/key-manager'
-import { LABEL_USER_PII } from '@shared/crypto-labels'
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from './keys'
 
 // ---------------------------------------------------------------------------

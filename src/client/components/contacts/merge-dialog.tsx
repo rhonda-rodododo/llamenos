@@ -1,3 +1,6 @@
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { ContactSelect } from '@/components/contacts/contact-select'
 import { Button } from '@/components/ui/button'
 import {
@@ -9,9 +12,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useMergeContacts } from '@/lib/queries/contacts'
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 
 interface MergeDialogProps {
   /** The contact to merge (secondary -- will be soft-deleted) */

@@ -1,3 +1,6 @@
+import { ChevronDown, ChevronRight, Pencil, Plus, Save, Trash2, X } from 'lucide-react'
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { ContactSelect } from '@/components/contacts/contact-select'
 import { SectionBody, SectionDescription } from '@/components/section-layout'
@@ -24,9 +27,6 @@ import {
 import { useUsers } from '@/lib/queries/users'
 import { useToast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
-import { ChevronDown, ChevronRight, Pencil, Plus, Save, Trash2, X } from 'lucide-react'
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 interface TeamFormData {
   name: string

@@ -1,7 +1,7 @@
-import { useConfig } from '@/lib/config'
 import { Building2, ChevronDown } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useConfig } from '@/lib/config'
 
 export function HubSwitcher() {
   const { t } = useTranslation()

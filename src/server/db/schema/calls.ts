@@ -1,4 +1,4 @@
-import { boolean, index, pgEnum, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
+import { index, pgEnum, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
 import { jsonb } from '../bun-jsonb'
 import { ciphertext } from '../crypto-columns'
 

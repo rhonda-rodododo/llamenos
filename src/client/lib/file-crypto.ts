@@ -16,8 +16,12 @@ import {
   symmetricEncrypt,
 } from '@shared/crypto-primitives'
 import type { Ciphertext } from '@shared/crypto-types'
-import type { Envelope } from '@shared/types'
-import type { EncryptedFileMetadata, EncryptedMetaItem, FileKeyEnvelope } from '@shared/types'
+import type {
+  EncryptedFileMetadata,
+  EncryptedMetaItem,
+  Envelope,
+  FileKeyEnvelope,
+} from '@shared/types'
 import { cryptoWorker } from './crypto-worker-client'
 
 function randomBytes(n: number): Uint8Array {

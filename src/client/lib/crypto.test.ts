@@ -14,11 +14,11 @@ import {
   LABEL_TRANSCRIPTION,
 } from '@shared/crypto-labels'
 import {
-  type KeyEnvelope,
   eciesUnwrapKeyWithSecret,
   eciesWrapKey,
   generateKeyPair,
   isValidNsec,
+  type KeyEnvelope,
   keyPairFromNsec,
 } from '@shared/crypto-primitives'
 

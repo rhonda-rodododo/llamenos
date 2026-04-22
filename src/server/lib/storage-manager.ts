@@ -31,6 +31,7 @@ import { bytesToHex } from '@noble/hashes/utils.js'
 import { createLogger } from './logger'
 
 const log = createLogger('lib.storage-manager')
+
 import {
   type BlobResult,
   type HubStorageCredentialResult,

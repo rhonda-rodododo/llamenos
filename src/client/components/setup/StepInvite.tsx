@@ -1,3 +1,6 @@
+import { Check, Copy, Loader2, UserPlus } from 'lucide-react'
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,9 +14,6 @@ import {
 } from '@/components/ui/select'
 import { useCreateInvite, useInvites } from '@/lib/queries/invites'
 import { useToast } from '@/lib/toast'
-import { Check, Copy, Loader2, UserPlus } from 'lucide-react'
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 interface Props {
   headingRef?: React.RefObject<HTMLHeadingElement | null>

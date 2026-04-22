@@ -1,9 +1,10 @@
-import { useAuth } from '@/lib/auth'
-import { cn } from '@/lib/utils'
 import { Link, useRouterState } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
+import { useAuth } from '@/lib/auth'
+import { cn } from '@/lib/utils'
 import { adminNavConfig } from './admin-nav-config'
-import type { AdminNavGroup, AdminNavItem } from './admin-nav-config.types'
+import type { AdminNavGroup } from './admin-nav-config.types'
+import { canSee, canSeeGroup } from './admin-nav-visibility'
 
 interface Props {
   /** Called when a nav item is clicked; used by mobile drawer to close itself. */
@@ -16,19 +17,7 @@ export function AdminSidebar({ onNavigate }: Props) {
   const { location } = useRouterState()
   const activeSlug = location.pathname.replace(/^\/admin\/?/, '') || ''
 
-  function canSee(item: AdminNavItem): boolean {
-    if (item.requiredRole && !auth.roles.includes(item.requiredRole)) return false
-    if (item.requiredPermissions.length === 0) return true
-    // ALL listed permissions must be held — matches server-side gates and the
-    // spec ("hidden if the user lacks every listed permission").
-    return item.requiredPermissions.every((p) => auth.hasPermission(p))
-  }
-
-  function canSeeGroup(group: AdminNavGroup): boolean {
-    return group.items.some(canSee)
-  }
-
-  const visibleGroups = adminNavConfig.groups.filter(canSeeGroup)
+  const visibleGroups = adminNavConfig.groups.filter((g) => canSeeGroup(g, auth))
   const thisHubGroups = visibleGroups.filter((g) => g.scope === 'this-hub')
   const platformGroups = visibleGroups.filter((g) => g.scope === 'platform')
 
@@ -41,26 +30,28 @@ export function AdminSidebar({ onNavigate }: Props) {
         >
           {t(group.labelKey)}
         </div>
-        {group.items.filter(canSee).map((item) => {
-          const active = activeSlug === item.slug
-          return (
-            <Link
-              key={item.slug}
-              to="/admin/$section"
-              params={{ section: item.slug }}
-              data-testid={item.testid}
-              onClick={onNavigate}
-              className={cn(
-                'relative block rounded-md px-3 py-1.5 text-[13px] leading-6 transition-colors',
-                active
-                  ? 'bg-sidebar-accent font-medium text-sidebar-accent-foreground before:absolute before:inset-y-1 before:left-0 before:w-[3px] before:rounded-r before:bg-sidebar-primary'
-                  : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/40 hover:text-sidebar-foreground'
-              )}
-            >
-              {t(item.labelKey)}
-            </Link>
-          )
-        })}
+        {group.items
+          .filter((item) => canSee(item, auth))
+          .map((item) => {
+            const active = activeSlug === item.slug
+            return (
+              <Link
+                key={item.slug}
+                to="/admin/$section"
+                params={{ section: item.slug }}
+                data-testid={item.testid}
+                onClick={onNavigate}
+                className={cn(
+                  'relative block rounded-md px-3 py-1.5 text-[13px] leading-6 transition-colors',
+                  active
+                    ? 'bg-sidebar-accent font-medium text-sidebar-accent-foreground before:absolute before:inset-y-1 before:left-0 before:w-[3px] before:rounded-r before:bg-sidebar-primary'
+                    : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/40 hover:text-sidebar-foreground'
+                )}
+              >
+                {t(item.labelKey)}
+              </Link>
+            )
+          })}
       </div>
     )
   }

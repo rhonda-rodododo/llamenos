@@ -5,7 +5,7 @@ export const RecoveryRotateSchema = z.object({
   newEncryptedSecretKey: z.string().min(1),
 })
 
-const RecoveryRotateResponseSchema = z.object({
+const _RecoveryRotateResponseSchema = z.object({
   recoveryKey: z.string(),
 })
 

@@ -28,12 +28,7 @@ function makeFakeDb(initialRow: Partial<CallSettings> | null = null) {
     values: (v: Partial<CallSettings> & { hubId: string }) => {
       row = { ...(row ?? { hubId: 'global' }), ...v }
       return {
-        onConflictDoUpdate: ({
-          set,
-        }: {
-          target: unknown
-          set: Partial<CallSettings>
-        }) => {
+        onConflictDoUpdate: ({ set }: { target: unknown; set: Partial<CallSettings> }) => {
           row = { ...(row ?? { hubId: 'global' }), ...set }
           return Promise.resolve()
         },

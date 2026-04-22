@@ -2,7 +2,6 @@ import { createRoute, z } from '@hono/zod-openapi'
 import { createRouter } from '../lib/openapi'
 import { validateExternalUrl } from '../lib/ssrf-guard'
 import { requirePermission } from '../middleware/permission-guard'
-import type { AppEnv } from '../types'
 
 const setup = createRouter()
 

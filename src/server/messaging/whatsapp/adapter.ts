@@ -30,7 +30,6 @@ type WhatsAppClient = MetaDirectClient | TwilioWhatsAppClient
  */
 export class WhatsAppAdapter implements MessagingAdapter {
   readonly channelType = 'whatsapp' as const
-
   private readonly config: WhatsAppConfig
   private readonly client: WhatsAppClient
   private readonly integrationMode: 'twilio' | 'direct'

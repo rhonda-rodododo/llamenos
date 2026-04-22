@@ -1,3 +1,8 @@
+// Shared constants retain their legacy names (code-level) but UI labels use "Phone Menu" terminology.
+import { IVR_LANGUAGES, ivrIndexToDigit, LANGUAGE_MAP } from '@shared/languages'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { SectionBody, SectionDescription } from '@/components/section-layout'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
@@ -5,11 +10,6 @@ import { updateIvrLanguages } from '@/lib/api'
 import { queryKeys } from '@/lib/queries/keys'
 import { ivrLanguagesOptions } from '@/lib/queries/settings'
 import { useToast } from '@/lib/toast'
-// Shared constants retain their legacy names (code-level) but UI labels use "Phone Menu" terminology.
-import { IVR_LANGUAGES, LANGUAGE_MAP, ivrIndexToDigit } from '@shared/languages'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 export function PhoneMenuLanguagesSection() {
   const { t } = useTranslation()

@@ -1,10 +1,10 @@
+import { FileText, MessageSquare, Phone, Plus, X } from 'lucide-react'
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { FileText, MessageSquare, Phone, Plus, X } from 'lucide-react'
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
 import type { SetupData } from './SetupWizard'
 
 interface Props {
@@ -75,7 +75,7 @@ export function StepSettings({ data, onChange, headingRef }: Props) {
                   onChange({
                     voiceSettings: {
                       ...data.voiceSettings,
-                      queueTimeout: Number.parseInt(e.target.value) || 60,
+                      queueTimeout: Number.parseInt(e.target.value, 10) || 60,
                     },
                   })
                 }
@@ -109,7 +109,7 @@ export function StepSettings({ data, onChange, headingRef }: Props) {
                     onChange({
                       voiceSettings: {
                         ...data.voiceSettings,
-                        voicemailMaxDuration: Number.parseInt(e.target.value) || 120,
+                        voicemailMaxDuration: Number.parseInt(e.target.value, 10) || 120,
                       },
                     })
                   }
@@ -155,7 +155,7 @@ export function StepSettings({ data, onChange, headingRef }: Props) {
                     onChange({
                       messagingSettings: {
                         ...data.messagingSettings,
-                        inactivityTimeout: Number.parseInt(e.target.value) || 60,
+                        inactivityTimeout: Number.parseInt(e.target.value, 10) || 60,
                       },
                     })
                   }
@@ -172,7 +172,7 @@ export function StepSettings({ data, onChange, headingRef }: Props) {
                     onChange({
                       messagingSettings: {
                         ...data.messagingSettings,
-                        maxConcurrent: Number.parseInt(e.target.value) || 3,
+                        maxConcurrent: Number.parseInt(e.target.value, 10) || 3,
                       },
                     })
                   }

@@ -1,7 +1,7 @@
-import { useConfig } from '@/lib/config'
 import { ExternalLink, X } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useConfig } from '@/lib/config'
 
 export function DemoBanner() {
   const { t } = useTranslation()

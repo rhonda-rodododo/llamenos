@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { createHpkeSuite } from '@shared/crypto-suite'
-import { type DeviceKeypair, asEd25519SigningKey, asX25519EncryptionKey } from '@shared/types'
+import { asEd25519SigningKey, asX25519EncryptionKey, type DeviceKeypair } from '@shared/types'
 import {
   createInitialPuk,
   decryptOldGenWrap,

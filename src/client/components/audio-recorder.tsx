@@ -1,7 +1,7 @@
-import { Button } from '@/components/ui/button'
 import { Mic, Square, Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Button } from '@/components/ui/button'
 
 interface AudioRecorderProps {
   onRecorded: (blob: Blob) => void

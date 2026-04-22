@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { createHpkeSuite } from '@shared/crypto-suite'
-import { type X25519EncryptionKey, asX25519EncryptionKey } from '@shared/types'
+import { asX25519EncryptionKey, type X25519EncryptionKey } from '@shared/types'
 import { unwrapSecretsFromRecoveryGroup, wrapSecretsForRecoveryGroup } from './recovery-group-tier3'
 
 async function generateHpkeKeypair(): Promise<{

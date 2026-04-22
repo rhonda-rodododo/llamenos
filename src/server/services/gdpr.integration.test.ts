@@ -12,7 +12,6 @@ import {
 import { CryptoService } from '@server/lib/crypto-service'
 import { GdprService } from '@server/services/gdpr'
 import { LABEL_AUDIT_EVENT } from '@shared/crypto-labels'
-import type { Ciphertext } from '@shared/crypto-types'
 import { sql } from 'drizzle-orm'
 import { migrate } from 'drizzle-orm/bun-sql/migrator'
 

@@ -56,7 +56,7 @@ export class SipWebRTCAdapter implements WebRTCAdapter {
     if (!this.#handlers.has(event)) {
       this.#handlers.set(event, new Set())
     }
-    this.#handlers.get(event)!.add(handler as WebRtcEventHandler<WebRtcEvent>)
+    this.#handlers.get(event)?.add(handler as WebRtcEventHandler<WebRtcEvent>)
   }
 
   off<E extends WebRtcEvent>(event: E, handler: WebRtcEventHandler<E>): void {

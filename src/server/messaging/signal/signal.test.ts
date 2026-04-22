@@ -146,7 +146,7 @@ describe('SignalAdapter', () => {
       const msg = await adapter.parseIncomingMessage(request)
 
       // Should NOT produce double slash
-      expect(msg.mediaUrls![0]).toBe('https://signal-bridge.example.com/v1/attachments/att_003')
+      expect(msg.mediaUrls?.[0]).toBe('https://signal-bridge.example.com/v1/attachments/att_003')
     })
 
     it('includes metadata from envelope fields', async () => {

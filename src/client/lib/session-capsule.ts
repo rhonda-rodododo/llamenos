@@ -51,10 +51,10 @@ import {
   trySessionToken,
 } from '@shared/crypto-types'
 import {
+  parseSyncMessage,
   SYNC_CHANNEL_NAME,
   type SyncRequestMessage,
   type SyncResponseMessage,
-  parseSyncMessage,
 } from './cross-tab-messages'
 import { createDebugLog } from './debug-log'
 
@@ -475,7 +475,7 @@ export async function clearCapsule(): Promise<void> {
 
 // ---- Debounced expiry writer ----
 
-let pendingExpiryWrite: number | null = null
+let _pendingExpiryWrite: number | null = null
 let lastExpiryWriteAt = 0
 let expiryWriteErrorReported = false
 const EXPIRY_WRITE_DEBOUNCE_MS = 30_000
@@ -489,11 +489,11 @@ const EXPIRY_WRITE_DEBOUNCE_MS = 30_000
 export async function updateAutoLockExpiry(expiresAt: number): Promise<void> {
   const now = Date.now()
   if (now - lastExpiryWriteAt < EXPIRY_WRITE_DEBOUNCE_MS) {
-    pendingExpiryWrite = expiresAt
+    _pendingExpiryWrite = expiresAt
     return
   }
   lastExpiryWriteAt = now
-  pendingExpiryWrite = null
+  _pendingExpiryWrite = null
 
   try {
     const capsule = await idbGet()
@@ -513,7 +513,7 @@ export async function updateAutoLockExpiry(expiresAt: number): Promise<void> {
  * debounce window deterministically.
  */
 export function __resetExpiryDebounceForTests(): void {
-  pendingExpiryWrite = null
+  _pendingExpiryWrite = null
   lastExpiryWriteAt = 0
   expiryWriteErrorReported = false
 }

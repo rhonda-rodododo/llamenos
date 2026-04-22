@@ -10,6 +10,8 @@
  * these hooks provide the React Query cache layer that Nostr events invalidate.
  */
 
+import { LABEL_USER_PII } from '@shared/crypto-labels'
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   type Conversation,
   type ConversationMessage,
@@ -28,8 +30,6 @@ import { decryptArrayFields } from '@/lib/decrypt-fields'
 import * as keyManager from '@/lib/key-manager'
 import { getMlsConversation } from '@/lib/mls/get-mls-conversation'
 import * as mlsApi from '@/lib/mls/mls-api-client'
-import { LABEL_USER_PII } from '@shared/crypto-labels'
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from './keys'
 
 // ---------------------------------------------------------------------------

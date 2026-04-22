@@ -5,18 +5,18 @@
  * (answeredBy, callerNumber) decrypted client-side via ECIES.
  */
 
+import { queryOptions, useQuery } from '@tanstack/react-query'
 import {
   type ActiveCall,
   type CallRecord,
-  type UserPresence,
   getCallHistory,
   getCallsTodayCount,
   getUserPresence,
   listActiveCalls,
+  type UserPresence,
 } from '@/lib/api'
 import { decryptCallRecord } from '@/lib/crypto-worker-helpers'
 import * as keyManager from '@/lib/key-manager'
-import { queryOptions, useQuery } from '@tanstack/react-query'
 import { queryKeys } from './keys'
 
 // ---------------------------------------------------------------------------

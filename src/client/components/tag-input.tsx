@@ -6,6 +6,9 @@
  * creation when the user types a name that doesn't exist yet.
  */
 
+import { Check, ChevronsUpDown, Plus, X } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/badge'
 import {
   Command,
@@ -20,9 +23,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useConfig } from '@/lib/config'
 import { useTags } from '@/lib/queries/tags'
 import { cn } from '@/lib/utils'
-import { Check, ChevronsUpDown, Plus, X } from 'lucide-react'
-import { useMemo, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 interface TagInputProps {
   value: string[]

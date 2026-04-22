@@ -4,13 +4,13 @@ import type { RecipientEnvelope } from '@shared/types'
 import { createRouter } from '../../lib/openapi'
 import { checkPermission, requirePermission } from '../../middleware/permission-guard'
 import {
+  baseMiddleware,
   ErrorSchema,
+  getContactReadScope,
+  getContactUpdateScope,
   IdParamSchema,
   OkSchema,
   PassthroughSchema,
-  baseMiddleware,
-  getContactReadScope,
-  getContactUpdateScope,
 } from './shared'
 
 const core = createRouter()

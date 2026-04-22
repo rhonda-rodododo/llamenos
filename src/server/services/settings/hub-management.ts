@@ -27,7 +27,6 @@ import {
   messagingConfig,
   noteEnvelopes,
   reportCategories,
-  reportTypes,
   ringGroups,
   roles,
   setupState,

@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -5,8 +7,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { useEffect, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 let openShortcutsDialog: (() => void) | null = null
 

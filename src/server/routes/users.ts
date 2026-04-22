@@ -4,7 +4,6 @@ import { isValidE164 } from '../lib/helpers'
 import { createRouter } from '../lib/openapi'
 import { projectUser } from '../lib/user-projector'
 import { checkPermission, requirePermission } from '../middleware/permission-guard'
-import type { AppEnv } from '../types'
 
 /** Check that a string is a valid 64-char hex x-only secp256k1 pubkey (on the curve). */
 function isValidSecp256k1Pubkey(pk: string): boolean {

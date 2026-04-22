@@ -1,3 +1,7 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { CheckCircle2, Copy, Loader2, XCircle } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { AdvancedReveal } from '@/components/admin-shell/advanced-reveal'
 import {
   SectionActions,
@@ -10,17 +14,13 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
-  type MessagingConfig,
   getMessagingConfig,
+  type MessagingConfig,
   testMessagingChannel,
   updateMessagingConfig,
 } from '@/lib/api'
 import { queryKeys } from '@/lib/queries/keys'
 import { useToast } from '@/lib/toast'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Copy, Loader2, XCircle } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 import { SignalRegistrationFlow } from './signal-registration-flow'
 
 const SLUG = 'signal'

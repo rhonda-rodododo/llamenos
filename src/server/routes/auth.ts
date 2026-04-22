@@ -11,7 +11,7 @@ import { createRouter } from '../lib/openapi'
 import { maskPhone } from '../lib/user-projector'
 import { auth as authMiddleware } from '../middleware/auth'
 import { checkPermission } from '../middleware/permission-guard'
-import type { AppEnv, WebAuthnCredential } from '../types'
+import type { WebAuthnCredential } from '../types'
 
 const auth = createRouter()
 

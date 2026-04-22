@@ -9,7 +9,7 @@
  */
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
 import { __resetConsentState, __setConsentGrantedForTest } from '../consent'
-import { SFrameWiringError, buildSFrameCallHook } from './sframe-call-hook'
+import { buildSFrameCallHook, SFrameWiringError } from './sframe-call-hook'
 import type { SFrameOrchestrator } from './sframe-orchestrator'
 import type { SFrameWorkerClient } from './sframe-worker-client'
 

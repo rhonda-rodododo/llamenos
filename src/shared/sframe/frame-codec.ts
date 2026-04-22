@@ -1,12 +1,12 @@
 import { LABEL_SFRAME_BASE_KEY, LABEL_SFRAME_CALL_SECRET, labelToId } from '../crypto-labels.js'
 import { SFRAME_CIPHER_SUITE } from './cipher-suite.js'
 import {
-  type PlaintextBytes,
-  type SealedFrame,
   asPlaintextBytes,
   asSealedFrame,
+  type PlaintextBytes,
+  type SealedFrame,
 } from './sframe-types.js'
-import { TRAILER_LENGTH, parseTrailer, writeTrailer } from './trailer.js'
+import { parseTrailer, TRAILER_LENGTH, writeTrailer } from './trailer.js'
 
 /**
  * Per-frame seal/open helpers for the Llámenos voice E2EE pipeline.

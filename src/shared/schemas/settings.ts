@@ -1,6 +1,7 @@
 import { z } from 'zod/v4'
 import { ChannelTypeSchema, CustomFieldContextSchema } from './common'
 import { TelephonyProviderConfigSchema } from './providers'
+
 export type { ChannelType } from './common'
 
 export const HubSchema = z.object({

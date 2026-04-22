@@ -1,3 +1,11 @@
+import { utf8ToBytes } from '@noble/ciphers/utils.js'
+import { type CryptoLabel, LABEL_CONTACT_PII, LABEL_CONTACT_SUMMARY } from '@shared/crypto-labels'
+import type { Ciphertext } from '@shared/crypto-types'
+import type { RecipientEnvelope } from '@shared/types'
+import { AlertTriangle, CheckCircle2, FileUp, Loader2, Upload, X } from 'lucide-react'
+import { useCallback, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -13,14 +21,6 @@ import { getContactRecipients } from '@/lib/api'
 import { cryptoWorker } from '@/lib/crypto-worker-client'
 import * as keyManager from '@/lib/key-manager'
 import { useImportContacts } from '@/lib/queries/contacts'
-import { utf8ToBytes } from '@noble/ciphers/utils.js'
-import { type CryptoLabel, LABEL_CONTACT_PII, LABEL_CONTACT_SUMMARY } from '@shared/crypto-labels'
-import type { Ciphertext } from '@shared/crypto-types'
-import type { RecipientEnvelope } from '@shared/types'
-import { AlertTriangle, CheckCircle2, FileUp, Loader2, Upload, X } from 'lucide-react'
-import { useCallback, useRef, useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -279,7 +279,7 @@ export function ImportContactsDialog({
   )
 
   async function handleImport() {
-    if (!parseResult || !parseResult.ok) return
+    if (!parseResult?.ok) return
 
     const unlocked = await keyManager.isUnlocked()
     if (!unlocked) {
@@ -350,7 +350,7 @@ export function ImportContactsDialog({
       setProgress(100)
       setResult(res)
       setStage('done')
-    } catch (err) {
+    } catch (_err) {
       toast.error(t('contacts.importFailed', { defaultValue: 'Import failed' }))
       setStage('preview')
     }

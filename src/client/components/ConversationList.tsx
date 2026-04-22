@@ -1,8 +1,8 @@
-import { ChannelBadge } from '@/components/ChannelBadge'
-import type { Conversation } from '@/lib/api'
 import { Clock, MessageSquare, User } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { ChannelBadge } from '@/components/ChannelBadge'
+import type { Conversation } from '@/lib/api'
 
 interface ConversationListProps {
   conversations: Conversation[]
@@ -17,6 +17,7 @@ function StatusDot({ status }: { status: Conversation['status'] }) {
   return (
     <span
       className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${colorClass}`}
+      role="img"
       aria-label={status}
     />
   )

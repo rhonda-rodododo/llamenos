@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { generateDeviceKeypair } from './device-identity'
 import {
-  InMemoryDeviceKeypairStorage,
-  MultipleDeviceKeypairsError,
   clearDeviceKeypairStore,
   forceInsertRawDeviceKeypair,
   getDeviceKeypair,
+  InMemoryDeviceKeypairStorage,
+  MultipleDeviceKeypairsError,
   putDeviceKeypair,
   setDeviceKeypairStorage,
 } from './device-identity-store'

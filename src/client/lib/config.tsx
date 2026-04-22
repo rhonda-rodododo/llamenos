@@ -1,5 +1,5 @@
 import type { EnabledChannels, Hub } from '@shared/types'
-import { type ReactNode, createContext, useContext, useEffect, useState } from 'react'
+import { createContext, type ReactNode, useContext, useEffect, useState } from 'react'
 import { getConfig, setActiveHub } from './api'
 
 interface ConfigContextValue {

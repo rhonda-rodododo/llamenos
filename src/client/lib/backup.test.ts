@@ -80,7 +80,7 @@ describe('createBackup structure', () => {
   })
 
   test('recovery block iterations = 100000', () => {
-    expect(sharedBackup.r!.i).toBe(100_000)
+    expect(sharedBackup.r?.i).toBe(100_000)
   })
 
   test('backup.id is 6 hex chars', () => {

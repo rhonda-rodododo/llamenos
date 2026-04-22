@@ -1,11 +1,9 @@
 import type { Ciphertext } from '@shared/crypto-types'
 import type { BlastContent, BlastSettings } from '@shared/schemas'
-import type { Blast, Subscriber } from '@shared/types'
-import type { RecipientEnvelope } from '@shared/types'
+import type { Blast, RecipientEnvelope, Subscriber } from '@shared/types'
 import { hp, request } from './client'
 
-export type { BlastContent, BlastSettings }
-export type { Subscriber, Blast }
+export type { Blast, BlastContent, BlastSettings, Subscriber }
 
 // --- Subscribers ---
 
@@ -80,7 +78,7 @@ export async function sendBlast(id: string) {
   return request<{ blast: Blast }>(hp(`/blasts/${id}/send`), { method: 'POST' })
 }
 
-async function scheduleBlast(id: string, scheduledAt: string) {
+async function _scheduleBlast(id: string, scheduledAt: string) {
   return request<{ blast: Blast }>(hp(`/blasts/${id}/schedule`), {
     method: 'POST',
     body: JSON.stringify({ scheduledAt }),

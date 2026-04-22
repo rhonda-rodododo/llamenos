@@ -1,5 +1,5 @@
-import { FreeSwitchConfigSchema } from '@shared/schemas/providers'
 import type { FreeSwitchConfig } from '@shared/schemas/providers'
+import { FreeSwitchConfigSchema } from '@shared/schemas/providers'
 import type { ConnectionTestResult, WebhookUrlSet } from '@shared/types'
 import type { ProviderCapabilities } from './capabilities'
 
