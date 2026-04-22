@@ -1,3 +1,9 @@
+import { hexToBytes } from '@noble/hashes/utils.js'
+import type { DeviceVerificationSuccess } from '@shared/schemas/device-verification'
+import type { Device, DeviceList } from '@shared/schemas/devices'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { DeviceBadge } from '@/components/device-badge'
 import { Button } from '@/components/ui/button'
 import { VerifyFingerprintModal } from '@/components/verify-fingerprint-modal'
@@ -7,12 +13,6 @@ import { useAuth } from '@/lib/auth'
 import { useConfig } from '@/lib/config'
 import { pubkeyToHex } from '@/lib/device-identity'
 import { queryKeys } from '@/lib/queries/keys'
-import { hexToBytes } from '@noble/hashes/utils.js'
-import type { DeviceVerificationSuccess } from '@shared/schemas/device-verification'
-import type { Device, DeviceList } from '@shared/schemas/devices'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 const HEX64_RE = /^[0-9a-f]{64}$/
 

@@ -1,3 +1,8 @@
+import type { NotePayload } from '@shared/types'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { ArrowLeft, Lock, MessageSquare, Mic, Pencil, Send, StickyNote } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -6,14 +11,13 @@ import { useAuth } from '@/lib/auth'
 import { useConfig } from '@/lib/config'
 import { getMlsConversation } from '@/lib/mls/get-mls-conversation'
 import { toBase64 } from '@/lib/mls/mls-api-client'
-import { cacheNotePlaintext } from '@/lib/queries/notes'
-import { useCreateNoteReply, useNoteDetail, useNoteReplies } from '@/lib/queries/notes'
+import {
+  cacheNotePlaintext,
+  useCreateNoteReply,
+  useNoteDetail,
+  useNoteReplies,
+} from '@/lib/queries/notes'
 import { useToast } from '@/lib/toast'
-import type { NotePayload } from '@shared/types'
-import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
-import { ArrowLeft, Lock, MessageSquare, Mic, Pencil, Send, StickyNote } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 export const Route = createFileRoute('/notes_/$noteId')({
   component: NoteDetailPage,
@@ -22,7 +26,10 @@ export const Route = createFileRoute('/notes_/$noteId')({
 function BackToNotes({
   navigate,
   t,
-}: { navigate: ReturnType<typeof useNavigate>; t: (key: string) => string }) {
+}: {
+  navigate: ReturnType<typeof useNavigate>
+  t: (key: string) => string
+}) {
   return (
     <button
       type="button"
@@ -41,7 +48,7 @@ function NoteDetailPage() {
   const { noteId } = Route.useParams()
   const { isAdmin } = useAuth()
   const { currentHubId } = useConfig()
-  const hubId = currentHubId ?? 'global'
+  const _hubId = currentHubId ?? 'global'
   const { toast } = useToast()
   const navigate = useNavigate()
 

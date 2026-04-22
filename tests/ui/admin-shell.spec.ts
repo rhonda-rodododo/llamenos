@@ -15,7 +15,25 @@ test.describe('admin shell', () => {
     await gotoAdminPath(hubAdminPage, '/admin')
     await expectNavGroupVisible(hubAdminPage, 'general')
     await expectNavGroupVisible(hubAdminPage, 'people')
+    await expectNavGroupVisible(hubAdminPage, 'operations')
     await expectNavGroupHidden(hubAdminPage, 'platform')
+  })
+
+  test('hub admin sees operations items (bans, audit, analytics, health)', async ({
+    hubAdminPage,
+  }) => {
+    await gotoAdminPath(hubAdminPage, '/admin')
+    await expect(hubAdminPage.getByTestId('admin-sidebar-item-bans')).toBeVisible()
+    await expect(hubAdminPage.getByTestId('admin-sidebar-item-audit')).toBeVisible()
+    await expect(hubAdminPage.getByTestId('admin-sidebar-item-analytics')).toBeVisible()
+    await expect(hubAdminPage.getByTestId('admin-sidebar-item-health')).toBeVisible()
+  })
+
+  test('hub admin does not see platform-only items', async ({ hubAdminPage }) => {
+    await gotoAdminPath(hubAdminPage, '/admin')
+    await expect(hubAdminPage.getByTestId('admin-sidebar-item-hubs')).not.toBeVisible()
+    await expect(hubAdminPage.getByTestId('admin-sidebar-item-platform-roles')).not.toBeVisible()
+    await expect(hubAdminPage.getByTestId('admin-sidebar-item-gdpr-erasure')).not.toBeVisible()
   })
 
   test('super-admin sees platform group', async ({ adminPage }) => {

@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   SectionActions,
   SectionBanner,
@@ -11,8 +13,6 @@ import { generateRecoveryKey } from '@/lib/backup'
 import { isUnlocked } from '@/lib/key-manager'
 import { deriveKekProof, loadEncryptedKey, rewrapWithNewRecoveryKey } from '@/lib/key-store'
 import { useRotateRecovery } from '@/lib/queries/security-actions'
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 export function RecoveryRotateSection() {
   const { t } = useTranslation()

@@ -3,13 +3,13 @@
  * and system (dependency) health.
  */
 
+import { queryOptions, useQuery } from '@tanstack/react-query'
 import {
-  type ProviderHealthStatus,
-  type SystemHealthStatus,
   getProviderHealth,
   getSystemHealth,
+  type ProviderHealthStatus,
+  type SystemHealthStatus,
 } from '@/lib/api'
-import { queryOptions, useQuery } from '@tanstack/react-query'
 import { queryKeys } from './keys'
 
 // ---------------------------------------------------------------------------

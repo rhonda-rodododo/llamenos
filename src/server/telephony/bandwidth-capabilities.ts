@@ -1,5 +1,5 @@
-import { BandwidthConfigSchema } from '@shared/schemas/providers'
 import type { BandwidthConfig } from '@shared/schemas/providers'
+import { BandwidthConfigSchema } from '@shared/schemas/providers'
 import type {
   AutoConfigResult,
   ConnectionTestResult,

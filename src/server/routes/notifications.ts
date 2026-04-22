@@ -1,6 +1,5 @@
 import { createRoute, z } from '@hono/zod-openapi'
 import { createRouter } from '../lib/openapi'
-import type { AppEnv } from '../types'
 
 const notifications = createRouter()
 

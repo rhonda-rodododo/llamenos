@@ -25,10 +25,10 @@
 import { describe, expect, test } from 'bun:test'
 import { bytesToHex } from '@noble/hashes/utils.js'
 import {
-  type VerifiedShare,
   combineAndVerifyShares,
   commitShare,
   splitRecoveryGroupSecret,
+  type VerifiedShare,
   verifyShareCommitment,
 } from './recovery-group-share'
 
@@ -172,7 +172,7 @@ describe('Shamir — garbage share detection via commitments', () => {
     const commitments = await Promise.all(shares.map(commitShare))
 
     // An attacker submitting a garbage zero share.
-    const zeroShare = new Uint8Array(shares[0]!.length)
+    const zeroShare = new Uint8Array(shares[0]?.length)
 
     for (let i = 0; i < commitments.length; i++) {
       expect(await verifyShareCommitment(zeroShare, commitments[i]!)).toBe(false)

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test'
 import { TelegramBotClient } from './client'
 
 const TEST_TOKEN = '123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11'

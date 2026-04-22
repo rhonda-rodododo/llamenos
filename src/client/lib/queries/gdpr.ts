@@ -1,13 +1,13 @@
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  type ErasureRequest,
   adminEraseUser,
   cancelAccountErasure,
   downloadMyData,
+  type ErasureRequest,
   getMyErasureRequest,
   listErasureRequests,
   requestAccountErasure,
 } from '@/lib/api'
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from './keys'
 
 // ---------------------------------------------------------------------------

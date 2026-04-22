@@ -1,4 +1,4 @@
-import { type VariantProps, cva } from 'class-variance-authority'
+import { cva, type VariantProps } from 'class-variance-authority'
 import { Slot } from 'radix-ui'
 import type * as React from 'react'
 
@@ -43,6 +43,5 @@ function Badge({
   )
 }
 
-export { Badge }
 /** @knipignore — shadcn component API; badgeVariants exported for consumer variant customization */
-export { badgeVariants }
+export { Badge, badgeVariants }

@@ -1,11 +1,11 @@
-import { LockdownModal } from '@/components/LockdownModal'
-import { SectionBody, SectionDescription } from '@/components/section-layout'
-import { Button } from '@/components/ui/button'
-import { useRevokeOtherSessions, useRevokeSession, useSessions } from '@/lib/queries/security'
 import { createFileRoute } from '@tanstack/react-router'
 import type { TFunction } from 'i18next'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { LockdownModal } from '@/components/LockdownModal'
+import { SectionBody, SectionDescription } from '@/components/section-layout'
+import { Button } from '@/components/ui/button'
+import { useRevokeOtherSessions, useRevokeSession, useSessions } from '@/lib/queries/security'
 
 export const Route = createFileRoute('/security/sessions')({
   component: SessionsPage,

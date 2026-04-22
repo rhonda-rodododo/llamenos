@@ -1,16 +1,3 @@
-import { LogoMark } from '@/components/logo-mark'
-import { PinInput } from '@/components/pin-input'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { redeemInvite, validateInvite } from '@/lib/api'
-import { useAuth } from '@/lib/auth'
-import { authFacadeClient } from '@/lib/auth-facade-client'
-import { createBackup, downloadBackupFile, generateRecoveryKey } from '@/lib/backup'
-import { useConfig } from '@/lib/config'
-import { setLanguage } from '@/lib/i18n'
-import * as keyManager from '@/lib/key-manager'
-import { isValidPin } from '@/lib/key-manager'
-import { useToast } from '@/lib/toast'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { generateKeyPair, keyPairFromNsec } from '@shared/crypto-primitives'
 import { LANGUAGES } from '@shared/languages'
@@ -28,6 +15,19 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { LogoMark } from '@/components/logo-mark'
+import { PinInput } from '@/components/pin-input'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { redeemInvite, validateInvite } from '@/lib/api'
+import { useAuth } from '@/lib/auth'
+import { authFacadeClient } from '@/lib/auth-facade-client'
+import { createBackup, downloadBackupFile, generateRecoveryKey } from '@/lib/backup'
+import { useConfig } from '@/lib/config'
+import { setLanguage } from '@/lib/i18n'
+import * as keyManager from '@/lib/key-manager'
+import { isValidPin } from '@/lib/key-manager'
+import { useToast } from '@/lib/toast'
 
 export const Route = createFileRoute('/onboarding')({
   component: OnboardingPage,
@@ -123,7 +123,7 @@ function OnboardingPage() {
         setStep('error')
         setErrorMsg(t('onboarding.invalidCode'))
       })
-  }, [inviteCode])
+  }, [inviteCode, t, step])
 
   function handlePinComplete(enteredPin: string) {
     if (pinStep === 'create') {

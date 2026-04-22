@@ -1,3 +1,7 @@
+import type { FileFieldValue } from '@shared/types'
+import { PhoneCall, Save, StickyNote } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -11,10 +15,6 @@ import {
 } from '@/components/ui/select'
 import type { CallRecord, CustomFieldDefinition } from '@/lib/api'
 import { useCalls } from '@/lib/hooks'
-import type { FileFieldValue } from '@shared/types'
-import { PhoneCall, Save, StickyNote } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 import { CustomFieldInputs } from './custom-field-inputs'
 
 type FieldValue = string | string[] | number | boolean | FileFieldValue

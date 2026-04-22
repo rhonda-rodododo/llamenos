@@ -22,8 +22,8 @@ import { RecoveryRotateSchema } from '../../shared/schemas/recovery-rotate'
 import { UpdateSecurityPrefsSchema } from '../../shared/schemas/security-prefs'
 import { SignalContactRegisterSchema } from '../../shared/schemas/signal-contact'
 import type { IdPAdapter } from '../idp/adapter'
-import { hashIP } from '../lib/crypto-service'
 import type { CryptoService } from '../lib/crypto-service'
+import { hashIP } from '../lib/crypto-service'
 import { lookupIp } from '../lib/geoip'
 import { uint8ArrayToBase64URL } from '../lib/helpers'
 import { signAccessToken, verifyAccessToken } from '../lib/jwt'
@@ -40,14 +40,15 @@ import { IdentityService } from '../services/identity'
 import type { RecordsService } from '../services/records'
 import type { SecurityActionsService } from '../services/security-actions'
 import type { SecurityPrefsService } from '../services/security-prefs'
-import { formatUserAgent, sessionExpiry } from '../services/sessions'
 import type { SessionService } from '../services/sessions'
+import { formatUserAgent, sessionExpiry } from '../services/sessions'
 import type { SettingsService } from '../services/settings'
 import type { SignalContactsService } from '../services/signal-contacts'
 import type { UserNotificationsService } from '../services/user-notifications'
 
 const GEOIP_DB_PATH = process.env.GEOIP_DB_PATH ?? './data/geoip/dbip-city.mmdb'
 const SESSION_COOKIE_MAX_AGE = 30 * 24 * 60 * 60 // 30 days in seconds
+
 import type { Ciphertext } from '../../shared/crypto-types'
 import type { RecipientEnvelope } from '../../shared/types'
 import { createLogger } from '../lib/logger'
@@ -148,7 +149,7 @@ async function resolveUserPermissions(
   settings: SettingsService
 ): Promise<string[]> {
   const user = await identity.getUser(pubkey)
-  if (!user || !user.active) return []
+  if (!user?.active) return []
   const allRoles = await settings.listRoles()
   return resolvePermissions(user.roles, allRoles)
 }
@@ -2130,11 +2131,11 @@ authFacade.openapi(updateSecurityPrefsRoute, async (c) => {
 
 // --- Recovery Group routes ---
 import { recoveryGroupRoutes } from './recovery-group'
+
 authFacade.route('/recovery-group', recoveryGroupRoutes)
 
 export default authFacade
 
 // Export for testing
-export { type AuthFacadeEnv, rateLimitStore }
 /** @knipignore — exported for API test suite rate-limit testing */
-export { isRateLimited }
+export { type AuthFacadeEnv, isRateLimited, rateLimitStore }

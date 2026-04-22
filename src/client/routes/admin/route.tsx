@@ -1,6 +1,6 @@
-import { useAuth } from '@/lib/auth'
-import { Outlet, createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Outlet, useNavigate } from '@tanstack/react-router'
 import { useEffect } from 'react'
+import { useAuth } from '@/lib/auth'
 
 export const Route = createFileRoute('/admin')({
   component: AdminRoute,

@@ -1,3 +1,6 @@
+import { LANGUAGES } from '@shared/languages'
+import { Building2, Globe, Type } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -7,9 +10,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { LANGUAGES } from '@shared/languages'
-import { Building2, Globe, Type } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
 import type { SetupData } from './SetupWizard'
 
 interface Props {

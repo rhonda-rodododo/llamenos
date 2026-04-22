@@ -1,3 +1,14 @@
+import { CheckIcon, ChevronsUpDown } from 'lucide-react'
+import type * as React from 'react'
+import { forwardRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import PhoneInputPrimitive, {
+  type Country,
+  getCountryCallingCode,
+  isValidPhoneNumber,
+  type Value,
+} from 'react-phone-number-input'
+import flags from 'react-phone-number-input/flags'
 import { Button } from '@/components/ui/button'
 import {
   Command,
@@ -10,17 +21,6 @@ import {
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
-import { CheckIcon, ChevronsUpDown } from 'lucide-react'
-import type * as React from 'react'
-import { forwardRef, useCallback, useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import PhoneInputPrimitive, {
-  getCountryCallingCode,
-  isValidPhoneNumber,
-  type Country,
-  type Value,
-} from 'react-phone-number-input'
-import flags from 'react-phone-number-input/flags'
 
 const E164_REGEX = /^\+\d{7,15}$/
 
@@ -166,7 +166,12 @@ export function PhoneInput({
   const showInvalid = touched && validationState === 'invalid'
 
   return (
-    <div className={cn('space-y-1', className)} onBlur={() => setTouched(true)}>
+    <div
+      className={cn('space-y-1', className)}
+      onBlur={() => setTouched(true)}
+      tabIndex={-1}
+      role="presentation"
+    >
       <PhoneInputPrimitive
         className="flex"
         international

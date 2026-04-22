@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { FreeSwitchAdapter, escapeXml, getFliteVoice } from './freeswitch'
+import { escapeXml, FreeSwitchAdapter, getFliteVoice } from './freeswitch'
 
 // Helper to create adapter instance for testing
 function createAdapter(callbackBaseUrl = 'https://app.example.com'): FreeSwitchAdapter {
@@ -11,7 +11,7 @@ function createAdapter(callbackBaseUrl = 'https://app.example.com'): FreeSwitchA
   )
 }
 
-function parseXml(body: string): string {
+function _parseXml(body: string): string {
   return body
 }
 

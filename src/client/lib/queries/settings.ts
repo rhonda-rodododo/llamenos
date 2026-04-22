@@ -5,11 +5,18 @@
  * update mutation that invalidates the relevant query on success.
  */
 
+import { LABEL_USER_PII } from '@shared/crypto-labels'
+import type { WebAuthnSettings } from '@shared/schemas'
+import type {
+  CustomFieldDefinition,
+  GeocodingConfigAdmin,
+  MessagingConfig,
+  RetentionSettings,
+  TelephonyProviderDraft,
+} from '@shared/types'
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   type CallSettings,
-  type IvrAudioRecording,
-  type SpamSettings,
-  type TelephonyProviderConfig,
   getCallSettings,
   getCustomFields,
   getGeocodingSettings,
@@ -20,7 +27,10 @@ import {
   getTelephonyProvider,
   getTranscriptionSettings,
   getWebAuthnSettings,
+  type IvrAudioRecording,
   listIvrAudio,
+  type SpamSettings,
+  type TelephonyProviderConfig,
   updateCallSettings,
   updateCustomFields,
   updateGeocodingSettings,
@@ -35,17 +45,7 @@ import {
 import { decryptArrayFields } from '@/lib/decrypt-fields'
 import { decryptHubField } from '@/lib/hub-field-crypto'
 import * as keyManager from '@/lib/key-manager'
-import { type WebAuthnCredentialInfo, listCredentials } from '@/lib/webauthn'
-import { LABEL_USER_PII } from '@shared/crypto-labels'
-import type { WebAuthnSettings } from '@shared/schemas'
-import type {
-  CustomFieldDefinition,
-  GeocodingConfigAdmin,
-  MessagingConfig,
-  RetentionSettings,
-  TelephonyProviderDraft,
-} from '@shared/types'
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { listCredentials, type WebAuthnCredentialInfo } from '@/lib/webauthn'
 import { queryKeys } from './keys'
 
 const STALE_10_MIN = 10 * 60_000
@@ -61,11 +61,11 @@ const spamSettingsOptions = () =>
     staleTime: STALE_10_MIN,
   })
 
-function useSpamSettings() {
+function _useSpamSettings() {
   return useQuery(spamSettingsOptions())
 }
 
-function useUpdateSpamSettings() {
+function _useUpdateSpamSettings() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (data: Partial<SpamSettings>) => updateSpamSettings(data),
@@ -86,11 +86,11 @@ const callSettingsOptions = () =>
     staleTime: STALE_10_MIN,
   })
 
-function useCallSettings() {
+function _useCallSettings() {
   return useQuery(callSettingsOptions())
 }
 
-function useUpdateCallSettings() {
+function _useUpdateCallSettings() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (data: Partial<CallSettings>) => updateCallSettings(data),
@@ -116,11 +116,11 @@ const transcriptionSettingsOptions = () =>
     staleTime: STALE_10_MIN,
   })
 
-function useTranscriptionSettings() {
+function _useTranscriptionSettings() {
   return useQuery(transcriptionSettingsOptions())
 }
 
-function useUpdateTranscriptionSettings() {
+function _useUpdateTranscriptionSettings() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (data: { globalEnabled?: boolean; allowUserOptOut?: boolean }) =>
@@ -145,11 +145,11 @@ export const ivrLanguagesOptions = () =>
     staleTime: STALE_10_MIN,
   })
 
-function useIvrLanguages() {
+function _useIvrLanguages() {
   return useQuery(ivrLanguagesOptions())
 }
 
-function useUpdateIvrLanguages() {
+function _useUpdateIvrLanguages() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (enabledLanguages: string[]) => updateIvrLanguages({ enabledLanguages }),
@@ -173,7 +173,7 @@ export const ivrAudioOptions = () =>
     staleTime: STALE_10_MIN,
   })
 
-function useIvrAudio() {
+function _useIvrAudio() {
   return useQuery(ivrAudioOptions())
 }
 
@@ -188,11 +188,11 @@ const webAuthnSettingsOptions = () =>
     staleTime: STALE_10_MIN,
   })
 
-function useWebAuthnSettings() {
+function _useWebAuthnSettings() {
   return useQuery(webAuthnSettingsOptions())
 }
 
-function useUpdateWebAuthnSettings() {
+function _useUpdateWebAuthnSettings() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (data: Partial<WebAuthnSettings>) => updateWebAuthnSettings(data),
@@ -249,7 +249,7 @@ export function useCustomFields(hubId = 'global') {
   return useQuery(customFieldsOptions(hubId))
 }
 
-function useUpdateCustomFields() {
+function _useUpdateCustomFields() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (fields: CustomFieldDefinition[]) => updateCustomFields(fields),
@@ -270,11 +270,11 @@ const providerConfigOptions = () =>
     staleTime: STALE_10_MIN,
   })
 
-function useProviderConfig() {
+function _useProviderConfig() {
   return useQuery(providerConfigOptions())
 }
 
-function useUpdateProviderConfig() {
+function _useUpdateProviderConfig() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (config: TelephonyProviderDraft) =>
@@ -296,11 +296,11 @@ const messagingConfigOptions = () =>
     staleTime: STALE_10_MIN,
   })
 
-function useMessagingConfig() {
+function _useMessagingConfig() {
   return useQuery(messagingConfigOptions())
 }
 
-function useUpdateMessagingConfig() {
+function _useUpdateMessagingConfig() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (data: Partial<MessagingConfig>) => updateMessagingConfig(data),
@@ -321,11 +321,11 @@ const geocodingConfigOptions = () =>
     staleTime: STALE_10_MIN,
   })
 
-function useGeocodingConfig() {
+function _useGeocodingConfig() {
   return useQuery(geocodingConfigOptions())
 }
 
-function useUpdateGeocodingConfig() {
+function _useUpdateGeocodingConfig() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (data: Partial<GeocodingConfigAdmin>) => updateGeocodingSettings(data),

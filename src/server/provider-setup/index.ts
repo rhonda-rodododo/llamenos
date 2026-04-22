@@ -16,7 +16,6 @@ import type {
   OAuthStartResult,
   ProvisionNumberResult,
   SelectNumberResult,
-  TelnyxCredentials,
   TwilioCredentials,
 } from './types'
 import { OAuthStateError, ProviderApiError } from './types'
@@ -438,4 +437,4 @@ export class ProviderSetup {
   }
 }
 
-export { ProviderApiError, OAuthStateError } from './types'
+export { OAuthStateError, ProviderApiError } from './types'

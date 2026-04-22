@@ -126,11 +126,7 @@ function createMockSettings(overrides: Record<string, unknown> = {}): SettingsSe
 // ---------------------------------------------------------------------------
 
 function createTestApp(
-  opts: {
-    identity?: IdentityService
-    idpAdapter?: IdPAdapter
-    settings?: SettingsService
-  } = {}
+  opts: { identity?: IdentityService; idpAdapter?: IdPAdapter; settings?: SettingsService } = {}
 ) {
   const identity = opts.identity ?? createMockIdentity()
   const idpAdapter = opts.idpAdapter ?? createMockIdpAdapter()

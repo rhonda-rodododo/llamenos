@@ -1,4 +1,3 @@
-import { cn } from '@/lib/utils'
 import { CHANNEL_LABELS, CHANNEL_SECURITY, type TransportSecurity } from '@shared/types'
 import {
   FileText,
@@ -9,6 +8,7 @@ import {
   Phone,
   Shield,
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 interface ChannelBadgeProps {
   channelType: string

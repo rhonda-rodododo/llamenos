@@ -2,10 +2,10 @@ import { describe, expect, test } from 'bun:test'
 import { EFF_LARGE_WORDLIST } from '@/assets/eff-large-wordlist'
 import {
   DicewarePhrase,
-  RecoveryPhraseError,
   deriveRecoveryPhraseKekBytes,
   generateRecoveryPhrase,
   normalizeRecoveryPhrase,
+  RecoveryPhraseError,
   validateRecoveryPhrase,
 } from './recovery-phrase'
 

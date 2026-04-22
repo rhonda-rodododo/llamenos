@@ -9,7 +9,7 @@ import { hkdfDerive } from '@shared/crypto-primitives'
 import { createHpkeSuite } from '@shared/crypto-suite'
 import type { HpkeEnvelope } from '@shared/hpke-envelope'
 import { buildAad, hpkeOpen, hpkeSeal } from '@shared/hpke-primitives'
-import { type X25519EncryptionKey, asX25519EncryptionKey } from '@shared/types'
+import { asX25519EncryptionKey, type X25519EncryptionKey } from '@shared/types'
 
 /**
  * Server-side HPKE operations.

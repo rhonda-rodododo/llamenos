@@ -15,11 +15,11 @@ import { wordlist } from '@scure/bip39/wordlists/english.js'
 import { LABEL_PAPER_KEY_ENCRYPTION, LABEL_PAPER_KEY_SIGNING } from '@shared/crypto-labels'
 import type { Tier3DeviceAddPayload, Tier3DeviceRemovePayload } from '@shared/schemas/sigchain'
 import {
+  asEd25519SigningKey,
+  asX25519EncryptionKey,
   type DeviceKeypair,
   type Ed25519SigningKey,
   type X25519EncryptionKey,
-  asEd25519SigningKey,
-  asX25519EncryptionKey,
 } from '@shared/types'
 import { generateDeviceKeypair, pubkeyToHex } from './device-identity'
 

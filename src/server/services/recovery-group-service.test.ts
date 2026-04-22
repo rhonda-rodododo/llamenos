@@ -23,9 +23,8 @@ describe('RecoveryGroupService error classes', () => {
 describe('RecoveryGroupService input validation', () => {
   test('enrollHub requires shareEnvelopes.length === totalShares', () => {
     // This tests the validation that happens before any DB call
-    const { RecoveryGroupService } = require('./recovery-group-service') as typeof import(
-      './recovery-group-service'
-    )
+    const { RecoveryGroupService } =
+      require('./recovery-group-service') as typeof import('./recovery-group-service')
     const service = new RecoveryGroupService(null as never)
     expect(
       service.enrollHub({
@@ -43,9 +42,8 @@ describe('RecoveryGroupService input validation', () => {
   })
 
   test('enrollHub requires shareCommitments.length === totalShares', () => {
-    const { RecoveryGroupService } = require('./recovery-group-service') as typeof import(
-      './recovery-group-service'
-    )
+    const { RecoveryGroupService } =
+      require('./recovery-group-service') as typeof import('./recovery-group-service')
     const service = new RecoveryGroupService(null as never)
     expect(
       service.enrollHub({

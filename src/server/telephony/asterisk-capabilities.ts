@@ -1,5 +1,5 @@
-import { AsteriskConfigSchema } from '@shared/schemas/providers'
 import type { AsteriskConfig } from '@shared/schemas/providers'
+import { AsteriskConfigSchema } from '@shared/schemas/providers'
 import type { ConnectionTestResult, WebhookUrlSet } from '@shared/types'
 import type { ProviderCapabilities } from './capabilities'
 

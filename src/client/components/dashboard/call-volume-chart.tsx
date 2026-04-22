@@ -1,9 +1,8 @@
+import { useTranslation } from 'react-i18next'
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { CallVolumeDay } from '@/lib/api'
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
 interface Props {
   data: CallVolumeDay[]

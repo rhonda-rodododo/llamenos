@@ -4,17 +4,17 @@ import { secp256k1 } from '@noble/curves/secp256k1.js'
 import { bytesToHex } from '@noble/hashes/utils.js'
 import {
   type CryptoLabel,
+  idToLabel,
   LABEL_HUB_KEY_WRAP,
   LABEL_MESSAGE,
   LABEL_NOTE_KEY,
   LABEL_REGISTRY,
-  idToLabel,
   labelToId,
 } from './crypto-labels'
 import {
   CryptoLabelMismatchError,
-  type Envelope,
   decryptEnvelope,
+  type Envelope,
   eciesUnwrapKey,
   eciesWrapKey,
   hkdfDerive,

@@ -1,10 +1,10 @@
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import type { ContactRelationshipRecord } from '@/lib/api'
 import type { RelationshipPayload } from '@shared/types'
 import { AlertTriangle, Users } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import type { ContactRelationshipRecord } from '@/lib/api'
 
 interface ContactRelationshipSectionProps {
   contactId: string

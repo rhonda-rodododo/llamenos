@@ -1,15 +1,15 @@
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { importSubscribers, removeSubscriber } from '@/lib/api'
-import type { Subscriber } from '@/lib/api'
-import { useSubscriberStats, useSubscribers } from '@/lib/queries/blasts'
-import { queryKeys } from '@/lib/queries/keys'
-import { useToast } from '@/lib/toast'
 import { useQueryClient } from '@tanstack/react-query'
 import { Trash2, Upload, Users } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import type { Subscriber } from '@/lib/api'
+import { importSubscribers, removeSubscriber } from '@/lib/api'
+import { useSubscriberStats, useSubscribers } from '@/lib/queries/blasts'
+import { queryKeys } from '@/lib/queries/keys'
+import { useToast } from '@/lib/toast'
 
 export function SubscriberManager() {
   const { t } = useTranslation()

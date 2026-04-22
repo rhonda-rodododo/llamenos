@@ -1,5 +1,5 @@
-import { TwilioConfigSchema } from '@shared/schemas/providers'
 import type { TwilioConfig } from '@shared/schemas/providers'
+import { TwilioConfigSchema } from '@shared/schemas/providers'
 import type {
   AutoConfigResult,
   ConnectionTestResult,

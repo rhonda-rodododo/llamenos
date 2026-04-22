@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'bun:test'
 import {
-  HubFieldTamperError,
   decryptHubField,
   decryptHubFieldAead,
   encryptHubField,
   encryptHubFieldAead,
   generateHubFieldCryptoKey,
+  HubFieldTamperError,
 } from './hub-field-crypto'
 import { clearHubKeyCache, setHubKeyForTest } from './hub-key-cache'
 

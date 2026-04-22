@@ -9,7 +9,7 @@ import type { MessagingChannelType, TelephonyProviderConfig } from '../../shared
 import type { CryptoService } from '../lib/crypto-service'
 import { AppError } from '../lib/errors'
 import { createLogger } from '../lib/logger'
-import { type NostrPublisher, createNostrPublisher } from '../lib/nostr-publisher'
+import { createNostrPublisher, type NostrPublisher } from '../lib/nostr-publisher'
 import type { MessagingAdapter } from '../messaging/adapter'
 import { createRCSAdapter } from '../messaging/rcs/factory'
 import { createSignalAdapter } from '../messaging/signal/factory'
@@ -92,7 +92,7 @@ export async function getMessagingAdapter(
   hubId?: string
 ): Promise<MessagingAdapter> {
   const config = await settings.getMessagingConfig(hubId)
-  if (!config || !config.enabledChannels.includes(channel)) {
+  if (!config?.enabledChannels.includes(channel)) {
     throw new Error(`${channel} channel is not enabled`)
   }
 

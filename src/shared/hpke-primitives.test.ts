@@ -2,13 +2,13 @@ import { describe, expect, test } from 'bun:test'
 import { LABEL_HUB_FIELD, LABEL_MESSAGE, LABEL_NOTE_KEY, labelToId } from './crypto-labels.js'
 import { createHpkeSuite } from './crypto-suite.js'
 import {
-  HpkeLabelMismatchError,
   buildAad,
   decryptHpkeEnvelope,
+  HpkeLabelMismatchError,
   hpkeOpen,
   hpkeSeal,
 } from './hpke-primitives.js'
-import { type X25519EncryptionKey, asX25519EncryptionKey } from './types.js'
+import { asX25519EncryptionKey, type X25519EncryptionKey } from './types.js'
 
 async function genRecipient(): Promise<{
   privateKey: X25519EncryptionKey

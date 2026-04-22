@@ -29,7 +29,7 @@
 import { isConsentGranted } from '../consent.js'
 import type { SFramePeerConnectionHook } from './sframe-hook-types.js'
 import { installSFrameTransforms } from './sframe-install.js'
-import { type SFrameOrchestrator, createSFrameOrchestrator } from './sframe-orchestrator.js'
+import { createSFrameOrchestrator, type SFrameOrchestrator } from './sframe-orchestrator.js'
 import type { SFrameWorkerClient } from './sframe-worker-client.js'
 
 /** Typed error so the manager can distinguish worker-unavailable from other

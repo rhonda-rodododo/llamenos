@@ -62,14 +62,14 @@ export function scheduleRetentionPurge(services: Services): NodeJS.Timeout {
     return nextRun.getTime() - now.getTime()
   }
 
-  let intervalId: NodeJS.Timeout
+  let _intervalId: NodeJS.Timeout
 
   // First fire at next 03:00 UTC, then every 24h
   const timeoutId = setTimeout(async () => {
     await runRetentionPurge(services).catch((err) => {
       log.error('Retention purge failed', err)
     })
-    intervalId = setInterval(async () => {
+    _intervalId = setInterval(async () => {
       await runRetentionPurge(services).catch((err) => {
         log.error('Retention purge failed', err)
       })

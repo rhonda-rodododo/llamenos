@@ -1,6 +1,6 @@
+import { useTranslation } from 'react-i18next'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { UserStatEntry } from '@/lib/api'
-import { useTranslation } from 'react-i18next'
 
 interface Props {
   data: UserStatEntry[]

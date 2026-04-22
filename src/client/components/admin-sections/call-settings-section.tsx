@@ -1,3 +1,6 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { SectionBody, SectionDescription, SectionField } from '@/components/section-layout'
 import { Input } from '@/components/ui/input'
 import {
@@ -10,9 +13,6 @@ import {
 import { type CallSettings, getCallSettings, updateCallSettings } from '@/lib/api'
 import { queryKeys } from '@/lib/queries/keys'
 import { useToast } from '@/lib/toast'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 export function CallSettingsSection() {
   const { t } = useTranslation()
@@ -103,7 +103,7 @@ export function CallSettingsSection() {
             type="number"
             value={settings.queueTimeoutSeconds}
             onChange={(e) => {
-              const val = Number.parseInt(e.target.value) || 90
+              const val = Number.parseInt(e.target.value, 10) || 90
               saveMutation.mutate({ queueTimeoutSeconds: val })
             }}
             min={30}
@@ -121,7 +121,7 @@ export function CallSettingsSection() {
             type="number"
             value={settings.voicemailMaxSeconds}
             onChange={(e) => {
-              const val = Number.parseInt(e.target.value) || 120
+              const val = Number.parseInt(e.target.value, 10) || 120
               saveMutation.mutate({ voicemailMaxSeconds: val })
             }}
             min={30}

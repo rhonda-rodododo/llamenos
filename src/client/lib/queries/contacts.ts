@@ -7,10 +7,16 @@
  */
 
 import {
-  type ContactRecord,
-  type ContactRelationshipRecord,
+  LABEL_CONTACT_PII,
+  LABEL_CONTACT_RELATIONSHIP,
+  LABEL_CONTACT_SUMMARY,
+} from '@shared/crypto-labels'
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
   bulkDeleteContacts,
   bulkUpdateContacts,
+  type ContactRecord,
+  type ContactRelationshipRecord,
   createContact,
   deleteContact,
   getContact,
@@ -23,12 +29,6 @@ import {
 } from '@/lib/api'
 import { decryptArrayFields, decryptObjectFields } from '@/lib/decrypt-fields'
 import * as keyManager from '@/lib/key-manager'
-import {
-  LABEL_CONTACT_PII,
-  LABEL_CONTACT_RELATIONSHIP,
-  LABEL_CONTACT_SUMMARY,
-} from '@shared/crypto-labels'
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from './keys'
 
 // ---------------------------------------------------------------------------
@@ -102,7 +102,7 @@ export function useCreateContact() {
 // useUpdateContact
 // ---------------------------------------------------------------------------
 
-function useUpdateContact() {
+function _useUpdateContact() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) =>

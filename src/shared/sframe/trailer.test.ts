@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { TRAILER_LENGTH, parseTrailer, writeTrailer } from './trailer.js'
+import { parseTrailer, TRAILER_LENGTH, writeTrailer } from './trailer.js'
 
 describe('SFrame trailer', () => {
   test('TRAILER_LENGTH is 5 (4 counter + 1 config)', () => {

@@ -2,7 +2,6 @@ import { createRoute, z } from '@hono/zod-openapi'
 import { CONSENT_VERSION } from '../../shared/types'
 import { createRouter } from '../lib/openapi'
 import { requirePermission } from '../middleware/permission-guard'
-import type { AppEnv } from '../types'
 
 const gdpr = createRouter()
 

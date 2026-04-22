@@ -8,7 +8,7 @@
 
 import { createDebugLog } from '@/lib/debug-log'
 import * as keyManager from './key-manager'
-import { SESSION_TOKEN_KEY, clearCapsule } from './session-capsule'
+import { clearCapsule, SESSION_TOKEN_KEY } from './session-capsule'
 
 const log = createDebugLog('llamenos:panic-wipe')
 
@@ -98,7 +98,9 @@ export function performPanicWipe(): void {
       navigator.serviceWorker
         ?.getRegistrations()
         .then((registrations) => {
-          registrations.forEach((reg) => reg.unregister())
+          registrations.forEach((reg) => {
+            reg.unregister()
+          })
         })
         .catch(() => {})
     } catch {

@@ -10,7 +10,6 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   type ActiveCall,
-  type Conversation,
   answerCall as apiAnswerCall,
   hangupCall as apiHangupCall,
   reportCallSpam as apiReportSpam,
@@ -55,7 +54,7 @@ export function useCalls() {
   // Clear stale current-call tracking when hub switches
   useEffect(() => {
     setCurrentCall(null)
-  }, [currentHubId])
+  }, [])
 
   // Keep currentCall in sync if it disappears from the active list (e.g. after poll refresh)
   useEffect(() => {

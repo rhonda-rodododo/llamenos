@@ -11,9 +11,9 @@ import { and, eq } from 'drizzle-orm'
  */
 import type { Database } from '../db'
 import {
-  type RecoveryContribution,
   hubRecoveryGroupShares,
   hubRecoveryGroups,
+  type RecoveryContribution,
   recoverySessions,
   userRecoveryEnvelopes,
 } from '../db/schema/recovery'

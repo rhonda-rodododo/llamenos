@@ -21,14 +21,17 @@ import type {
   CreateProvisionRoomData,
   CreateUserData,
   CreateWebAuthnChallengeData,
+  InviteCode,
   ProvisionRoomStatus,
   RedeemInviteData,
   SetHubRoleData,
   SetProvisionPayloadData,
   UpdateUserData,
   UpdateWebAuthnCounterData,
+  User,
+  WebAuthnCredential,
+  WebAuthnSettings,
 } from '../types'
-import type { InviteCode, User, WebAuthnCredential, WebAuthnSettings } from '../types'
 
 /** Check if a string is a valid 64-char hex secp256k1 x-only pubkey */
 const isValidPubkey = (pk: string) => /^[0-9a-f]{64}$/i.test(pk)

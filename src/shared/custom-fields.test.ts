@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { MAX_CUSTOM_FIELDS, MAX_SELECT_OPTIONS, fieldMatchesContext } from '@shared/types'
 import type { CustomFieldContext, CustomFieldDefinition } from '@shared/types'
+import { fieldMatchesContext, MAX_CUSTOM_FIELDS, MAX_SELECT_OPTIONS } from '@shared/types'
 
 function makeField(context: CustomFieldContext): CustomFieldDefinition {
   return {

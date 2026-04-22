@@ -1,3 +1,6 @@
+import { AlertTriangle, Clock, Download, Loader2, Trash2, UserX } from 'lucide-react'
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { SectionBody, SectionDescription, SectionField } from '@/components/section-layout'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -21,9 +24,6 @@ import {
 } from '@/lib/api/client'
 import { useAdminEraseUser, useErasureRequests } from '@/lib/queries/gdpr'
 import { useToast } from '@/lib/toast'
-import { AlertTriangle, Clock, Download, Loader2, Trash2, UserX } from 'lucide-react'
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 export function GdprAdminSection() {
   const { t } = useTranslation()

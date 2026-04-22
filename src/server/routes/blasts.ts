@@ -1,6 +1,5 @@
 import { createRoute, z } from '@hono/zod-openapi'
 import { createRouter } from '../lib/openapi'
-import type { AppEnv } from '../types'
 
 const blasts = createRouter()
 
@@ -231,9 +230,8 @@ blasts.openapi(createBlastRoute, async (c) => {
     targetTags: body.targetTags,
     targetLanguages: body.targetLanguages,
     encryptedContent: body.encryptedContent,
-    contentEnvelopes: body.contentEnvelopes as unknown as import(
-      '../../shared/types'
-    ).RecipientEnvelope[],
+    contentEnvelopes:
+      body.contentEnvelopes as unknown as import('../../shared/types').RecipientEnvelope[],
     status: body.status,
   })
   return c.json({ blast }, 201)

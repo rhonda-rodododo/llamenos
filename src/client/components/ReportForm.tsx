@@ -1,3 +1,6 @@
+import { Loader2, Lock, Send } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -23,9 +26,6 @@ import { getMlsConversation } from '@/lib/mls/get-mls-conversation'
 import * as mlsApi from '@/lib/mls/mls-api-client'
 import { useReportCategories, useReportTypes } from '@/lib/queries/reports'
 import { useToast } from '@/lib/toast'
-import { Loader2, Lock, Send } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 interface ReportFormProps {
   open: boolean
@@ -35,7 +35,7 @@ interface ReportFormProps {
 
 export function ReportForm({ open, onOpenChange, onCreated }: ReportFormProps) {
   const { t } = useTranslation()
-  const { hasNsec, publicKey, adminDecryptionPubkey } = useAuth()
+  const { hasNsec, publicKey } = useAuth()
   const { currentHubId } = useConfig()
   const hubId = currentHubId ?? 'global'
   const { toast } = useToast()

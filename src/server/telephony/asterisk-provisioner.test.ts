@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, mock, test } from 'bun:test'
 import type { Mock } from 'bun:test'
+import { afterEach, describe, expect, mock, test } from 'bun:test'
 import { AsteriskProvisioner } from './asterisk-provisioner'
 
 const BRIDGE_URL = 'http://localhost:8088'
@@ -88,7 +88,8 @@ describe('AsteriskProvisioner', () => {
     expect(typeof turnEntry.credential).toBe('string')
 
     // Verify username contains a future timestamp (expiry)
-    const [expiryStr] = turnEntry.username!.split(':')
+    const parts = turnEntry.username?.split(':') ?? []
+    const expiryStr = parts[0]
     const expiry = Number.parseInt(expiryStr, 10)
     const now = Math.floor(Date.now() / 1000)
     // Expiry should be ~86400 seconds in the future (with some tolerance)

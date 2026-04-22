@@ -73,7 +73,7 @@ export async function getFileMetadata(fileId: string) {
   }>(`/files/${fileId}/metadata`)
 }
 
-async function shareFile(
+async function _shareFile(
   fileId: string,
   data: {
     envelope: import('@shared/types').FileKeyEnvelope

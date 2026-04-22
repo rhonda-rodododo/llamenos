@@ -51,6 +51,5 @@ function ScrollBar({
   )
 }
 
-export { ScrollArea }
 /** @knipignore — shadcn component API; ScrollBar exported for custom scroll container composition */
-export { ScrollBar }
+export { ScrollArea, ScrollBar }

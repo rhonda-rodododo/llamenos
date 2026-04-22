@@ -46,7 +46,7 @@
 import { createHpkeSuite } from '@shared/crypto-suite.js'
 import { KIND_DTLS_BINDING, KIND_SFRAME_KEY } from '@shared/nostr-events.js'
 import type { DtlsBindingEvent, SFrameKeyEvent } from '@shared/schemas/nostr-events.js'
-import { type X25519EncryptionKey, asX25519EncryptionKey } from '@shared/types'
+import { asX25519EncryptionKey, type X25519EncryptionKey } from '@shared/types'
 import { createDebugLog } from '../debug-log.js'
 import { encryptForHub } from '../hub-key-manager.js'
 import { createHubEvent } from '../nostr/events.js'
@@ -61,7 +61,7 @@ import {
   buildKeyEvent,
   parseKeyEvent,
 } from './sframe-key-distribution.js'
-import { type UserCallRecipient, resolveCallRecipients } from './sframe-recipients.js'
+import { resolveCallRecipients, type UserCallRecipient } from './sframe-recipients.js'
 import { assertKeyIdContiguous, freshSecretOnLeave, ratchetOnJoin } from './sframe-rotation.js'
 import type { SFrameWorkerClient } from './sframe-worker-client.js'
 
