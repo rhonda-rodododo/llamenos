@@ -2,9 +2,11 @@ import { describe, expect, test } from 'bun:test'
 import { CreateContactSchema } from './contacts'
 
 const validEnvelope = {
+  v: 3 as const,
+  labelId: 0,
+  enc: 'dGVzdA',
+  ct: 'dGVzdA',
   pubkey: 'abc123',
-  wrappedKey: 'wrapped123',
-  ephemeralPubkey: 'eph123',
 }
 
 const validContact = {
