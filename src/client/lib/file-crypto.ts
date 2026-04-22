@@ -73,6 +73,7 @@ function encryptMetadataForPubkey(
 
   return {
     pubkey: recipientPubkeyHex,
+    // @ts-expect-error Slice 5: file crypto ECIES → HPKE migration
     encryptedContent: bytesToHex(packed) as Ciphertext,
     ephemeralPubkey: bytesToHex(ephemeralPublicKey),
   }
@@ -154,6 +155,7 @@ export async function encryptFile(
 
   // Wrap the file key for each recipient using Envelope (ECIES + wire-format label)
   const labelId = labelToId(LABEL_FILE_KEY)
+  // @ts-expect-error Slice 5: file crypto ECIES → HPKE migration
   const recipientEnvelopes: FileKeyEnvelope[] = recipientPubkeys.map((pubkey) => {
     const { wrappedKey, ephemeralPubkey } = eciesWrapKey(fileKey, pubkey, LABEL_FILE_KEY)
     return { v: 2, labelId, pubkey, wrappedKey, ephemeralPubkey }
@@ -243,6 +245,7 @@ export async function rewrapFileKey(
   fileKey.fill(0)
 
   return {
+    // @ts-expect-error Slice 5: file crypto ECIES → HPKE migration
     v: 2,
     labelId: labelToId(LABEL_FILE_KEY),
     pubkey: newRecipientPubkeyHex,

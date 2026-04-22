@@ -163,7 +163,9 @@ async function decryptFieldWithRecovery(
   try {
     return await worker.decryptEnvelopeField(
       ciphertext,
+      // @ts-expect-error Slice 2: ECIES → HPKE migration
       envelope.ephemeralPubkey,
+      // @ts-expect-error Slice 2: ECIES → HPKE migration
       envelope.wrappedKey,
       label,
       aad
@@ -179,7 +181,9 @@ async function decryptFieldWithRecovery(
     try {
       return await worker.decryptEnvelopeField(
         ciphertext,
+        // @ts-expect-error Slice 2: ECIES → HPKE migration
         envelope.ephemeralPubkey,
+        // @ts-expect-error Slice 2: ECIES → HPKE migration
         envelope.wrappedKey,
         label,
         aad

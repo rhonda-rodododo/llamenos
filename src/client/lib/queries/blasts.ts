@@ -66,6 +66,7 @@ const blastsListOptions = (hubId = 'global') =>
         if (blast.encryptedContent && blast.contentEnvelopes?.length) {
           decryptedContent[blast.id] = await decryptBlastContent(
             blast.encryptedContent,
+            // @ts-expect-error Slice 3: ECIES → HPKE migration
             blast.contentEnvelopes,
             pk
           )

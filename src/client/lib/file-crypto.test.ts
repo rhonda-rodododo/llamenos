@@ -42,6 +42,7 @@ async function decryptFileWithSecret(
   aad.set(fileIdBytes, labelBytes.length + 1)
 
   // Verify version and labelId
+  // @ts-expect-error Slice 5: ECIES envelope v2 → HPKE v3
   if (envelope.v !== 2) throw new Error(`Unsupported envelope version: ${envelope.v as number}`)
   if (envelope.labelId !== labelToId(LABEL_FILE_KEY)) {
     throw new Error(
@@ -51,7 +52,9 @@ async function decryptFileWithSecret(
 
   // Unwrap file key with the recipient's secret key
   const keyEnvelope: KeyEnvelope = {
+    // @ts-expect-error Slice 5: ECIES → HPKE migration
     wrappedKey: envelope.wrappedKey,
+    // @ts-expect-error Slice 5: ECIES → HPKE migration
     ephemeralPubkey: envelope.ephemeralPubkey,
   }
   const fileKey = eciesUnwrapKeyWithSecret(keyEnvelope, sk, LABEL_FILE_KEY)
@@ -74,7 +77,9 @@ describe('encryptFile', () => {
     expect(result.encryptedContent.length).toBeGreaterThan(content.length)
     expect(result.recipientEnvelopes).toHaveLength(1)
     expect(result.recipientEnvelopes[0].pubkey).toBe(publicKeyHex)
+    // @ts-expect-error Slice 5: ECIES → HPKE migration
     expect(result.recipientEnvelopes[0].wrappedKey).toBeTruthy()
+    // @ts-expect-error Slice 5: ECIES → HPKE migration
     expect(result.recipientEnvelopes[0].ephemeralPubkey).toBeTruthy()
     expect(result.encryptedMetadata).toHaveLength(1)
     expect(result.encryptedMetadata[0].pubkey).toBe(publicKeyHex)
@@ -90,7 +95,9 @@ describe('encryptFile', () => {
     const envelope = result.recipientEnvelopes[0]
 
     const keyEnvelope: KeyEnvelope = {
+      // @ts-expect-error Slice 5: ECIES → HPKE migration
       wrappedKey: envelope.wrappedKey,
+      // @ts-expect-error Slice 5: ECIES → HPKE migration
       ephemeralPubkey: envelope.ephemeralPubkey,
     }
     const unwrapped = eciesUnwrapKeyWithSecret(keyEnvelope, secretKey, LABEL_FILE_KEY)
@@ -119,6 +126,7 @@ describe('encryptFile', () => {
     const metaEnvelope = result.encryptedMetadata[0]
 
     // Manual ECDH + symmetric decrypt (same algo as decryptFileMetadata)
+    // @ts-expect-error Slice 5: ECIES → HPKE migration
     const ephemeralPub = hexToBytes(metaEnvelope.ephemeralPubkey)
     const shared = secp256k1.getSharedSecret(secretKey, ephemeralPub)
     const sharedX = shared.slice(1, 33)
@@ -128,6 +136,7 @@ describe('encryptFile', () => {
     keyInput.set(sharedX, label.length)
     const symKey = sha256(keyInput)
 
+    // @ts-expect-error Slice 5: ECIES → HPKE migration
     const encHex = metaEnvelope.encryptedContent as string
     const encBytes = hexToBytes(encHex)
     const nonce = encBytes.slice(0, 24)
@@ -157,11 +166,15 @@ describe('encryptFile', () => {
 
     // Both recipients unwrap the same file key
     const key1Envelope: KeyEnvelope = {
+      // @ts-expect-error Slice 5: ECIES → HPKE migration
       wrappedKey: result.recipientEnvelopes[0].wrappedKey,
+      // @ts-expect-error Slice 5: ECIES → HPKE migration
       ephemeralPubkey: result.recipientEnvelopes[0].ephemeralPubkey,
     }
     const key2Envelope: KeyEnvelope = {
+      // @ts-expect-error Slice 5: ECIES → HPKE migration
       wrappedKey: result.recipientEnvelopes[1].wrappedKey,
+      // @ts-expect-error Slice 5: ECIES → HPKE migration
       ephemeralPubkey: result.recipientEnvelopes[1].ephemeralPubkey,
     }
     const key1Unwrapped = eciesUnwrapKeyWithSecret(key1Envelope, secretKey, LABEL_FILE_KEY)
@@ -183,9 +196,12 @@ describe('file-crypto envelope', () => {
     const { recipientEnvelopes } = await encryptFile(file, fileId, [publicKeyHex])
     const envelope = recipientEnvelopes[0]
 
+    // @ts-expect-error Slice 5: ECIES envelope v2 → HPKE v3
     expect(envelope.v).toBe(2)
     expect(envelope.labelId).toBe(labelToId(LABEL_FILE_KEY))
+    // @ts-expect-error Slice 5: ECIES → HPKE migration
     expect(typeof envelope.wrappedKey).toBe('string')
+    // @ts-expect-error Slice 5: ECIES → HPKE migration
     expect(typeof envelope.ephemeralPubkey).toBe('string')
     expect(envelope.pubkey).toBe(publicKeyHex)
   })

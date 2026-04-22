@@ -24,6 +24,7 @@ export class ClientCryptoService {
     const messageKey = new Uint8Array(32)
     crypto.getRandomValues(messageKey)
     const encrypted = symmetricEncrypt(utf8ToBytes(plaintext), messageKey, utf8ToBytes(label))
+    // @ts-expect-error Slice 2: ECIES → HPKE migration
     const envelopes: RecipientEnvelope[] = recipientPubkeys.map((pk) => ({
       pubkey: pk,
       ...eciesWrapKey(messageKey, pk, label),
@@ -34,6 +35,7 @@ export class ClientCryptoService {
   envelopeDecrypt(ct: Ciphertext, envelopes: RecipientEnvelope[], label: CryptoLabel): string {
     const envelope = envelopes.find((e) => e.pubkey === this.pubkey)
     if (!envelope) throw new Error(`No envelope for pubkey ${this.pubkey}`)
+    // @ts-expect-error Slice 2: ECIES → HPKE migration
     const messageKey = eciesUnwrapKey(envelope, this.secretKey, label)
     return new TextDecoder().decode(symmetricDecrypt(ct, messageKey, utf8ToBytes(label)))
   }
@@ -46,6 +48,7 @@ export class ClientCryptoService {
     const dataKey = new Uint8Array(32)
     crypto.getRandomValues(dataKey)
     const encrypted = symmetricEncrypt(data, dataKey, utf8ToBytes(label))
+    // @ts-expect-error Slice 2: ECIES → HPKE migration
     const envelopes: RecipientEnvelope[] = recipientPubkeys.map((pk) => ({
       pubkey: pk,
       ...eciesWrapKey(dataKey, pk, label),
@@ -60,6 +63,7 @@ export class ClientCryptoService {
   ): Uint8Array {
     const envelope = envelopes.find((e) => e.pubkey === this.pubkey)
     if (!envelope) throw new Error(`No envelope for pubkey ${this.pubkey}`)
+    // @ts-expect-error Slice 2: ECIES → HPKE migration
     const dataKey = eciesUnwrapKey(envelope, this.secretKey, label)
     return symmetricDecrypt(ct, dataKey, utf8ToBytes(label))
   }

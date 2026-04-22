@@ -179,6 +179,7 @@ describe('Envelope v2 + label mismatch', () => {
   test('decryptEnvelope succeeds with matching label', async () => {
     const raw = eciesWrapKey(new Uint8Array(32).fill(5), pubkey, LABEL_NOTE_KEY)
     const env: Envelope = {
+      // @ts-expect-error Slice 7: ECIES envelope v2 → HPKE v3
       v: 2,
       labelId: labelToId(LABEL_NOTE_KEY),
       wrappedKey: raw.wrappedKey,
@@ -192,6 +193,7 @@ describe('Envelope v2 + label mismatch', () => {
 
   test('decryptEnvelope rejects wrong labelId', async () => {
     const env: Envelope = {
+      // @ts-expect-error Slice 7: ECIES envelope v2 → HPKE v3
       v: 2,
       labelId: labelToId(LABEL_MESSAGE), // wrong registry id
       wrappedKey: 'deadbeef' as Ciphertext,

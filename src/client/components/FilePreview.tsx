@@ -66,7 +66,9 @@ export function FilePreview({ fileId }: FilePreviewProps) {
         const myMetadata = metadataList.find((m) => m.pubkey === myPubkey) || metadataList[0]
         if (myMetadata) {
           decryptedMeta = await decryptFileMetadata(
+            // @ts-expect-error Slice 5: file crypto ECIES → HPKE migration
             myMetadata.encryptedContent,
+            // @ts-expect-error Slice 5: file crypto ECIES → HPKE migration
             myMetadata.ephemeralPubkey
           )
           if (decryptedMeta && mounted) {

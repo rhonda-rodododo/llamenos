@@ -171,6 +171,7 @@ export class CryptoService {
     const messageKey = new Uint8Array(32)
     crypto.getRandomValues(messageKey)
     const encrypted = symmetricEncrypt(utf8ToBytes(plaintext), messageKey, utf8ToBytes(label))
+    // @ts-expect-error Slice 3: server crypto ECIES → HPKE migration
     const envelopes: RecipientEnvelope[] = recipientPubkeys.map((pk) => ({
       pubkey: pk,
       ...eciesWrapKey(messageKey, pk, label),
@@ -184,6 +185,7 @@ export class CryptoService {
     secretKey: Uint8Array,
     label: CryptoLabel
   ): string {
+    // @ts-expect-error Slice 3: server crypto ECIES → HPKE migration
     const messageKey = eciesUnwrapKey(envelope, secretKey, label)
     return new TextDecoder().decode(symmetricDecrypt(ct, messageKey, utf8ToBytes(label)))
   }
@@ -196,6 +198,7 @@ export class CryptoService {
     const dataKey = new Uint8Array(32)
     crypto.getRandomValues(dataKey)
     const encrypted = symmetricEncrypt(data, dataKey, utf8ToBytes(label))
+    // @ts-expect-error Slice 3: server crypto ECIES → HPKE migration
     const envelopes: RecipientEnvelope[] = recipientPubkeys.map((pk) => ({
       pubkey: pk,
       ...eciesWrapKey(dataKey, pk, label),
@@ -209,6 +212,7 @@ export class CryptoService {
     secretKey: Uint8Array,
     label: CryptoLabel
   ): Uint8Array {
+    // @ts-expect-error Slice 3: server crypto ECIES → HPKE migration
     const dataKey = eciesUnwrapKey(envelope, secretKey, label)
     return symmetricDecrypt(ct, dataKey, utf8ToBytes(label))
   }

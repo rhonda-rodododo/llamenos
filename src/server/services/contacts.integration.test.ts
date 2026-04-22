@@ -84,6 +84,7 @@ describe('ContactService', () => {
       identifierHash: idHash,
       encryptedDisplayName: fakeCiphertext('enc-display-2'),
       displayNameEnvelopes: [
+        // @ts-expect-error Slice 2: ECIES → HPKE migration
         { pubkey: 'admin-pk', wrappedKey: fakeCiphertext('wk'), ephemeralPubkey: 'epk' },
       ],
       encryptedFullName: fakeCiphertext('enc-fullname'),
@@ -188,6 +189,7 @@ describe('ContactService', () => {
       tags: ['updated-tag'],
       encryptedDisplayName: fakeCiphertext('new-display'),
       displayNameEnvelopes: [
+        // @ts-expect-error Slice 2: ECIES → HPKE migration
         { pubkey: 'pk2', wrappedKey: fakeCiphertext('wk2'), ephemeralPubkey: 'epk2' },
       ],
     })
@@ -259,6 +261,7 @@ describe('ContactService', () => {
       hubId: hub,
       encryptedPayload: fakeCiphertext('enc-rel-payload'),
       payloadEnvelopes: [
+        // @ts-expect-error Slice 2: ECIES → HPKE migration
         { pubkey: 'pk-a', wrappedKey: fakeCiphertext('wk'), ephemeralPubkey: 'epk' },
       ],
       createdBy: 'pk-a',

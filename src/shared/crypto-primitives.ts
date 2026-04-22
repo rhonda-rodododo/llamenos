@@ -280,6 +280,7 @@ export async function decryptEnvelope(
   ) => Promise<Uint8Array>,
   expectedLabel: CryptoLabel
 ): Promise<Uint8Array> {
+  // @ts-expect-error Slice 7: ECIES envelope v2 → HPKE v3
   if (env.v !== 2) {
     throw new CryptoLabelMismatchError(`Envelope version ${env.v as number} not supported`)
   }
@@ -287,5 +288,6 @@ export async function decryptEnvelope(
   if (actualLabel !== expectedLabel) {
     throw new CryptoLabelMismatchError({ expected: expectedLabel, actual: actualLabel })
   }
+  // @ts-expect-error Slice 7: ECIES → HPKE migration
   return unwrapSecret(env.ephemeralPubkey, env.wrappedKey, expectedLabel)
 }

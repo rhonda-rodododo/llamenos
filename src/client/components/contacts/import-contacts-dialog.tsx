@@ -179,6 +179,7 @@ async function envelopeEncrypt(
   )
   return {
     encrypted: encryptedHex as Ciphertext,
+    // @ts-expect-error Slice 2: ECIES → HPKE migration
     envelopes: envelopes.map((e) => ({
       pubkey: e.recipientPubkey,
       wrappedKey: e.wrappedKeyHex as Ciphertext,
