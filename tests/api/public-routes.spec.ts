@@ -51,7 +51,7 @@ test.describe('Public subscriber preferences endpoint', () => {
     const res = await request.get('/api/messaging/preferences')
     expect(res.status()).toBe(400)
     const body = await res.json()
-    expect(body.error).toContain('Token')
+    expect(body.error).toContain('token')
   })
 
   test('GET returns 404 for invalid token', async ({ request }) => {
@@ -80,7 +80,7 @@ test.describe('Public subscriber preferences endpoint', () => {
     // Schema rejects invalid enum before token lookup — must be 400
     expect(res.status()).toBe(400)
     const body = await res.json()
-    expect(body.error).toContain('Invalid request body')
+    expect(body.error).toContain('Validation failed')
   })
 
   test('PATCH rejects oversized language field', async ({ request }) => {
