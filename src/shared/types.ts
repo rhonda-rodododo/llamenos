@@ -67,23 +67,6 @@ export interface DeviceKeypair {
   isPaperKey: boolean
 }
 
-interface DeviceMetadata {
-  deviceId: string
-  signingPubkey: string // hex
-  encryptionPubkey: string // hex
-  encryptedDisplayName: string
-  addedByDeviceId: string | null
-  revokedAt: string | null
-  createdAt: string
-  lastSeenAt: string
-}
-
-interface PukState {
-  generation: number
-  signPubkey: string // hex
-  dhPubkey: string // hex
-}
-
 // --- Versioned ECIES Key Envelope ---
 
 /**
@@ -262,21 +245,6 @@ export interface RelationshipPayload {
   toContactId: string
   relationship: string
   isEmergency: boolean
-}
-
-/** Contact summary fields (Tier 1 — all members with contacts:envelope-summary) */
-interface ContactSummary {
-  displayName: string
-  notes: string
-  languages: string[]
-}
-
-/** Contact PII fields (Tier 2 — per-field encrypted for contacts:envelope-full) */
-interface ContactPIIBlob {
-  emailAddresses: string[]
-  address: string
-  dateOfBirth: string
-  identifiers: { label: string; value: string }[]
 }
 
 /** Custom field definition — uses branded Ciphertext for encrypted fields.
@@ -610,11 +578,6 @@ export interface GdprErasureRequest {
 // --- Hub Types (re-exported from schema) ---
 
 export type { Hub } from '@shared/schemas/settings'
-
-interface HubRoleAssignment {
-  hubId: string
-  roleIds: string[]
-}
 
 // --- Provider OAuth Auto-Config Types (Epic 48) ---
 
