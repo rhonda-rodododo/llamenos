@@ -84,6 +84,7 @@ export async function listConversations(params?: {
   }>(hp(`/conversations?${qs}`))
 }
 
+/** @knipignore — conversation detail API scaffolding for future conversation detail view */
 export async function getConversation(id: string) {
   return request<Conversation>(hp(`/conversations/${id}`))
 }
@@ -155,6 +156,7 @@ export async function updateConversation(
   })
 }
 
+/** @knipignore — conversation stats API scaffolding for future admin dashboard widgets */
 export async function getConversationStats() {
   return request<{ waiting: number; active: number; closed: number; today: number; total: number }>(
     hp('/conversations/stats')

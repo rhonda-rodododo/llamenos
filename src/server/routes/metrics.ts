@@ -22,7 +22,11 @@ const startTime = Date.now()
 /** Path to the backup status JSON written by the backup cron job */
 const BACKUP_STATUS_PATH = '/var/data/backup-status.json'
 
-/** Increment a counter metric */
+/**
+ * Increment a counter metric.
+ *
+ * @knipignore — metrics utility; used by future metrics-instrumented route handlers
+ */
 export function incCounter(name: string, labels?: Record<string, string>): void {
   const key = labels
     ? `${name}{${Object.entries(labels)
@@ -32,7 +36,11 @@ export function incCounter(name: string, labels?: Record<string, string>): void 
   counters[key] = (counters[key] || 0) + 1
 }
 
-/** Record a histogram observation (in seconds) */
+/**
+ * Record a histogram observation (in seconds).
+ *
+ * @knipignore — metrics utility; used by middleware and future latency-instrumented handlers
+ */
 export function observeHistogram(
   name: string,
   value: number,

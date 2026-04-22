@@ -7782,5 +7782,6 @@ export const EFF_LARGE_WORDLIST = [
   'zoom',
 ] as const
 
+/** @knipignore — wordlist integrity hash; used by wordlist verification utilities */
 export const EFF_LARGE_WORDLIST_SHA256 =
   'addd35536511597a02fa0a9ff1e5284677b8883b83e986e43f15a3db996b903e' as const

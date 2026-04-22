@@ -66,6 +66,7 @@ export async function splitRecoveryGroupSecret(
   return raw as ShamirShare[]
 }
 
+/** @knipignore — recovery group share combination; used by recovery completion flow (not yet built) */
 export async function combineRecoveryGroupShares(shares: Uint8Array[]): Promise<Uint8Array> {
   if (shares.length < 2) {
     throw new Error(`combine requires at least 2 shares, got ${shares.length}`)

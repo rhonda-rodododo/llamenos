@@ -97,6 +97,7 @@ function stopTitleFlash() {
 
 // --- Browser Notifications ---
 
+/** @knipignore — notification permission scaffolding; called from notification settings UI (not yet built) */
 export async function requestPermission(): Promise<boolean> {
   if (!('Notification' in window)) return false
   if (Notification.permission === 'granted') return true

@@ -4,6 +4,7 @@ import { API_BASE, ApiError, request } from './client'
 
 // --- Auth ---
 
+/** @knipignore */
 export async function login(pubkey: string, timestamp: number, token: string) {
   return request<{ ok: true; roles: string[] }>('/auth/login', {
     method: 'POST',

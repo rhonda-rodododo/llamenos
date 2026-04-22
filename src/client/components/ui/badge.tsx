@@ -43,4 +43,6 @@ function Badge({
   )
 }
 
-export { Badge, badgeVariants }
+export { Badge }
+/** @knipignore — shadcn component API; badgeVariants exported for consumer variant customization */
+export { badgeVariants }

@@ -76,7 +76,11 @@ export function cacheNotePlaintext(noteId: string, payload: NotePayload): void {
   selfAuthoredPlaintextCache.set(noteId, payload)
 }
 
-/** Clear a cached plaintext (e.g. when note is deleted). */
+/**
+ * Clear a cached plaintext (e.g. when note is deleted).
+ *
+ * @knipignore — called by note deletion handler once delete-note UI is wired up
+ */
 export function clearCachedPlaintext(noteId: string): void {
   selfAuthoredPlaintextCache.delete(noteId)
 }
@@ -242,6 +246,7 @@ export function useNoteDetail(noteId: string) {
 // customFieldsOptions
 // ---------------------------------------------------------------------------
 
+/** @knipignore — query options factory; used by custom-fields-aware note form (not yet wired) */
 export const customFieldsOptions = (hubId = 'global') =>
   queryOptions({
     queryKey: queryKeys.settings.customFields(),

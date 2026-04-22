@@ -23,6 +23,7 @@ export function uint8ArrayToBase64URL(bytes: Uint8Array): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
+/** @knipignore — IVR audio URL map builder; used by telephony adapters during call routing */
 export async function buildAudioUrlMap(
   settings: { fetch(req: Request): Promise<Response> },
   origin: string
@@ -43,6 +44,7 @@ export function telephonyResponse(response: { contentType: string; body: string 
   return new Response(response.body, { headers: { 'Content-Type': response.contentType } })
 }
 
+/** @knipignore — rate limit check utility; used by call routing and webhook handlers */
 export async function checkRateLimit(
   settings: { fetch(req: Request): Promise<Response> },
   key: string,

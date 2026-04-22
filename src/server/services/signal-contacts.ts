@@ -7,6 +7,7 @@ import type { RecipientEnvelope } from '../../shared/types'
 import type { Database } from '../db'
 import { type UserSignalContactRow, userSignalContacts } from '../db/schema/signal-contacts'
 
+/** @knipignore — Signal identifier normalizer re-export; used by integration tests and future contact linking */
 export { normalizeSignalIdentifier } from '../../shared/signal-identifier-normalize'
 
 export function hashSignalIdentifier(normalized: string, secret: string): string {
@@ -14,6 +15,7 @@ export function hashSignalIdentifier(normalized: string, secret: string): string
   return bytesToHex(mac)
 }
 
+/** @knipignore — per-user HMAC key derivation; used by contact hashing utilities and integration tests */
 export function derivePerUserHmacKey(serverHmacSecret: string, userPubkey: string): string {
   const userKey = hmac(
     sha256,

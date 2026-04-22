@@ -158,6 +158,7 @@ async function resolveUserPermissions(
 // Used by login-verify, invite-accept, and dev bootstrap.
 // ---------------------------------------------------------------------------
 
+/** @knipignore — session creation params interface; used by internal route handlers and tests */
 export interface CreateSessionParams {
   pubkey: string
   credentialId: string | null
@@ -1412,4 +1413,6 @@ authFacade.route('/recovery-group', recoveryGroupRoutes)
 export default authFacade
 
 // Export for testing
-export { type AuthFacadeEnv, isRateLimited, rateLimitStore }
+export { type AuthFacadeEnv, rateLimitStore }
+/** @knipignore — exported for API test suite rate-limit testing */
+export { isRateLimited }

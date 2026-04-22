@@ -10,6 +10,8 @@ const SIGNAL_CODE_PATTERN = /Your Signal code: (\d{6})/
 /**
  * Check if an SMS body is a Signal verification code message.
  * No side effects — purely a pattern match.
+ *
+ * @knipignore — Signal verification SMS detector; used by inbound SMS handler (not yet wired)
  */
 export function isSignalVerificationSMS(body: string): boolean {
   return SIGNAL_VERIFICATION_PATTERN.test(body)
@@ -18,6 +20,8 @@ export function isSignalVerificationSMS(body: string): boolean {
 /**
  * Extract the 6-digit verification code from a Signal verification SMS.
  * Throws if no match — caller should guard with `isSignalVerificationSMS` first.
+ *
+ * @knipignore — Signal code extractor; used together with isSignalVerificationSMS by inbound handler
  */
 export function extractSignalCode(body: string): string {
   const match = body.match(SIGNAL_CODE_PATTERN)
