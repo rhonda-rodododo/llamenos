@@ -1,4 +1,4 @@
-import { type Page, expect, test } from '../fixtures/auth'
+import { expect, type Page, test } from '../fixtures/auth'
 import { navigateAfterLogin } from '../helpers'
 
 declare global {
@@ -142,15 +142,15 @@ test.describe('File Custom Field', () => {
             contextType: 'custom_field',
             recipientEnvelopes: [
               {
-                v: 2,
+                v: 3,
                 labelId: 0,
+                enc: 'dGVzdC1lbmNhcHN1bGF0ZWQta2V5',
+                ct: 'dGVzdC1jaXBoZXJ0ZXh0',
                 pubkey: adminPubkey,
-                wrappedKey: 'test-key',
-                ephemeralPubkey: 'test-ephem',
               },
             ],
             encryptedMetadata: [
-              { pubkey: adminPubkey, encryptedContent: 'test-meta', ephemeralPubkey: 'test-ephem' },
+              { v: 3, labelId: 0, enc: 'dGVzdC1lbmM', ct: 'dGVzdC1tZXRh', pubkey: adminPubkey },
             ],
           }),
         })
@@ -211,10 +211,10 @@ test.describe('File Custom Field', () => {
             totalChunks: 2,
             conversationId,
             recipientEnvelopes: [
-              { v: 2, labelId: 0, pubkey: adminPubkey, wrappedKey: 'k', ephemeralPubkey: 'e' },
+              { v: 3, labelId: 0, enc: 'dGVzdC1lbmM', ct: 'dGVzdC1jdA', pubkey: adminPubkey },
             ],
             encryptedMetadata: [
-              { pubkey: adminPubkey, encryptedContent: 'm', ephemeralPubkey: 'e' },
+              { v: 3, labelId: 0, enc: 'dGVzdC1lbmM', ct: 'dGVzdC1tZXRh', pubkey: adminPubkey },
             ],
           }),
         })
@@ -272,9 +272,11 @@ test.describe('File Custom Field', () => {
           conversationId: '',
           contextType: 'custom_field',
           recipientEnvelopes: [
-            { v: 2, labelId: 0, pubkey: adminPubkey, wrappedKey: 'k', ephemeralPubkey: 'e' },
+            { v: 3, labelId: 0, enc: 'dGVzdC1lbmM', ct: 'dGVzdC1jdA', pubkey: adminPubkey },
           ],
-          encryptedMetadata: [{ pubkey: adminPubkey, encryptedContent: 'm', ephemeralPubkey: 'e' }],
+          encryptedMetadata: [
+            { v: 3, labelId: 0, enc: 'dGVzdC1lbmM', ct: 'dGVzdC1tZXRh', pubkey: adminPubkey },
+          ],
         }),
       })
       return { status: res.status, body: await res.json() }

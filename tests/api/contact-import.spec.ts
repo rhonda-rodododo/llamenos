@@ -13,9 +13,11 @@ import { createAuthedRequestFromNsec } from '../helpers/authed-request'
 
 const stubCiphertext = 'aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899'
 const stubEnvelope = {
+  v: 3 as const,
+  labelId: 0,
+  enc: 'dGVzdC1lbmNhcHN1bGF0ZWQta2V5',
+  ct: 'dGVzdC1jaXBoZXJ0ZXh0',
   pubkey: 'aabb0000aabb0000',
-  wrappedKey: 'deadbeefdeadbeef',
-  ephemeralPubkey: 'cafe0000cafe0000',
 }
 
 test.describe('Contact Import & Merge — API', () => {
