@@ -1,5 +1,5 @@
-import { PlivoConfigSchema } from '@shared/schemas/providers'
 import type { PlivoConfig } from '@shared/schemas/providers'
+import { PlivoConfigSchema } from '@shared/schemas/providers'
 import type {
   AutoConfigResult,
   ConnectionTestResult,

@@ -48,6 +48,7 @@ export function ActiveCallBadge({ state }: ActiveCallBadgeProps) {
   const label = t(STATE_TO_KEY[state])
   return (
     <div
+      role="img"
       data-testid="call-e2ee-badge"
       data-badge-state={state}
       aria-label={label}

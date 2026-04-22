@@ -1,3 +1,7 @@
+import { Loader2, Mail, MessageSquare, Phone, Send, Star } from 'lucide-react'
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -13,10 +17,6 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import type { ContactNotification, NotifyResult } from '@/lib/api'
 import { notifyContacts } from '@/lib/api'
-import { Loader2, Mail, MessageSquare, Phone, Send, Star } from 'lucide-react'
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 
 /** A channel entry from the decrypted PII blob */
 export interface ContactChannel {

@@ -4,9 +4,9 @@ import type { AuthEventsService } from './auth-events'
 import type { SecurityPrefsService } from './security-prefs'
 import type { SignalContactsService } from './signal-contacts'
 import {
-  UserNotificationsService,
   formatDisappearingTimerSeconds,
   renderAlertMessage,
+  UserNotificationsService,
 } from './user-notifications'
 
 describe('user-notifications formatters', () => {

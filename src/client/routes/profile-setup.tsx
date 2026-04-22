@@ -1,3 +1,8 @@
+import { LANGUAGES } from '@shared/languages'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { ArrowRight, Check, Globe, Languages } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { LogoMark } from '@/components/logo-mark'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -5,11 +10,6 @@ import { updateMyProfile } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { setLanguage } from '@/lib/i18n'
 import { useToast } from '@/lib/toast'
-import { LANGUAGES } from '@shared/languages'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { ArrowRight, Check, Globe, Languages } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 export const Route = createFileRoute('/profile-setup')({
   component: ProfileSetupPage,

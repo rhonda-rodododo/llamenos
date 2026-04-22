@@ -1,7 +1,7 @@
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { FileText, MessageSquare, Phone } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 type TimelineEntry =
   | { kind: 'call'; id: string; timestamp: string; data: Record<string, unknown> }

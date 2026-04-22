@@ -69,7 +69,7 @@ export async function uploadEncryptedFile(
  * Bind a completed upload to a parent record (note, report, etc.).
  * Called after the parent record is saved and its ID is known.
  */
-async function bindFileContext(
+async function _bindFileContext(
   fileId: string,
   contextType: 'note' | 'report' | 'custom_field',
   contextId: string
@@ -87,7 +87,7 @@ interface DownloadedFile {
  * Download and decrypt a file given the caller's secret key.
  * Fetches envelopes, unwraps the file key, fetches metadata, then fetches and decrypts content.
  */
-async function downloadAndDecryptFile(
+async function _downloadAndDecryptFile(
   fileId: string,
   callerPubkey: string
 ): Promise<DownloadedFile> {
@@ -138,7 +138,7 @@ async function downloadAndDecryptFile(
  * Trigger a browser download of a decrypted file.
  * Creates a temporary object URL and clicks it.
  */
-function triggerBrowserDownload(blob: Blob, filename: string): void {
+function _triggerBrowserDownload(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url

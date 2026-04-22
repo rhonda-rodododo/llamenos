@@ -1,18 +1,18 @@
-import { ConsentGate } from '@/components/consent-gate'
-import { createDebugLog } from '@/lib/debug-log'
-import { decryptObjectFields, resetMismatchFired, setOnDecryptMismatch } from '@/lib/decrypt-fields'
-import { getDeviceKeypair } from '@/lib/device-identity-store'
 import { permissionGranted } from '@shared/permissions'
 import type { DeviceKeypair } from '@shared/types'
 import {
-  type ReactNode,
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
   useRef,
   useState,
 } from 'react'
+import { ConsentGate } from '@/components/consent-gate'
+import { createDebugLog } from '@/lib/debug-log'
+import { decryptObjectFields, resetMismatchFired, setOnDecryptMismatch } from '@/lib/decrypt-fields'
+import { getDeviceKeypair } from '@/lib/device-identity-store'
 import {
   logout as apiLogout,
   getMe,
@@ -350,7 +350,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
     }, TOKEN_REFRESH_INTERVAL_MS)
     return () => clearInterval(interval)
-  }, [state.publicKey]) // re-establish when auth state changes
+  }, []) // re-establish when auth state changes
 
   // Sign in with nsec (admin bootstrap / recovery only)
   // NOTE: This flow is kept for admin bootstrap. It does NOT use the facade

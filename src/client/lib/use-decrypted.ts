@@ -15,7 +15,7 @@ import * as keyManager from './key-manager'
  * Decrypt encrypted fields on a single object.
  * Returns the input immediately, then re-renders with decrypted values.
  */
-function useDecryptedObject<T extends object>(
+function _useDecryptedObject<T extends object>(
   data: T | null,
   label: CryptoLabel = LABEL_USER_PII
 ): T | null {

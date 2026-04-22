@@ -147,7 +147,7 @@ function formatMetrics(): string {
 // Note: Returns text/plain (Prometheus exposition format), not JSON.
 // Kept as standard Hono route since OpenAPI expects JSON responses.
 
-metrics.get('/', (c) => {
+metrics.get('/', (_c) => {
   return new Response(formatMetrics(), {
     headers: { 'Content-Type': 'text/plain; version=0.0.4; charset=utf-8' },
   })

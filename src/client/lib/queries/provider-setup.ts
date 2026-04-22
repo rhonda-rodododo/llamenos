@@ -4,14 +4,15 @@
  * provisioning, and webhook configuration.
  */
 
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   type A2PBrandInput,
   type A2PCampaignInput,
-  type ProviderCredentials,
   configureProviderWebhooks,
   getA2PStatus,
   getWebhookUrls,
   listProviderPhoneNumbers,
+  type ProviderCredentials,
   provisionPhoneNumber,
   searchAvailablePhoneNumbers,
   skipA2P,
@@ -20,7 +21,6 @@ import {
   submitA2PCampaign,
   validateProviderCredentials,
 } from '@/lib/api'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from './keys'
 
 // ---------------------------------------------------------------------------

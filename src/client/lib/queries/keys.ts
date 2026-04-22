@@ -103,12 +103,8 @@ export const queryKeys = {
 
   reports: {
     all: ['reports'] as const,
-    list: (filters?: {
-      status?: string
-      category?: string
-      page?: number
-      limit?: number
-    }) => ['reports', 'list', filters ?? {}] as const,
+    list: (filters?: { status?: string; category?: string; page?: number; limit?: number }) =>
+      ['reports', 'list', filters ?? {}] as const,
     detail: (id: string) => ['reports', 'detail', id] as const,
     messages: (reportId: string) => ['reports', 'messages', reportId] as const,
   },
@@ -123,12 +119,8 @@ export const queryKeys = {
 
   conversations: {
     all: ['conversations'] as const,
-    list: (filters?: {
-      status?: string
-      channel?: string
-      page?: number
-      limit?: number
-    }) => ['conversations', 'list', filters ?? {}] as const,
+    list: (filters?: { status?: string; channel?: string; page?: number; limit?: number }) =>
+      ['conversations', 'list', filters ?? {}] as const,
     messages: (conversationId: string) => ['conversations', 'messages', conversationId] as const,
     loads: () => ['conversations', 'loads'] as const,
   },

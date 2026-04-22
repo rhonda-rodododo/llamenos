@@ -31,9 +31,7 @@ function validateWhisperUrl(url: string): void {
   }
 }
 
-export function createTranscriptionService(opts?: {
-  whisperUrl?: string
-}): TranscriptionService {
+export function createTranscriptionService(opts?: { whisperUrl?: string }): TranscriptionService {
   const whisperUrl =
     opts?.whisperUrl || process.env.WHISPER_URL || 'http://localhost:8080/v1/audio/transcriptions'
   validateWhisperUrl(whisperUrl)

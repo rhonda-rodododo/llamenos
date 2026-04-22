@@ -1,9 +1,9 @@
-import { Button } from '@/components/ui/button'
-import type { CustomFieldDefinition } from '@/lib/api'
 import type { FileFieldValue } from '@shared/types'
 import { Save, X } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Button } from '@/components/ui/button'
+import type { CustomFieldDefinition } from '@/lib/api'
 import { CustomFieldInputs } from './custom-field-inputs'
 
 type FieldValue = string | string[] | number | boolean | FileFieldValue

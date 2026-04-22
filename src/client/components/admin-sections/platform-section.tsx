@@ -1,5 +1,5 @@
-import { SectionBanner, SectionBody, SectionDescription } from '@/components/section-layout'
 import { useTranslation } from 'react-i18next'
+import { SectionBanner, SectionBody, SectionDescription } from '@/components/section-layout'
 
 /**
  * Super-admin-only placeholder section for future platform-wide settings.

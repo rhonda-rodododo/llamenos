@@ -1,3 +1,28 @@
+import { LANGUAGES } from '@shared/languages'
+import { createFileRoute, useSearch } from '@tanstack/react-router'
+import {
+  Bell,
+  CheckCircle2,
+  Fingerprint,
+  Globe,
+  KeyRound,
+  Loader2,
+  MessageSquare,
+  Mic,
+  Monitor,
+  Phone,
+  PhoneCall,
+  Plus,
+  Radio,
+  Settings2,
+  ShieldCheck,
+  Smartphone,
+  Trash2,
+  User,
+} from 'lucide-react'
+import { nip19 } from 'nostr-tools'
+import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { PhoneInput } from '@/components/phone-input'
 import { SettingsSection, usePersistedExpanded } from '@/components/settings-section'
 import { Badge } from '@/components/ui/badge'
@@ -32,38 +57,13 @@ import {
 import { useWebAuthnCreds } from '@/lib/queries/settings'
 import { useToast } from '@/lib/toast'
 import {
-  TranscriptionManager,
-  type TranscriptionModel,
   getClientTranscriptionSettings,
   setClientTranscriptionSettings,
+  TranscriptionManager,
+  type TranscriptionModel,
 } from '@/lib/transcription'
 import { useNotificationPermission } from '@/lib/use-notification-permission'
 import { deleteCredential, isWebAuthnAvailable, registerCredential } from '@/lib/webauthn'
-import { LANGUAGES } from '@shared/languages'
-import { createFileRoute, useSearch } from '@tanstack/react-router'
-import {
-  Bell,
-  CheckCircle2,
-  Fingerprint,
-  Globe,
-  KeyRound,
-  Loader2,
-  MessageSquare,
-  Mic,
-  Monitor,
-  Phone,
-  PhoneCall,
-  Plus,
-  Radio,
-  Settings2,
-  ShieldCheck,
-  Smartphone,
-  Trash2,
-  User,
-} from 'lucide-react'
-import { nip19 } from 'nostr-tools'
-import { useEffect, useRef, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 const log = createDebugLog('llamenos:settings')
 
@@ -145,7 +145,7 @@ function SettingsPage() {
     Promise.all(promises)
       .catch(() => toast(t('common.error'), 'error'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [toast, t])
 
   // Scroll to deep-linked section after loading
   useEffect(() => {
@@ -463,7 +463,9 @@ function SettingsPage() {
                 if (option.value === 'browser' || option.value === 'both') {
                   try {
                     const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-                    stream.getTracks().forEach((t) => t.stop())
+                    stream.getTracks().forEach((t) => {
+                      t.stop()
+                    })
                   } catch {
                     // Still allow the preference change — just-in-time check at answer time will catch it
                     toast(t('settings.micPermissionRequired'), 'info')

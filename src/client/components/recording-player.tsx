@@ -1,9 +1,9 @@
-import { Button } from '@/components/ui/button'
-import { getCallRecording } from '@/lib/api'
-import { TranscriptionManager, getClientTranscriptionSettings } from '@/lib/transcription'
 import { AlertCircle, FileText, Loader2, Pause, Play, ShieldCheck } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Button } from '@/components/ui/button'
+import { getCallRecording } from '@/lib/api'
+import { getClientTranscriptionSettings, TranscriptionManager } from '@/lib/transcription'
 
 interface RecordingPlayerProps {
   callId: string

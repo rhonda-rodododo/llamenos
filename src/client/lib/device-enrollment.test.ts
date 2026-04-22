@@ -1,12 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import { beforeEach, describe, expect, it } from 'bun:test'
 import {
+  computeEnrollmentSAS,
+  decodeEnrollmentQr,
   type EnrollmentQrPayload,
+  encodeEnrollmentQr,
   InvalidTransitionError,
   NewDeviceEnrollmentMachine,
   PrimaryDeviceEnrollmentMachine,
-  computeEnrollmentSAS,
-  decodeEnrollmentQr,
-  encodeEnrollmentQr,
 } from './device-enrollment'
 
 // Deterministic test data

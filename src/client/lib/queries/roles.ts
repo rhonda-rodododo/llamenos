@@ -6,19 +6,19 @@
  * roles rarely change.
  */
 
+import type { Ciphertext } from '@shared/crypto-types'
+import { DEFAULT_ROLE_I18N_KEYS } from '@shared/permissions'
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  type RoleDefinition,
   createRole,
   deleteRole,
   getPermissionsCatalog,
   listRoles,
+  type RoleDefinition,
   updateRole,
 } from '@/lib/api'
 import { decryptHubField } from '@/lib/hub-field-crypto'
 import i18n from '@/lib/i18n'
-import type { Ciphertext } from '@shared/crypto-types'
-import { DEFAULT_ROLE_I18N_KEYS } from '@shared/permissions'
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from './keys'
 
 // ---------------------------------------------------------------------------

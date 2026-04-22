@@ -1,9 +1,9 @@
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { SectionBody, SectionDescription, SectionField } from '@/components/section-layout'
 import { Input } from '@/components/ui/input'
 import { useRetentionSettings, useUpdateRetentionSettings } from '@/lib/queries/settings'
 import { useToast } from '@/lib/toast'
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 export function RetentionSection() {
   const { t } = useTranslation()
@@ -13,7 +13,7 @@ export function RetentionSection() {
   const [showSaved, setShowSaved] = useState(false)
 
   function save(field: string, raw: string) {
-    const val = Number.parseInt(raw)
+    const val = Number.parseInt(raw, 10)
     if (!Number.isFinite(val) || val < 1) return
     saveMutation.mutate(
       { [field]: val },

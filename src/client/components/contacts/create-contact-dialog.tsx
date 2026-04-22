@@ -1,3 +1,10 @@
+import { utf8ToBytes } from '@noble/ciphers/utils.js'
+import { type CryptoLabel, LABEL_CONTACT_PII, LABEL_CONTACT_SUMMARY } from '@shared/crypto-labels'
+import type { Ciphertext, HmacHash } from '@shared/crypto-types'
+import type { RecipientEnvelope } from '@shared/types'
+import { AlertTriangle, Loader2, Lock } from 'lucide-react'
+import { useCallback, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { PhoneInput } from '@/components/phone-input'
 import { TagInput } from '@/components/tag-input'
 import { Button } from '@/components/ui/button'
@@ -29,13 +36,6 @@ import { cryptoWorker } from '@/lib/crypto-worker-client'
 import * as keyManager from '@/lib/key-manager'
 import { useCreateContact } from '@/lib/queries/contacts'
 import { useToast } from '@/lib/toast'
-import { utf8ToBytes } from '@noble/ciphers/utils.js'
-import { type CryptoLabel, LABEL_CONTACT_PII, LABEL_CONTACT_SUMMARY } from '@shared/crypto-labels'
-import type { Ciphertext, HmacHash } from '@shared/crypto-types'
-import type { RecipientEnvelope } from '@shared/types'
-import { AlertTriangle, Loader2, Lock } from 'lucide-react'
-import { useCallback, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 /**
  * Envelope-encrypt plaintext for multiple recipients via the crypto worker.
@@ -366,7 +366,7 @@ export function CreateContactDialog({ open, onOpenChange, onCreated }: Props) {
                   placeholder={t('contacts.placeholders.phone', '+1 555 000 0000')}
                 />
                 {/* Dedup check happens on blur via the wrapper div */}
-                <div onBlur={handlePhoneBlur}>
+                <div onBlur={handlePhoneBlur} tabIndex={-1} role="presentation">
                   {checkingDup && (
                     <p className="flex items-center gap-1 text-xs text-muted-foreground">
                       <Loader2 className="size-3 animate-spin" />

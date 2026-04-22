@@ -1,6 +1,6 @@
-import { Progress } from '@/components/ui/progress'
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { Progress } from '@/components/ui/progress'
 
 interface UploadProgressProps {
   completedChunks: number

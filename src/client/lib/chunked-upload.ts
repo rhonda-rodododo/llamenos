@@ -62,7 +62,7 @@ export async function chunkedUpload(options: ChunkedUploadOptions): Promise<Uplo
  * Resume a partially completed upload.
  * Checks which chunks are already uploaded and continues from there.
  */
-async function resumeUpload(
+async function _resumeUpload(
   uploadId: string,
   encryptedContent: Uint8Array,
   chunkSize: number = DEFAULT_CHUNK_SIZE,

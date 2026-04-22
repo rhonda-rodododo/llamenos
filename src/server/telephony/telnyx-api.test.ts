@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, mock, test } from 'bun:test'
 import type { Mock } from 'bun:test'
+import { afterEach, describe, expect, mock, test } from 'bun:test'
 import { TelnyxCallControlClient } from './telnyx-api'
 
 const TEST_API_KEY = 'KEY_test_abc123'

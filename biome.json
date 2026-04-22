@@ -1,8 +1,6 @@
 {
-  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
-  "organizeImports": {
-    "enabled": true
-  },
+  "$schema": "https://biomejs.dev/schemas/2.4.10/schema.json",
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
   "linter": {
     "enabled": true,
     "rules": {
@@ -16,7 +14,8 @@
         "noNonNullAssertion": "warn"
       },
       "correctness": {
-        "useExhaustiveDependencies": "warn"
+        "useExhaustiveDependencies": "warn",
+        "useHookAtTopLevel": "warn"
       },
       "a11y": {
         "useButtonType": "warn",
@@ -27,7 +26,8 @@
         "useAriaPropsForRole": "warn",
         "noSvgWithoutTitle": "warn",
         "noAutofocus": "warn",
-        "useMediaCaption": "warn"
+        "useMediaCaption": "warn",
+        "noStaticElementInteractions": "warn"
       },
       "complexity": {
         "noForEach": "warn"
@@ -48,22 +48,29 @@
     }
   },
   "files": {
-    "ignore": [
-      "node_modules",
-      "dist",
-      "site",
-      "vendor",
-      "*.config.ts",
-      "*.config.js",
-      "*.config.mjs",
-      "public",
-      ".claude",
-      "src/client/routeTree.gen.ts"
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/dist",
+      "!**/site",
+      "!**/vendor",
+      "!**/*.config.ts",
+      "!**/*.config.js",
+      "!**/*.config.mjs",
+      "!**/public",
+      "!**/.claude",
+      "!**/src/client/routeTree.gen.ts",
+      "!**/*.css"
     ]
   },
   "overrides": [
     {
-      "include": ["src/client/lib/debug-log.ts", "tests/**", "sip-bridge/**", "scripts/**"],
+      "includes": [
+        "**/src/client/lib/debug-log.ts",
+        "**/tests/**",
+        "**/sip-bridge/**",
+        "**/scripts/**"
+      ],
       "linter": {
         "rules": {
           "suspicious": {
@@ -73,7 +80,12 @@
       }
     },
     {
-      "include": ["src/**/crypto*.ts", "src/**/hub-*.ts", "src/**/file-*.ts", "src/**/envelope-*.ts"],
+      "includes": [
+        "**/src/**/crypto*.ts",
+        "**/src/**/hub-*.ts",
+        "**/src/**/file-*.ts",
+        "**/src/**/envelope-*.ts"
+      ],
       "linter": {
         "rules": {
           "suspicious": {

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { afterEach, describe, expect, test } from 'bun:test'
 import { installTrustedTypesPolicy } from './trusted-types-policy'
 
 describe('installTrustedTypesPolicy', () => {

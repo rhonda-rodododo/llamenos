@@ -67,7 +67,7 @@ describe('verifyAccessToken', () => {
     expect(typeof payload.iat).toBe('number')
     expect(typeof payload.exp).toBe('number')
     expect(typeof payload.jti).toBe('string')
-    expect(payload.jti!.length).toBeGreaterThan(0)
+    expect(payload.jti?.length).toBeGreaterThan(0)
   })
 
   test('iat is close to current time', async () => {

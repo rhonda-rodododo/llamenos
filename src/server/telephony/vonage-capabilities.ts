@@ -1,5 +1,5 @@
-import { VonageConfigSchema } from '@shared/schemas/providers'
 import type { VonageConfig } from '@shared/schemas/providers'
+import { VonageConfigSchema } from '@shared/schemas/providers'
 import type {
   AutoConfigResult,
   ConnectionTestResult,

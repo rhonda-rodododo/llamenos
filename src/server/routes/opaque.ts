@@ -52,9 +52,9 @@ import { getDb } from '../db'
 import { userOpaqueRecords } from '../db/schema/opaque'
 import { createLogger } from '../lib/logger'
 import {
-  LoginStateCacheFullError,
   consumeLoginState,
   createLoginState,
+  LoginStateCacheFullError,
 } from '../lib/login-state-cache'
 import { opaqueServer } from '../lib/opaque-server'
 import { getOrCreateServerSetup } from '../lib/opaque-server-setup'

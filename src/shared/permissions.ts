@@ -872,7 +872,7 @@ export function getPrimaryRole(roleIds: string[], roles: Role[]): Role | undefin
  * Super-admin (global '*' permission) bypasses hub checks.
  * Otherwise, checks hub-specific role assignments.
  */
-function hasHubPermission(
+function _hasHubPermission(
   globalRoles: string[],
   hubRoles: { hubId: string; roleIds: string[] }[],
   allRoleDefs: Role[],
@@ -920,7 +920,7 @@ export function resolveHubPermissions(
  * Get all hub IDs a user has access to (any role assignment).
  * Super-admin has access to all hubs (returns null = all).
  */
-function getUserHubIds(
+function _getUserHubIds(
   globalRoles: string[],
   hubRoles: { hubId: string; roleIds: string[] }[],
   allRoleDefs: Role[]

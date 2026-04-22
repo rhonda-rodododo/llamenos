@@ -1,8 +1,8 @@
-import { Button } from '@/components/ui/button'
-import { createDebugLog } from '@/lib/debug-log'
 import { AlertTriangle, RotateCcw } from 'lucide-react'
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Button } from '@/components/ui/button'
+import { createDebugLog } from '@/lib/debug-log'
 
 const log = createDebugLog('llamenos:error-boundary')
 

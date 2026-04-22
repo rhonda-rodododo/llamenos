@@ -1,3 +1,6 @@
+import { ShieldCheck } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { PinInput } from '@/components/pin-input'
 import { Button } from '@/components/ui/button'
 import {
@@ -8,9 +11,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { ShieldCheck } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 const MAX_ATTEMPTS = 3
 

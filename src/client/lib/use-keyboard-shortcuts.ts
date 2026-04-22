@@ -91,5 +91,5 @@ export function useKeyboardShortcuts() {
 
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [isAuthenticated, onBreak, toggleBreak, noteSheet, navigate])
+  }, [isAuthenticated, toggleBreak, noteSheet, navigate])
 }

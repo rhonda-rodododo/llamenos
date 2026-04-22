@@ -1,10 +1,10 @@
+import { createFileRoute } from '@tanstack/react-router'
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { SectionBanner, SectionBody, SectionDescription } from '@/components/section-layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useDeletePasskey, usePasskeys, useRenamePasskey } from '@/lib/queries/security'
-import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 export const Route = createFileRoute('/security/passkeys')({
   component: PasskeysPage,

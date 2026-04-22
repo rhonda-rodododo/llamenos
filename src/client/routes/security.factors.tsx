@@ -1,7 +1,7 @@
+import { createFileRoute } from '@tanstack/react-router'
 import { IdleLockSection } from '@/components/user-sections/idle-lock-section'
 import { PinChangeSection } from '@/components/user-sections/pin-change-section'
 import { RecoveryRotateSection } from '@/components/user-sections/recovery-rotate-section'
-import { createFileRoute } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/security/factors')({
   component: FactorsPage,

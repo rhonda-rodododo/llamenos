@@ -1,5 +1,4 @@
 import { LABEL_FIREHOSE_BUFFER_ENCRYPT, LABEL_MESSAGE } from '@shared/crypto-labels'
-import type { Ciphertext } from '@shared/crypto-types'
 import { Hono } from 'hono'
 import {
   KIND_CONVERSATION_ASSIGNED,
@@ -12,6 +11,7 @@ import { createLogger } from '../lib/logger'
 import type { Services } from '../services'
 
 const log = createLogger('messaging.router')
+
 import type { AppEnv } from '../types'
 import type { IncomingMessage, MessageStatusUpdate, MessagingAdapter } from './adapter'
 

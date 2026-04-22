@@ -1,3 +1,11 @@
+import type {
+  CreateFirehoseConnectionInput,
+  FirehoseConnection,
+  FirehoseConnectionStatus,
+  UpdateFirehoseConnectionInput,
+} from '@shared/schemas/firehose'
+import { Loader2, Pause, Play, Plus, Trash2 } from 'lucide-react'
+import { useState } from 'react'
 import { SectionBody, SectionDescription } from '@/components/section-layout'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -24,14 +32,6 @@ import {
 } from '@/lib/queries/firehose'
 import { useReportTypes } from '@/lib/queries/reports'
 import { useToast } from '@/lib/toast'
-import type {
-  CreateFirehoseConnectionInput,
-  FirehoseConnection,
-  FirehoseConnectionStatus,
-  UpdateFirehoseConnectionInput,
-} from '@shared/schemas/firehose'
-import { Loader2, Pause, Play, Plus, Trash2 } from 'lucide-react'
-import { useState } from 'react'
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 

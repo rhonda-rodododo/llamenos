@@ -5,6 +5,13 @@
  * Decryption happens in the queryFn so the cache holds plaintext values.
  */
 
+import type {
+  CreateFirehoseConnectionInput,
+  FirehoseConnection,
+  FirehoseConnectionHealth,
+  UpdateFirehoseConnectionInput,
+} from '@shared/schemas/firehose'
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createFirehoseConnection,
   deleteFirehoseConnection,
@@ -13,13 +20,6 @@ import {
   updateFirehoseConnection,
 } from '@/lib/api'
 import { decryptHubField } from '@/lib/hub-field-crypto'
-import type {
-  CreateFirehoseConnectionInput,
-  FirehoseConnection,
-  FirehoseConnectionHealth,
-  UpdateFirehoseConnectionInput,
-} from '@shared/schemas/firehose'
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from './keys'
 
 // ---------------------------------------------------------------------------

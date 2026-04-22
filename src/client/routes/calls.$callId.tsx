@@ -1,3 +1,20 @@
+import { LABEL_USER_PII } from '@shared/crypto-labels'
+import type { NotePayload } from '@shared/types'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import {
+  ArrowLeft,
+  Clock,
+  LinkIcon,
+  Mic,
+  Phone,
+  PhoneIncoming,
+  PhoneMissed,
+  ScrollText,
+  StickyNote,
+  UserPlus,
+} from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ContactSelect } from '@/components/contacts/contact-select'
 import { CreateContactDialog } from '@/components/contacts/create-contact-dialog'
 import { RecordingPlayer } from '@/components/recording-player'
@@ -19,26 +36,8 @@ import { decryptObjectFields } from '@/lib/decrypt-fields'
 import * as keyManager from '@/lib/key-manager'
 import { getMlsConversation } from '@/lib/mls/get-mls-conversation'
 import { fromBase64 } from '@/lib/mls/mls-api-client'
-import { cacheNotePlaintext } from '@/lib/queries/notes'
 import { useUsers } from '@/lib/queries/users'
 import { useToast } from '@/lib/toast'
-import { LABEL_USER_PII } from '@shared/crypto-labels'
-import type { NotePayload } from '@shared/types'
-import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
-import {
-  ArrowLeft,
-  Clock,
-  LinkIcon,
-  Mic,
-  Phone,
-  PhoneIncoming,
-  PhoneMissed,
-  ScrollText,
-  StickyNote,
-  UserPlus,
-} from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 
 export const Route = createFileRoute('/calls/$callId')({
   component: CallDetailPage,
@@ -147,7 +146,7 @@ function CallDetailPage() {
       })
       .catch(() => toast(t('common.error'), 'error'))
       .finally(() => setLoading(false))
-  }, [callId, hasNsec, publicKey, isAdmin, hubId])
+  }, [callId, hasNsec, hubId, toast, t])
 
   // Decrypt call record client-side (E2EE metadata + envelope-encrypted fields)
   const [decryptedCallWithFields, setDecryptedCall] = useState<CallRecord | null>(null)

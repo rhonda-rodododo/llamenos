@@ -1,15 +1,15 @@
-import { Button } from '@/components/ui/button'
-import {
-  type OAuthStartResponse,
-  type TelephonyProviderType,
-  startProviderOAuth,
-  validateProviderCredentials,
-} from '@/lib/api'
-import { useToast } from '@/lib/toast'
 import { TELEPHONY_PROVIDER_LABELS } from '@shared/types'
 import { CheckCircle2, ExternalLink, Loader2, XCircle } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Button } from '@/components/ui/button'
+import {
+  type OAuthStartResponse,
+  startProviderOAuth,
+  type TelephonyProviderType,
+  validateProviderCredentials,
+} from '@/lib/api'
+import { useToast } from '@/lib/toast'
 
 interface OAuthConnectButtonProps {
   provider: TelephonyProviderType

@@ -10,11 +10,7 @@ import { signAccessToken } from '../lib/jwt'
 import { createRouter } from '../lib/openapi'
 import { auth as authMiddleware } from '../middleware/auth'
 import { requirePermission } from '../middleware/permission-guard'
-import {
-  type InviteDeliveryChannel,
-  InviteDeliveryService,
-} from '../services/invite-delivery-service'
-import type { AppEnv } from '../types'
+import { InviteDeliveryService } from '../services/invite-delivery-service'
 
 const invites = createRouter()
 

@@ -1,4 +1,8 @@
-import { ReportForm } from '@/components/ReportForm'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { ArrowLeft, BookUser, FileText, GitMerge, Lock, Users, X } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import {
   type ContactChannel,
@@ -7,6 +11,7 @@ import {
 import { ContactRelationshipSection } from '@/components/contacts/contact-relationship-section'
 import { ContactTimeline } from '@/components/contacts/contact-timeline'
 import { MergeDialog } from '@/components/contacts/merge-dialog'
+import { ReportForm } from '@/components/ReportForm'
 import { TagBadge, useTagLookup } from '@/components/tag-input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -21,12 +26,11 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/lib/auth'
 import { useConfig } from '@/lib/config'
-
 import {
   useContact,
   useContactRelationships,
-  useContactTimeline,
   useContacts,
+  useContactTimeline,
   useDeleteContact,
 } from '@/lib/queries/contacts'
 import {
@@ -35,11 +39,6 @@ import {
   useTeams,
   useUnassignTeamContact,
 } from '@/lib/queries/teams'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { ArrowLeft, BookUser, FileText, GitMerge, Lock, Users, X } from 'lucide-react'
-import { useMemo, useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 
 export const Route = createFileRoute('/contacts_/$contactId')({
   component: ContactProfilePage,
@@ -427,7 +426,7 @@ function ContactProfilePage() {
         <ReportForm
           open={reportOpen}
           onOpenChange={setReportOpen}
-          onCreated={(reportId) => {
+          onCreated={(_reportId) => {
             setReportOpen(false)
             toast.success(
               t('contacts.reportCreated', { defaultValue: 'Report created successfully' })

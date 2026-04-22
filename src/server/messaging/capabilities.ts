@@ -1,15 +1,15 @@
-import {
-  RCSConfigSchema,
-  SMSConfigSchema,
-  SignalBridgeConfigSchema,
-  TelegramConfigSchema,
-  WhatsAppConfigSchema,
-} from '@shared/schemas/providers'
 import type {
   RCSConfig,
   SignalBridgeConfig,
   TelegramConfig,
   WhatsAppConfig,
+} from '@shared/schemas/providers'
+import {
+  RCSConfigSchema,
+  SignalBridgeConfigSchema,
+  SMSConfigSchema,
+  TelegramConfigSchema,
+  WhatsAppConfigSchema,
 } from '@shared/schemas/providers'
 import type {
   AutoConfigResult,
@@ -168,7 +168,7 @@ const rcsCapabilities: MessagingChannelCapabilities<RCSConfig> = {
         }
       }
       return { connected: true, latencyMs: Date.now() - start, accountName: keyData.client_email }
-    } catch (err) {
+    } catch (_err) {
       return {
         connected: false,
         latencyMs: Date.now() - start,

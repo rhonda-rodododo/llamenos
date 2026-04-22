@@ -1,5 +1,5 @@
-import { SignalWireConfigSchema } from '@shared/schemas/providers'
 import type { SignalWireConfig } from '@shared/schemas/providers'
+import { SignalWireConfigSchema } from '@shared/schemas/providers'
 import type {
   AutoConfigResult,
   ConnectionTestResult,

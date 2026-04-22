@@ -8,25 +8,15 @@ import type {
   MessagingConfig,
   TelephonyProviderType,
 } from '@shared/types'
-import {
-  API_BASE,
-  ApiError,
-  fireApiActivity,
-  fireAuthExpired,
-  getAuthHeaders,
-  request,
-} from './client'
+import { API_BASE, ApiError, fireAuthExpired, getAuthHeaders, request } from './client'
 
-export type { CustomFieldDefinition } from '@shared/types'
-export type { TelephonyProviderConfig } from '@shared/schemas'
-export type { TelephonyProviderType } from '@shared/types'
-export type { EnabledChannels } from '@shared/schemas'
-export type { MessagingConfig } from '@shared/types'
-export type { SetupState } from '@shared/schemas'
+export type { EnabledChannels, SetupState, TelephonyProviderConfig } from '@shared/schemas'
+export type { CustomFieldDefinition, MessagingConfig, TelephonyProviderType } from '@shared/types'
+
 import type { SetupState } from '@shared/schemas'
-export type { GeocodingConfig } from '@shared/schemas'
+
+export type { GeocodingConfig, RetentionSettings } from '@shared/schemas'
 export type { GeocodingConfigAdmin, LocationResult } from '@shared/types'
-export type { RetentionSettings } from '@shared/schemas'
 
 // --- Types ---
 
@@ -437,7 +427,7 @@ export async function startProviderOAuth(provider: TelephonyProviderType) {
   })
 }
 
-async function getProviderOAuthStatus(stateToken: string) {
+async function _getProviderOAuthStatus(stateToken: string) {
   return request<OAuthStatusResponse>(`/setup/provider/oauth/status/${stateToken}`)
 }
 
@@ -588,7 +578,7 @@ export async function geocodingAutocomplete(query: string, limit = 5) {
   })
 }
 
-async function geocodingGeocode(address: string) {
+async function _geocodingGeocode(address: string) {
   return request<LocationResult | null>('/geocoding/geocode', {
     method: 'POST',
     body: JSON.stringify({ address }),

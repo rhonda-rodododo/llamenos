@@ -2,18 +2,18 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import 'fake-indexeddb/auto'
 import type { RootKekEnvelope, RootKekEnvelopeBundle } from '@shared/schemas/root-kek-envelope'
 import {
-  InvalidBundleError,
-  MinFactorsError,
-  ROOT_KEK_ACTIVE_KEY,
-  ROOT_KEK_DB_NAME,
-  ROOT_KEK_STORE_NAME,
   appendEnvelope,
   assertMinFactorInvariant,
   buildRotatedBundle,
   clearBundleFromIdb,
   decodeBundle,
   encodeBundle,
+  InvalidBundleError,
   loadBundleFromIdb,
+  MinFactorsError,
+  ROOT_KEK_ACTIVE_KEY,
+  ROOT_KEK_DB_NAME,
+  ROOT_KEK_STORE_NAME,
   removeEnvelope,
   storeBundleInIdb,
 } from './root-kek-store'

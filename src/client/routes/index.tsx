@@ -1,32 +1,4 @@
-import { type ActiveCall, addBan, createNote } from '@/lib/api'
-import { useAuth } from '@/lib/auth'
-import { useConfig } from '@/lib/config'
-import { useCallTimer, useCalls, useShiftStatus } from '@/lib/hooks'
-import { getMlsConversation } from '@/lib/mls/get-mls-conversation'
-import { toBase64 } from '@/lib/mls/mls-api-client'
-import {
-  useCallAnalytics,
-  useCallHoursAnalytics,
-  useUserStatsAnalytics,
-} from '@/lib/queries/analytics'
-import { useCallsTodayCount, usePresence } from '@/lib/queries/calls'
-import { cacheNotePlaintext } from '@/lib/queries/notes'
-import { useUsers } from '@/lib/queries/users'
-import { useTranscription } from '@/lib/transcription'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
-import { useTranslation } from 'react-i18next'
-
-import { CallHoursChart } from '@/components/dashboard/call-hours-chart'
-import { CallVolumeChart } from '@/components/dashboard/call-volume-chart'
-import { UserStatsTable } from '@/components/dashboard/user-stats-table'
-import { GettingStartedChecklist } from '@/components/getting-started'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { WebRtcCallControls, WebRtcStatus } from '@/components/webrtc-call'
-import { useToast } from '@/lib/toast'
 import {
   Activity,
   AlertTriangle,
@@ -47,6 +19,33 @@ import {
   TrendingUp,
   Users,
 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { CallHoursChart } from '@/components/dashboard/call-hours-chart'
+import { CallVolumeChart } from '@/components/dashboard/call-volume-chart'
+import { UserStatsTable } from '@/components/dashboard/user-stats-table'
+import { GettingStartedChecklist } from '@/components/getting-started'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { WebRtcCallControls, WebRtcStatus } from '@/components/webrtc-call'
+import { type ActiveCall, addBan, createNote } from '@/lib/api'
+import { useAuth } from '@/lib/auth'
+import { useConfig } from '@/lib/config'
+import { useCalls, useCallTimer, useShiftStatus } from '@/lib/hooks'
+import { getMlsConversation } from '@/lib/mls/get-mls-conversation'
+import { toBase64 } from '@/lib/mls/mls-api-client'
+import {
+  useCallAnalytics,
+  useCallHoursAnalytics,
+  useUserStatsAnalytics,
+} from '@/lib/queries/analytics'
+import { useCallsTodayCount, usePresence } from '@/lib/queries/calls'
+import { cacheNotePlaintext } from '@/lib/queries/notes'
+import { useUsers } from '@/lib/queries/users'
+import { useToast } from '@/lib/toast'
+import { useTranscription } from '@/lib/transcription'
 
 export const Route = createFileRoute('/')({
   component: DashboardPage,
@@ -516,7 +515,7 @@ function ActiveCallPanel({
       cancelTranscription()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [txSettings.enabled, startTranscription, cancelTranscription])
 
   async function handleSaveNote() {
     if (!noteText.trim()) return

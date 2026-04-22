@@ -1,7 +1,7 @@
+import { createFileRoute, notFound } from '@tanstack/react-router'
 import { getSectionComponent } from '@/components/admin-sections/registry'
 import { findNavItem } from '@/components/admin-shell/admin-nav-config'
 import { AdminShell } from '@/components/admin-shell/admin-shell'
-import { createFileRoute, notFound } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/admin/$section')({
   component: AdminSectionRoute,

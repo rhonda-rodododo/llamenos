@@ -9,7 +9,6 @@
  */
 
 import { LABEL_BLAST_CONTENT } from '@shared/crypto-labels'
-import { eciesUnwrapKey } from '@shared/crypto-primitives'
 import type { Ciphertext } from '@shared/crypto-types'
 import type { MessagingChannelType } from '@shared/types'
 import { getMessagingAdapter } from '../lib/adapters'

@@ -10,11 +10,13 @@
  *   - All other notes            → always visible
  */
 
+import type { NotePayload } from '@shared/types'
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   type CustomFieldDefinition,
-  type EncryptedNote,
   createNote,
   createNoteReply,
+  type EncryptedNote,
   getCustomFields,
   getNote,
   getNoteReplies,
@@ -28,8 +30,6 @@ import { decryptHubField } from '@/lib/hub-field-crypto'
 import * as keyManager from '@/lib/key-manager'
 import { getMlsConversation } from '@/lib/mls/get-mls-conversation'
 import { fromBase64 } from '@/lib/mls/mls-api-client'
-import type { NotePayload } from '@shared/types'
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from './keys'
 
 // ---------------------------------------------------------------------------

@@ -6,15 +6,15 @@
  * into contact records.
  */
 
+import type { RecipientEnvelope } from '@shared/types'
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  type IntakeRecord,
   getIntake,
+  type IntakeRecord,
   listIntakes,
   submitIntake,
   updateIntakeStatus,
 } from '@/lib/api'
-import type { RecipientEnvelope } from '@shared/types'
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from './keys'
 
 // ---------------------------------------------------------------------------
@@ -62,7 +62,7 @@ export function useIntake(id: string) {
 // useSubmitIntake
 // ---------------------------------------------------------------------------
 
-function useSubmitIntake() {
+function _useSubmitIntake() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (data: {

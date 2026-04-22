@@ -6,24 +6,24 @@
  * long-lived since teams change infrequently.
  */
 
+import type { Ciphertext } from '@shared/crypto-types'
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  type ContactTeamAssignment,
-  type Team,
-  type TeamMember,
   addTeamMembers,
   assignTeamContacts,
+  type ContactTeamAssignment,
   createTeam,
   deleteTeam,
   listTeamContacts,
   listTeamMembers,
   listTeams,
   removeTeamMember,
+  type Team,
+  type TeamMember,
   unassignTeamContact,
   updateTeam,
 } from '@/lib/api'
 import { decryptHubField } from '@/lib/hub-field-crypto'
-import type { Ciphertext } from '@shared/crypto-types'
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from './keys'
 
 // ---------------------------------------------------------------------------
@@ -237,4 +237,4 @@ export function useUnassignTeamContact() {
 // ---------------------------------------------------------------------------
 // Re-export types for convenience
 // ---------------------------------------------------------------------------
-export type { Team, TeamMember, ContactTeamAssignment }
+export type { ContactTeamAssignment, Team, TeamMember }
