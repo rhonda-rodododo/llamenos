@@ -123,4 +123,55 @@ test.describe('GDPR Compliance', () => {
       expect(res.status()).toBe(403)
     })
   })
+
+  // ─── Admin Erasure Request Listing ────────────────────────────────────────
+
+  test.describe('Admin Erasure Request Listing', () => {
+    test('admin can list all erasure requests', async () => {
+      // Create a pending request first
+      const createRes = await ctx.api('reviewer').delete('/api/gdpr/me')
+      expect(createRes.status()).toBe(202)
+
+      const res = await adminApi.get('/api/gdpr/erasure-requests')
+      expect(res.status()).toBe(200)
+      const body = await res.json()
+      expect(body.requests).toBeDefined()
+      expect(Array.isArray(body.requests)).toBe(true)
+      // Should contain the reviewer's pending request
+      const reviewerReq = body.requests.find(
+        (r: { pubkey: string }) => r.pubkey === ctx.user('reviewer').pubkey
+      )
+      expect(reviewerReq).toBeDefined()
+      expect(reviewerReq.status).toBe('pending')
+    })
+
+    test('admin can filter by status', async () => {
+      const res = await adminApi.get('/api/gdpr/erasure-requests?status=pending')
+      expect(res.status()).toBe(200)
+      const body = await res.json()
+      for (const req of body.requests) {
+        expect(req.status).toBe('pending')
+      }
+    })
+
+    test('admin can filter by executed status', async () => {
+      const res = await adminApi.get('/api/gdpr/erasure-requests?status=executed')
+      expect(res.status()).toBe(200)
+      const body = await res.json()
+      // Reporter was erased earlier — should appear as executed
+      for (const req of body.requests) {
+        expect(req.status).toBe('executed')
+      }
+    })
+
+    test('non-admin cannot list erasure requests', async () => {
+      const res = await ctx.api('volunteer').get('/api/gdpr/erasure-requests')
+      expect(res.status()).toBe(403)
+    })
+
+    test('cleanup: cancel reviewer erasure request', async () => {
+      const res = await ctx.api('reviewer').delete('/api/gdpr/me/cancel')
+      expect(res.status()).toBe(200)
+    })
+  })
 })
