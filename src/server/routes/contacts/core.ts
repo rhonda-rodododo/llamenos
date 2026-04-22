@@ -468,4 +468,64 @@ core.openapi(getTimelineRoute, async (c) => {
   )
 })
 
+const exportContactsRoute = createRoute({
+  method: 'post',
+  path: '/export',
+  tags: ['Contacts'],
+  summary: 'Export contacts as encrypted JSON',
+  middleware: [...baseMiddleware, requirePermission('contacts:read-own')],
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({ contactIds: z.array(z.string()).min(1) }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: 'Exported contacts',
+      content: {
+        'application/json': {
+          schema: z.object({ contacts: z.array(PassthroughSchema) }),
+        },
+      },
+    },
+    403: {
+      description: 'Forbidden',
+      content: { 'application/json': { schema: ErrorSchema } },
+    },
+  },
+})
+
+core.openapi(exportContactsRoute, async (c) => {
+  const services = c.get('services')
+  const hubId = c.get('hubId') ?? 'global'
+  const permissions = c.get('permissions')
+  const pubkey = c.get('pubkey')
+
+  const readScope = getContactReadScope(permissions)
+  if (!readScope) {
+    return c.json({ error: 'Forbidden', required: 'contacts:read-own' }, 403)
+  }
+
+  const body = c.req.valid('json')
+  const exported: Record<string, unknown>[] = []
+
+  for (const id of body.contactIds) {
+    const accessible = await services.contacts.isContactAccessible(
+      id,
+      hubId,
+      readScope,
+      pubkey ?? ''
+    )
+    if (!accessible) continue
+    const contact = await services.contacts.getContact(id, hubId)
+    if (contact) exported.push(contact as Record<string, unknown>)
+  }
+
+  return c.json({ contacts: exported }, 200)
+})
+
 export default core

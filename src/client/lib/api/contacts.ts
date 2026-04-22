@@ -246,3 +246,28 @@ export async function mergeContacts(
     body: JSON.stringify({ secondaryId }),
   })
 }
+
+export async function exportContacts(contactIds: string[]): Promise<{
+  contacts: Array<{
+    id: string
+    contactType: string
+    riskLevel: string
+    tags: string[]
+    encryptedDisplayName: string
+    displayNameEnvelopes: RecipientEnvelope[]
+    encryptedNotes?: string | null
+    notesEnvelopes?: RecipientEnvelope[]
+    encryptedFullName?: string | null
+    fullNameEnvelopes?: RecipientEnvelope[]
+    encryptedPhone?: string | null
+    phoneEnvelopes?: RecipientEnvelope[]
+    encryptedPII?: string | null
+    piiEnvelopes?: RecipientEnvelope[]
+    identifierHash?: string | null
+  }>
+}> {
+  return request(hp('/contacts/export'), {
+    method: 'POST',
+    body: JSON.stringify({ contactIds }),
+  })
+}

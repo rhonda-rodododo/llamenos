@@ -1,3 +1,4 @@
+import { BulkMergeDialog } from '@/components/contacts/bulk-merge-dialog'
 import { CreateContactDialog } from '@/components/contacts/create-contact-dialog'
 import { ImportContactsDialog } from '@/components/contacts/import-contacts-dialog'
 import { TagBadge, TagInput, useTagLookup } from '@/components/tag-input'
@@ -28,12 +29,25 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { useConfig } from '@/lib/config'
 
+import { exportContacts } from '@/lib/api'
 import { useBulkDeleteContacts, useBulkUpdateContacts, useContacts } from '@/lib/queries/contacts'
 import { useAssignTeamContacts, useTeamContacts, useTeams } from '@/lib/queries/teams'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { BookUser, Plus, Search, Tag, Trash2, Upload, Users, X } from 'lucide-react'
+import {
+  BookUser,
+  Download,
+  GitMerge,
+  Plus,
+  Search,
+  Tag,
+  Trash2,
+  Upload,
+  Users,
+  X,
+} from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 
 /** ContactRecord augmented with fields populated by decryptObjectFields */
 type DecryptedContact = {
@@ -81,6 +95,8 @@ function ContactDirectoryPage() {
   const [searchInput, setSearchInput] = useState(q)
   const [createOpen, setCreateOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [mergeOpen, setMergeOpen] = useState(false)
+  const [exportPending, setExportPending] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const { currentHubId } = useConfig()
   const hubId = currentHubId ?? 'global'
@@ -206,6 +222,33 @@ function ContactDirectoryPage() {
   async function handleBulkDelete() {
     await bulkDelete.mutateAsync([...selectedIds])
     clearSelection()
+  }
+
+  async function handleBulkMerge() {
+    if (selectedIds.size < 2) return
+    setMergeOpen(true)
+  }
+
+  async function handleBulkExport() {
+    const ids = [...selectedIds]
+    if (ids.length === 0) return
+    setExportPending(true)
+    try {
+      const { contacts: exported } = await exportContacts(ids)
+      const blob = new Blob([JSON.stringify(exported, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `contacts-export-${new Date().toISOString().slice(0, 10)}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success(t('contacts.exportSuccess', { defaultValue: 'Contacts exported' }))
+      clearSelection()
+    } catch {
+      toast.error(t('contacts.exportFailed', { defaultValue: 'Export failed' }))
+    } finally {
+      setExportPending(false)
+    }
   }
 
   return (
@@ -454,8 +497,12 @@ function ContactDirectoryPage() {
           onRiskLevel={handleBulkRiskLevel}
           onAssignTeam={handleBulkAssignTeam}
           onDelete={handleBulkDelete}
+          onMerge={handleBulkMerge}
+          onExport={handleBulkExport}
           onClear={clearSelection}
-          isPending={bulkUpdate.isPending || bulkDelete.isPending || assignTeam.isPending}
+          isPending={
+            bulkUpdate.isPending || bulkDelete.isPending || assignTeam.isPending || exportPending
+          }
         />
       )}
 
@@ -476,6 +523,16 @@ function ContactDirectoryPage() {
           // useImportContacts mutation invalidates contacts.all in onSuccess
         }}
       />
+
+      <BulkMergeDialog
+        open={mergeOpen}
+        onOpenChange={setMergeOpen}
+        contacts={filtered.filter((c) => selectedIds.has(c.id))}
+        onMerged={() => {
+          setMergeOpen(false)
+          clearSelection()
+        }}
+      />
     </div>
   )
 }
@@ -492,6 +549,8 @@ function BulkActionToolbar({
   onRiskLevel,
   onAssignTeam,
   onDelete,
+  onMerge,
+  onExport,
   onClear,
   isPending,
 }: {
@@ -502,6 +561,8 @@ function BulkActionToolbar({
   onRiskLevel: (level: string) => void
   onAssignTeam: (teamId: string) => void
   onDelete: () => void
+  onMerge: () => void
+  onExport: () => void
   onClear: () => void
   isPending: boolean
 }) {
@@ -604,7 +665,28 @@ function BulkActionToolbar({
         </Popover>
       )}
 
-      {/* Delete */}
+      <Button
+        data-testid="bulk-merge-btn"
+        variant="outline"
+        size="sm"
+        disabled={isPending || selectedCount < 2}
+        onClick={onMerge}
+      >
+        <GitMerge className="mr-1.5 h-3.5 w-3.5" />
+        {t('contacts.merge', { defaultValue: 'Merge' })}
+      </Button>
+
+      <Button
+        data-testid="bulk-export-btn"
+        variant="outline"
+        size="sm"
+        disabled={isPending}
+        onClick={onExport}
+      >
+        <Download className="mr-1.5 h-3.5 w-3.5" />
+        {t('contacts.export', { defaultValue: 'Export' })}
+      </Button>
+
       <AlertDialog>
         <AlertDialogTrigger asChild>
           <Button
@@ -647,7 +729,6 @@ function BulkActionToolbar({
 
       <div className="h-5 w-px bg-border" />
 
-      {/* Clear */}
       <Button data-testid="bulk-clear-btn" variant="ghost" size="sm" onClick={onClear}>
         <X className="mr-1.5 h-3.5 w-3.5" />
         {t('common.clear', { defaultValue: 'Clear' })}

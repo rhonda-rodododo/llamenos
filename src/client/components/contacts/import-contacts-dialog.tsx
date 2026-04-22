@@ -69,66 +69,6 @@ function parseTags(raw: string | string[] | undefined): string[] {
     .filter(Boolean)
 }
 
-function parseCSV(text: string): ParseResult {
-  const lines = text.trim().split(/\r?\n/)
-  if (lines.length < 2)
-    return { ok: false, error: 'CSV must have a header row and at least one data row' }
-
-  const header = lines[0].split(',').map((h) => h.trim().replace(/^"|"$/g, '').toLowerCase())
-  const requiredCols = ['displayname']
-  const missing = requiredCols.filter((c) => !header.includes(c))
-  if (missing.length > 0) {
-    return { ok: false, error: `Missing required CSV columns: ${missing.join(', ')}` }
-  }
-
-  const idx = (name: string) => header.indexOf(name)
-  const rows: ParsedRow[] = []
-  const warnings: string[] = []
-
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].trim()
-    if (!line) continue
-
-    // Simple CSV parse — handles quoted fields
-    const cells: string[] = []
-    let cell = ''
-    let inQuote = false
-    for (let j = 0; j < line.length; j++) {
-      const ch = line[j]
-      if (ch === '"') {
-        inQuote = !inQuote
-      } else if (ch === ',' && !inQuote) {
-        cells.push(cell)
-        cell = ''
-      } else {
-        cell += ch
-      }
-    }
-    cells.push(cell)
-
-    const get = (name: string) => cells[idx(name)]?.trim() ?? ''
-
-    const displayName = get('displayname')
-    if (!displayName) {
-      warnings.push(`Row ${i}: missing displayName — skipped`)
-      continue
-    }
-
-    rows.push({
-      displayName,
-      contactType: normalizeType(get('contacttype') || get('type') || 'other'),
-      riskLevel: normalizeRisk(get('risklevel') || get('risk') || 'low'),
-      tags: parseTags(get('tags')),
-      fullName: get('fullname') || undefined,
-      phone: get('phone') || undefined,
-      notes: get('notes') || undefined,
-    })
-  }
-
-  if (rows.length === 0) return { ok: false, error: 'No valid rows found in CSV' }
-  return { ok: true, rows, warnings }
-}
-
 function parseJSON(text: string): ParseResult {
   let parsed: unknown
   try {
@@ -254,12 +194,10 @@ export function ImportContactsDialog({
         let result: ParseResult
         if (ext === 'json') {
           result = parseJSON(text)
-        } else if (ext === 'csv') {
-          result = parseCSV(text)
         } else {
           setParseError(
             t('contacts.importInvalidFormat', {
-              defaultValue: 'Invalid file format. Expected .csv or .json',
+              defaultValue: 'Invalid file format. Expected .json',
             })
           )
           return
@@ -369,7 +307,7 @@ export function ImportContactsDialog({
           <DialogDescription>
             {t('contacts.importDescription', {
               defaultValue:
-                'Upload a CSV or JSON file to import contacts in bulk. Contacts are encrypted before sending.',
+                'Upload a JSON file to import contacts in bulk. Contacts are encrypted before sending.',
             })}
           </DialogDescription>
         </DialogHeader>
@@ -384,12 +322,12 @@ export function ImportContactsDialog({
               <FileUp className="h-8 w-8 text-muted-foreground" />
               <div>
                 <p className="text-sm font-medium">
-                  {t('contacts.importFile', { defaultValue: 'Choose a CSV or JSON file' })}
+                  {t('contacts.importFile', { defaultValue: 'Choose a JSON file' })}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
                   {t('contacts.importFileHint', {
                     defaultValue:
-                      'CSV columns: displayName, contactType, riskLevel, tags, fullName, phone, notes',
+                      'JSON array of contact objects: displayName, contactType, riskLevel, tags, fullName, phone, notes',
                   })}
                 </p>
               </div>
@@ -397,7 +335,7 @@ export function ImportContactsDialog({
                 ref={fileRef}
                 data-testid="import-file-input"
                 type="file"
-                accept=".csv,.json"
+                accept=".json,application/json"
                 className="hidden"
                 onChange={handleFileChange}
               />
