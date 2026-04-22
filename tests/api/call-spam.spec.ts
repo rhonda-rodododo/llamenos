@@ -9,8 +9,9 @@
  *   3. Voice CAPTCHA — CAPTCHA toggle controls routing behavior
  */
 
-import { expect, test } from '../fixtures/auth'
-import { createAdminApiFromStorageState } from '../helpers/authed-request'
+import { expect, test } from '@playwright/test'
+import { ADMIN_NSEC } from '../helpers'
+import { createAuthedRequestFromNsec } from '../helpers/authed-request'
 
 function formEncode(params: Record<string, string>): string {
   return new URLSearchParams(params).toString()
@@ -46,7 +47,7 @@ test.describe('Ban list call enforcement', () => {
   const CLEAN_NUMBER = '+15555550001'
 
   test('call from banned number receives rejection response', async ({ request }) => {
-    const adminApi = createAdminApiFromStorageState(request)
+    const adminApi = createAuthedRequestFromNsec(request, ADMIN_NSEC)
     // Add number to ban list via API
     const banRes = await adminApi.post('/api/bans', {
       phone: BANNED_NUMBER,
@@ -76,7 +77,7 @@ test.describe('Ban list call enforcement', () => {
   })
 
   test('ban list checked in real-time (no cache)', async ({ request }) => {
-    const adminApi = createAdminApiFromStorageState(request)
+    const adminApi = createAuthedRequestFromNsec(request, ADMIN_NSEC)
     const freshNumber = '+15555553333'
 
     // First call — not banned, should route
@@ -108,7 +109,7 @@ test.describe('Voice CAPTCHA', () => {
 
   test.afterEach(async ({ request }) => {
     // Reset CAPTCHA state after each test
-    const adminApi = createAdminApiFromStorageState(request)
+    const adminApi = createAuthedRequestFromNsec(request, ADMIN_NSEC)
     await adminApi.patch('/api/settings/spam', { voiceCaptchaEnabled: false }).catch(() => {})
   })
 
@@ -129,7 +130,7 @@ test.describe('Voice CAPTCHA', () => {
   })
 
   test('CAPTCHA enabled — language-selected triggers CAPTCHA flow', async ({ request }) => {
-    const adminApi = createAdminApiFromStorageState(request)
+    const adminApi = createAuthedRequestFromNsec(request, ADMIN_NSEC)
     // Enable CAPTCHA via server-side API
     const spamRes = await adminApi.patch('/api/settings/spam', { voiceCaptchaEnabled: true })
     expect(spamRes.ok(), `updateSpam failed: ${spamRes.status()}`).toBeTruthy()
