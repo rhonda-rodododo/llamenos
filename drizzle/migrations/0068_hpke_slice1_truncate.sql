@@ -32,10 +32,10 @@ TRUNCATE
   user_devices,
   invite_codes,
   call_records,
-  notes,
+  note_envelopes,
   note_replies,
   conversations,
-  messages,
+  message_envelopes,
   contacts,
   contact_relationships,
   contact_intakes,
@@ -45,10 +45,9 @@ TRUNCATE
   push_subscriptions,
   webauthn_credentials,
   user_sessions,
-  files,
-  file_chunks,
-  signal_contacts,
-  auth_events
+  file_records,
+  user_signal_contacts,
+  user_auth_events
 CASCADE;
 
 -- Reset all hub setup state so the next login triggers fresh hub key generation
