@@ -192,7 +192,7 @@ export function FileUpload({
 
       {uploads.length > 0 && (
         <div className="space-y-2">
-          {uploads.map((upload) => (
+          {uploads.map((upload, index) => (
             <div key={upload.fileId ?? upload.file.name} className="flex items-center gap-2">
               <div className="flex-1">
                 <UploadProgress
