@@ -296,6 +296,7 @@ jobs:
         run: gh release edit "v${NEW_VERSION}" --draft=false
 
       - name: Dispatch demo VPS deploy
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NEW_VERSION: ${{ needs.check.outputs.version }}
