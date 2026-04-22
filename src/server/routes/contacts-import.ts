@@ -1,16 +1,11 @@
 import { createRoute, z } from '@hono/zod-openapi'
 import type { Ciphertext, HmacHash } from '@shared/crypto-types'
+import { RecipientEnvelopeSchema } from '@shared/schemas/records'
 import type { RecipientEnvelope } from '@shared/types'
 import { createRouter } from '../lib/openapi'
 import { requirePermission } from '../middleware/permission-guard'
 
 const contactImport = createRouter()
-
-const RecipientEnvelopeSchema = z.object({
-  pubkey: z.string(),
-  wrappedKey: z.string(),
-  ephemeralPubkey: z.string(),
-})
 
 const ContactImportSchema = z.object({
   contacts: z
