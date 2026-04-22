@@ -47,12 +47,7 @@ export function ActiveCallBadge({ state }: ActiveCallBadgeProps) {
   const { t } = useTranslation()
   const label = t(STATE_TO_KEY[state])
   return (
-    <div
-      data-testid="call-e2ee-badge"
-      data-badge-state={state}
-      aria-label={label}
-      className={STATE_TO_CLASS[state]}
-    >
+    <div data-testid="call-e2ee-badge" data-badge-state={state} className={STATE_TO_CLASS[state]}>
       {label}
     </div>
   )

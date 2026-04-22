@@ -64,6 +64,7 @@ export function VerifyFingerprintModal(props: VerifyFingerprintModalProps) {
               key={i}
               data-testid={`sas-emoji-${i}`}
               className="text-3xl text-center"
+              role="img"
               aria-label={correctNames[i]}
             >
               {e}

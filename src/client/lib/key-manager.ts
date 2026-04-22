@@ -183,7 +183,9 @@ export function resetAutoLockTimer(): void {
 }
 
 function notifyCallbacks(callbacks: Set<() => void>) {
-  callbacks.forEach((cb) => cb())
+  callbacks.forEach((cb) => {
+    cb()
+  })
 }
 
 // Activity listeners — reset the single timer on user interaction

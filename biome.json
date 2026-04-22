@@ -14,7 +14,8 @@
         "noNonNullAssertion": "warn"
       },
       "correctness": {
-        "useExhaustiveDependencies": "warn"
+        "useExhaustiveDependencies": "warn",
+        "useHookAtTopLevel": "warn"
       },
       "a11y": {
         "useButtonType": "warn",
@@ -25,7 +26,8 @@
         "useAriaPropsForRole": "warn",
         "noSvgWithoutTitle": "warn",
         "noAutofocus": "warn",
-        "useMediaCaption": "warn"
+        "useMediaCaption": "warn",
+        "noStaticElementInteractions": "warn"
       },
       "complexity": {
         "noForEach": "warn"
@@ -57,7 +59,8 @@
       "!**/*.config.mjs",
       "!**/public",
       "!**/.claude",
-      "!**/src/client/routeTree.gen.ts"
+      "!**/src/client/routeTree.gen.ts",
+      "!**/*.css"
     ]
   },
   "overrides": [

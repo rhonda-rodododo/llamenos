@@ -201,7 +201,9 @@ export class TranscriptionManager {
     this.captureNode?.port.postMessage({ type: 'stop' })
 
     // Stop microphone
-    this.mediaStream?.getTracks().forEach((track) => track.stop())
+    this.mediaStream?.getTracks().forEach((track) => {
+      track.stop()
+    })
 
     // Wait for all pending transcription chunks to complete
     if (this.pendingChunks.size > 0) {
@@ -313,7 +315,9 @@ export class TranscriptionManager {
   async dispose(): Promise<void> {
     // Stop audio capture
     this.captureNode?.port.postMessage({ type: 'stop' })
-    this.mediaStream?.getTracks().forEach((track) => track.stop())
+    this.mediaStream?.getTracks().forEach((track) => {
+      track.stop()
+    })
 
     if (this.audioContext && this.audioContext.state !== 'closed') {
       await this.audioContext.close()

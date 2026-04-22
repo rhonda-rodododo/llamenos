@@ -366,7 +366,7 @@ export function CreateContactDialog({ open, onOpenChange, onCreated }: Props) {
                   placeholder={t('contacts.placeholders.phone', '+1 555 000 0000')}
                 />
                 {/* Dedup check happens on blur via the wrapper div */}
-                <div onBlur={handlePhoneBlur}>
+                <div onBlur={handlePhoneBlur} tabIndex={-1} role="presentation">
                   {checkingDup && (
                     <p className="flex items-center gap-1 text-xs text-muted-foreground">
                       <Loader2 className="size-3 animate-spin" />

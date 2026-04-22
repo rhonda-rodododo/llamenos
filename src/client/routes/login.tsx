@@ -576,8 +576,16 @@ function LoginPage() {
                 <div className="space-y-2">
                   <p className="text-sm text-muted-foreground">{t('auth.selectBackupFile')}</p>
                   <div
+                    role="button"
+                    tabIndex={0}
                     className="flex cursor-pointer items-center gap-3 rounded-lg border-2 border-dashed border-border p-4 transition-colors hover:border-primary/50"
                     onClick={() => fileInputRef.current?.click()}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        fileInputRef.current?.click()
+                      }
+                    }}
                     onDragOver={(e) => {
                       e.preventDefault()
                       e.currentTarget.classList.add('border-primary')

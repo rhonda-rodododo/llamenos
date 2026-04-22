@@ -166,7 +166,12 @@ export function PhoneInput({
   const showInvalid = touched && validationState === 'invalid'
 
   return (
-    <div className={cn('space-y-1', className)} onBlur={() => setTouched(true)}>
+    <div
+      className={cn('space-y-1', className)}
+      onBlur={() => setTouched(true)}
+      tabIndex={-1}
+      role="presentation"
+    >
       <PhoneInputPrimitive
         className="flex"
         international

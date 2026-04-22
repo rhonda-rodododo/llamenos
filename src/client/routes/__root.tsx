@@ -357,9 +357,11 @@ function AuthenticatedLayout() {
 
       {/* Mobile backdrop */}
       {sidebarOpen && (
-        <div
+        <button
+          type="button"
           className="fixed inset-0 z-30 bg-black/50 backdrop-blur-sm md:hidden"
           onClick={() => setSidebarOpen(false)}
+          aria-label={t('a11y.closeSidebar', 'Close sidebar')}
         />
       )}
 

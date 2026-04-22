@@ -463,7 +463,9 @@ function SettingsPage() {
                 if (option.value === 'browser' || option.value === 'both') {
                   try {
                     const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-                    stream.getTracks().forEach((t) => t.stop())
+                    stream.getTracks().forEach((t) => {
+                      t.stop()
+                    })
                   } catch {
                     // Still allow the preference change — just-in-time check at answer time will catch it
                     toast(t('settings.micPermissionRequired'), 'info')

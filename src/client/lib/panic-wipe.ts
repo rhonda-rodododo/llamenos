@@ -98,7 +98,9 @@ export function performPanicWipe(): void {
       navigator.serviceWorker
         ?.getRegistrations()
         .then((registrations) => {
-          registrations.forEach((reg) => reg.unregister())
+          registrations.forEach((reg) => {
+            reg.unregister()
+          })
         })
         .catch(() => {})
     } catch {
