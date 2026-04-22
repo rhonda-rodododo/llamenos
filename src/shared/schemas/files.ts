@@ -1,4 +1,5 @@
 import { z } from 'zod/v4'
+import { HpkeEnvelopeSchema } from '../hpke-envelope'
 
 const EncryptedFileMetadataSchema = z.object({
   originalName: z.string(),
@@ -11,22 +12,19 @@ const EncryptedFileMetadataSchema = z.object({
 export type EncryptedFileMetadata = z.infer<typeof EncryptedFileMetadataSchema>
 
 /**
- * ECIES key envelope for a single file recipient.
- * Wire-format envelope with version byte, labelId, wrapped per-file key, and recipient pubkey tag.
+ * HPKE key envelope for a single file recipient.
+ * Wire-format: HpkeEnvelope + recipient pubkey tag.
  */
-export const FileKeyEnvelopeSchema = z.object({
-  v: z.literal(2),
-  labelId: z.number().int(),
+export const FileKeyEnvelopeSchema = HpkeEnvelopeSchema.extend({
   pubkey: z.string(),
-  wrappedKey: z.string(),
-  ephemeralPubkey: z.string(),
 })
 export type FileKeyEnvelope = z.infer<typeof FileKeyEnvelopeSchema>
 
-export const EncryptedMetaItemSchema = z.object({
+/**
+ * HPKE-sealed file metadata for one recipient.
+ */
+export const EncryptedMetaItemSchema = HpkeEnvelopeSchema.extend({
   pubkey: z.string(),
-  encryptedContent: z.string(),
-  ephemeralPubkey: z.string(),
 })
 export type EncryptedMetaItem = z.infer<typeof EncryptedMetaItemSchema>
 

@@ -1,4 +1,5 @@
 import { z } from 'zod/v4'
+import { HpkeEnvelopeSchema } from '../hpke-envelope'
 
 const BanEntrySchema = z.object({
   id: z.uuid(),
@@ -29,10 +30,8 @@ export const AuditLogEntrySchema = z.object({
 })
 export type AuditLogEntry = z.infer<typeof AuditLogEntrySchema>
 
-export const RecipientEnvelopeSchema = z.object({
+export const RecipientEnvelopeSchema = HpkeEnvelopeSchema.extend({
   pubkey: z.string(),
-  wrappedKey: z.string(),
-  ephemeralPubkey: z.string(),
 })
 export type RecipientEnvelope = z.infer<typeof RecipientEnvelopeSchema>
 
@@ -69,10 +68,8 @@ const CreateNoteSchema = z.object({
 })
 type CreateNoteInput = z.infer<typeof CreateNoteSchema>
 
-export const KeyEnvelopeSchema = z.object({
-  wrappedKey: z.string(),
-  ephemeralPubkey: z.string(),
-})
+// KeyEnvelope is now just HpkeEnvelope (no pubkey field).
+export const KeyEnvelopeSchema = HpkeEnvelopeSchema
 export type KeyEnvelope = z.infer<typeof KeyEnvelopeSchema>
 
 const NotePayloadSchema = z.object({
