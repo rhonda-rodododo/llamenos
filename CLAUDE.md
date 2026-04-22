@@ -261,7 +261,7 @@ Releases are cut by merging the **release PR**, not by every push to main. The f
 **The lifecycle:**
 1. Every push to `main` triggers `knope-release-pr.yml`, which runs `knope prepare-release`. Knope opens (or force-updates) a PR titled `chore: prepare release vX.Y.Z` on branch `release`. The PR contains a `package.json` version bump + a new `CHANGELOG.md` section, both computed from conventional commits since the last tag.
 2. The release PR accumulates as more commits land on main. CI runs on it like any PR.
-3. **A human merges the release PR when it's time to ship.** That merge triggers `release.yml`, which runs `knope release` (creates the git tag + GitHub Release), attaches signed artifacts (CHECKSUMS, SBOM, cosign keyless, GPG, SLSA build provenance), calls `docker.yml` to publish versioned images to GHCR, and indirectly fires `auto-deploy-demo.yml` to deploy the demo VPS via Ansible.
+3. **A human merges the release PR when it's time to ship.** That merge triggers `release.yml`, which creates the git tag, then a **draft** GitHub Release with signed artifacts (CHECKSUMS, SBOM, cosign keyless, GPG, SLSA build provenance) attached atomically, publishes the release, calls `docker.yml` to publish versioned images to GHCR, and indirectly fires `auto-deploy-demo.yml` to deploy the demo VPS via Ansible.
 
 **Rules for working with the release flow:**
 - **Never manually bump `package.json` version, never tag commits by hand, never run `knope` locally** unless you're debugging the workflow itself. Knope is the single source of truth.
