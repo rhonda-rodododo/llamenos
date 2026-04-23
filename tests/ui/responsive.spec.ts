@@ -16,9 +16,12 @@ test('mobile viewport shows hamburger menu', async ({ adminPage }) => {
   await expect(adminPage.getByRole('link', { name: 'Dashboard' })).toBeVisible()
   await expect(adminPage.getByRole('link', { name: 'Notes' })).toBeVisible()
 
-  // Close button should be visible
-  await expect(adminPage.getByRole('button', { name: /close sidebar/i })).toBeVisible()
-  await adminPage.getByRole('button', { name: /close sidebar/i }).click()
+  // Close button (X icon inside the sidebar header) should be visible
+  const closeBtn = adminPage
+    .getByTestId('nav-sidebar')
+    .getByRole('button', { name: /close sidebar/i })
+  await expect(closeBtn).toBeVisible()
+  await closeBtn.click()
 
   // Links should be hidden again
   await expect(adminPage.getByRole('link', { name: 'Dashboard' })).toBeHidden()

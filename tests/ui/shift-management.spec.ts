@@ -155,7 +155,8 @@ test.describe('Shift management', () => {
     // Open user multi-select — scope to the form.
     // User names in the dropdown are decrypted; wait for decryption under load.
     const volSelect = adminPage.locator('form').getByRole('combobox')
-    await volSelect.click()
+    await volSelect.waitFor({ state: 'visible', timeout: 15000 })
+    await volSelect.click({ timeout: 15000 })
     // Wait for options to be populated (user names need hub key decryption)
     await expect(adminPage.getByRole('option', { name: new RegExp(userName) })).toBeVisible({
       timeout: 30000,
@@ -194,7 +195,8 @@ test.describe('Shift management', () => {
       .filter({ hasText: /fallback group/i })
       .last()
     const fallbackSelect = fallbackCard.getByRole('combobox')
-    await fallbackSelect.click()
+    await fallbackSelect.waitFor({ state: 'visible', timeout: 15000 })
+    await fallbackSelect.click({ timeout: 15000 })
 
     // Select the user — names need decryption, wait for option to appear
     await expect(adminPage.getByRole('option', { name: new RegExp(userName) })).toBeVisible({

@@ -340,10 +340,12 @@ function AuthenticatedLayout() {
     }
   }, [])
 
-  // Close sidebar on navigation
+  // Close sidebar on navigation (mobile: sidebar is a slide-over that should
+  // dismiss after the user taps a link)
+  const locationPathname = _location.pathname
   useEffect(() => {
     setSidebarOpen(false)
-  }, [])
+  }, [locationPathname])
 
   return (
     <div className="flex h-screen">

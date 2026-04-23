@@ -15,7 +15,7 @@ test.describe('Invite-based onboarding', () => {
     await adminPage.getByRole('button', { name: /invite user/i }).click()
 
     // Wait for the invite form to render
-    const nameInput = adminPage.getByLabel('Name')
+    const nameInput = adminPage.locator('#invite-name')
     await expect(nameInput).toBeVisible({ timeout: 10000 })
     await nameInput.fill(userName)
 
@@ -127,7 +127,7 @@ test.describe('Invite-based onboarding', () => {
     await adminPage.getByRole('button', { name: /invite user/i }).click()
 
     // Wait for the invite form to render
-    const nameInput = adminPage.getByLabel('Name')
+    const nameInput = adminPage.locator('#invite-name')
     await expect(nameInput).toBeVisible({ timeout: 10000 })
     await nameInput.fill(userName)
 
