@@ -47,10 +47,15 @@ import type { SignalContactsService } from '../services/signal-contacts'
 import type { UserNotificationsService } from '../services/user-notifications'
 
 const GEOIP_DB_PATH = process.env.GEOIP_DB_PATH ?? './data/geoip/dbip-city.mmdb'
-const SESSION_COOKIE_MAX_AGE = 30 * 24 * 60 * 60 // 30 days in seconds
 
 import type { Ciphertext } from '../../shared/crypto-types'
 import type { RecipientEnvelope } from '../../shared/types'
+import {
+  clearRefreshCookieOptions,
+  clearSessionIdCookieOptions,
+  refreshCookieOptions,
+  sessionIdCookieOptions,
+} from '../lib/cookies'
 import { createLogger } from '../lib/logger'
 import type { WebAuthnCredential } from '../types'
 
@@ -418,20 +423,8 @@ authFacade.openapi(webauthnLoginVerifyRoute, async (c) => {
     }
   }
 
-  setCookie(c, 'llamenos-refresh', token, {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'Strict',
-    path: '/api/auth/token',
-    maxAge: SESSION_COOKIE_MAX_AGE,
-  })
-  setCookie(c, 'llamenos-session-id', sessionId, {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'Strict',
-    path: '/',
-    maxAge: SESSION_COOKIE_MAX_AGE,
-  })
+  setCookie(c, 'llamenos-refresh', token, refreshCookieOptions())
+  setCookie(c, 'llamenos-session-id', sessionId, sessionIdCookieOptions())
 
   return c.json({ accessToken, pubkey: matched.ownerPubkey }, 200)
 })
@@ -782,13 +775,7 @@ authFacade.openapi(tokenRefreshRoute, async (c) => {
   const permissions = await resolveUserPermissions(pubkey, identity, settings)
   const accessToken = await signAccessToken({ pubkey, permissions }, c.env.JWT_SECRET)
 
-  setCookie(c, 'llamenos-refresh', cookieToken, {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'Strict',
-    path: '/api/auth/token',
-    maxAge: SESSION_COOKIE_MAX_AGE,
-  })
+  setCookie(c, 'llamenos-refresh', cookieToken, refreshCookieOptions())
 
   return c.json({ accessToken }, 200)
 })
@@ -966,20 +953,8 @@ authFacade.openapi(sessionRevokeRoute, async (c) => {
     }
   }
 
-  setCookie(c, 'llamenos-refresh', '', {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'Strict',
-    path: '/api/auth/token',
-    maxAge: 0,
-  })
-  setCookie(c, 'llamenos-session-id', '', {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'Strict',
-    path: '/',
-    maxAge: 0,
-  })
+  setCookie(c, 'llamenos-refresh', '', clearRefreshCookieOptions())
+  setCookie(c, 'llamenos-session-id', '', clearSessionIdCookieOptions())
 
   return c.json({ ok: true }, 200)
 })
@@ -1159,20 +1134,8 @@ authFacade.openapi(lockdownRoute, async (c) => {
     sessionIdCookie ?? null
   )
   if (parsed.data.tier === 'C') {
-    setCookie(c, 'llamenos-refresh', '', {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'Strict',
-      path: '/api/auth/token',
-      maxAge: 0,
-    })
-    setCookie(c, 'llamenos-session-id', '', {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'Strict',
-      path: '/',
-      maxAge: 0,
-    })
+    setCookie(c, 'llamenos-refresh', '', clearRefreshCookieOptions())
+    setCookie(c, 'llamenos-session-id', '', clearSessionIdCookieOptions())
   }
   return c.json(result, 200)
 })
