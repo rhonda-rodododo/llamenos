@@ -197,61 +197,51 @@ export const test = base.extend<{
   adminPage: async ({ browser }, use) => {
     const { context, page } = await createAuthenticatedPage(browser, 'admin')
     await use(page)
-    await context.storageState({ path: STORAGE_PATHS.admin })
     await context.close()
   },
   adminContext: async ({ browser }, use) => {
     const { context } = await createAuthenticatedPage(browser, 'admin')
     await use(context)
-    await context.storageState({ path: STORAGE_PATHS.admin })
     await context.close()
   },
   hubAdminPage: async ({ browser }, use) => {
     const { context, page } = await createAuthenticatedPage(browser, 'hub-admin')
     await use(page)
-    await context.storageState({ path: STORAGE_PATHS['hub-admin'] })
     await context.close()
   },
   hubAdminContext: async ({ browser }, use) => {
     const { context } = await createAuthenticatedPage(browser, 'hub-admin')
     await use(context)
-    await context.storageState({ path: STORAGE_PATHS['hub-admin'] })
     await context.close()
   },
   volunteerPage: async ({ browser }, use) => {
     const { context, page } = await createAuthenticatedPage(browser, 'volunteer')
     await use(page)
-    await context.storageState({ path: STORAGE_PATHS.volunteer })
     await context.close()
   },
   volunteerContext: async ({ browser }, use) => {
     const { context } = await createAuthenticatedPage(browser, 'volunteer')
     await use(context)
-    await context.storageState({ path: STORAGE_PATHS.volunteer })
     await context.close()
   },
   reviewerPage: async ({ browser }, use) => {
     const { context, page } = await createAuthenticatedPage(browser, 'reviewer')
     await use(page)
-    await context.storageState({ path: STORAGE_PATHS.reviewer })
     await context.close()
   },
   reviewerContext: async ({ browser }, use) => {
     const { context } = await createAuthenticatedPage(browser, 'reviewer')
     await use(context)
-    await context.storageState({ path: STORAGE_PATHS.reviewer })
     await context.close()
   },
   reporterPage: async ({ browser }, use) => {
     const { context, page } = await createAuthenticatedPage(browser, 'reporter')
     await use(page)
-    await context.storageState({ path: STORAGE_PATHS.reporter })
     await context.close()
   },
   reporterContext: async ({ browser }, use) => {
     const { context } = await createAuthenticatedPage(browser, 'reporter')
     await use(context)
-    await context.storageState({ path: STORAGE_PATHS.reporter })
     await context.close()
   },
 })

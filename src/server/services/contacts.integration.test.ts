@@ -84,8 +84,13 @@ describe('ContactService', () => {
       identifierHash: idHash,
       encryptedDisplayName: fakeCiphertext('enc-display-2'),
       displayNameEnvelopes: [
-        // @ts-expect-error Slice 2: ECIES → HPKE migration
-        { pubkey: 'admin-pk', wrappedKey: fakeCiphertext('wk'), ephemeralPubkey: 'epk' },
+        {
+          pubkey: 'admin-pk',
+          v: 3 as const,
+          labelId: 1,
+          enc: btoa('test-enc'),
+          ct: btoa('test-ct'),
+        },
       ],
       encryptedFullName: fakeCiphertext('enc-fullname'),
       fullNameEnvelopes: [],
@@ -189,8 +194,13 @@ describe('ContactService', () => {
       tags: ['updated-tag'],
       encryptedDisplayName: fakeCiphertext('new-display'),
       displayNameEnvelopes: [
-        // @ts-expect-error Slice 2: ECIES → HPKE migration
-        { pubkey: 'pk2', wrappedKey: fakeCiphertext('wk2'), ephemeralPubkey: 'epk2' },
+        {
+          pubkey: 'pk2',
+          v: 3 as const,
+          labelId: 1,
+          enc: btoa('test-enc-2'),
+          ct: btoa('test-ct-2'),
+        },
       ],
     })
 
@@ -261,8 +271,7 @@ describe('ContactService', () => {
       hubId: hub,
       encryptedPayload: fakeCiphertext('enc-rel-payload'),
       payloadEnvelopes: [
-        // @ts-expect-error Slice 2: ECIES → HPKE migration
-        { pubkey: 'pk-a', wrappedKey: fakeCiphertext('wk'), ephemeralPubkey: 'epk' },
+        { pubkey: 'pk-a', v: 3 as const, labelId: 1, enc: btoa('test-enc'), ct: btoa('test-ct') },
       ],
       createdBy: 'pk-a',
     })
