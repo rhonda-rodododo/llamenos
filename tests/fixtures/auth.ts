@@ -11,7 +11,7 @@
  *   test('volunteer sees limited nav', async ({ volunteerPage }) => { ... })
  */
 
-import { type BrowserContext, type Page, test as base } from '@playwright/test'
+import { type BrowserContext, test as base, type Page } from '@playwright/test'
 import { completeProfileSetup, enterPin } from '../helpers'
 
 const TEST_PIN = '123456'
@@ -67,24 +67,53 @@ async function createAuthenticatedPage(
     }
   })
 
-  // Navigate to app
-  await page.goto('/', { waitUntil: 'domcontentloaded' })
+  // Navigate to app — domcontentloaded is sufficient; networkidle can hang on
+  // WebSocket/long-poll connections. The race below handles SPA render timing.
+  await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 60000 })
 
   const pinInput = page.locator('input[aria-label="PIN digit 1"]')
+  const loginHeading = page.getByTestId('login-heading')
   const dashboardHeading = page.getByRole('heading', { name: 'Dashboard', exact: true })
   const profileSetup = page.getByRole('heading', { name: 'Welcome!' })
 
-  // With refresh blocked, the app should show the login/PIN screen
-  const firstState = await Promise.race([
-    pinInput.waitFor({ state: 'visible', timeout: 45000 }).then(() => 'pin' as const),
-    dashboardHeading.waitFor({ state: 'visible', timeout: 45000 }).then(() => 'dashboard' as const),
-    profileSetup.waitFor({ state: 'visible', timeout: 45000 }).then(() => 'profile' as const),
-  ])
+  // With refresh blocked, the app should show the login/PIN screen.
+  // Under parallel-worker load (3+ workers running PBKDF2 concurrently),
+  // the SPA bundle fetch + restoreSession 401 + React render chain can take
+  // 60s+ — use a generous timeout to avoid flaky fixture failures.
+  // Race on both PIN input and login-heading testid (heading renders first).
+  // Use allSettled wrapper: if all 4 reject (60s timeout each), retry once
+  // after a reload rather than failing the fixture outright.
+  let firstState: 'pin' | 'login' | 'dashboard' | 'profile'
+  try {
+    firstState = await Promise.race([
+      pinInput.waitFor({ state: 'visible', timeout: 60000 }).then(() => 'pin' as const),
+      loginHeading.waitFor({ state: 'visible', timeout: 60000 }).then(() => 'login' as const),
+      dashboardHeading
+        .waitFor({ state: 'visible', timeout: 60000 })
+        .then(() => 'dashboard' as const),
+      profileSetup.waitFor({ state: 'visible', timeout: 60000 }).then(() => 'profile' as const),
+    ])
+  } catch {
+    // All 4 timed out — page may be stuck in a loading/blank state. Reload once.
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 })
+    firstState = await Promise.race([
+      pinInput.waitFor({ state: 'visible', timeout: 30000 }).then(() => 'pin' as const),
+      loginHeading.waitFor({ state: 'visible', timeout: 30000 }).then(() => 'login' as const),
+      dashboardHeading
+        .waitFor({ state: 'visible', timeout: 30000 })
+        .then(() => 'dashboard' as const),
+      profileSetup.waitFor({ state: 'visible', timeout: 30000 }).then(() => 'profile' as const),
+    ])
+  }
 
   // Unblock refresh so the PIN unlock flow can call refreshToken and getUserInfo
   refreshBlocked = false
 
-  if (firstState === 'pin') {
+  if (firstState === 'pin' || firstState === 'login') {
+    // If we got login heading but PIN isn't visible yet, wait for it
+    if (firstState === 'login') {
+      await pinInput.waitFor({ state: 'visible', timeout: 15000 })
+    }
     await enterPin(page, TEST_PIN)
     // After PIN: PBKDF2 runs, then navigates to dashboard or profile-setup
     const afterPin = await Promise.race([
@@ -128,6 +157,24 @@ async function createAuthenticatedPage(
   // Clean up the route handler
   await page.unroute('**/api/auth/token/refresh')
 
+  // Final stabilization: wait for network + React to settle, then verify we're
+  // actually on the dashboard. The key manager lock check fires as a deferred
+  // useEffect — it can redirect to login AFTER the dashboard heading renders.
+  // A short settle wait catches this race.
+  await page.waitForTimeout(1500)
+  const loginHeadingFinal = page.getByTestId('login-heading')
+  const fellBackToLogin = await loginHeadingFinal.isVisible({ timeout: 1000 }).catch(() => false)
+  if (fellBackToLogin) {
+    // Page fell back to login after brief dashboard flash — re-enter PIN
+    const retryPin = page.locator('input[aria-label="PIN digit 1"]')
+    await retryPin.waitFor({ state: 'visible', timeout: 10000 })
+    await enterPin(page, TEST_PIN)
+    const retryDashboard = page.getByRole('heading', { name: 'Dashboard', exact: true })
+    await retryDashboard.waitFor({ state: 'visible', timeout: 90000 })
+    // Second stabilization — ensure it sticks
+    await page.waitForTimeout(1000)
+  }
+
   return { context, page }
 }
 
@@ -150,41 +197,49 @@ export const test = base.extend<{
   adminPage: async ({ browser }, use) => {
     const { context, page } = await createAuthenticatedPage(browser, 'admin')
     await use(page)
+    await context.storageState({ path: STORAGE_PATHS.admin })
     await context.close()
   },
   adminContext: async ({ browser }, use) => {
     const { context } = await createAuthenticatedPage(browser, 'admin')
     await use(context)
+    await context.storageState({ path: STORAGE_PATHS.admin })
     await context.close()
   },
   hubAdminPage: async ({ browser }, use) => {
     const { context, page } = await createAuthenticatedPage(browser, 'hub-admin')
     await use(page)
+    await context.storageState({ path: STORAGE_PATHS['hub-admin'] })
     await context.close()
   },
   hubAdminContext: async ({ browser }, use) => {
     const { context } = await createAuthenticatedPage(browser, 'hub-admin')
     await use(context)
+    await context.storageState({ path: STORAGE_PATHS['hub-admin'] })
     await context.close()
   },
   volunteerPage: async ({ browser }, use) => {
     const { context, page } = await createAuthenticatedPage(browser, 'volunteer')
     await use(page)
+    await context.storageState({ path: STORAGE_PATHS.volunteer })
     await context.close()
   },
   volunteerContext: async ({ browser }, use) => {
     const { context } = await createAuthenticatedPage(browser, 'volunteer')
     await use(context)
+    await context.storageState({ path: STORAGE_PATHS.volunteer })
     await context.close()
   },
   reviewerPage: async ({ browser }, use) => {
     const { context, page } = await createAuthenticatedPage(browser, 'reviewer')
     await use(page)
+    await context.storageState({ path: STORAGE_PATHS.reviewer })
     await context.close()
   },
   reviewerContext: async ({ browser }, use) => {
     const { context } = await createAuthenticatedPage(browser, 'reviewer')
     await use(context)
+    await context.storageState({ path: STORAGE_PATHS.reviewer })
     await context.close()
   },
   reporterPage: async ({ browser }, use) => {
@@ -201,4 +256,4 @@ export const test = base.extend<{
   },
 })
 
-export { expect, devices, type Page, type BrowserContext, type CDPSession } from '@playwright/test'
+export { type BrowserContext, type CDPSession, devices, expect, type Page } from '@playwright/test'

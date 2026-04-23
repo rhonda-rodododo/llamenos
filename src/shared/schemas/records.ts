@@ -30,9 +30,27 @@ export const AuditLogEntrySchema = z.object({
 })
 export type AuditLogEntry = z.infer<typeof AuditLogEntrySchema>
 
-export const RecipientEnvelopeSchema = HpkeEnvelopeSchema.extend({
+/**
+ * Legacy ECIES envelope shape — accepted during the HPKE migration for PII
+ * paths that still use `envelopeEncryptField` (contacts, signal-contacts,
+ * sessions, conversations). Will be removed when all envelope encryption
+ * migrates to HPKE (Tier 1 P1 per-record AAD migration).
+ */
+const LegacyEciesEnvelopeSchema = z.object({
   pubkey: z.string(),
+  wrappedKey: z.string(),
+  ephemeralPubkey: z.string(),
 })
+
+/**
+ * Recipient envelope — accepts BOTH HPKE (v3) and legacy ECIES format
+ * during the migration period. Server stores whichever format it receives;
+ * the client knows how to decrypt both.
+ */
+export const RecipientEnvelopeSchema = z.union([
+  HpkeEnvelopeSchema.extend({ pubkey: z.string() }),
+  LegacyEciesEnvelopeSchema,
+])
 export type RecipientEnvelope = z.infer<typeof RecipientEnvelopeSchema>
 
 const EncryptedNoteSchema = z.object({
