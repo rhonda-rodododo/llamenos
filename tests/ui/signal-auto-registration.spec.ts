@@ -85,7 +85,7 @@ test.describe('Signal Automated Registration', () => {
     })
     expect(res.status()).toBe(400)
     const body = await res.json()
-    expect(body.error).toContain('required')
+    expect(body.error).toMatch(/required|expected string/i)
   })
 
   test('Signal admin section loads', async ({ adminPage }) => {

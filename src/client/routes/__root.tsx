@@ -377,6 +377,7 @@ function AuthenticatedLayout() {
               <p className="text-lg font-bold text-sidebar-foreground">{hotlineName}</p>
             </div>
             <button
+              data-testid="sidebar-close-btn"
               onClick={() => setSidebarOpen(false)}
               className="md:hidden text-muted-foreground hover:text-foreground"
               aria-label={t('a11y.closeSidebar')}

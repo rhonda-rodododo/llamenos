@@ -247,7 +247,7 @@ test.describe('Setup Wizard', () => {
 
     // Skip again to step 5 (Invite)
     await clickSkip(adminPage)
-    await expect(adminPage.getByText('Invite Users')).toBeVisible({ timeout: 5000 })
+    await expect(adminPage.getByText(/invite users/i)).toBeVisible({ timeout: 5000 })
 
     // Skip again to step 6 (Summary)
     await clickSkip(adminPage)
@@ -359,7 +359,7 @@ test.describe('Setup Wizard', () => {
     await clickSkip(adminPage)
 
     // Should be on Invite step
-    await expect(adminPage.getByText('Invite Users')).toBeVisible({ timeout: 5000 })
+    await expect(adminPage.getByText(/invite users/i)).toBeVisible({ timeout: 5000 })
 
     // Generate invite button should be disabled without name/phone
     const genBtn = adminPage.getByRole('button', { name: /generate invite/i })
@@ -495,7 +495,7 @@ test.describe('Setup Wizard', () => {
 
     // Step 4: Skip settings
     await clickSkip(adminPage)
-    await expect(adminPage.getByText('Invite Users')).toBeVisible({ timeout: 5000 })
+    await expect(adminPage.getByText(/invite users/i)).toBeVisible({ timeout: 5000 })
 
     // Step 5: Skip invite
     await clickSkip(adminPage)

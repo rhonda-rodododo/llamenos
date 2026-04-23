@@ -14,16 +14,11 @@ test.describe('Invite-based onboarding', () => {
 
     await adminPage.getByRole('button', { name: /invite user/i }).click()
 
-    // Wait for the invite form to render
-    const nameInput = adminPage.getByLabel('Name')
-    await expect(nameInput).toBeVisible({ timeout: 10000 })
-    await nameInput.fill(userName)
-
-    // PhoneInput is a complex component — use the input with the invite-phone id
-    const phoneInput = adminPage.locator('#invite-phone')
-    await expect(phoneInput).toBeVisible({ timeout: 5000 })
-    await phoneInput.fill(userPhone)
-    await phoneInput.blur()
+    // Wait for the invite form to stabilize after click
+    await expect(adminPage.locator('#invite-name')).toBeVisible({ timeout: 10000 })
+    await adminPage.locator('#invite-name').fill(userName)
+    await adminPage.locator('#invite-phone').fill(userPhone)
+    await adminPage.locator('#invite-phone').blur()
 
     await adminPage.getByRole('button', { name: /create invite/i }).click()
 
@@ -126,16 +121,11 @@ test.describe('Invite-based onboarding', () => {
 
     await adminPage.getByRole('button', { name: /invite user/i }).click()
 
-    // Wait for the invite form to render
-    const nameInput = adminPage.getByLabel('Name')
-    await expect(nameInput).toBeVisible({ timeout: 10000 })
-    await nameInput.fill(userName)
-
-    // PhoneInput is a complex component — use the input with the invite-phone id
-    const phoneInput = adminPage.locator('#invite-phone')
-    await expect(phoneInput).toBeVisible({ timeout: 5000 })
-    await phoneInput.fill(userPhone)
-    await phoneInput.blur()
+    // Wait for the invite form to stabilize after click
+    await expect(adminPage.locator('#invite-name')).toBeVisible({ timeout: 10000 })
+    await adminPage.locator('#invite-name').fill(userName)
+    await adminPage.locator('#invite-phone').fill(userPhone)
+    await adminPage.locator('#invite-phone').blur()
 
     await adminPage.getByRole('button', { name: /create invite/i }).click()
 

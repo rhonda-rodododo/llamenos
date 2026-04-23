@@ -30,11 +30,12 @@ test.describe('Invite delivery', () => {
     const userName = `SendTest ${Date.now()}`
     const userPhone = uniquePhone()
 
-    // Create invite
+    // Create invite — wait for form to stabilize after click
     await adminPage.getByRole('button', { name: /invite user/i }).click()
-    await adminPage.getByLabel('Name').fill(userName)
-    await adminPage.getByLabel('Phone Number').fill(userPhone)
-    await adminPage.getByLabel('Phone Number').blur()
+    await expect(adminPage.locator('#invite-name')).toBeVisible({ timeout: 5000 })
+    await adminPage.locator('#invite-name').fill(userName)
+    await adminPage.locator('#invite-phone').fill(userPhone)
+    await adminPage.locator('#invite-phone').blur()
     await adminPage.getByRole('button', { name: /create invite/i }).click()
 
     // Send invite dialog opens automatically after invite creation
@@ -53,9 +54,10 @@ test.describe('Invite delivery', () => {
     const userPhone = uniquePhone()
 
     await adminPage.getByRole('button', { name: /invite user/i }).click()
-    await adminPage.getByLabel('Name').fill(userName)
-    await adminPage.getByLabel('Phone Number').fill(userPhone)
-    await adminPage.getByLabel('Phone Number').blur()
+    await expect(adminPage.locator('#invite-name')).toBeVisible({ timeout: 5000 })
+    await adminPage.locator('#invite-name').fill(userName)
+    await adminPage.locator('#invite-phone').fill(userPhone)
+    await adminPage.locator('#invite-phone').blur()
     await adminPage.getByRole('button', { name: /create invite/i }).click()
 
     // Wait for dialog
@@ -74,9 +76,10 @@ test.describe('Invite delivery', () => {
     const userPhone = uniquePhone()
 
     await adminPage.getByRole('button', { name: /invite user/i }).click()
-    await adminPage.getByLabel('Name').fill(userName)
-    await adminPage.getByLabel('Phone Number').fill(userPhone)
-    await adminPage.getByLabel('Phone Number').blur()
+    await expect(adminPage.locator('#invite-name')).toBeVisible({ timeout: 5000 })
+    await adminPage.locator('#invite-name').fill(userName)
+    await adminPage.locator('#invite-phone').fill(userPhone)
+    await adminPage.locator('#invite-phone').blur()
     await adminPage.getByRole('button', { name: /create invite/i }).click()
 
     await expect(adminPage.getByRole('dialog')).toBeVisible({ timeout: 10000 })
@@ -94,9 +97,10 @@ test.describe('Invite delivery', () => {
     const userPhone = uniquePhone()
 
     await adminPage.getByRole('button', { name: /invite user/i }).click()
-    await adminPage.getByLabel('Name').fill(userName)
-    await adminPage.getByLabel('Phone Number').fill(userPhone)
-    await adminPage.getByLabel('Phone Number').blur()
+    await expect(adminPage.locator('#invite-name')).toBeVisible({ timeout: 5000 })
+    await adminPage.locator('#invite-name').fill(userName)
+    await adminPage.locator('#invite-phone').fill(userPhone)
+    await adminPage.locator('#invite-phone').blur()
     await adminPage.getByRole('button', { name: /create invite/i }).click()
 
     // Close the send dialog
@@ -121,9 +125,10 @@ test.describe('Invite delivery', () => {
     const userPhone = uniquePhone()
 
     await adminPage.getByRole('button', { name: /invite user/i }).click()
-    await adminPage.getByLabel('Name').fill(userName)
-    await adminPage.getByLabel('Phone Number').fill(userPhone)
-    await adminPage.getByLabel('Phone Number').blur()
+    await expect(adminPage.locator('#invite-name')).toBeVisible({ timeout: 5000 })
+    await adminPage.locator('#invite-name').fill(userName)
+    await adminPage.locator('#invite-phone').fill(userPhone)
+    await adminPage.locator('#invite-phone').blur()
     await adminPage.getByRole('button', { name: /create invite/i }).click()
 
     // Close auto-opened dialog
@@ -148,9 +153,10 @@ test.describe('Invite delivery', () => {
     await expect(adminPage.getByRole('heading', { name: 'Users' })).toBeVisible()
 
     await adminPage.getByRole('button', { name: /invite user/i }).click()
-    await adminPage.getByLabel('Name').fill(`PhoneVal ${Date.now()}`)
-    await adminPage.getByLabel('Phone Number').fill(uniquePhone())
-    await adminPage.getByLabel('Phone Number').blur()
+    await expect(adminPage.locator('#invite-name')).toBeVisible({ timeout: 5000 })
+    await adminPage.locator('#invite-name').fill(`PhoneVal ${Date.now()}`)
+    await adminPage.locator('#invite-phone').fill(uniquePhone())
+    await adminPage.locator('#invite-phone').blur()
     await adminPage.getByRole('button', { name: /create invite/i }).click()
 
     // Wait for send dialog to appear
@@ -177,9 +183,10 @@ test.describe('Invite delivery', () => {
     await expect(adminPage.getByRole('heading', { name: 'Users' })).toBeVisible()
 
     await adminPage.getByRole('button', { name: /invite user/i }).click()
-    await adminPage.getByLabel('Name').fill(`SMSWarn ${Date.now()}`)
-    await adminPage.getByLabel('Phone Number').fill(uniquePhone())
-    await adminPage.getByLabel('Phone Number').blur()
+    await expect(adminPage.locator('#invite-name')).toBeVisible({ timeout: 5000 })
+    await adminPage.locator('#invite-name').fill(`SMSWarn ${Date.now()}`)
+    await adminPage.locator('#invite-phone').fill(uniquePhone())
+    await adminPage.locator('#invite-phone').blur()
     await adminPage.getByRole('button', { name: /create invite/i }).click()
 
     await expect(adminPage.getByRole('dialog')).toBeVisible({ timeout: 10000 })

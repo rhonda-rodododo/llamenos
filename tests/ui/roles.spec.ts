@@ -42,9 +42,11 @@ test.describe('Role Assignment UI', () => {
     await adminPage.getByRole('link', { name: 'Users' }).click()
     await expect(adminPage.getByRole('heading', { name: 'Users' })).toBeVisible()
 
+    // Wait for user list to load (includes encrypted name decryption)
+    await expect(adminPage.getByTestId('user-list')).toBeVisible({ timeout: 15000 })
     // Find the role selector trigger (the Select with aria-label "Change role")
     const roleSelector = adminPage.getByRole('combobox', { name: /change role/i }).first()
-    await expect(roleSelector).toBeVisible()
+    await expect(roleSelector).toBeVisible({ timeout: 10000 })
     await roleSelector.click()
 
     // All 5 default roles should be visible in the dropdown
