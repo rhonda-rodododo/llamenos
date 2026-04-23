@@ -304,8 +304,28 @@ async function createRoleAccount(
     await option.click({ timeout: 5000 })
   }
 
-  // Create invite
+  // Create invite — capture API response for debugging
+  const inviteResponsePromise = adminPage
+    .waitForResponse((r) => r.url().includes('/api/invites') && r.request().method() === 'POST', {
+      timeout: 15000,
+    })
+    .catch(() => null)
   await adminPage.getByRole('button', { name: /create invite/i }).click()
+  const inviteResponse = await inviteResponsePromise
+  if (inviteResponse) {
+    console.log(
+      `[SETUP] Invite API response: ${inviteResponse.status()} ${inviteResponse.statusText()}`
+    )
+    if (!inviteResponse.ok()) {
+      const body = await inviteResponse.text().catch(() => '<unreadable>')
+      console.log(`[SETUP] Invite API error body: ${body}`)
+    }
+  } else {
+    console.log(
+      '[SETUP] No invite API response captured — button click may not have triggered request'
+    )
+    await adminPage.screenshot({ path: `test-results/invite-debug-${opts.name}.png` })
+  }
 
   // Wait for invite link to appear
   const inviteLinkEl = adminPage.getByTestId('invite-link-code')

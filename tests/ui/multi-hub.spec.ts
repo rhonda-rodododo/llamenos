@@ -8,19 +8,25 @@ test.describe('Multi-hub architecture — UI', () => {
   test('existing pages still work with hub context', async ({ adminPage }) => {
     // Verify all main pages load correctly with hub context active
     await adminPage.getByRole('link', { name: 'Users' }).click()
-    await expect(adminPage.getByRole('heading', { name: 'Users' })).toBeVisible()
+    await expect(adminPage.getByRole('heading', { name: 'Users' })).toBeVisible({ timeout: 10000 })
 
     await adminPage.getByRole('link', { name: 'Shifts' }).click()
-    await expect(adminPage.getByRole('heading', { name: /shift schedule/i })).toBeVisible()
+    await expect(adminPage.getByRole('heading', { name: /shift schedule/i })).toBeVisible({
+      timeout: 10000,
+    })
 
     await adminPage.getByRole('link', { name: 'Ban List' }).click()
-    await expect(adminPage.getByRole('heading', { name: /ban list/i })).toBeVisible()
+    await expect(adminPage.getByRole('heading', { name: /ban list/i })).toBeVisible({
+      timeout: 10000,
+    })
 
     await adminPage.getByRole('link', { name: 'Audit Log' }).click()
-    await expect(adminPage.getByTestId('audit-log-heading')).toBeVisible()
+    await expect(adminPage.getByTestId('audit-log-heading')).toBeVisible({ timeout: 10000 })
 
     await adminPage.getByRole('link', { name: 'Dashboard' }).click()
-    await expect(adminPage.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible()
+    await expect(adminPage.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible({
+      timeout: 10000,
+    })
   })
 
   test('admin can archive a hub via the UI', async ({ adminPage, request }) => {

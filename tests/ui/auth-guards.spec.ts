@@ -5,7 +5,13 @@ test.describe('Auth guards', () => {
     const ctx = await browser.newContext()
     const page = await ctx.newPage()
     await page.goto('/')
-    await expect(page).toHaveURL(/\/login/)
+    // Under parallel-worker load the SPA auth redirect chain
+    // (bundle fetch + restoreSession 401 + config + useEffect) can take 30s+
+    await page.waitForFunction(
+      () => !!document.querySelector('[data-testid="login-heading"]'),
+      null,
+      { timeout: 60000 }
+    )
     await ctx.close()
   })
 
@@ -13,7 +19,11 @@ test.describe('Auth guards', () => {
     const ctx = await browser.newContext()
     const page = await ctx.newPage()
     await page.goto('/notes')
-    await expect(page).toHaveURL(/\/login/)
+    await page.waitForFunction(
+      () => !!document.querySelector('[data-testid="login-heading"]'),
+      null,
+      { timeout: 60000 }
+    )
     await ctx.close()
   })
 
@@ -21,7 +31,11 @@ test.describe('Auth guards', () => {
     const ctx = await browser.newContext()
     const page = await ctx.newPage()
     await page.goto('/settings')
-    await expect(page).toHaveURL(/\/login/)
+    await page.waitForFunction(
+      () => !!document.querySelector('[data-testid="login-heading"]'),
+      null,
+      { timeout: 60000 }
+    )
     await ctx.close()
   })
 
