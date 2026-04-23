@@ -7,7 +7,7 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  workers: process.env.CI ? 4 : parseInt(process.env.PLAYWRIGHT_WORKERS || "3"),
+  workers: process.env.CI ? 4 : parseInt(process.env.PLAYWRIGHT_WORKERS || "6"),
   reporter: process.env.CI
     ? [
         ["github"],
