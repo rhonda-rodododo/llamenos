@@ -26,7 +26,7 @@ export function buildDevCsp(
   return [
     "default-src 'self'",
     `script-src 'self' 'wasm-unsafe-eval'${nonceDirective}`,
-    `style-src 'self' 'nonce-${nonce ?? ''}' ${UNSAFE_INLINE}`,
+    `style-src 'self' ${UNSAFE_INLINE}`,
     `style-src-attr ${UNSAFE_INLINE}`,
     "img-src 'self' data: blob:",
     "font-src 'self'",
