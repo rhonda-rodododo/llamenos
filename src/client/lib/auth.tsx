@@ -91,6 +91,10 @@ function stateFromMe(
   me: Awaited<ReturnType<typeof getMe>>,
   overrides: Partial<AuthState> = {}
 ): AuthState {
+  // Record auth establishment for grace-period guard in onAuthExpired
+  if ((me.roles?.length ?? 0) > 0) {
+    lastAuthEstablishedAt = Date.now()
+  }
   return {
     isKeyUnlocked: false,
     publicKey: me.pubkey,
@@ -134,6 +138,16 @@ async function loadDeviceKeypairSafe(): Promise<DeviceKeypair | null> {
 
 /** Interval for silent JWT refresh (10 minutes) */
 const TOKEN_REFRESH_INTERVAL_MS = 10 * 60 * 1000
+
+/**
+ * Timestamp of last successful auth establishment (PIN unlock, session restore).
+ * Used to ignore stale 401 responses from pre-auth requests that arrive after
+ * authentication completes. Without this grace period, React Query queries and
+ * custom fetch calls that fire before auth can trigger onAuthExpired AFTER
+ * the user is already authenticated, causing the session-expired modal to flash.
+ */
+let lastAuthEstablishedAt = 0
+const AUTH_GRACE_PERIOD_MS = 10_000
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({
@@ -220,15 +234,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   // Register auth expiry callback — called by api.ts when a 401 is received.
-  // Only flag session expired if the user was previously authenticated — a 401
-  // during initial load (before signIn/unlockWithPin completes) is expected when
-  // the access token has expired and refresh hasn't run yet. Blocking the UI
-  // with the session-expired modal before auth is established causes E2E
-  // failures (background queries race ahead of PIN unlock).
+  // Guards against stale 401s from pre-auth requests that arrive after
+  // authentication is established:
+  //   1. publicKey not set or still loading → auth hasn't started yet
+  //   2. Within grace period of auth establishment → stale 401 from pre-auth request
   useEffect(() => {
     setOnAuthExpired(() => {
       setState((s) => {
         if (!s.publicKey || s.isLoading) return s
+        if (Date.now() - lastAuthEstablishedAt < AUTH_GRACE_PERIOD_MS) return s
         return {
           ...s,
           sessionExpired: true,
