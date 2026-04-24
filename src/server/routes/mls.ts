@@ -136,7 +136,13 @@ mlsRoutes.openapi(uploadKeyPackagesRoute, async (c) => {
     keyPackageData: Buffer.from(kp.keyPackageData, 'base64'),
   }))
 
-  await db.insert(mlsKeyPackages).values(rows).onConflictDoNothing()
+  try {
+    await db.insert(mlsKeyPackages).values(rows).onConflictDoNothing()
+  } catch {
+    // FK violation when device is not yet registered (most common cause).
+    // The client handles this gracefully — MLS bootstrap is non-blocking.
+    return c.json({ error: 'Failed to upload key packages. Ensure device is registered.' }, 400)
+  }
 
   return c.json({ uploaded: rows.length }, 200)
 })
