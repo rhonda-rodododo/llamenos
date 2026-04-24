@@ -219,17 +219,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => setOnDecryptMismatch(null)
   }, [])
 
-  // Register auth expiry callback — called by api.ts when a 401 is received
+  // Register auth expiry callback — called by api.ts when a 401 is received.
+  // Only flag session expired if the user was previously authenticated — a 401
+  // during initial load (before signIn/unlockWithPin completes) is expected when
+  // the access token has expired and refresh hasn't run yet. Blocking the UI
+  // with the session-expired modal before auth is established causes E2E
+  // failures (background queries race ahead of PIN unlock).
   useEffect(() => {
     setOnAuthExpired(() => {
-      setState((s) => ({
-        ...s,
-        sessionExpired: true,
-        sessionExpiring: false,
-        ...(s.isKeyUnlocked
-          ? {}
-          : { roles: [], permissions: [], primaryRoleName: null, name: null }),
-      }))
+      setState((s) => {
+        if (!s.publicKey || s.isLoading) return s
+        return {
+          ...s,
+          sessionExpired: true,
+          sessionExpiring: false,
+          ...(s.isKeyUnlocked
+            ? {}
+            : { roles: [], permissions: [], primaryRoleName: null, name: null }),
+        }
+      })
     })
     return () => setOnAuthExpired(null)
   }, [])
