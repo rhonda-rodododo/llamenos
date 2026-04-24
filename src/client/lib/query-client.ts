@@ -1,4 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
+import { ApiError } from './api/client'
 import * as keyManager from './key-manager'
 import type { QueryKeyDomain } from './queries/keys'
 
@@ -7,7 +8,13 @@ export const queryClient = new QueryClient({
     queries: {
       staleTime: 5 * 60 * 1000, // 5 minutes
       gcTime: 30 * 60 * 1000, // 30 minutes
-      retry: 2,
+      retry: (failureCount, error) => {
+        // Never retry auth failures — 401s are not transient and retrying
+        // them races with the PIN unlock flow, causing stale 401 responses
+        // to fire onAuthExpired after authentication is established.
+        if (error instanceof ApiError && error.status === 401) return false
+        return failureCount < 2
+      },
       refetchOnWindowFocus: true,
     },
   },
