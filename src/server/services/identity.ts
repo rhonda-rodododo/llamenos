@@ -2,6 +2,7 @@ import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js'
 import { LABEL_USER_PII } from '@shared/crypto-labels'
 import type { Ciphertext } from '@shared/crypto-types'
+import type { RecipientEnvelope } from '@shared/types'
 import { and, eq, isNull, sql } from 'drizzle-orm'
 import type { MessagingChannelType } from '../../shared/types'
 import type { Database } from '../db'
@@ -317,12 +318,21 @@ export class IdentityService {
       throw new AppError(500, 'Cannot create invite: no admin pubkeys for PII encryption')
     }
 
+    // Include server pubkey so the server can envelope-decrypt the name
+    // for the validateInvite welcome page without a separate server-key copy.
+    const serverPubkey = this.crypto.getServerPubkey()
+    const nameRecipients = [...new Set([...adminPubkeys, serverPubkey])]
+
     const phoneEnvelope = this.crypto.envelopeEncrypt(
       data.phone ?? '',
       adminPubkeys,
       LABEL_USER_PII
     )
-    const nameEnvelope = this.crypto.envelopeEncrypt(data.name ?? '', adminPubkeys, LABEL_USER_PII)
+    const nameEnvelope = this.crypto.envelopeEncrypt(
+      data.name ?? '',
+      nameRecipients,
+      LABEL_USER_PII
+    )
 
     const [row] = await this.db
       .insert(inviteCodes)
@@ -333,8 +343,7 @@ export class IdentityService {
         expiresAt,
         encryptedPhone: phoneEnvelope.encrypted,
         phoneEnvelopes: phoneEnvelope.envelopes,
-        // Server-encrypted name for validateInvite welcome page + E2EE envelopes for admin list
-        encryptedName: this.crypto.serverEncrypt(data.name ?? '', LABEL_USER_PII),
+        encryptedName: nameEnvelope.encrypted,
         nameEnvelopes: nameEnvelope.envelopes,
       })
       .returning()
@@ -349,12 +358,17 @@ export class IdentityService {
     if (!row) return { valid: false, error: 'not_found' }
     if (row.usedAt !== null) return { valid: false, error: 'already_used' }
     if (row.expiresAt < new Date()) return { valid: false, error: 'expired' }
-    // Name is E2EE — server-side decrypt attempt for display (may be server-encrypted fallback)
+    // Name is envelope-encrypted — server unwraps its own envelope to display
+    // on the welcome page. Falls back to empty if the server envelope is missing
+    // (e.g. invites created before the server was added as a recipient).
     let name: string | undefined
     try {
-      name = this.crypto.serverDecrypt(row.encryptedName as Ciphertext, LABEL_USER_PII)
+      name = this.#envelopeDecryptName(
+        row.encryptedName as Ciphertext,
+        row.nameEnvelopes as RecipientEnvelope[]
+      )
     } catch {
-      // E2EE-only name — client will decrypt via envelopes
+      // Envelope missing or decrypt failed — name stays undefined
     }
     return { valid: true, name, roleIds: row.roleIds as string[] }
   }
@@ -760,6 +774,15 @@ export class IdentityService {
         ? { encryptedPhone: r.encryptedPhone as string, phoneEnvelopes }
         : {}),
     }
+  }
+
+  /** Decrypt an envelope-encrypted name using the server's own envelope. */
+  #envelopeDecryptName(
+    encryptedName: Ciphertext,
+    envelopes: RecipientEnvelope[]
+  ): string | undefined {
+    if (!encryptedName || !envelopes?.length) return undefined
+    return this.crypto.serverEnvelopeDecrypt(encryptedName, envelopes, LABEL_USER_PII)
   }
 
   #rowToInvite(r: typeof inviteCodes.$inferSelect): InviteCode {

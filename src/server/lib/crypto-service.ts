@@ -234,6 +234,24 @@ export class CryptoService {
   }
 
   /**
+   * Envelope-decrypt using the server's own private key.
+   * Finds the server's envelope in the array and unwraps the message key.
+   * Throws if no envelope matches the server pubkey.
+   */
+  serverEnvelopeDecrypt(
+    ct: Ciphertext,
+    envelopes: RecipientEnvelope[],
+    label: CryptoLabel
+  ): string {
+    const { privateKey, pubkey } = this.getServerPrivateKey()
+    const envelope = envelopes.find((e) => e.pubkey === pubkey)
+    if (!envelope) {
+      throw new Error(`No envelope for server pubkey ${pubkey}`)
+    }
+    return this.envelopeDecrypt(ct, envelope, privateKey, label)
+  }
+
+  /**
    * Generate a random hub key and ECIES-wrap it for each recipient pubkey.
    * Always includes the server's own pubkey so the server can later re-wrap
    * for new members (e.g., when an invite is redeemed).
