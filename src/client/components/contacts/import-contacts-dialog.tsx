@@ -1,7 +1,3 @@
-import { type CryptoLabel, LABEL_CONTACT_PII, LABEL_CONTACT_SUMMARY } from '@shared/crypto-labels'
-import type { Ciphertext } from '@shared/crypto-types'
-import type { HpkeEnvelope } from '@shared/hpke-envelope'
-import type { RecipientEnvelope } from '@shared/types'
 import { AlertTriangle, CheckCircle2, FileUp, Loader2, Upload, X } from 'lucide-react'
 import { useCallback, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -17,9 +13,6 @@ import {
 } from '@/components/ui/dialog'
 import { Progress } from '@/components/ui/progress'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { getContactRecipients } from '@/lib/api'
-import { cryptoWorker } from '@/lib/crypto-worker-client'
-import * as keyManager from '@/lib/key-manager'
 import { useImportContacts } from '@/lib/queries/contacts'
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -166,29 +159,6 @@ function parseJSON(text: string): ParseResult {
   return { ok: true, rows, warnings }
 }
 
-/**
- * HPKE-seal plaintext for multiple recipients via the crypto worker.
- * Each recipient gets their own HpkeEnvelope — no shared symmetric key.
- *
- * Slice 2: Migrated from ECIES envelope encryption. Return shape still
- * includes `encrypted` for API compat until Slice 4 updates server endpoints.
- */
-async function hpkeSealForRecipients(
-  plaintext: string,
-  recipientPubkeys: string[],
-  label: CryptoLabel,
-  recordId: string,
-  fieldName: string
-): Promise<{ encrypted: Ciphertext; envelopes: RecipientEnvelope[] }> {
-  const hpkeEnvelopes: Array<{ pubkey: string } & HpkeEnvelope> = []
-  for (const pubkey of recipientPubkeys) {
-    // @ts-expect-error Slice 4: recipientPubkeys are secp256k1 x-only hex; HPKE needs raw X25519 bytes
-    const envelope = await cryptoWorker.hpkeSeal(plaintext, pubkey, label, recordId, fieldName)
-    hpkeEnvelopes.push({ pubkey, ...envelope })
-  }
-  return { encrypted: '' as Ciphertext, envelopes: hpkeEnvelopes }
-}
-
 // ── Component ──────────────────────────────────────────────────────────────
 
 interface ImportContactsDialogProps {
@@ -283,92 +253,28 @@ export function ImportContactsDialog({
   async function handleImport() {
     if (!parseResult || !parseResult.ok) return
 
-    const unlocked = await keyManager.isUnlocked()
-    if (!unlocked) {
-      toast.error(
-        t('contacts.errorKeyLocked', {
-          defaultValue: 'Encryption key is locked. Please unlock first.',
-        })
-      )
-      return
-    }
-
-    const pk = await keyManager.getPublicKeyHex()
-    if (!pk) {
-      toast.error(t('contacts.errorNoPubkey', { defaultValue: 'Could not retrieve public key' }))
-      return
-    }
-
     setStage('importing')
     setProgress(0)
 
     try {
-      const { summaryPubkeys, piiPubkeys } = await getContactRecipients()
-      if (!summaryPubkeys.includes(pk)) summaryPubkeys.push(pk)
-      if (!piiPubkeys.includes(pk)) piiPubkeys.push(pk)
-
       const { rows } = parseResult
-      const encryptedContacts: Parameters<typeof importMutation.mutateAsync>[0]['contacts'] = []
+      const contacts: Parameters<typeof importMutation.mutateAsync>[0]['contacts'] = []
 
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i]
-        // Client-generated ID for AAD binding (HPKE requires recordId at seal time)
-        const contactId = crypto.randomUUID()
-
-        const { encrypted: encryptedDisplayName, envelopes: displayNameEnvelopes } =
-          await hpkeSealForRecipients(
-            row.displayName,
-            summaryPubkeys,
-            LABEL_CONTACT_SUMMARY,
-            contactId,
-            'displayName'
-          )
-
-        let encryptedFullName: string | undefined
-        let fullNameEnvelopes: RecipientEnvelope[] | undefined
-        if (row.fullName) {
-          const r = await hpkeSealForRecipients(
-            row.fullName,
-            piiPubkeys,
-            LABEL_CONTACT_PII,
-            contactId,
-            'fullName'
-          )
-          encryptedFullName = r.encrypted
-          fullNameEnvelopes = r.envelopes
-        }
-
-        let encryptedPhone: string | undefined
-        let phoneEnvelopes: RecipientEnvelope[] | undefined
-        if (row.phone) {
-          const r = await hpkeSealForRecipients(
-            row.phone,
-            piiPubkeys,
-            LABEL_CONTACT_PII,
-            contactId,
-            'phone'
-          )
-          encryptedPhone = r.encrypted
-          phoneEnvelopes = r.envelopes
-        }
-
-        encryptedContacts.push({
+        contacts.push({
           contactType: row.contactType,
           riskLevel: row.riskLevel,
           tags: row.tags,
-          encryptedDisplayName,
-          displayNameEnvelopes,
-          encryptedFullName,
-          fullNameEnvelopes,
-          encryptedPhone,
-          phoneEnvelopes,
+          displayName: row.displayName,
+          fullName: row.fullName,
+          phone: row.phone,
         })
-
         setProgress(Math.round(((i + 1) / rows.length) * 90))
       }
 
       setProgress(95)
-      const res = await importMutation.mutateAsync({ contacts: encryptedContacts })
+      const res = await importMutation.mutateAsync({ contacts })
       setProgress(100)
       setResult(res)
       setStage('done')

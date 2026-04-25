@@ -226,8 +226,11 @@ export async function importContacts(data: {
     contactType: string
     riskLevel: string
     tags?: string[]
-    encryptedDisplayName: string
-    displayNameEnvelopes: RecipientEnvelope[]
+    displayName?: string
+    fullName?: string
+    phone?: string
+    encryptedDisplayName?: string
+    displayNameEnvelopes?: RecipientEnvelope[]
     encryptedFullName?: string
     fullNameEnvelopes?: RecipientEnvelope[]
     encryptedPhone?: string
