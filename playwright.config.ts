@@ -67,6 +67,14 @@ export default defineConfig({
       dependencies: ["setup"],
     },
     {
+      // UI Screenshot tests for the website and docs — full browser
+      name: "screenshot",
+      testDir: "./tests/screenshot",
+      use: { ...devices["Desktop Chrome"] },
+      testIgnore: /bootstrap\.spec\.ts/,
+      dependencies: ["setup"],
+    },
+    {
       // Bootstrap tests run after main UI tests to avoid admin-deletion race conditions
       name: "bootstrap",
       testDir: "./tests/ui",

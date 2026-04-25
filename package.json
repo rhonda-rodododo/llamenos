@@ -34,6 +34,7 @@
     "test:interactive": "bunx playwright test --ui",
     "test:live": "bunx playwright test --config playwright.live.config.ts",
     "test:all": "bun run test:unit && bun run test:integration && bun run test:api && bun run test:e2e",
+    "screenshot": "bunx playwright test --project=screenshot",
     "site:dev": "cd site && bun run dev",
     "site:build": "cd site && bun run build",
     "prepare": "lefthook install"
