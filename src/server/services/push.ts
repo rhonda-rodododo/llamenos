@@ -81,10 +81,9 @@ export class PushService {
     // HMAC hash endpoint for dedup
     const endpointHash = this.crypto.hmac(data.endpoint, HMAC_PHONE_PREFIX)
 
-    // E2EE envelope-encrypt device label for the user's own pubkey (client-side decryption)
-    // Only attempt if pubkey looks like a valid 64-char hex secp256k1 x-only pubkey
+    // HPKE envelope-encrypt device label (server's own HPKE key is always a recipient)
     let labelEnvelope: Awaited<ReturnType<CryptoService['envelopeEncrypt']>> | undefined
-    if (data.deviceLabel && /^[0-9a-f]{64}$/i.test(data.pubkey)) {
+    if (data.deviceLabel) {
       labelEnvelope = await this.crypto.envelopeEncrypt(
         data.deviceLabel,
         [data.pubkey],
@@ -94,12 +93,7 @@ export class PushService {
       )
     }
 
-    // E2EE device label: use envelope ciphertext if available, fallback to server-key
-    const encryptedDeviceLabel = data.deviceLabel
-      ? labelEnvelope
-        ? labelEnvelope.encrypted
-        : this.crypto.serverEncrypt(data.deviceLabel, LABEL_USER_PII)
-      : undefined
+    const encryptedDeviceLabel = labelEnvelope?.encrypted
 
     const [row] = await this.db
       .insert(pushSubscriptions)

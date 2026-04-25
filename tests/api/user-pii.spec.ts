@@ -116,12 +116,12 @@ test.describe('User PII enforcement', () => {
     const meRes = await carolApi.get('/api/auth/me')
     const me = await meRes.json()
 
-    // Name is E2EE envelope-encrypted — server returns envelope fields for client-side decryption
-    expect(me.encryptedName).toBeTruthy()
+    // With HPKE, server decrypts its own envelope — name is returned as plaintext
+    expect(me.name).toBe(myName)
+    // HPKE envelopes are present for client-side decryption
     expect(Array.isArray(me.nameEnvelopes)).toBe(true)
     expect(me.nameEnvelopes.length).toBeGreaterThan(0)
-    // Phone is E2EE envelope-encrypted — server returns a masked sentinel (cannot read plaintext)
-    // The masked sentinel contains bullets and does NOT expose the real phone digits
+    // Phone is HPKE envelope-encrypted — server decrypts and returns masked
     expect(me).toHaveProperty('phone')
     expect(me.phone).not.toBe(myPhone)
     expect(me.phone).toContain('•')
@@ -144,8 +144,9 @@ test.describe('User PII enforcement', () => {
     const userEntry = listResult.users.find((v: { pubkey: string }) => v.pubkey === vol.pubkey)
     expect(userEntry).toBeDefined()
 
-    // Name is E2EE envelope-encrypted — admin also gets encrypted sentinel + envelope data
-    expect(userEntry.encryptedName).toBeTruthy()
+    // With HPKE, server decrypts its own envelope — name is returned as plaintext
+    expect(userEntry.name).toBe(userName)
+    // HPKE envelopes are present for client-side decryption
     expect(Array.isArray(userEntry.nameEnvelopes)).toBe(true)
     expect(userEntry.nameEnvelopes.length).toBeGreaterThan(0)
     // Admin view discriminant
@@ -168,15 +169,11 @@ test.describe('User PII enforcement', () => {
     const unmasked = await unmaskedRes.json()
 
     expect(unmasked.view).toBe('admin')
-    // Phone is E2EE envelope-encrypted — server returns encrypted fields for client-side decryption.
-    // The admin decrypts encryptedPhone using their private key + phoneEnvelopes.
-    // Server cannot return plaintext phone when envelope-encrypted.
-    expect(unmasked).toHaveProperty('encryptedPhone')
-    expect(unmasked.encryptedPhone).toBeTruthy()
+    // With HPKE, server decrypts its own envelope — unmask=true returns full plaintext phone
+    expect(unmasked.phone).toBe(userPhone)
+    // HPKE envelopes are present for client-side decryption
     expect(Array.isArray(unmasked.phoneEnvelopes)).toBe(true)
     expect(unmasked.phoneEnvelopes.length).toBeGreaterThan(0)
-    // Full plaintext phone must NOT be returned by server
-    expect(unmasked.phone).not.toBe(userPhone)
   })
 
   // ─── Test 6: Non-admin cannot unmask phone ────────────────────────────────
