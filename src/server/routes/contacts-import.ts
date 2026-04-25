@@ -1,11 +1,14 @@
 import { createRoute, z } from '@hono/zod-openapi'
 import type { Ciphertext, HmacHash } from '@shared/crypto-types'
-import { RecipientEnvelopeSchema } from '@shared/schemas/records'
 import type { RecipientEnvelope } from '@shared/types'
 import { createRouter } from '../lib/openapi'
 import { requirePermission } from '../middleware/permission-guard'
 
 const contactImport = createRouter()
+
+// Use permissive envelope schema (passthrough) to accept both ECIES and HPKE
+// formats during the migration period — matches the core contacts route pattern.
+const EnvelopeSchema = z.object({}).passthrough()
 
 const ContactImportSchema = z.object({
   contacts: z
@@ -15,14 +18,14 @@ const ContactImportSchema = z.object({
         riskLevel: z.string(),
         tags: z.array(z.string()).optional(),
         encryptedDisplayName: z.string(),
-        displayNameEnvelopes: z.array(RecipientEnvelopeSchema),
+        displayNameEnvelopes: z.array(EnvelopeSchema),
         encryptedFullName: z.string().optional(),
-        fullNameEnvelopes: z.array(RecipientEnvelopeSchema).optional(),
+        fullNameEnvelopes: z.array(EnvelopeSchema).optional(),
         encryptedPhone: z.string().optional(),
-        phoneEnvelopes: z.array(RecipientEnvelopeSchema).optional(),
+        phoneEnvelopes: z.array(EnvelopeSchema).optional(),
         identifierHash: z.string().optional(),
         encryptedPII: z.string().optional(),
-        piiEnvelopes: z.array(RecipientEnvelopeSchema).optional(),
+        piiEnvelopes: z.array(EnvelopeSchema).optional(),
       })
     )
     .min(1, 'contacts array is required')
@@ -97,13 +100,14 @@ contactImport.openapi(importRoute, async (c) => {
         tags: contact.tags ?? [],
         identifierHash: contact.identifierHash as HmacHash | undefined,
         encryptedDisplayName: contact.encryptedDisplayName as Ciphertext,
-        displayNameEnvelopes: (contact.displayNameEnvelopes ?? []) as RecipientEnvelope[],
+        displayNameEnvelopes: (contact.displayNameEnvelopes ??
+          []) as unknown as RecipientEnvelope[],
         encryptedFullName: contact.encryptedFullName as Ciphertext | undefined,
-        fullNameEnvelopes: (contact.fullNameEnvelopes ?? []) as RecipientEnvelope[],
+        fullNameEnvelopes: (contact.fullNameEnvelopes ?? []) as unknown as RecipientEnvelope[],
         encryptedPhone: contact.encryptedPhone as Ciphertext | undefined,
-        phoneEnvelopes: (contact.phoneEnvelopes ?? []) as RecipientEnvelope[],
+        phoneEnvelopes: (contact.phoneEnvelopes ?? []) as unknown as RecipientEnvelope[],
         encryptedPII: contact.encryptedPII as Ciphertext | undefined,
-        piiEnvelopes: (contact.piiEnvelopes ?? []) as RecipientEnvelope[],
+        piiEnvelopes: (contact.piiEnvelopes ?? []) as unknown as RecipientEnvelope[],
         createdBy: pubkey ?? '',
       })
       created++
