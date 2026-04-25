@@ -5,6 +5,11 @@
 **Series:** v2→v1 Entity Architecture, cross-cutting supplement
 **Depends on:** Entity Type Registry (Part 1), Custom Field Schema Engine (Part 4), Relationship Engine (Part 2), Blind Index Search (Part 6)
 **Supplements:** All 6 parts of the v2→v1 spec series
+**Companion specs (same date):**
+- AAD Alignment & Envelope PII Migration (`2026-04-25-aad-alignment-envelope-pii-migration-design.md`)
+- Blind Index Crypto Worker Integration (`2026-04-25-blind-index-crypto-worker-integration-design.md`)
+- File Attachment Encryption Model (`2026-04-25-file-attachment-encryption-model-design.md`)
+- MLS Preconditions & Hub Bootstrap (`2026-04-25-mls-preconditions-hub-bootstrap-design.md`)
 
 ---
 
@@ -66,9 +71,9 @@ The only truly plaintext data is **structural necessities** that the database re
 |---|---|---|---|---|
 | **T0 — Structural Plaintext** | N/A | Server + all clients | None | Foreign key IDs (`hub_id`, `entity_type_id`), machine-name option keys, timestamps, boolean config flags, `createdBy` pubkeys |
 | **T1 — Server-Secret** | Server only (`SERVER_SECRET` / `IDP_VALUE_ENCRYPTION_KEY`) | Server only | `CryptoService.serverEncrypt()` — AES-256-GCM with label-bound AAD | API credentials (`LABEL_PROVIDER_CREDENTIAL_WRAP`), IdP tokens (`LABEL_IDP_VALUE_WRAP`), webhook signing keys, IVR audio storage keys |
-| **T2 — Hub-Key** | Server (for seeding/re-wrapping) + all hub member clients (non-extractable `CryptoKey`) | All hub members | AES-256-GCM via hub symmetric key, per-record AAD (`hubFieldAad(recordId, fieldName)`) | Entity type labels/descriptions/icons/colors, status labels, field labels/helpText, option labels, non-PII field values, shift names, role names, team names, tag names |
+| **T2 — Hub-Key** | Server (for seeding/re-wrapping) + all hub member clients (non-extractable `CryptoKey`) | All hub members | AES-256-GCM via hub symmetric key, per-record AAD via `hubFieldAad(recordId, fieldName)` → `llamenos:hub-field:<recordId>:<fieldName>` | Entity type labels/descriptions/icons/colors, status labels, field labels/helpText, option labels, non-PII field values, shift names, role names, team names, tag names |
 | **T3 — MLS Group** | Current MLS group members | Current hub members (with forward secrecy — member removal revokes access to future content) | MLS `encrypt()`/`decrypt()` via per-hub group (`llamenos:hub:<hubId>`) | PII-marked entity field values, relationship instance payloads (notes, join fields), timeline inline content (comments, assessments, referrals) |
-| **T4 — HPKE Envelope** | Named recipient private keys only | Specific envelope recipients | HPKE seal/open (`DHKEM(X25519) + HKDF-SHA256 + AES-256-GCM`) with AAD binding | Contact PII (full name, phone, email), user identity data, per-note forward-secrecy keys, **file attachment keys and metadata** (attorney-client privilege) |
+| **T4 — HPKE Envelope** | Named recipient private keys only | Specific envelope recipients | HPKE seal/open (`DHKEM(X25519) + HKDF-SHA256 + AES-256-GCM`) with AAD via `buildAad(label, recordId, fieldName)` → `<label>:<recordId>:<fieldName>` | Contact PII (full name, phone, email), user identity data, per-note forward-secrecy keys, **file attachment keys and metadata** (attorney-client privilege) |
 | **T5 — Blind Index** | Hub members (for computation) | Server (for filtering, cannot reverse) | HMAC-SHA256 with hub-derived per-field HKDF key | Filterable field values (status, severity, category, assignedTo, custom select/checkbox fields marked `indexable: true`) |
 
 **Notes:**
