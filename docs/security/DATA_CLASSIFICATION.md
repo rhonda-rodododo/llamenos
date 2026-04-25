@@ -1,7 +1,7 @@
 # Data Classification Reference
 
-**Version:** 2.0
-**Date:** 2026-04-01
+**Version:** 3.0
+**Date:** 2026-04-25
 
 This document provides a complete inventory of all data stored and processed by Llamenos, with classification levels for security audits, legal review, and GDPR compliance.
 
@@ -9,9 +9,9 @@ This document provides a complete inventory of all data stored and processed by 
 
 | Level | Definition | Examples |
 |-------|------------|----------|
-| **E2EE (Tier 1)** | End-to-end envelope encrypted (ECIES per-recipient); server stores ciphertext only | Note content, volunteer PII, contact directory PII |
-| **E2EE (Tier 2)** | Hub-key encrypted (XChaCha20-Poly1305 with shared symmetric key); decrypted client-side | Role names, shift names, report type names, custom field labels, team names, tag names |
-| **E2EE (Tier 3)** | Per-artifact forward secrecy (unique random key, ECIES-wrapped per reader) | Call notes, transcriptions, messages |
+| **E2EE (Tier 1)** | End-to-end envelope encrypted (legacy ECIES per-recipient — HPKE migration planned); server stores ciphertext only | Volunteer PII, contact directory PII |
+| **E2EE (Tier 2)** | Hub-key encrypted (AES-256-GCM via non-extractable WebCrypto `CryptoKey`, per-record AAD via `buildAad(label, recordId, fieldName)`); hub key HPKE-distributed per device; decrypted client-side | Role names, shift names, report type names, custom field labels, team names, tag names |
+| **E2EE (Tier 3 — MLS)** | MLS groupwise encryption via `@wireapp/core-crypto` WASM; each hub has a persistent MLS group; epoch advances on membership change provide forward secrecy | Call notes, transcriptions, messages |
 | **IdP-Encrypted** | Encrypted server-side with `IDP_VALUE_ENCRYPTION_KEY` via HKDF + XChaCha20-Poly1305 | IdP nsec_secret values |
 | **Hashed** | One-way cryptographic hash; original not recoverable without brute-force | Caller phone numbers |
 | **Plaintext** | Stored unencrypted; accessible to operator and under subpoena | Timestamps, call durations |
@@ -27,10 +27,10 @@ This document provides a complete inventory of all data stored and processed by 
 | Field | Classification | Retention | Notes |
 |-------|---------------|-----------|-------|
 | `pubkey` | Plaintext | Account lifetime | Nostr public key (correlatable) |
-| `encryptedName` | **E2EE (Tier 1)** | Account lifetime | ECIES envelope-encrypted volunteer display name; server stores ciphertext only |
-| `nameEnvelopes` | **E2EE (Tier 1)** | Account lifetime | ECIES-wrapped keys for each authorized reader (admin + self) |
-| `encryptedPhone` | **E2EE (Tier 1)** | Account lifetime | ECIES envelope-encrypted phone; server stores ciphertext |
-| `phoneEnvelopes` | **E2EE (Tier 1)** | Account lifetime | ECIES-wrapped keys for each authorized reader |
+| `encryptedName` | **E2EE (Tier 1)** | Account lifetime | Legacy ECIES envelope-encrypted volunteer display name; server stores ciphertext only |
+| `nameEnvelopes` | **E2EE (Tier 1)** | Account lifetime | Legacy ECIES-wrapped keys for each authorized reader (admin + self) |
+| `encryptedPhone` | **E2EE (Tier 1)** | Account lifetime | Legacy ECIES envelope-encrypted phone; server stores ciphertext |
+| `phoneEnvelopes` | **E2EE (Tier 1)** | Account lifetime | Legacy ECIES-wrapped keys for each authorized reader |
 | `encryptedSecretKey` | **E2EE** | Account lifetime | Multi-factor encrypted nsec (PIN + IdP value + optional WebAuthn PRF) |
 | `roles` | Plaintext | Account lifetime | Role ID array (e.g., `['role-volunteer']`) |
 | `hubRoles` | Plaintext | Account lifetime | Per-hub role assignments |
@@ -84,14 +84,11 @@ This document provides a complete inventory of all data stored and processed by 
 | `callerLast4` | Plaintext | Indefinite | Last 4 digits of caller number |
 | `hasTranscription` | Plaintext | Indefinite | Boolean flag |
 | `hasVoicemail` | Plaintext | Indefinite | Boolean flag |
-| `notes[].encryptedContent` | **E2EE** | Indefinite | XChaCha20-Poly1305 ciphertext |
-| `notes[].authorEnvelope` | **E2EE** | Indefinite | ECIES-wrapped note key (author) |
-| `notes[].adminEnvelope` | **E2EE** | Indefinite | ECIES-wrapped note key (admin) |
+| `notes[].encryptedContent` | **E2EE (Tier 3 — MLS)** | Indefinite | MLS groupwise ciphertext via `@wireapp/core-crypto` |
+| `notes[].mlsEpoch` | Plaintext | Indefinite | MLS epoch number (for group state tracking) |
 | `notes[].authorPubkey` | Plaintext | Indefinite | Who wrote the note |
 | `notes[].createdAt` | Plaintext | Indefinite | Note creation timestamp |
-| `transcription.encryptedContent` | **E2EE** | Indefinite | Encrypted transcript text |
-| `transcription.authorEnvelope` | **E2EE** | Indefinite | ECIES-wrapped key |
-| `transcription.adminEnvelope` | **E2EE** | Indefinite | ECIES-wrapped key |
+| `transcription.encryptedContent` | **E2EE (Tier 3 — MLS)** | Indefinite | MLS groupwise ciphertext (transcript text) |
 
 #### Shift Schedules (PostgreSQL)
 
@@ -124,7 +121,7 @@ These fields are encrypted with the hub's shared symmetric key. All members who 
 
 | Field | Classification | Retention | Notes |
 |-------|---------------|-----------|-------|
-| `encryptedDisplayName` | **E2EE (Tier 1)** | Indefinite | Contact display name (ECIES envelope) |
+| `encryptedDisplayName` | **E2EE (Tier 1)** | Indefinite | Contact display name (legacy ECIES envelope — HPKE migration planned) |
 | `encryptedFullName` | **E2EE (Tier 1)** | Indefinite | Contact legal name |
 | `encryptedPhone` | **E2EE (Tier 1)** | Indefinite | Contact phone number |
 | `encryptedNotes` | **E2EE (Tier 1)** | Indefinite | Freeform contact notes |
@@ -149,10 +146,7 @@ These fields are encrypted with the hub's shared symmetric key. All members who 
 | `channel` | Plaintext | Indefinite | `sms`, `whatsapp`, `signal` |
 | `participantHash` | Hashed (HMAC-SHA256) | Indefinite | Hashed phone/identifier |
 | `assignedVolunteer` | Plaintext | Indefinite | Volunteer pubkey |
-| `messages[].encryptedContent` | **E2EE** | Indefinite | XChaCha20-Poly1305 ciphertext (envelope encryption, Epic 74) |
-| `messages[].authorEnvelope` | **E2EE** | Indefinite | ECIES-wrapped message key (assigned volunteer) |
-| `messages[].adminEnvelopes[]` | **E2EE** | Indefinite | ECIES-wrapped message key (per admin) |
-| `messages[].nonce` | Plaintext | Indefinite | 24-byte nonce for XChaCha20-Poly1305 |
+| `messages[].encryptedContent` | **E2EE (Tier 3 — MLS)** | Indefinite | MLS groupwise ciphertext; server-side AES-GCM ingest at webhook, then MLS-encrypted by first client |
 | `messages[].direction` | Plaintext | Indefinite | `inbound` or `outbound` |
 | `messages[].timestamp` | Plaintext | Indefinite | Message timestamp |
 | `messages[].status` | Plaintext | Indefinite | `sent`, `delivered`, `failed` |

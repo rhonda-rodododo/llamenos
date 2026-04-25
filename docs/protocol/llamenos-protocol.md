@@ -1,7 +1,7 @@
 # Llámenos Cryptographic Protocol Specification
 
-**Version:** 3.0
-**Date:** 2026-04-01
+**Version:** 4.0
+**Date:** 2026-04-25
 **Status:** Normative
 
 **Related Documents**:
@@ -16,7 +16,7 @@
 Llámenos uses a layered cryptographic architecture designed to protect volunteer and caller identity against well-funded adversaries. The system is built on three principles:
 
 1. **Key material never persists in plaintext** — the identity key (nsec) is always encrypted at rest under a multi-factor KEK (PIN + IdP-bound value + optional WebAuthn PRF output) and held in a Web Worker during use, never in sessionStorage or global scope.
-2. **Per-artifact encryption** — each note, message, and file uses a fresh random key, wrapped per-recipient via ECIES, providing forward secrecy at the data layer.
+2. **Per-artifact encryption** — notes and messages use **MLS groupwise encryption** via `@wireapp/core-crypto` (forward secrecy via epoch ratchet). Hub metadata uses **HPKE RFC 9180** (`DHKEM(X25519, HKDF-SHA256) + HKDF-SHA256 + AES-256-GCM`) with per-record AAD. Remaining envelope PII uses legacy ECIES (migration planned).
 3. **Device-centric auth** — the nsec is a recovery-only secret. Day-to-day authentication uses WebAuthn passkeys with JWT session tokens.
 
 ## 2. Key Hierarchy
@@ -28,22 +28,43 @@ Identity Key (nsec / secretKey)
   BIP-340 x-only public key (npub)
   └── Multi-Factor Encrypted Local Store (Section 3)
   └── Recovery Key Encryption (Section 9)
-  └── ECIES Key Agreement (Sections 5-7)
+  └── BIP-340 Schnorr Signatures (audit log, Nostr NIP-42)
   └── NIP-42 Relay Authentication (Section 4.3)
+  └── Legacy ECIES Key Agreement (envelope PII, blasts — migration planned)
+
+X25519 Encryption Key
+  Derived from identity key or generated per-device
+  Used for HPKE RFC 9180 (DHKEM(X25519, HKDF-SHA256))
+  Non-extractable CryptoKey handle held inside crypto-worker closure
+  └── HPKE seal/open for hub field encryption (Section 14)
+  └── HPKE hub key wrapping (Section 14.1)
+  └── HPKE per-device PUK wrapping (LABEL_PUK_WRAP_TO_DEVICE)
+  └── HPKE SFrame call secret distribution (LABEL_SFRAME_CALL_SECRET)
 
 Admin Decryption Key
   Separate secp256k1 keypair from identity key
-  └── Note admin envelope unwrapping (Section 5)
-  └── Message admin envelope unwrapping (Section 6)
+  └── Legacy ECIES note/message admin envelopes (pre-MLS, retained for reference)
   └── Metadata decryption (Section 14)
 
 Hub Key
   32-byte random: crypto.getRandomValues(new Uint8Array(32))
   NOT derived from any identity key
+  Non-extractable CryptoKey (AES-GCM) handle held inside crypto-worker closure
   └── Nostr event content encryption (XChaCha20-Poly1305 + HKDF per-event)
   └── Presence encryption (volunteer-tier: boolean only)
-  └── Hub-key encrypted org metadata (role names, shift names, etc.)
-  └── Distribution: ECIES-wrapped individually per member ("llamenos:hub-key-wrap")
+  └── Hub-key encrypted org metadata via AES-256-GCM with per-record AAD (role names, shift names, etc.)
+  └── Distribution: HPKE-wrapped per device (LABEL_HUB_KEY_WRAP)
+       Wire format: HpkeEnvelope { v: 3, labelId, enc, ct }
+
+MLS Group (per hub)
+  Group ID: "llamenos:hub:<hubId>" (UTF-8 bytes)
+  Ciphersuite: MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519
+  Managed by @wireapp/core-crypto (WASM, v9.3.3)
+  └── Note encryption — MLS application messages (Section 5)
+  └── Message encryption — MLS application messages (Section 6)
+  └── Epoch advances on membership change → forward secrecy
+  └── Items-key derivation via MLS exporter secret (LABEL_ITEMS_KEY_EXPORT)
+  Source: src/client/lib/mls/conversation.ts, src/client/lib/crypto-worker.ts
 
 Server Nostr Key
   Derived: HKDF-SHA256(SERVER_NOSTR_SECRET, "llamenos:server-nostr-key", "llamenos:server-nostr-key:v1")
@@ -51,21 +72,19 @@ Server Nostr Key
   └── Clients verify server pubkey for authoritative events
   └── CANNOT decrypt any user content
 
-Per-Note Key
-  32-byte random
-  Generated per note creation/edit
-  └── ECIES-wrapped for author (Section 5)
-  └── ECIES-wrapped for each admin (Section 5)
+Per-Note Key (LEGACY — replaced by MLS)
+  Was: 32-byte random, ECIES-wrapped per reader
+  Now: Notes are MLS application messages inside the hub's MLS group (Section 5)
+  Legacy path deleted from src/shared/crypto-envelopes.ts
 
-Per-Message Key
-  32-byte random
-  Generated per message
-  └── ECIES-wrapped for assigned volunteer ("llamenos:message")
-  └── ECIES-wrapped for each admin ("llamenos:message")
+Per-Message Key (LEGACY — replaced by MLS)
+  Was: 32-byte random, ECIES-wrapped per reader
+  Now: Messages are MLS application messages inside the hub's MLS group (Section 6)
 
 Per-File Key
-  32-byte random (XChaCha20-Poly1305)
-  └── ECIES-wrapped per recipient (Section 7)
+  32-byte random
+  └── HPKE-wrapped via items-key indirection (MLS exporter → items_key → file key wrap)
+  └── Legacy: ECIES-wrapped per recipient for pre-MLS files (Section 7)
 
 Draft Encryption Key
   Derived: HKDF-SHA256(secretKey, "llamenos:hkdf-salt:v1", "llamenos:drafts")
@@ -74,28 +93,86 @@ Draft Encryption Key
 
 ### 2.1 Domain Separation Labels
 
-Every cryptographic operation uses a unique domain separation string to prevent cross-context key reuse attacks. The authoritative source is `src/shared/crypto-labels.ts`; this table must match that file exactly (48 constants).
+Every cryptographic operation uses a unique domain separation string to prevent cross-context key reuse attacks. The authoritative source is `src/shared/crypto-labels.ts`; this table must match that file exactly (88 constants: 63 branded `CryptoLabel`, 25 plain strings).
 
-#### ECIES Key Wrapping
+**LABEL_REGISTRY**: 42 active wire-indexed entries (indices 0-41) plus 5 permanently retired indices (42-46). The index of each label is its stable on-wire `labelId` byte stored in `HpkeEnvelope.labelId`. Order is a wire format — never reorder, only append.
 
-| Constant | Label | Purpose | Section |
-|----------|-------|---------|---------|
-| `LABEL_NOTE_KEY` | `"llamenos:note-key"` | Per-note symmetric key ECIES wrapping | 5.2 |
-| `LABEL_FILE_KEY` | `"llamenos:file-key"` | Per-file symmetric key ECIES wrapping | 7 |
-| `LABEL_FILE_METADATA` | `"llamenos:file-metadata"` | File metadata ECIES encryption | 7 |
-| `LABEL_HUB_KEY_WRAP` | `"llamenos:hub-key-wrap"` | Hub key ECIES distribution to members | 14 |
+#### HPKE Envelope Labels (enrolled in LABEL_REGISTRY, wire-indexed)
 
-#### ECIES Content Encryption
+These labels are stamped into `HpkeEnvelope { v: 3, labelId, enc, ct }` and cross-checked at open time. The `labelId` is the label's index in `LABEL_REGISTRY`.
 
 | Constant | Label | Purpose | Section |
 |----------|-------|---------|---------|
-| `LABEL_TRANSCRIPTION` | `"llamenos:transcription"` | Transcription ECIES encryption | 6 |
-| `LABEL_MESSAGE` | `"llamenos:message"` | E2EE message envelope encryption | 6 |
-| `LABEL_BLAST_CONTENT` | `"llamenos:blast-content"` | Blast content ECIES envelope encryption | — |
+| `LABEL_NOTE_KEY` | `"llamenos:note-key"` | Per-note key wrapping (legacy ECIES path deleted; retained in registry for backward compat) | 5 |
+| `LABEL_HUB_KEY_WRAP` | `"llamenos:hub-key-wrap"` | Hub key **HPKE** distribution to member devices | 14.1 |
+| `LABEL_MESSAGE` | `"llamenos:message"` | Server-side temporary AES-GCM encryption of inbound messages before MLS claim | 6 |
+| `LABEL_FILE_KEY` | `"llamenos:file-key"` | Per-file symmetric key wrapping | 7 |
+| `LABEL_FILE_METADATA` | `"llamenos:file-metadata"` | File metadata encryption | 7 |
+| `LABEL_BLAST_CONTENT` | `"llamenos:blast-content"` | Blast content ECIES envelope encryption (legacy) | — |
 | `LABEL_CALL_META` | `"llamenos:call-meta"` | Encrypted call record metadata (assignments) | 14 |
 | `LABEL_SHIFT_SCHEDULE` | `"llamenos:shift-schedule"` | Encrypted shift schedule details | 14 |
+| `LABEL_TRANSCRIPTION` | `"llamenos:transcription"` | Transcription encryption | 6 |
+| `LABEL_HUB_EVENT` | `"llamenos:hub-event"` | Hub event HKDF derivation from hub key | 14 |
+| `LABEL_DEVICE_PROVISION` | `"llamenos:device-provision"` | Device provisioning ECDH shared key derivation | 10 |
+| `LABEL_BACKUP` | `"llamenos:backup"` | Generic backup encryption | 9 |
+| `LABEL_PUSH_WAKE` | `"llamenos:push-wake"` | Wake-tier push payload (minimal metadata) | — |
+| `LABEL_PUSH_FULL` | `"llamenos:push-full"` | Full-tier push payload (requires nsec) | — |
+| `LABEL_CONTACT_ID` | `"llamenos:contact-identifier"` | Contact identifier encryption at rest | — |
+| `LABEL_PROVIDER_CREDENTIAL_WRAP` | `"llamenos:provider-credential-wrap:v1"` | Provider OAuth/API credential wrapping | — |
+| `LABEL_VOICEMAIL_WRAP` | `"llamenos:voicemail-audio"` | Voicemail audio symmetric key wrapping | — |
+| `LABEL_VOICEMAIL_TRANSCRIPT` | `"llamenos:voicemail-transcript"` | Voicemail transcript encryption | — |
+| `LABEL_CONTACT_INTAKE` | `"llamenos:contact-intake:v1"` | Contact intake payload — E2EE | — |
+| `LABEL_CONTACT_SUMMARY` | `"llamenos:contact-summary"` | Contact summary (Tier 1) — display name, notes, languages | — |
+| `LABEL_CONTACT_PII` | `"llamenos:contact-pii"` | Contact PII (Tier 2) — full name, phone, email, address, DOB | — |
+| `LABEL_CONTACT_RELATIONSHIP` | `"llamenos:contact-relationship"` | Contact relationship payload — fully E2EE | — |
+| `LABEL_STORAGE_CREDENTIAL_WRAP` | `"llamenos:storage-credential"` | Hub storage credential (IAM secret key) wrapping | — |
+| `LABEL_HUB_FIELD` | `"llamenos:hub-field"` | Hub-key AES-256-GCM encryption of stored field values (AAD-bound) | 14 |
+| `LABEL_PUK_SIGN` | `"llamenos:puk:sign:v1"` | PUK-derived Ed25519 signing key context | — |
+| `LABEL_PUK_DH` | `"llamenos:puk:dh:v1"` | PUK-derived X25519 DH key context | — |
+| `LABEL_PUK_SECRETBOX` | `"llamenos:puk:secretbox:v1"` | PUK-derived AES-GCM-256 SecretBox key (wraps previous generations) | — |
+| `LABEL_PUK_WRAP_TO_DEVICE` | `"llamenos:puk:wrap:device:v1"` | HPKE info for wrapping PUK seed to a device X25519 pubkey | — |
+| `LABEL_PUK_PREVIOUS_GEN` | `"llamenos:puk:prev-gen:v1"` | AAD for encrypting old PUK seed under new PUK SecretBox key | — |
+| `LABEL_MASTER_KEY_WRAP` | `"llamenos:master:wrap:v1"` | AAD for wrapping master signing seed under PUK SecretBox key | — |
+| `LABEL_MASTER_SELF_SIGNING` | `"llamenos:master:self-signing:v1"` | HMAC label: master seed to self-signing seed | — |
+| `LABEL_MASTER_USER_SIGNING` | `"llamenos:master:user-signing:v1"` | HMAC label: master seed to user-signing seed | — |
+| `LABEL_MASTER_RECOVERY_HANDOFF` | `"llamenos:master:recovery-handoff:v1"` | HPKE info for one-shot master seed handoff during recovery | — |
+| `LABEL_MASTER_RECOVERY_GROUP_WRAP` | `"llamenos:master:recovery-group:v1"` | AAD for wrapping master seed under Recovery Group pubkey | — |
+| `LABEL_PUK_RECOVERY_GROUP_WRAP` | `"llamenos:puk:recovery-group:v1"` | AAD for wrapping PUK seed under Recovery Group pubkey | — |
+| `LABEL_DEVICE_DISPLAY` | `"llamenos:device:display:v1"` | AAD for encrypting device display_name under PUK SecretBox key | — |
+| `LABEL_DEVICE_ENROLLMENT_SAS` | `"llamenos:device:enrollment-sas:v1"` | HKDF salt for device enrollment SAS code derivation | — |
+| `LABEL_PAPER_KEY_SIGNING` | `"llamenos:paper-key:sign:v1"` | HMAC label: BIP39 seed to paper-key signing seed | — |
+| `LABEL_PAPER_KEY_ENCRYPTION` | `"llamenos:paper-key:encryption:v1"` | HMAC label: BIP39 seed to paper-key encryption seed | — |
+| `LABEL_HUB_PTK_PREV_GEN` | `"llamenos:hub-ptk:prev-gen:v1"` | AAD for wrapping old hub PTK under new hub PTK in CLKR chain | — |
+| `LABEL_SFRAME_CALL_SECRET` | `"llamenos:sframe-call-secret:v1"` | HPKE-wrapped SFrame call secret for voice E2EE | — |
+| `LABEL_SAS_MLS` | `"llamenos:sas:v2"` | 7-emoji SAS derivation from device Ed25519 pubkey | — |
 
-#### HKDF Derivation
+**Retired indices** (42-46): These were HKDF-only labels incorrectly enrolled in the registry. They are permanently retired — the indices must never be reused.
+
+#### MLS Domain Labels
+
+These labels are used as HKDF info/salt parameters within MLS operations. They are plain strings, not enrolled in LABEL_REGISTRY.
+
+| Constant | Label | Purpose | Section |
+|----------|-------|---------|---------|
+| `LABEL_SAS_MLS_V3` | `"llamenos:sas:v3"` | 7-emoji SAS v3 — binds verifier + target pubkeys + session nonce | — |
+| `LABEL_ITEMS_KEY_EXPORT` | `"llamenos:items-key-export:v1"` | MLS exporter-secret to per-user items_key derivation | — |
+| `LABEL_NOTE_EPOCH_KEY` | `"llamenos:note-epoch-key:v1"` | MLS exporter-secret to per-note epoch-bound key (provable delete) | — |
+| `LABEL_MLS_PROVISION` | `"llamenos:mls-provision:v1"` | HKDF domain separation for MLS credential provisioning | — |
+
+#### Legacy ECIES Labels (still active for envelope PII, blasts, push, provisioning)
+
+These labels use the legacy ECIES wrapping path (`secp256k1.getSharedSecret` + XChaCha20-Poly1305). Migration to HPKE is planned.
+
+| Constant | Label | Purpose | Section |
+|----------|-------|---------|---------|
+| `LABEL_BLAST_CONTENT` | `"llamenos:blast-content"` | Blast content ECIES envelope encryption | — |
+| `LABEL_PUSH_WAKE` | `"llamenos:push-wake"` | Wake-tier ECIES push payload | — |
+| `LABEL_PUSH_FULL` | `"llamenos:push-full"` | Full-tier ECIES push payload | — |
+| `LABEL_IDP_VALUE_WRAP` | `"llamenos:idp-value-wrap"` | Envelope encryption of IdP-bound value at rest in the IdP | 3.2 |
+| `LABEL_PROVIDER_CREDENTIAL_WRAP` | `"llamenos:provider-credential-wrap:v1"` | Provider OAuth/API credential wrapping | — |
+| `LABEL_DEVICE_PROVISION` | `"llamenos:device-provision"` | Device provisioning ECDH shared key derivation | 10 |
+
+#### HKDF / HMAC / KDF Labels (unchanged)
 
 | Constant | Label | Purpose | Section |
 |----------|-------|---------|---------|
@@ -103,120 +180,64 @@ Every cryptographic operation uses a unique domain separation string to prevent 
 | `HKDF_CONTEXT_DRAFTS` | `"llamenos:drafts"` | HKDF context for draft encryption | 8 |
 | `HKDF_CONTEXT_EXPORT` | `"llamenos:export"` | HKDF context for export encryption | — |
 | `LABEL_HUB_EVENT` | `"llamenos:hub-event"` | Hub event HKDF derivation from hub key | 14 |
-
-#### ECDH Key Agreement
-
-| Constant | Label | Purpose | Section |
-|----------|-------|---------|---------|
-| `LABEL_DEVICE_PROVISION` | `"llamenos:device-provision"` | Device provisioning ECDH shared key derivation | 10 |
-
-#### SAS Verification
-
-| Constant | Label | Purpose | Section |
-|----------|-------|---------|---------|
 | `SAS_SALT` | `"llamenos:sas"` | SAS HKDF salt for provisioning verification | 10 |
 | `SAS_INFO` | `"llamenos:provisioning-sas"` | SAS HKDF info parameter | 10 |
-
-#### Authentication (Deprecated)
-
-| Constant | Label | Purpose | Section |
-|----------|-------|---------|---------|
-| `AUTH_PREFIX` | `"llamenos:auth:"` | Schnorr auth token message prefix (deprecated; retained for backward compatibility during transition) | — |
-
-#### HMAC Domain Separation
-
-| Constant | Label | Purpose | Section |
-|----------|-------|---------|---------|
+| `AUTH_PREFIX` | `"llamenos:auth:"` | Schnorr auth token message prefix (deprecated) | — |
 | `HMAC_PHONE_PREFIX` | `"llamenos:phone:"` | Phone number hashing prefix | — |
 | `HMAC_IP_PREFIX` | `"llamenos:ip:"` | IP address hashing prefix | — |
 | `HMAC_KEYID_PREFIX` | `"llamenos:keyid:"` | Key identification hash prefix | 3.1 |
 | `HMAC_SUBSCRIBER` | `"llamenos:subscriber"` | Subscriber identifier HMAC key | — |
 | `HMAC_PREFERENCE_TOKEN` | `"llamenos:preference-token"` | Preference token HMAC key | — |
-
-#### Recovery / Backup
-
-| Constant | Label | Purpose | Section |
-|----------|-------|---------|---------|
 | `RECOVERY_SALT` | `"llamenos:recovery"` | Recovery key PBKDF2 fallback salt (legacy) | 9 |
-| `LABEL_BACKUP` | `"llamenos:backup"` | Generic backup encryption | 9 |
-
-#### Server Nostr Identity
-
-| Constant | Label | Purpose | Section |
-|----------|-------|---------|---------|
-| `LABEL_SERVER_NOSTR_KEY` | `"llamenos:server-nostr-key"` | HKDF derivation for server Nostr keypair from `SERVER_NOSTR_SECRET` | 14 |
-| `LABEL_SERVER_NOSTR_KEY_INFO` | `"llamenos:server-nostr-key:v1"` | HKDF info parameter for server Nostr key (versioned for rotation) | 14 |
-
-#### Push Notification Encryption
-
-| Constant | Label | Purpose | Section |
-|----------|-------|---------|---------|
-| `LABEL_PUSH_WAKE` | `"llamenos:push-wake"` | Wake-tier ECIES push payload — decryptable without PIN (minimal metadata only) | — |
-| `LABEL_PUSH_FULL` | `"llamenos:push-full"` | Full-tier ECIES push payload — decryptable only with user's nsec | — |
-
-#### Contact Identifier Encryption
-
-| Constant | Label | Purpose | Section |
-|----------|-------|---------|---------|
-| `LABEL_CONTACT_ID` | `"llamenos:contact-identifier"` | HKDF context for contact identifier encryption at rest | — |
-
-#### Provider Credential Encryption
-
-| Constant | Label | Purpose | Section |
-|----------|-------|---------|---------|
-| `LABEL_PROVIDER_CREDENTIAL_WRAP` | `"llamenos:provider-credential-wrap:v1"` | ECIES wrapping of provider OAuth/API credentials | — |
-
-#### Voicemail Encryption
-
-| Constant | Label | Purpose | Section |
-|----------|-------|---------|---------|
-| `LABEL_VOICEMAIL_WRAP` | `"llamenos:voicemail-audio"` | Voicemail audio symmetric key wrapping (ECIES) | — |
-| `LABEL_VOICEMAIL_TRANSCRIPT` | `"llamenos:voicemail-transcript"` | Voicemail transcript encryption (domain-separated from generic `LABEL_MESSAGE`) | — |
-
-#### Contact Intake Encryption
-
-| Constant | Label | Purpose | Section |
-|----------|-------|---------|---------|
-| `LABEL_CONTACT_INTAKE` | `"llamenos:contact-intake:v1"` | Contact intake payload — E2EE, enveloped for submitter + triage users | — |
-
-#### Contact Directory Encryption
-
-| Constant | Label | Purpose | Section |
-|----------|-------|---------|---------|
-| `LABEL_CONTACT_SUMMARY` | `"llamenos:contact-summary"` | Contact summary (Tier 1) — display name, notes, languages | — |
-| `LABEL_CONTACT_PII` | `"llamenos:contact-pii"` | Contact PII (Tier 2) — full name, phone, email, address, DOB | — |
-| `LABEL_CONTACT_RELATIONSHIP` | `"llamenos:contact-relationship"` | Contact relationship payload — fully E2EE | — |
-
-#### Storage Credential Encryption
-
-| Constant | Label | Purpose | Section |
-|----------|-------|---------|---------|
-| `LABEL_STORAGE_CREDENTIAL_WRAP` | `"llamenos:storage-credential"` | Hub storage credential (IAM secret key) wrapping with hub key | — |
-
-#### IdP Auth Hardening (KEK Multi-Factor)
-
-| Constant | Label | Purpose | Section |
-|----------|-------|---------|---------|
 | `LABEL_KEK_PRF` | `"llamenos:kek-prf"` | WebAuthn PRF evaluation salt for KEK derivation | 3.1 |
-| `LABEL_NSEC_KEK_3F` | `"llamenos:nsec-kek:3f"` | HKDF info for 3-factor (PIN + PRF + IdP) KEK derivation | 3.1 |
-| `LABEL_NSEC_KEK_2F` | `"llamenos:nsec-kek:2f"` | HKDF info for 2-factor (PIN + IdP) KEK derivation | 3.1 |
-| `LABEL_IDP_VALUE_WRAP` | `"llamenos:idp-value-wrap"` | Envelope encryption of IdP-bound value at rest in the IdP | 3.2 |
+| `LABEL_NSEC_KEK_3F` | `"llamenos:nsec-kek:3f"` | HKDF info for 3-factor KEK derivation | 3.1 |
+| `LABEL_NSEC_KEK_2F` | `"llamenos:nsec-kek:2f"` | HKDF info for 2-factor KEK derivation | 3.1 |
+| `LABEL_SERVER_NOSTR_KEY` | `"llamenos:server-nostr-key"` | HKDF derivation for server Nostr keypair | 14 |
+| `LABEL_SERVER_NOSTR_KEY_INFO` | `"llamenos:server-nostr-key:v1"` | HKDF info for server Nostr key | 14 |
+| `LABEL_SERVER_HPKE_KEY` | `"llamenos:server-hpke-key"` | HKDF derivation for server HPKE X25519 keypair | — |
+| `LABEL_SERVER_HPKE_KEY_INFO` | `"llamenos:server-hpke-key:v1"` | HKDF info for server HPKE key | — |
+| `LABEL_CONTACT_ID` | `"llamenos:contact-identifier"` | HKDF context for contact identifier encryption | — |
 
-#### Field-Level Encryption (Phase 2A — Server-Key)
+#### SFrame Voice E2EE Labels
+
+| Constant | Label | Purpose | Section |
+|----------|-------|---------|---------|
+| `LABEL_SFRAME_BASE_KEY` | `"llamenos:sframe-base-key:v1"` | HKDF info for per-sender SFrame base key derivation | — |
+| `LABEL_SFRAME_RATCHET` | `"llamenos:sframe-ratchet:v1"` | HKDF salt for forward-secret ratchet on device join | — |
+
+#### Tier 2: Root KEK + Factor Wrapping Labels
+
+| Constant | Label | Purpose | Section |
+|----------|-------|---------|---------|
+| `LABEL_PRF_KEK_SALT_V1` | `"llamenos:kek-prf-salt:v1"` | WebAuthn PRF salt (Tier 2 root KEK unlock) | — |
+| `LABEL_ROOT_KEK_WRAP` | `"llamenos:root-kek-wrap"` | AES-KW wrap of root KEK — HKDF info suffix per factor | — |
+| `LABEL_RECOVERY_PHRASE_KEK` | `"llamenos:recovery-phrase-kek"` | HKDF context for BIP-39 recovery phrase wrapping key | — |
+| `LABEL_OPAQUE_EXPORT_KEK` | `"llamenos:opaque-export-kek"` | HKDF context for OPAQUE export key wrapping key | — |
+| `LABEL_RECOVERY_GROUP_WRAP` | `"llamenos:recovery-group-wrap"` | HKDF context for recovery-group share wrapping key | — |
+| `LABEL_RECOVERY_GROUP_SHARE` | `"llamenos:recovery-group-share"` | HKDF context for per-member SSS share derivation | — |
+| `LABEL_RECOVERY_SESSION_PAYLOAD` | `"llamenos:recovery-session-payload"` | HKDF context for per-session reconstructed KEK wrapping | — |
+
+#### Field-Level Encryption (Server-Key)
 
 | Constant | Label | Purpose | Section |
 |----------|-------|---------|---------|
 | `LABEL_AUDIT_EVENT` | `"llamenos:audit-event:v1"` | Server-key encryption of audit log events and details | 15 |
 | `LABEL_IVR_AUDIO` | `"llamenos:ivr-audio:v1"` | Server-key encryption of IVR audio prompt data | — |
 | `LABEL_BLAST_SETTINGS` | `"llamenos:blast-settings:v1"` | Server-key encryption of blast settings messages | — |
-
-#### Field-Level Encryption (Phase 1 — Server-Key)
-
-| Constant | Label | Purpose | Section |
-|----------|-------|---------|---------|
 | `LABEL_USER_PII` | `"llamenos:volunteer-pii:v1"` | Server-key encryption of user/invite PII (phone numbers) | — |
 | `LABEL_EPHEMERAL_CALL` | `"llamenos:ephemeral-call:v1"` | Server-key encryption of ephemeral call data (caller numbers) | — |
 | `LABEL_PUSH_CREDENTIAL` | `"llamenos:push-credential:v1"` | Server-key encryption of push notification credentials | — |
+| `LABEL_SESSION_META` | `"llamenos:session-meta:v1"` | Session metadata envelope (IP, UA, location) — user-envelope encrypted | — |
+
+#### Firehose / Auth Event / Signal Labels
+
+| Constant | Label | Purpose | Section |
+|----------|-------|---------|---------|
+| `LABEL_FIREHOSE_AGENT_SEAL` | `"llamenos:firehose:agent-seal"` | Firehose agent nsec sealed encryption | — |
+| `LABEL_FIREHOSE_BUFFER_ENCRYPT` | `"llamenos:firehose:buffer-encrypt"` | Firehose message buffer at-rest encryption | — |
+| `LABEL_FIREHOSE_REPORT_WRAP` | `"llamenos:firehose:report-wrap"` | Firehose extracted report envelope wrapping | — |
+| `LABEL_AUTH_EVENT` | `"llamenos:user-auth-event:v1"` | User-scoped auth event payload envelope | — |
+| `LABEL_SIGNAL_CONTACT` | `"llamenos:signal-contact:v1"` | Signal contact identifier envelope | — |
 
 ## 3. Local Key Protection
 
@@ -452,11 +473,56 @@ JWT authentication and key manager unlock are independent tiers:
 
 This separation ensures that a compromised JWT cannot access encrypted data without also knowing the PIN (and having the IdP-bound value).
 
-## 5. Note Encryption (Per-Note Forward Secrecy)
+## 5. Note Encryption (MLS Groupwise)
 
-### 5.1 Encryption
+Notes are MLS application messages inside the hub's persistent MLS group.
 
-Each note uses a fresh random key, ECIES-wrapped for each authorized reader:
+### 5.1 MLS Group
+
+Each hub has exactly one MLS group with a deterministic group ID:
+
+```
+groupId = UTF-8("llamenos:hub:<hubId>")
+```
+
+**Ciphersuite:** `MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519`
+
+The group is managed by `@wireapp/core-crypto` (WASM, v9.3.3). The `CoreCrypto` instance and identity key material live in closures inside the crypto Web Worker, zeroed on lock.
+
+Source: `src/client/lib/mls/conversation.ts`, `src/client/lib/crypto-worker.ts`
+
+### 5.2 Encryption
+
+```
+plaintext = UTF-8(JSON.stringify({ text, fields }))
+ciphertext = MlsConversation.encrypt(plaintext)
+// → MLS application message ciphertext stored server-side
+```
+
+The MLS protocol handles key scheduling, sender authentication, and AEAD encryption internally. Each message uses the current epoch's application secret — no per-note random key is needed.
+
+### 5.3 Decryption
+
+```
+result = MlsConversation.decrypt(ciphertext)
+// result.message = plaintext bytes (for application messages)
+// result.hasEpochChanged = true (for commit messages that advance the epoch)
+payload = JSON.parse(UTF-8(result.message))
+```
+
+### 5.4 Forward Secrecy
+
+MLS provides forward secrecy through epoch advancement:
+- Each membership change (add/remove member) produces a Commit that advances the epoch
+- The new epoch's secrets are derived from the commit's path secrets
+- Old epoch secrets are deleted — compromising the current epoch key does not reveal past messages
+- This replaces the per-note random key approach used in the legacy ECIES path
+
+### 5.5 Legacy Note Encryption (pre-MLS) — Retained for Reference
+
+> **This section describes the deleted ECIES note envelope path.** The ECIES note encryption code has been removed from `src/shared/crypto-envelopes.ts`. This description is retained for historical reference and for understanding any notes encrypted before the MLS migration.
+
+Each note used a fresh random key, ECIES-wrapped for each authorized reader:
 
 ```
 noteKey = random(32 bytes)
@@ -468,7 +534,7 @@ authorEnvelope = wrapKeyForPubkey(noteKey, authorPubkey)
 adminEnvelope = wrapKeyForPubkey(noteKey, adminPubkey)
 ```
 
-### 5.2 Key Wrapping (ECIES)
+**Key Wrapping (ECIES):**
 
 ```
 wrapKeyForPubkey(plainKey, recipientPubkeyHex):
@@ -483,18 +549,7 @@ wrapKeyForPubkey(plainKey, recipientPubkeyHex):
   return { encryptedFileKey: hex(wrappedKey), ephemeralPubkey: hex(ephemeralPub) }
 ```
 
-### 5.3 Decryption
-
-```
-decryptNote(encryptedContent, envelope, secretKey):
-  noteKey = unwrapKey(envelope, secretKey)
-  nonce = encryptedContent[0..24]
-  ciphertext = encryptedContent[24..]
-  payload = XChaCha20-Poly1305.decrypt(noteKey, nonce, ciphertext)
-  return JSON.parse(payload)
-```
-
-### 5.4 Legacy Note Decryption
+### 5.6 Legacy Deterministic Note Decryption
 
 Notes created before per-note keys use a deterministic key:
 ```
@@ -503,60 +558,49 @@ legacyKey = HKDF-SHA256(secretKey, "llamenos:hkdf-salt:v1", "llamenos:notes", 32
 
 Legacy notes are identified by the absence of `authorEnvelope`/`adminEnvelope` fields.
 
-## 6. Message Encryption (Envelope Pattern)
+## 6. Message Encryption (MLS Groupwise)
 
-Messages (SMS, WhatsApp, Signal conversations) use per-message envelope encryption, matching the note encryption pattern from Section 5.
+Messages (SMS, WhatsApp, Signal conversations) use MLS groupwise encryption via the same hub MLS group as notes (Section 5).
 
 ### 6.1 Encryption
 
-Each message uses a fresh random key, ECIES-wrapped for each authorized reader:
+Messages are MLS application messages inside the hub's MLS group, identical to the note encryption path:
 
 ```
-messageKey = random(32 bytes)
-nonce = random(24 bytes)
-encryptedContent = nonce || XChaCha20-Poly1305(messageKey, nonce, messageText)
-
-// Wrap the message key for each reader
-authorEnvelope = wrapKeyForPubkey(messageKey, volunteerPubkey, "llamenos:message")
-adminEnvelopes = [
-  wrapKeyForPubkey(messageKey, admin1Pubkey, "llamenos:message"),
-  wrapKeyForPubkey(messageKey, admin2Pubkey, "llamenos:message"),
-  ...  // one envelope per admin
-]
+plaintext = UTF-8(messageText)
+ciphertext = MlsConversation.encrypt(plaintext)
+// → MLS application message stored server-side
 ```
 
-### 6.2 Key Wrapping (ECIES)
-
+Decryption:
 ```
-wrapKeyForPubkey(plainKey, recipientPubkeyHex, label):
-  ephemeralSecret = random(32 bytes)
-  ephemeralPub = secp256k1.getPublicKey(ephemeralSecret, compressed=true)
-  recipientCompressed = "02" || recipientPubkeyHex  // x-only → compressed
-  shared = secp256k1.getSharedSecret(ephemeralSecret, recipientCompressed)
-  sharedX = shared[1..33]  // strip prefix byte
-  symmetricKey = SHA-256(label || sharedX)
-  nonce = random(24 bytes)
-  wrappedKey = nonce || XChaCha20-Poly1305(symmetricKey, nonce, plainKey)
-  return { encryptedFileKey: hex(wrappedKey), ephemeralPubkey: hex(ephemeralPub) }
+result = MlsConversation.decrypt(ciphertext)
+messageText = UTF-8(result.message)
 ```
 
-### 6.3 Inbound Message Flow
+### 6.2 Inbound Message Flow (Webhook Claim Pattern)
 
 For inbound messages (SMS/WhatsApp webhook -> server):
 
-1. Server receives plaintext from telephony provider (inherent limitation)
-2. Server encrypts immediately using the assigned volunteer's pubkey and all admin pubkeys
-3. Server stores ONLY the encrypted fields (`encryptedContent`, `authorEnvelope`, `adminEnvelopes[]`, `nonce`)
-4. Server discards the plaintext from memory
+1. Server receives plaintext from telephony provider (inherent limitation of SMS/WhatsApp)
+2. Server encrypts with AES-GCM under `LABEL_MESSAGE` (server-side temporary encryption)
+3. Server stores the server-encrypted copy; discards the plaintext from memory
+4. First client to fetch claims the message, decrypts the server-encrypted copy, MLS-encrypts it via the hub group, and uploads the MLS ciphertext
+5. Server discards the server-encrypted copy, retaining only the MLS ciphertext
 
-### 6.4 Outbound Message Flow
+This "claim" pattern ensures:
+- The server holds plaintext for the minimum possible duration (webhook boundary only)
+- Once MLS-encrypted, the server cannot read the message
+- All hub members can decrypt via the MLS group (not just the assigned volunteer)
+
+### 6.3 Outbound Message Flow
 
 For outbound messages (volunteer -> SMS/WhatsApp):
 
-1. Client encrypts the message and creates all envelopes
-2. Client sends both `plaintextForSending` (for the provider) and encrypted fields to the server
+1. Client MLS-encrypts the message and uploads the ciphertext
+2. Client sends `plaintextForSending` (for the provider) alongside the MLS ciphertext
 3. Server forwards the plaintext to the telephony provider (inherent limitation)
-4. Server stores ONLY the encrypted fields; discards `plaintextForSending` immediately
+4. Server stores ONLY the MLS ciphertext; discards `plaintextForSending` immediately
 
 **Important**: The server momentarily sees outbound message plaintext — this is an inherent limitation of SMS/WhatsApp channels, not a bug. See [Threat Model: SMS/WhatsApp Outbound Message Limitation](../security/THREAT_MODEL.md#smswhatsapp-outbound-message-limitation).
 
@@ -565,7 +609,7 @@ For outbound messages (volunteer -> SMS/WhatsApp):
 Files use a two-layer scheme:
 
 1. **File Key**: Random 32-byte key encrypts the file content
-2. **Envelopes**: File key is ECIES-wrapped per recipient (same as Section 5.2)
+2. **Key Wrapping**: File key is HPKE-wrapped via items-key indirection — the MLS exporter secret derives a per-user `items_key` (`LABEL_ITEMS_KEY_EXPORT`), which wraps the file key. For pre-MLS files, legacy ECIES wrapping per recipient is retained.
 3. **Metadata**: File metadata (name, type, size, checksum) encrypted separately per recipient
 
 Chunked upload: file is encrypted client-side, split into chunks, uploaded, and reassembled server-side. The server never sees plaintext.
@@ -727,14 +771,25 @@ Sessions are independent across devices. Revoking a session on one device does n
 
 | Library | Version | Usage |
 |---------|---------|-------|
-| `@noble/curves` | ^1.x | secp256k1 ECDH, BIP-340 Schnorr signatures |
-| `@noble/ciphers` | ^1.x | XChaCha20-Poly1305 symmetric encryption |
+| `@hpke/core` | ^1.x | HPKE RFC 9180 base mode — `CipherSuite`, `HkdfSha256`, `Aes256Gcm` |
+| `@hpke/dhkem-x25519` | ^1.x | `DhkemX25519HkdfSha256` KEM (uses `@noble/curves` internally; avoids `crypto.subtle.deriveBits('X25519')` which Bun does not yet implement) |
+| `@wireapp/core-crypto` | v9.3.3 (vendored) | MLS 1.0 protocol implementation (WASM). Manages MLS group state, epoch advancement, encrypt/decrypt, KeyPackage generation. Runs inside the crypto Web Worker. |
+| `@noble/curves` | ^1.x | BIP-340 Schnorr signatures (audit log, Nostr events). **No longer used for ECDH key agreement** — HPKE uses X25519 via the HPKE suite. Retained for legacy ECIES paths (envelope PII, blasts). |
+| `@noble/ciphers` | ^1.x | XChaCha20-Poly1305 for KEK encryption, drafts, hub event encryption, and legacy envelope PII (migration to HPKE planned) |
 | `@noble/hashes` | ^1.x | SHA-256, HKDF-SHA256, PBKDF2-SHA256, hex/utf8 encoding |
 | `nostr-tools` | ^2.x | Key generation, bech32 nsec/npub encoding |
 | `jose` | ^6.x | JWT signing (HS256), verification, claims parsing |
-| Web Crypto API | — | Random bytes generation |
+| Web Crypto API | — | Random bytes generation, AES-256-GCM (hub fields via non-extractable `CryptoKey`), HKDF, PBKDF2, X25519 key import/export |
 
 All cryptographic operations use audited, constant-time implementations. No custom crypto primitives.
+
+**HPKE suite configuration** (source: `src/shared/crypto-suite.ts`):
+```
+KEM:  0x0020 — DHKEM(X25519, HKDF-SHA256)
+KDF:  0x0001 — HKDF-SHA256
+AEAD: 0x0002 — AES-256-GCM
+```
+Suite ID (code constant, not on wire): `llamenos-hpke-v1:x25519-hkdf-sha256-aes256gcm`
 
 ## 13. Threat Model
 
@@ -742,10 +797,10 @@ All cryptographic operations use audited, constant-time implementations. No cust
 |--------|-----------|
 | XSS stealing nsec | Key Manager holds secretKey in Web Worker, not main thread. Auto-lock on tab hide. |
 | Browser extension reading storage | localStorage contains only multi-factor encrypted ciphertext. PIN brute-force mitigated by 600k PBKDF2 iterations + IdP-bound value requirement. |
-| Server compromise | Server never sees plaintext notes/messages/files. ECIES ensures server can't decrypt. IdP-bound value is encrypted at rest in IdP. |
+| Server compromise | Server never sees plaintext notes/messages/files. MLS groupwise encryption (notes, messages) and HPKE (hub fields) ensure the server cannot decrypt. Legacy ECIES protects remaining envelope PII. IdP-bound value is encrypted at rest in IdP. |
 | Device seizure | Multi-factor encrypted key in localStorage. Requires PIN + IdP value (+ optional PRF) to decrypt. Offline brute-force of PIN alone is insufficient. |
 | Network MITM | HTTPS/WSS. JWT access tokens expire in 15 minutes. Refresh tokens are httpOnly/secure/sameSite=Strict. |
-| Compromised identity key | Per-note/per-message ephemeral keys provide forward secrecy — compromising the identity key doesn't reveal past content without also obtaining the per-artifact envelopes. |
+| Compromised identity key | MLS epoch ratchet provides forward secrecy — compromising the current epoch key does not reveal past messages. For hub field data (HPKE), compromising the X25519 private key reveals only data encrypted to that key, not hub key material from prior rotations. |
 | Lost device | Recovery key + backup file restores access on new device. Old device's encrypted store is useless without PIN + IdP value. |
 | Stolen JWT | Access tokens expire in 15 minutes. Refresh tokens are httpOnly (not accessible to JS). jti-based revocation available for immediate invalidation. |
 | IdP compromise | IdP stores only envelope-encrypted `nsec_secret` values (encrypted with server's `IDP_VALUE_ENCRYPTION_KEY`). The IdP cannot derive KEKs or decrypt key stores. |
@@ -755,20 +810,30 @@ All cryptographic operations use audited, constant-time implementations. No cust
 
 ### 14.1 Hub Key Distribution
 
-The hub key is a shared 32-byte symmetric key used to encrypt Nostr relay events visible to all hub members.
+The hub key is a shared 32-byte symmetric key used to encrypt Nostr relay events and hub metadata visible to all hub members. It is imported as a non-extractable `CryptoKey` (AES-GCM) handle inside the crypto-worker closure.
 
 ```
 hubKey = crypto.getRandomValues(new Uint8Array(32))
 
-// Wrap for each member via ECIES
+// Wrap for each member via HPKE
 for each memberPubkey in activeMembers:
-  wrappedHubKey = wrapKeyForPubkey(hubKey, memberPubkey, "llamenos:hub-key-wrap")
-  // Publish wrapped key to relay or store server-side
+  aad = buildAad(LABEL_HUB_KEY_WRAP, memberPubkey, "hub-key-wrap")
+  envelope = hpkeSeal(hubKey, memberX25519PublicKey, LABEL_HUB_KEY_WRAP, aad)
+  // envelope: HpkeEnvelope { v: 3, labelId: 1, enc: <base64url>, ct: <base64url> }
+  // Store server-side or publish to relay
+```
+
+**Unwrapping:**
+```
+aad = buildAad(LABEL_HUB_KEY_WRAP, myPubkey, "hub-key-wrap")
+hubKeyBytes = hpkeOpen(envelope, myX25519PrivateKey, LABEL_HUB_KEY_WRAP, aad)
+hubCryptoKey = crypto.subtle.importKey("raw", hubKeyBytes, "AES-GCM", false, ["encrypt", "decrypt"])
 ```
 
 The hub key is **random** (not derived from any identity key). This ensures:
 - Compromising any identity key does not reveal the hub key
 - Key rotation produces a genuinely new key with no mathematical link to the old one
+- Rotation on member departure excludes the departed member (they never receive the new HPKE-wrapped key)
 
 ### 14.2 Event Encryption
 

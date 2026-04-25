@@ -12,7 +12,7 @@ subtitle: What's protected, what's visible, and what can be obtained under subpo
 | Which volunteer accounts were active when | Contact directory records (end-to-end encrypted) |
 | | Message content (encrypted on arrival, stored as ciphertext) |
 | | Decryption keys (protected by your PIN, your identity provider account, and optionally your hardware security key) |
-| | Per-note encryption keys (ephemeral — destroyed after wrapping) |
+| | Per-note encryption keys (ephemeral — MLS group ratchet, never stored) |
 | | Your HMAC secret for reversing phone hashes |
 
 **The server stores data it cannot read.** Metadata (when, how long, which accounts) is visible. Content (what was said, what was written, who your contacts are) is not.
@@ -49,11 +49,11 @@ Your privacy exposure depends on which channels you enable:
 
 ### Notes, transcripts, and reports
 
-All volunteer-written content is end-to-end encrypted:
+All volunteer-written content is end-to-end encrypted using MLS groupwise encryption:
 
-- Each note uses a **unique random key** (forward secrecy — compromising one note doesn't compromise others)
-- Keys are wrapped separately for the volunteer and each admin
-- The server stores only ciphertext
+- Notes and messages are encrypted through a **group ratchet** — each membership change advances the encryption epoch, providing forward secrecy
+- Compromising a current key does not reveal past notes (the group ratchet is one-way)
+- The server stores only ciphertext — it never sees plaintext content
 - Decryption happens in the browser
 - **Custom fields, report content, and file attachments are all individually encrypted**
 
@@ -87,6 +87,9 @@ These improvements are live today:
 | Hardware security keys | Physical keys add a third factor that cannot be remotely compromised |
 | Reproducible builds | Verify that deployed code matches the public source |
 | Encrypted contact directory | Contact records, relationships, and notes are end-to-end encrypted |
+| MLS groupwise encryption | Notes and messages use the Messaging Layer Security protocol — forward secrecy via group ratchet |
+| HPKE key distribution | Encryption keys distributed using the RFC 9180 standard (Hybrid Public Key Encryption) |
+| Encrypted org metadata | Role names, shift names, team names, and custom fields are encrypted — the server sees only ciphertext |
 
 ## Still planned
 

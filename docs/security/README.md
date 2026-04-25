@@ -1,7 +1,7 @@
 # Llamenos Security Documentation
 
-**Last Updated:** 2026-04-01
-**Protocol Version:** 3.0
+**Last Updated:** 2026-04-25
+**Protocol Version:** 4.0
 **Audit Status:** Round 6 complete (2026-02-23)
 
 This directory contains security documentation for Llamenos, a crisis response hotline designed to protect volunteer and caller identity against well-funded adversaries.
@@ -23,9 +23,10 @@ This directory contains security documentation for Llamenos, a crisis response h
 
 | Tier | Mechanism | Data Protected | Server Access |
 |------|-----------|---------------|---------------|
-| **Tier 1: E2EE Envelope** | ECIES per-recipient key wrapping | Volunteer PII (name, phone), contact directory PII | None — ciphertext only |
-| **Tier 2: Hub-Key** | XChaCha20-Poly1305 with shared hub key | Role names, shift names, report types, custom fields, teams, tags | None — hub key held by members only |
-| **Tier 3: Per-Artifact Forward Secrecy** | Unique random key per note/message, ECIES-wrapped per reader | Call notes, transcriptions, messages, reports | None — per-artifact ephemeral keys |
+| **Tier 1: E2EE Envelope** | Legacy ECIES per-recipient key wrapping (secp256k1 ECDH + XChaCha20-Poly1305); HPKE migration planned | Volunteer PII (name, phone), contact directory PII | None — ciphertext only |
+| **Tier 2: Hub-Key** | AES-256-GCM via non-extractable WebCrypto `CryptoKey`, per-record AAD via `buildAad(label, recordId, fieldName)`. Hub key HPKE-distributed per device. | Role names, shift names, report types, custom fields, teams, tags | None — hub key held by members only |
+| **Tier 3: MLS Groupwise** | MLS groupwise encryption via `@wireapp/core-crypto` WASM. Each hub has a persistent MLS group; epoch advances on membership change provide forward secrecy. | Call notes, transcriptions, messages, reports | None — server stores opaque MLS ciphertext |
+| **HPKE Envelope** | HPKE RFC 9180: `DHKEM(X25519, HKDF-SHA256) + HKDF-SHA256 + AES-256-GCM`. Wire format: `HpkeEnvelope { v: 3, labelId, enc, ct }` | Hub key distribution, session capsules, file key wrapping, device enrollment | None — HPKE sealed to recipient X25519 public key |
 | **IdP-Encrypted** | XChaCha20-Poly1305 with HKDF-derived key | IdP nsec_secret values (one KEK factor) | Accessible only with `IDP_VALUE_ENCRYPTION_KEY` |
 
 ### End-to-End Encrypted (Zero-Knowledge)
@@ -34,14 +35,16 @@ The server **cannot read** these, even under legal compulsion:
 
 | Data | Encryption | Forward Secrecy |
 |------|-----------|-----------------|
-| Call notes (text + custom fields) | XChaCha20-Poly1305 + ECIES (Tier 3) | Yes (per-note ephemeral key) |
-| Call transcriptions | XChaCha20-Poly1305 + ECIES (Tier 3) | Yes (per-transcription ephemeral key) |
-| Encrypted reports | XChaCha20-Poly1305 + ECIES (Tier 3) | Yes (per-report ephemeral key) |
-| File attachments | XChaCha20-Poly1305 + ECIES (Tier 3) | Yes (per-file ephemeral key) |
-| Volunteer name | ECIES envelope (Tier 1) | No (re-encrypted on key rotation) |
-| Volunteer phone | ECIES envelope (Tier 1) | No (re-encrypted on key rotation) |
-| Contact directory PII | ECIES envelope (Tier 1) | No (re-encrypted on key rotation) |
-| Org metadata (role/shift/team names) | Hub-key XChaCha20 (Tier 2) | No (rotated with hub key) |
+| Call notes (text + custom fields) | MLS groupwise encryption via `@wireapp/core-crypto` (Tier 3) | Yes (epoch-based ratchet) |
+| Call transcriptions | MLS groupwise encryption (Tier 3) | Yes (epoch-based ratchet) |
+| Encrypted reports | MLS groupwise encryption (Tier 3) | Yes (epoch-based ratchet) |
+| Messages (SMS/WhatsApp/Signal) | MLS groupwise encryption (Tier 3); server AES-GCM at webhook ingest | Yes (epoch-based ratchet) |
+| File attachments | HPKE-wrapped file key (items-key indirection) + AES-256-GCM body | Yes (per-file ephemeral key) |
+| Volunteer name | Legacy ECIES envelope (Tier 1) | No (re-encrypted on key rotation) |
+| Volunteer phone | Legacy ECIES envelope (Tier 1) | No (re-encrypted on key rotation) |
+| Contact directory PII | Legacy ECIES envelope (Tier 1) | No (re-encrypted on key rotation) |
+| Org metadata (role/shift/team names) | Hub-key AES-256-GCM with per-record AAD (Tier 2) | No (rotated with hub key) |
+| Blasts | Legacy ECIES envelope (LABEL_BLAST_CONTENT) | No (external recipients, not MLS members) |
 | Draft notes | XChaCha20-Poly1305 | No (deterministic key, local-only) |
 | Volunteer secret keys (nsec) | Multi-factor KEK (PIN + IdP + optional PRF) | N/A (local storage only) |
 
@@ -137,16 +140,19 @@ If a hosting provider is legally compelled to provide data, they **can access**:
 
 ## Cryptographic Primitives
 
-| Primitive | Library | Usage |
-|-----------|---------|-------|
-| secp256k1 ECDH | @noble/curves | Key agreement for ECIES |
-| BIP-340 Schnorr | @noble/curves | Login authentication signatures |
-| XChaCha20-Poly1305 | @noble/ciphers | Symmetric encryption (256-bit) — notes, hub key, IdP values |
-| SHA-256 | @noble/hashes | HKDF, domain separation, audit log hash chain |
-| PBKDF2-SHA256 | Web Crypto API | PIN key derivation (600K iterations) |
-| HMAC-SHA256 | @noble/hashes | Phone/IP hashing, JWT signing |
+| Primitive | Library | Usage | Status |
+|-----------|---------|-------|--------|
+| **HPKE RFC 9180** | `@hpke/core` + `@hpke/dhkem-x25519` | `DHKEM(X25519, HKDF-SHA256) + HKDF-SHA256 + AES-256-GCM`. Hub key distribution, session capsules, file key wrapping, device enrollment. Wire format: `HpkeEnvelope { v: 3, labelId, enc, ct }` | **Active — Tier 1 primitive** |
+| **MLS 1.0** | `@wireapp/core-crypto` (vendored WASM, v9.3.3) | Groupwise encryption for notes and messages. Ciphersuite: `MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519`. Each hub has a persistent MLS group. | **Active — Tier 3 primitive** |
+| **AES-256-GCM** | Web Crypto API (non-extractable `CryptoKey`) | Hub-field encryption with per-record AAD via `buildAad(label, recordId, fieldName)` | **Active — Tier 2 primitive** |
+| BIP-340 Schnorr | @noble/curves | Audit log signing, Nostr event signing | Active |
+| XChaCha20-Poly1305 | @noble/ciphers | KEK encryption (nsec at rest), drafts, legacy envelope PII, IdP value encryption | Active (legacy for envelope PII) |
+| secp256k1 ECDH | @noble/curves | Legacy ECIES key agreement for envelope PII (contacts, user names, phones) | **Legacy — HPKE migration planned** |
+| SHA-256 | @noble/hashes | HKDF, domain separation, audit log hash chain | Active |
+| PBKDF2-SHA256 | Web Crypto API | PIN key derivation (600K iterations) | Active |
+| HMAC-SHA256 | @noble/hashes | Phone/IP hashing, JWT signing | Active |
 
-All cryptographic code uses audited, constant-time implementations from the `@noble` family. No custom cryptographic constructions.
+Cryptographic code uses audited, constant-time implementations from the `@noble` family (signing, hashing, legacy ECIES), Web Crypto API (AES-GCM, PBKDF2, non-extractable key handles), vendored Wire core-crypto WASM (MLS), and the `@hpke` family (RFC 9180). No custom cryptographic constructions.
 
 ## Additional Security Features
 
@@ -157,11 +163,12 @@ All cryptographic code uses audited, constant-time implementations from the `@no
 | IdP remote kill-switch | Disable user in Authentik = immediate lockout across all devices | Shipped |
 | PBAC permission system | Colon-separated permissions (`domain:action`), role bundles, hub-scoped | Shipped |
 | Real-time event encryption | Hub key (random 32 bytes) encrypts all Nostr relay events; generic tags prevent event-type analysis | Shipped |
-| Hub key distribution | ECIES-wrapped individually per member; rotation excludes departed members | Shipped |
-| E2EE volunteer PII | Tier 1 envelope encryption for name, phone (server stores ciphertext only) | Shipped |
-| Hub-key org metadata | Tier 2 encryption for role names, shift names, report types, custom fields, teams, tags | Shipped |
-| E2EE contact directory | Tier 1 envelope encryption for all contact PII (display name, legal name, phone, notes) | Shipped |
-| Envelope encryption (messages) | Per-message random key, ECIES-wrapped for volunteer + each admin | Shipped |
+| Hub key distribution | HPKE-wrapped per device under `LABEL_HUB_KEY_WRAP`; rotation excludes departed members | Shipped |
+| E2EE volunteer PII | Tier 1 envelope encryption for name, phone (legacy ECIES — HPKE migration planned) | Shipped |
+| Hub-key org metadata | Tier 2 AES-256-GCM encryption with per-record AAD for role names, shift names, report types, custom fields, teams, tags | Shipped |
+| E2EE contact directory | Tier 1 envelope encryption for all contact PII (legacy ECIES — HPKE migration planned) | Shipped |
+| MLS groupwise encryption | Notes and messages encrypted via hub MLS group (`@wireapp/core-crypto`); epoch-based forward secrecy | Shipped |
+| HPKE RFC 9180 primitives | `DHKEM(X25519, HKDF-SHA256) + AES-256-GCM` for hub key wrap, session capsules, file keys, device enrollment | Shipped |
 | Hash-chained audit log | SHA-256 chain with `previousEntryHash` + `entryHash` for tamper detection | Shipped |
 | Client-side transcription | WASM Whisper in-browser; audio never leaves device | Shipped |
 | Reproducible builds | `SOURCE_DATE_EPOCH`, `CHECKSUMS.txt` in GitHub Releases, SLSA provenance | Shipped |
