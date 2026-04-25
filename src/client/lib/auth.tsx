@@ -350,7 +350,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
     }, TOKEN_REFRESH_INTERVAL_MS)
     return () => clearInterval(interval)
-  }, []) // re-establish when auth state changes
+  }, [state.publicKey]) // re-establish when auth state changes
 
   // Sign in with nsec (admin bootstrap / recovery only)
   // NOTE: This flow is kept for admin bootstrap. It does NOT use the facade
@@ -401,6 +401,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { pubkey } = result
 
     try {
+      // Ensure we have a valid access token before calling getMe().
+      // The user may land on the PIN screen without one — e.g. if
+      // restoreSession's refreshToken() failed (network, timing) but
+      // the refresh cookie is still valid. Without this, getMe() would
+      // 401 and the catch block below would re-lock the worker.
+      if (!authFacadeClient.getAccessToken()) {
+        await authFacadeClient.refreshToken()
+      }
       const me = await getMe()
       lastApiActivity.current = Date.now()
       // Decrypt envelope-encrypted fields (e.g. name) via crypto worker
