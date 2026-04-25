@@ -8,8 +8,8 @@ import { requirePermission } from '../../middleware/permission-guard'
 const signalRegistration = createRouter()
 
 const RegisterSchema = z.object({
-  bridgeUrl: z.string().min(1),
-  registeredNumber: z.string().min(1),
+  bridgeUrl: z.string({ error: 'bridgeUrl is required' }).min(1),
+  registeredNumber: z.string({ error: 'registeredNumber is required' }).min(1),
   useVoice: z.boolean().optional(),
 })
 

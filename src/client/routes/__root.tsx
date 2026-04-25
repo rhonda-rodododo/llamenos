@@ -322,7 +322,7 @@ function AuthenticatedLayout() {
   const hasMessaging = useHasMessaging()
   const { theme, setTheme } = useTheme()
   const navigate = useNavigate()
-  const _location = useLocation()
+  const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { currentCall } = useCalls()
   const { onShift, currentShift, nextShift } = useShiftStatus()
@@ -343,7 +343,7 @@ function AuthenticatedLayout() {
   // Close sidebar on navigation
   useEffect(() => {
     setSidebarOpen(false)
-  }, [])
+  }, [location.pathname])
 
   return (
     <div className="flex h-screen">
@@ -355,13 +355,14 @@ function AuthenticatedLayout() {
         {t('a11y.skipToContent')}
       </a>
 
-      {/* Mobile backdrop */}
+      {/* Mobile backdrop — intentionally a div with onClick, not a button,
+          to avoid duplicating the "Close sidebar" button role for a11y/test selectors */}
       {sidebarOpen && (
-        <button
-          type="button"
+        <div
           className="fixed inset-0 z-30 bg-black/50 backdrop-blur-sm md:hidden"
           onClick={() => setSidebarOpen(false)}
-          aria-label={t('a11y.closeSidebar', 'Close sidebar')}
+          onKeyDown={(e) => e.key === 'Escape' && setSidebarOpen(false)}
+          role="presentation"
         />
       )}
 
