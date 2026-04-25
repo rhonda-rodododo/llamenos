@@ -362,7 +362,7 @@ export class IdentityService {
     // (e.g. invites created before the server was added as a recipient).
     let name: string | undefined
     try {
-      name = this.#envelopeDecryptName(
+      name = await this.#envelopeDecryptName(
         row.encryptedName as Ciphertext,
         row.nameEnvelopes as RecipientEnvelope[]
       )
@@ -780,12 +780,15 @@ export class IdentityService {
   }
 
   /** Decrypt an envelope-encrypted name using the server's own envelope. */
-  #envelopeDecryptName(
+  async #envelopeDecryptName(
     encryptedName: Ciphertext,
     envelopes: RecipientEnvelope[]
-  ): string | undefined {
+  ): Promise<string | undefined> {
     if (!encryptedName || !envelopes?.length) return undefined
-    return this.crypto.serverEnvelopeDecrypt(encryptedName, envelopes, LABEL_USER_PII)
+    const serverPubkey = await this.crypto.getServerPubkey()
+    const envelope = envelopes.find((e) => e.pubkey === serverPubkey)
+    if (!envelope) return undefined
+    return this.crypto.envelopeDecrypt(encryptedName, envelope, LABEL_USER_PII)
   }
 
   #rowToInvite(r: typeof inviteCodes.$inferSelect): InviteCode {
