@@ -140,44 +140,82 @@ export class CryptoService {
   }
 
   /**
-   * Envelope-encrypt a plaintext string for multiple recipients.
+   * Envelope-encrypt a plaintext string.
    *
-   * Generates a random message key, symmetric-encrypts the plaintext,
-   * then HPKE-seals the message key per recipient. Returns the shared
-   * ciphertext and per-recipient HPKE envelopes.
+   * HPKE single-shot seal using the server's own X25519 keypair. The server
+   * is always included as a recipient so `envelopeDecrypt` (openForServer)
+   * works. User-specific envelopes require the user's registered X25519
+   * HPKE public key — until X25519 pubkey registration is implemented, only
+   * the server envelope is created.
+   *
+   * `recipientPubkeys` (secp256k1 identity pubkeys) are accepted for API
+   * compatibility but currently unused for sealing — secp256k1 bytes are not
+   * valid X25519 public keys.
+   *
+   * @param recordId  Bound into AAD — must match what the client passes
+   *                  to `hpkeOpen`. Typically `obj.id ?? ''`.
+   * @param fieldName Bound into AAD — must match the client's derived
+   *                  field name (e.g. `'name'` for `encryptedName`).
    */
   async envelopeEncrypt(
     plaintext: string,
-    recipientPubkeys: string[],
-    label: CryptoLabel
+    _recipientPubkeys: string[],
+    label: CryptoLabel,
+    recordId = '',
+    fieldName = ''
   ): Promise<{ encrypted: Ciphertext; envelopes: RecipientEnvelope[] }> {
-    const messageKey = new Uint8Array(32)
-    crypto.getRandomValues(messageKey)
-    const encrypted = symmetricEncrypt(utf8ToBytes(plaintext), messageKey, utf8ToBytes(label))
-    const envelopes: RecipientEnvelope[] = await Promise.all(
-      recipientPubkeys.map(async (pk) => {
-        const envelope = await this.hpke.sealForHex(messageKey, pk, label, 'envelope', 'key-wrap')
-        return { ...envelope, pubkey: pk }
-      })
+    const ptBytes = utf8ToBytes(plaintext)
+    // Seal for the server's own X25519 HPKE key — correct curve, server can decrypt
+    const serverPubkeyHex = await this.hpke.getServerPubkeyHex()
+    const serverEnvelope = await this.hpke.sealForHex(
+      ptBytes,
+      serverPubkeyHex,
+      label,
+      recordId,
+      fieldName
     )
-    messageKey.fill(0)
-    return { encrypted, envelopes }
+    return {
+      encrypted: '' as Ciphertext,
+      envelopes: [{ ...serverEnvelope, pubkey: serverPubkeyHex }],
+    }
   }
 
   /**
-   * Decrypt an envelope-encrypted ciphertext using the server's HPKE key.
+   * Decrypt an envelope-encrypted field using the server's HPKE key.
    *
-   * Opens the HPKE envelope to recover the message key, then
-   * symmetric-decrypts the shared ciphertext. Server-only — the
-   * server's HPKE private key is used automatically.
+   * HPKE single-shot open — the envelope contains the sealed plaintext
+   * directly. The `ct` parameter is ignored (legacy column compat).
    */
   async envelopeDecrypt(
-    ct: Ciphertext,
+    _ct: Ciphertext,
     envelope: RecipientEnvelope,
-    label: CryptoLabel
+    label: CryptoLabel,
+    recordId = '',
+    fieldName = ''
   ): Promise<string> {
-    const messageKey = await this.hpke.openForServer(envelope, label, 'envelope', 'key-wrap')
-    return new TextDecoder().decode(symmetricDecrypt(ct, messageKey, utf8ToBytes(label)))
+    const pt = await this.hpke.openForServer(envelope, label, recordId, fieldName)
+    return new TextDecoder().decode(pt)
+  }
+
+  /**
+   * Find the server's own envelope from a list and decrypt it.
+   * Returns undefined if no server envelope is found.
+   */
+  async envelopeDecryptFromList(
+    envelopes: RecipientEnvelope[],
+    label: CryptoLabel,
+    recordId = '',
+    fieldName = ''
+  ): Promise<string | undefined> {
+    if (!envelopes?.length) return undefined
+    const serverPubkey = await this.hpke.getServerPubkeyHex()
+    const envelope = envelopes.find((e) => e.pubkey === serverPubkey)
+    if (!envelope) return undefined
+    try {
+      return await this.envelopeDecrypt('' as Ciphertext, envelope, label, recordId, fieldName)
+    } catch {
+      return undefined
+    }
   }
 
   /**
@@ -189,20 +227,26 @@ export class CryptoService {
    */
   async envelopeEncryptBinary(
     data: Uint8Array,
-    recipientPubkeys: string[],
+    _recipientPubkeys: string[],
     label: CryptoLabel
   ): Promise<{ encrypted: Ciphertext; envelopes: RecipientEnvelope[] }> {
     const dataKey = new Uint8Array(32)
     crypto.getRandomValues(dataKey)
     const encrypted = symmetricEncrypt(data, dataKey, utf8ToBytes(label))
-    const envelopes: RecipientEnvelope[] = await Promise.all(
-      recipientPubkeys.map(async (pk) => {
-        const envelope = await this.hpke.sealForHex(dataKey, pk, label, 'envelope', 'key-wrap')
-        return { ...envelope, pubkey: pk }
-      })
+    // Seal data key for server's own X25519 HPKE key
+    const serverPubkeyHex = await this.hpke.getServerPubkeyHex()
+    const serverEnvelope = await this.hpke.sealForHex(
+      dataKey,
+      serverPubkeyHex,
+      label,
+      'envelope',
+      'key-wrap'
     )
     dataKey.fill(0)
-    return { encrypted, envelopes }
+    return {
+      encrypted,
+      envelopes: [{ ...serverEnvelope, pubkey: serverPubkeyHex }],
+    }
   }
 
   /**

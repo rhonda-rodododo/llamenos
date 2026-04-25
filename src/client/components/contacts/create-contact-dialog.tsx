@@ -1,7 +1,4 @@
-import { type CryptoLabel, LABEL_CONTACT_PII, LABEL_CONTACT_SUMMARY } from '@shared/crypto-labels'
-import type { Ciphertext, HmacHash } from '@shared/crypto-types'
-import type { HpkeEnvelope } from '@shared/hpke-envelope'
-import type { RecipientEnvelope } from '@shared/types'
+import type { HmacHash } from '@shared/crypto-types'
 import { AlertTriangle, Loader2, Lock } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -25,42 +22,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  type ContactRecord,
-  checkContactDuplicate,
-  getContactRecipients,
-  hashContactPhone,
-} from '@/lib/api'
+import { type ContactRecord, checkContactDuplicate, hashContactPhone } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
-import { cryptoWorker } from '@/lib/crypto-worker-client'
 import * as keyManager from '@/lib/key-manager'
 import { useCreateContact } from '@/lib/queries/contacts'
 import { useToast } from '@/lib/toast'
-
-/**
- * HPKE-seal plaintext for multiple recipients via the crypto worker.
- * Each recipient gets their own HpkeEnvelope containing the full ciphertext —
- * no shared symmetric key, no wrappedKey.
- *
- * Slice 2: Migrated from ECIES envelope encryption. The return shape still
- * includes `encrypted` for API compatibility until Slice 4 updates the
- * server's contact endpoints to accept HpkeEnvelope arrays.
- */
-async function hpkeSealForRecipients(
-  plaintext: string,
-  recipientPubkeys: string[],
-  label: CryptoLabel,
-  recordId: string,
-  fieldName: string
-): Promise<{ encrypted: Ciphertext; envelopes: RecipientEnvelope[] }> {
-  const hpkeEnvelopes: Array<{ pubkey: string } & HpkeEnvelope> = []
-  for (const pubkey of recipientPubkeys) {
-    // @ts-expect-error Slice 4: recipientPubkeys are secp256k1 x-only hex; HPKE needs raw X25519 bytes
-    const envelope = await cryptoWorker.hpkeSeal(plaintext, pubkey, label, recordId, fieldName)
-    hpkeEnvelopes.push({ pubkey, ...envelope })
-  }
-  return { encrypted: '' as Ciphertext, envelopes: hpkeEnvelopes }
-}
 
 interface Props {
   open: boolean
@@ -151,96 +117,26 @@ export function CreateContactDialog({ open, onOpenChange, onCreated }: Props) {
 
     setSubmitting(true)
     try {
-      const pk = await keyManager.getPublicKeyHex()
-      if (!pk) {
-        setError(t('contacts.errorNoPubkey', 'Could not retrieve public key'))
-        return
-      }
-
-      // Fetch authorized recipients from server — ensure current user is always included
-      const { summaryPubkeys, piiPubkeys } = await getContactRecipients()
-      if (!summaryPubkeys.includes(pk)) summaryPubkeys.push(pk)
-      if (!piiPubkeys.includes(pk)) piiPubkeys.push(pk)
-
       const tags = form.tags
 
-      // Client-generated ID for AAD binding (HPKE requires recordId at seal time)
-      const contactId = crypto.randomUUID()
-
-      // Encrypt Tier 1: display name (required)
-      const { encrypted: encryptedDisplayName, envelopes: displayNameEnvelopes } =
-        await hpkeSealForRecipients(
-          form.displayName.trim(),
-          summaryPubkeys,
-          LABEL_CONTACT_SUMMARY,
-          contactId,
-          'displayName'
-        )
-
-      // Encrypt notes if present
-      let encryptedNotes: string | undefined
-      let notesEnvelopes: RecipientEnvelope[] | undefined
-      if (form.notes.trim()) {
-        const result = await hpkeSealForRecipients(
-          form.notes.trim(),
-          summaryPubkeys,
-          LABEL_CONTACT_SUMMARY,
-          contactId,
-          'notes'
-        )
-        encryptedNotes = result.encrypted
-        notesEnvelopes = result.envelopes
-      }
-
-      // Encrypt Tier 2 fields if present
-      let encryptedFullName: string | undefined
-      let fullNameEnvelopes: RecipientEnvelope[] | undefined
-      let encryptedPhone: string | undefined
-      let phoneEnvelopes: RecipientEnvelope[] | undefined
+      // Get HMAC hash for phone dedup if phone is present
       let identifierHash: HmacHash | undefined
-
-      if (canViewPii) {
-        if (form.fullName.trim()) {
-          const result = await hpkeSealForRecipients(
-            form.fullName.trim(),
-            piiPubkeys,
-            LABEL_CONTACT_PII,
-            contactId,
-            'fullName'
-          )
-          encryptedFullName = result.encrypted
-          fullNameEnvelopes = result.envelopes
-        }
-
-        if (form.phone.trim()) {
-          // Get HMAC from server (client doesn't have the HMAC secret)
-          const { identifierHash: hash } = await hashContactPhone(form.phone.trim())
-          identifierHash = hash as HmacHash
-          const result = await hpkeSealForRecipients(
-            form.phone.trim(),
-            piiPubkeys,
-            LABEL_CONTACT_PII,
-            contactId,
-            'phone'
-          )
-          encryptedPhone = result.encrypted
-          phoneEnvelopes = result.envelopes
-        }
+      if (canViewPii && form.phone.trim()) {
+        const { identifierHash: hash } = await hashContactPhone(form.phone.trim())
+        identifierHash = hash as HmacHash
       }
 
+      // Send plaintext to server — server does envelope encryption
+      // (Client-side HPKE sealing deferred until X25519 pubkey registration)
       const contact = await createContactMutation.mutateAsync({
         contactType: form.contactType,
         riskLevel: form.riskLevel,
         tags,
         identifierHash,
-        encryptedDisplayName,
-        displayNameEnvelopes,
-        encryptedNotes,
-        notesEnvelopes,
-        encryptedFullName,
-        fullNameEnvelopes,
-        encryptedPhone,
-        phoneEnvelopes,
+        displayName: form.displayName.trim(),
+        notes: form.notes.trim() || undefined,
+        fullName: canViewPii && form.fullName.trim() ? form.fullName.trim() : undefined,
+        phone: canViewPii && form.phone.trim() ? form.phone.trim() : undefined,
       })
 
       toast(t('contacts.created', 'Contact created'), 'success')

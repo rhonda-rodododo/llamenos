@@ -1,4 +1,5 @@
 import { createRoute, z } from '@hono/zod-openapi'
+import { LABEL_CONTACT_PII, LABEL_CONTACT_SUMMARY } from '@shared/crypto-labels'
 import type { Ciphertext, HmacHash } from '@shared/crypto-types'
 import type { RecipientEnvelope } from '@shared/types'
 import { createRouter } from '../../lib/openapi'
@@ -64,7 +65,48 @@ core.openapi(listContactsRoute, async (c) => {
     pubkey
   )
 
-  return c.json({ contacts: rows }, 200)
+  // Server-decrypt display names from HPKE envelopes for API response
+  const enriched = await Promise.all(
+    rows.map(async (row) => {
+      const dispEnv = (row.displayNameEnvelopes as unknown as RecipientEnvelope[]) ?? []
+      const displayName = await services.crypto.envelopeDecryptFromList(
+        dispEnv,
+        LABEL_CONTACT_SUMMARY,
+        row.id,
+        'displayName'
+      )
+      const notesEnv = (row.notesEnvelopes as unknown as RecipientEnvelope[]) ?? []
+      const notes = await services.crypto.envelopeDecryptFromList(
+        notesEnv,
+        LABEL_CONTACT_SUMMARY,
+        row.id,
+        'notes'
+      )
+      const fnEnv = (row.fullNameEnvelopes as unknown as RecipientEnvelope[]) ?? []
+      const fullName = await services.crypto.envelopeDecryptFromList(
+        fnEnv,
+        LABEL_CONTACT_PII,
+        row.id,
+        'fullName'
+      )
+      const phoneEnv = (row.phoneEnvelopes as unknown as RecipientEnvelope[]) ?? []
+      const phone = await services.crypto.envelopeDecryptFromList(
+        phoneEnv,
+        LABEL_CONTACT_PII,
+        row.id,
+        'phone'
+      )
+      return {
+        ...row,
+        ...(displayName !== undefined ? { displayName } : {}),
+        ...(notes !== undefined ? { notes } : {}),
+        ...(fullName !== undefined ? { fullName } : {}),
+        ...(phone !== undefined ? { phone } : {}),
+      }
+    })
+  )
+
+  return c.json({ contacts: enriched }, 200)
 })
 
 // ── POST / — create contact ──
@@ -75,8 +117,9 @@ const CreateContactBodySchema = z.object({
   tags: z.array(z.string()).optional(),
   identifierHash: z.string().optional(),
   assignedTo: z.string().optional(),
-  encryptedDisplayName: z.string(),
-  displayNameEnvelopes: z.array(z.object({}).passthrough()),
+  // Pre-encrypted fields (client-side E2EE when X25519 keys are available)
+  encryptedDisplayName: z.string().optional(),
+  displayNameEnvelopes: z.array(z.object({}).passthrough()).optional(),
   encryptedNotes: z.string().optional(),
   notesEnvelopes: z.array(z.object({}).passthrough()).optional(),
   encryptedFullName: z.string().optional(),
@@ -85,6 +128,11 @@ const CreateContactBodySchema = z.object({
   phoneEnvelopes: z.array(z.object({}).passthrough()).optional(),
   encryptedPII: z.string().optional(),
   piiEnvelopes: z.array(z.object({}).passthrough()).optional(),
+  // Plaintext fields — server envelope-encrypts when client can't
+  displayName: z.string().optional(),
+  notes: z.string().optional(),
+  fullName: z.string().optional(),
+  phone: z.string().optional(),
 })
 
 const createContactRoute = createRoute({
@@ -115,19 +163,78 @@ core.openapi(createContactRoute, async (c) => {
 
   const body = c.req.valid('json')
 
-  if (
-    !body.contactType ||
-    !body.riskLevel ||
-    !body.encryptedDisplayName ||
-    !body.displayNameEnvelopes
-  ) {
+  if (!body.contactType || !body.riskLevel) {
+    return c.json({ error: 'contactType and riskLevel are required' }, 400)
+  }
+
+  // Require either pre-encrypted displayName or plaintext displayName
+  const hasEncryptedDisplayName = body.encryptedDisplayName && body.displayNameEnvelopes
+  const hasPlaintextDisplayName = body.displayName
+  if (!hasEncryptedDisplayName && !hasPlaintextDisplayName) {
     return c.json(
-      {
-        error:
-          'contactType, riskLevel, encryptedDisplayName, and displayNameEnvelopes are required',
-      },
+      { error: 'Either encryptedDisplayName+displayNameEnvelopes or displayName is required' },
       400
     )
+  }
+
+  // Client-generated contact ID for AAD binding — passed in body or generated here
+  const contactId = crypto.randomUUID()
+
+  // Server-side envelope encryption for plaintext fields when client can't HPKE-seal
+  let encDisplayName = body.encryptedDisplayName as Ciphertext | undefined
+  let dispEnvelopes = body.displayNameEnvelopes as unknown as RecipientEnvelope[] | undefined
+  if (!hasEncryptedDisplayName && body.displayName) {
+    const env = await services.crypto.envelopeEncrypt(
+      body.displayName,
+      [],
+      LABEL_CONTACT_SUMMARY,
+      contactId,
+      'displayName'
+    )
+    encDisplayName = env.encrypted
+    dispEnvelopes = env.envelopes
+  }
+
+  let encNotes = body.encryptedNotes as Ciphertext | undefined
+  let notesEnv = body.notesEnvelopes as unknown as RecipientEnvelope[] | undefined
+  if (!body.encryptedNotes && body.notes) {
+    const env = await services.crypto.envelopeEncrypt(
+      body.notes,
+      [],
+      LABEL_CONTACT_SUMMARY,
+      contactId,
+      'notes'
+    )
+    encNotes = env.encrypted
+    notesEnv = env.envelopes
+  }
+
+  let encFullName = body.encryptedFullName as Ciphertext | undefined
+  let fnEnv = body.fullNameEnvelopes as unknown as RecipientEnvelope[] | undefined
+  if (!body.encryptedFullName && body.fullName) {
+    const env = await services.crypto.envelopeEncrypt(
+      body.fullName,
+      [],
+      LABEL_CONTACT_PII,
+      contactId,
+      'fullName'
+    )
+    encFullName = env.encrypted
+    fnEnv = env.envelopes
+  }
+
+  let encPhone = body.encryptedPhone as Ciphertext | undefined
+  let phoneEnv = body.phoneEnvelopes as unknown as RecipientEnvelope[] | undefined
+  if (!body.encryptedPhone && body.phone) {
+    const env = await services.crypto.envelopeEncrypt(
+      body.phone,
+      [],
+      LABEL_CONTACT_PII,
+      contactId,
+      'phone'
+    )
+    encPhone = env.encrypted
+    phoneEnv = env.envelopes
   }
 
   const contact = await services.contacts.createContact({
@@ -137,20 +244,29 @@ core.openapi(createContactRoute, async (c) => {
     tags: body.tags ?? [],
     identifierHash: body.identifierHash as HmacHash | undefined,
     assignedTo: body.assignedTo,
-    encryptedDisplayName: body.encryptedDisplayName as Ciphertext,
-    displayNameEnvelopes: body.displayNameEnvelopes as unknown as RecipientEnvelope[],
-    encryptedNotes: body.encryptedNotes as Ciphertext | undefined,
-    notesEnvelopes: body.notesEnvelopes as unknown as RecipientEnvelope[] | undefined,
-    encryptedFullName: body.encryptedFullName as Ciphertext | undefined,
-    fullNameEnvelopes: body.fullNameEnvelopes as unknown as RecipientEnvelope[] | undefined,
-    encryptedPhone: body.encryptedPhone as Ciphertext | undefined,
-    phoneEnvelopes: body.phoneEnvelopes as unknown as RecipientEnvelope[] | undefined,
+    encryptedDisplayName: encDisplayName!,
+    displayNameEnvelopes: dispEnvelopes!,
+    encryptedNotes: encNotes,
+    notesEnvelopes: notesEnv,
+    encryptedFullName: encFullName,
+    fullNameEnvelopes: fnEnv,
+    encryptedPhone: encPhone,
+    phoneEnvelopes: phoneEnv,
     encryptedPII: body.encryptedPII as Ciphertext | undefined,
     piiEnvelopes: body.piiEnvelopes as unknown as RecipientEnvelope[] | undefined,
     createdBy: pubkey ?? '',
   })
 
-  return c.json({ contact }, 201)
+  // Include plaintext fields in response for immediate client display
+  const enrichedContact = {
+    ...contact,
+    ...(body.displayName ? { displayName: body.displayName } : {}),
+    ...(body.notes ? { notes: body.notes } : {}),
+    ...(body.fullName ? { fullName: body.fullName } : {}),
+    ...(body.phone ? { phone: body.phone } : {}),
+  }
+
+  return c.json({ contact: enrichedContact }, 201)
 })
 
 // ── GET /{id} — single contact ──
@@ -204,7 +320,44 @@ core.openapi(getContactRoute, async (c) => {
     return c.json({ error: 'Contact not found' }, 404)
   }
 
-  return c.json({ contact }, 200)
+  // Server-decrypt fields from HPKE envelopes
+  const dispEnv = (contact.displayNameEnvelopes as unknown as RecipientEnvelope[]) ?? []
+  const displayName = await services.crypto.envelopeDecryptFromList(
+    dispEnv,
+    LABEL_CONTACT_SUMMARY,
+    contact.id,
+    'displayName'
+  )
+  const notesEnv = (contact.notesEnvelopes as unknown as RecipientEnvelope[]) ?? []
+  const notes = await services.crypto.envelopeDecryptFromList(
+    notesEnv,
+    LABEL_CONTACT_SUMMARY,
+    contact.id,
+    'notes'
+  )
+  const fnEnv = (contact.fullNameEnvelopes as unknown as RecipientEnvelope[]) ?? []
+  const fullName = await services.crypto.envelopeDecryptFromList(
+    fnEnv,
+    LABEL_CONTACT_PII,
+    contact.id,
+    'fullName'
+  )
+  const pEnv = (contact.phoneEnvelopes as unknown as RecipientEnvelope[]) ?? []
+  const phone = await services.crypto.envelopeDecryptFromList(
+    pEnv,
+    LABEL_CONTACT_PII,
+    contact.id,
+    'phone'
+  )
+  const enriched = {
+    ...contact,
+    ...(displayName !== undefined ? { displayName } : {}),
+    ...(notes !== undefined ? { notes } : {}),
+    ...(fullName !== undefined ? { fullName } : {}),
+    ...(phone !== undefined ? { phone } : {}),
+  }
+
+  return c.json({ contact: enriched }, 200)
 })
 
 // ── PATCH /{id} — update contact ──

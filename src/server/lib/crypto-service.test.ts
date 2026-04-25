@@ -10,6 +10,7 @@ import {
   LABEL_VOICEMAIL_WRAP,
 } from '@shared/crypto-labels'
 import { createHpkeSuite } from '@shared/crypto-suite'
+import type { Ciphertext } from '@shared/crypto-types'
 import { CryptoService } from './crypto-service'
 import { HpkeService } from './hpke-service'
 
@@ -107,25 +108,21 @@ describe('CryptoService', () => {
       expect(pt).toBe('secret message')
     })
 
-    test('multiple recipients — server envelope decrypts correctly', async () => {
+    test('multiple recipients — only server envelope created (user X25519 keys not yet supported)', async () => {
       const serverPubkey = await crypto.getServerPubkey()
-      // Generate a second X25519 keypair
-      const suite = createHpkeSuite()
-      const kp2 = await suite.kem.generateKeyPair()
-      const pub2Bytes = new Uint8Array(await suite.kem.serializePublicKey(kp2.publicKey))
-      const pub2Hex = bytesToHex(pub2Bytes)
-
-      const { encrypted, envelopes } = await crypto.envelopeEncrypt(
+      // Extra recipient pubkeys are accepted but not sealed for
+      const { envelopes } = await crypto.envelopeEncrypt(
         'shared secret',
-        [serverPubkey, pub2Hex],
+        [serverPubkey, 'aabbccdd'.repeat(8)],
         LABEL_USER_PII
       )
 
-      expect(envelopes).toHaveLength(2)
+      // Only the server's own envelope is created
+      expect(envelopes).toHaveLength(1)
+      expect(envelopes[0].pubkey).toBe(serverPubkey)
 
       // Server can decrypt its own envelope
-      const serverEnv = envelopes.find((e) => e.pubkey === serverPubkey)!
-      const pt = await crypto.envelopeDecrypt(encrypted, serverEnv, LABEL_USER_PII)
+      const pt = await crypto.envelopeDecrypt('' as Ciphertext, envelopes[0], LABEL_USER_PII)
       expect(pt).toBe('shared secret')
     })
 
@@ -143,12 +140,11 @@ describe('CryptoService', () => {
       ).rejects.toThrow()
     })
 
-    test('nonce uniqueness — same plaintext produces different ciphertext', async () => {
-      const serverPubkey = await crypto.getServerPubkey()
-
-      const a = await crypto.envelopeEncrypt('same text', [serverPubkey], LABEL_USER_PII)
-      const b = await crypto.envelopeEncrypt('same text', [serverPubkey], LABEL_USER_PII)
-      expect(a.encrypted).not.toBe(b.encrypted)
+    test('nonce uniqueness — same plaintext produces different envelopes', async () => {
+      const a = await crypto.envelopeEncrypt('same text', [], LABEL_USER_PII)
+      const b = await crypto.envelopeEncrypt('same text', [], LABEL_USER_PII)
+      // Encrypted field is empty (HPKE direct seal), but envelopes differ due to ephemeral keys
+      expect(a.envelopes[0].ct).not.toBe(b.envelopes[0].ct)
     })
   })
 
@@ -176,28 +172,24 @@ describe('CryptoService', () => {
       expect(recovered).toEqual(plaintext)
     })
 
-    test('multiple recipients — server can decrypt', async () => {
+    test('multiple recipients — only server envelope created', async () => {
       const serverPubkey = await crypto.getServerPubkey()
-      const suite = createHpkeSuite()
-      const kp2 = await suite.kem.generateKeyPair()
-      const pub2Bytes = new Uint8Array(await suite.kem.serializePublicKey(kp2.publicKey))
-      const pub2Hex = bytesToHex(pub2Bytes)
-
       const plaintext = new Uint8Array(1024)
       globalThis.crypto.getRandomValues(plaintext)
 
       const { encrypted, envelopes } = await crypto.envelopeEncryptBinary(
         plaintext,
-        [serverPubkey, pub2Hex],
+        ['aabbccdd'.repeat(8)],
         LABEL_VOICEMAIL_WRAP
       )
 
-      expect(envelopes).toHaveLength(2)
+      // Only server envelope created (user X25519 keys not yet supported)
+      expect(envelopes).toHaveLength(1)
+      expect(envelopes[0].pubkey).toBe(serverPubkey)
 
-      const serverEnv = envelopes.find((e) => e.pubkey === serverPubkey)!
       const recovered = await crypto.envelopeDecryptBinary(
         encrypted,
-        serverEnv,
+        envelopes[0],
         LABEL_VOICEMAIL_WRAP
       )
       expect(recovered).toEqual(plaintext)

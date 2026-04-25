@@ -1,4 +1,5 @@
 import { LABEL_USER_PII } from '@shared/crypto-labels'
+import type { Ciphertext } from '@shared/crypto-types'
 import { and, count, desc, eq, inArray, sql } from 'drizzle-orm'
 import type { MessageDeliveryStatus, RecipientEnvelope } from '../../shared/types'
 import type { Database } from '../db'
@@ -50,12 +51,12 @@ export class ConversationService {
       .orderBy(desc(conversations.lastMessageAt))
       .limit(limit)
       .offset(offset)
-    return { conversations: rows.map((r) => this.#rowToConversation(r)), total }
+    return { conversations: await Promise.all(rows.map((r) => this.#rowToConversation(r))), total }
   }
 
   async getConversation(id: string): Promise<Conversation | null> {
     const rows = await this.db.select().from(conversations).where(eq(conversations.id, id)).limit(1)
-    return rows[0] ? this.#rowToConversation(rows[0]) : null
+    return rows[0] ? await this.#rowToConversation(rows[0]) : null
   }
 
   async createConversation(data: CreateConversationData): Promise<Conversation> {
@@ -76,10 +77,12 @@ export class ConversationService {
         const envelope = await this.crypto.envelopeEncrypt(
           data.contactLast4,
           recipientPubkeys,
-          LABEL_USER_PII
+          LABEL_USER_PII,
+          '',
+          'contactLast4'
         )
         encryptedContactFields = {
-          encryptedContactLast4: envelope.encrypted,
+          encryptedContactLast4: envelope.encrypted || ('' as Ciphertext),
           contactLast4Envelopes: envelope.envelopes,
         }
       }
@@ -111,7 +114,7 @@ export class ConversationService {
       // unique suffix so the unique constraint won't conflict. The original
       // pubkey is preserved in metadata.reporterPubkey for ownership checks.
       const [row] = await this.db.insert(conversations).values(values).returning()
-      return this.#rowToConversation(row)
+      return await this.#rowToConversation(row)
     }
 
     const [row] = await this.db
@@ -130,7 +133,7 @@ export class ConversationService {
         },
       })
       .returning()
-    return this.#rowToConversation(row)
+    return await this.#rowToConversation(row)
   }
 
   async updateConversation(
@@ -154,7 +157,7 @@ export class ConversationService {
       })
       .where(eq(conversations.id, id))
       .returning()
-    return this.#rowToConversation(row)
+    return await this.#rowToConversation(row)
   }
 
   async findByExternalId(
@@ -173,7 +176,7 @@ export class ConversationService {
         )
       )
       .limit(1)
-    return rows[0] ? this.#rowToConversation(rows[0]) : null
+    return rows[0] ? await this.#rowToConversation(rows[0]) : null
   }
 
   async getConversationStats(
@@ -347,14 +350,17 @@ export class ConversationService {
 
   // ------------------------------------------------------------------ Private helpers
 
-  #rowToConversation(r: typeof conversations.$inferSelect): Conversation {
+  async #rowToConversation(r: typeof conversations.$inferSelect): Promise<Conversation> {
     const cl4Env = (r.contactLast4Envelopes as import('@shared/types').RecipientEnvelope[]) ?? []
+    const contactLast4 =
+      (await this.crypto.envelopeDecryptFromList(cl4Env, LABEL_USER_PII, '', 'contactLast4')) ??
+      undefined
     return {
       id: r.id,
       hubId: r.hubId,
       channelType: r.channelType,
       contactIdentifierHash: r.contactIdentifierHash,
-      contactLast4: cl4Env.length > 0 ? '[encrypted]' : undefined,
+      contactLast4,
       externalId: r.externalId,
       assignedTo: r.assignedTo,
       status: r.status,

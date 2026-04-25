@@ -39,53 +39,37 @@ export class RecordsService {
   async getBans(hubId?: string): Promise<BanEntry[]> {
     const hId = hubId ?? 'global'
     const rows = await this.db.select().from(bans).where(eq(bans.hubId, hId))
-    return rows.map((r) => {
-      // Phone: if envelopes exist, this is E2EE — server can't decrypt
-      const pEnv = (r.phoneEnvelopes as RecipientEnvelope[]) ?? []
-      let phone = ''
-      if (pEnv.length > 0) {
-        phone = '[encrypted]'
-      } else {
-        try {
-          phone = this.crypto.serverDecrypt(r.encryptedPhone as Ciphertext, LABEL_USER_PII)
-        } catch {
-          // Decryption failed — leave empty
-        }
-      }
+    return Promise.all(
+      rows.map(async (r) => {
+        const pEnv = (r.phoneEnvelopes as RecipientEnvelope[]) ?? []
+        const rEnv = (r.reasonEnvelopes as RecipientEnvelope[]) ?? []
 
-      // Reason: if envelopes exist, this is E2EE — server can't decrypt
-      const rEnv = (r.reasonEnvelopes as RecipientEnvelope[]) ?? []
-      let reason = ''
-      if (rEnv.length > 0) {
-        reason = '[encrypted]'
-      } else {
-        try {
-          reason = this.crypto.serverDecrypt(r.encryptedReason as Ciphertext, LABEL_USER_PII)
-        } catch {
-          // Decryption failed — leave empty
-        }
-      }
+        const phone =
+          (await this.crypto.envelopeDecryptFromList(pEnv, LABEL_USER_PII, '', 'phone')) ?? ''
+        const reason =
+          (await this.crypto.envelopeDecryptFromList(rEnv, LABEL_USER_PII, '', 'reason')) ?? ''
 
-      return {
-        phone,
-        reason,
-        bannedBy: r.bannedBy,
-        bannedAt: r.createdAt.toISOString(),
-        // E2EE envelope fields for client-side decryption
-        ...(pEnv.length > 0
-          ? {
-              encryptedPhone: r.encryptedPhone as string,
-              phoneEnvelopes: pEnv,
-            }
-          : {}),
-        ...(rEnv.length > 0
-          ? {
-              encryptedReason: r.encryptedReason as string,
-              reasonEnvelopes: rEnv,
-            }
-          : {}),
-      }
-    })
+        return {
+          phone,
+          reason,
+          bannedBy: r.bannedBy,
+          bannedAt: r.createdAt.toISOString(),
+          // E2EE envelope fields for client-side decryption
+          ...(pEnv.length > 0
+            ? {
+                encryptedPhone: r.encryptedPhone as string,
+                phoneEnvelopes: pEnv,
+              }
+            : {}),
+          ...(rEnv.length > 0
+            ? {
+                encryptedReason: r.encryptedReason as string,
+                reasonEnvelopes: rEnv,
+              }
+            : {}),
+        }
+      })
+    )
   }
 
   async addBan(data: CreateBanData): Promise<BanEntry> {
@@ -102,19 +86,31 @@ export class RecordsService {
     ]
     const phoneEnvelope =
       recipientPubkeys.length > 0
-        ? await this.crypto.envelopeEncrypt(data.phone, recipientPubkeys, LABEL_USER_PII)
+        ? await this.crypto.envelopeEncrypt(
+            data.phone,
+            recipientPubkeys,
+            LABEL_USER_PII,
+            '',
+            'phone'
+          )
         : undefined
     const reasonEnvelope =
       data.reason && recipientPubkeys.length > 0
-        ? await this.crypto.envelopeEncrypt(data.reason, recipientPubkeys, LABEL_USER_PII)
+        ? await this.crypto.envelopeEncrypt(
+            data.reason,
+            recipientPubkeys,
+            LABEL_USER_PII,
+            '',
+            'reason'
+          )
         : undefined
 
-    // E2EE phone+reason: use envelope ciphertext if available, fallback to server-key
+    // E2EE phone+reason: envelope ciphertext is now empty (HPKE direct), use server-key as DB placeholder
     const encryptedPhone = phoneEnvelope
-      ? phoneEnvelope.encrypted
+      ? phoneEnvelope.encrypted || this.crypto.serverEncrypt(data.phone, LABEL_USER_PII)
       : this.crypto.serverEncrypt(data.phone, LABEL_USER_PII)
     const encryptedReason = reasonEnvelope
-      ? reasonEnvelope.encrypted
+      ? reasonEnvelope.encrypted || this.crypto.serverEncrypt(data.reason ?? '', LABEL_USER_PII)
       : this.crypto.serverEncrypt(data.reason ?? '', LABEL_USER_PII)
 
     const [row] = await this.db
@@ -166,24 +162,37 @@ export class RecordsService {
         ]
         const phoneEnvelope =
           recipientPubkeys.length > 0
-            ? await this.crypto.envelopeEncrypt(phone, recipientPubkeys, LABEL_USER_PII)
+            ? await this.crypto.envelopeEncrypt(
+                phone,
+                recipientPubkeys,
+                LABEL_USER_PII,
+                '',
+                'phone'
+              )
             : undefined
         const reasonEnvelope =
           data.reason && recipientPubkeys.length > 0
-            ? await this.crypto.envelopeEncrypt(data.reason, recipientPubkeys, LABEL_USER_PII)
+            ? await this.crypto.envelopeEncrypt(
+                data.reason,
+                recipientPubkeys,
+                LABEL_USER_PII,
+                '',
+                'reason'
+              )
             : undefined
         return {
           id: crypto.randomUUID(),
           hubId: hId,
           bannedBy: data.bannedBy,
           phoneHash,
-          // E2EE: use envelope ciphertext if available, fallback to server-key
+          // E2EE: envelope carries sealed plaintext; server-key as DB placeholder
           encryptedPhone: phoneEnvelope
-            ? phoneEnvelope.encrypted
+            ? phoneEnvelope.encrypted || this.crypto.serverEncrypt(phone, LABEL_USER_PII)
             : this.crypto.serverEncrypt(phone, LABEL_USER_PII),
           phoneEnvelopes: phoneEnvelope?.envelopes ?? [],
           encryptedReason: reasonEnvelope
-            ? reasonEnvelope.encrypted
+            ? reasonEnvelope.encrypted ||
+              this.crypto.serverEncrypt(data.reason ?? '', LABEL_USER_PII)
             : this.crypto.serverEncrypt(data.reason ?? '', LABEL_USER_PII),
           reasonEnvelopes: reasonEnvelope?.envelopes ?? [],
         }
@@ -231,9 +240,11 @@ export class RecordsService {
       const envelope = await this.crypto.envelopeEncrypt(
         data.callerLast4,
         adminPubkeys,
-        LABEL_USER_PII
+        LABEL_USER_PII,
+        '',
+        'callerLast4'
       )
-      encryptedCallerLast4 = envelope.encrypted
+      encryptedCallerLast4 = envelope.encrypted || ('' as Ciphertext)
       callerLast4Envelopes = envelope.envelopes
     }
 
@@ -255,7 +266,7 @@ export class RecordsService {
         ...(encryptedCallerLast4 ? { encryptedCallerLast4, callerLast4Envelopes } : {}),
       })
       .returning()
-    return this.#rowToCallRecord(row)
+    return await this.#rowToCallRecord(row)
   }
 
   async getCallRecord(id: string, hubId?: string): Promise<EncryptedCallRecord | null> {
@@ -265,7 +276,7 @@ export class RecordsService {
       .from(callRecords)
       .where(and(eq(callRecords.id, id), eq(callRecords.hubId, hId)))
       .limit(1)
-    return rows[0] ? this.#rowToCallRecord(rows[0]) : null
+    return rows[0] ? await this.#rowToCallRecord(rows[0]) : null
   }
 
   /** Find a call record by ID across all hubs. Returns hubId for webhook hub resolution. */
@@ -308,7 +319,7 @@ export class RecordsService {
       })
       .where(and(eq(callRecords.id, id), eq(callRecords.hubId, hId)))
       .returning()
-    return this.#rowToCallRecord(row)
+    return await this.#rowToCallRecord(row)
   }
 
   /**
@@ -367,7 +378,7 @@ export class RecordsService {
         .orderBy(desc(callRecords.startedAt))
         .limit(limit)
         .offset(offset)
-      return { calls: rows.map((r) => this.#rowToCallRecord(r)), total }
+      return { calls: await Promise.all(rows.map((r) => this.#rowToCallRecord(r))), total }
     }
 
     // With post-decrypt filters, still load all (can't filter in SQL due to encryption)
@@ -376,7 +387,7 @@ export class RecordsService {
       .from(callRecords)
       .where(whereClause)
       .orderBy(desc(callRecords.startedAt))
-    let filtered = allRows.map((r) => this.#rowToCallRecord(r))
+    let filtered = await Promise.all(allRows.map((r) => this.#rowToCallRecord(r)))
     if (filters?.voicemailOnly) {
       filtered = filtered.filter((c) => c.hasVoicemail)
     }
@@ -828,11 +839,14 @@ export class RecordsService {
 
   // ------------------------------------------------------------------ Private helpers
 
-  #rowToCallRecord(r: typeof callRecords.$inferSelect): EncryptedCallRecord {
+  async #rowToCallRecord(r: typeof callRecords.$inferSelect): Promise<EncryptedCallRecord> {
     const cl4Env = (r.callerLast4Envelopes as RecipientEnvelope[]) ?? []
+    const callerLast4 =
+      (await this.crypto.envelopeDecryptFromList(cl4Env, LABEL_USER_PII, '', 'callerLast4')) ??
+      undefined
     return {
       id: r.id,
-      callerLast4: cl4Env.length > 0 ? '[encrypted]' : undefined,
+      callerLast4,
       startedAt: r.startedAt.toISOString(),
       endedAt: r.endedAt?.toISOString(),
       duration: r.duration ?? undefined,

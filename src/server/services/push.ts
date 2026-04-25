@@ -37,7 +37,7 @@ export class PushService {
     protected readonly crypto: CryptoService
   ) {}
 
-  #rowToSubscription(row: typeof pushSubscriptions.$inferSelect): PushSubscription {
+  async #rowToSubscription(row: typeof pushSubscriptions.$inferSelect): Promise<PushSubscription> {
     const endpoint = this.crypto.serverDecrypt(
       row.encryptedEndpoint as Ciphertext,
       LABEL_PUSH_CREDENTIAL
@@ -51,23 +51,11 @@ export class PushService {
       LABEL_PUSH_CREDENTIAL
     )
 
-    // Device label: if envelopes exist, this is E2EE — server can't decrypt.
-    // Otherwise try server-key decrypt for legacy data.
     const dlEnvelopes =
       (row.deviceLabelEnvelopes as import('@shared/types').RecipientEnvelope[]) ?? []
-    let deviceLabel: string | null = null
-    if (dlEnvelopes.length > 0) {
-      deviceLabel = '[encrypted]'
-    } else if (row.encryptedDeviceLabel) {
-      try {
-        deviceLabel = this.crypto.serverDecrypt(
-          row.encryptedDeviceLabel as Ciphertext,
-          LABEL_USER_PII
-        )
-      } catch {
-        // Decryption failed — leave as null
-      }
-    }
+    const deviceLabel =
+      (await this.crypto.envelopeDecryptFromList(dlEnvelopes, LABEL_USER_PII, '', 'deviceLabel')) ??
+      null
 
     return {
       id: row.id,
@@ -100,7 +88,9 @@ export class PushService {
       labelEnvelope = await this.crypto.envelopeEncrypt(
         data.deviceLabel,
         [data.pubkey],
-        LABEL_USER_PII
+        LABEL_USER_PII,
+        '',
+        'deviceLabel'
       )
     }
 
@@ -137,7 +127,7 @@ export class PushService {
         },
       })
       .returning()
-    return this.#rowToSubscription(row)
+    return await this.#rowToSubscription(row)
   }
 
   /** Remove a subscription by endpoint, verifying ownership by pubkey. */
@@ -177,7 +167,7 @@ export class PushService {
       .select()
       .from(pushSubscriptions)
       .where(eq(pushSubscriptions.pubkey, pubkey))
-    return rows.map((r) => this.#rowToSubscription(r))
+    return Promise.all(rows.map((r) => this.#rowToSubscription(r)))
   }
 
   /** Get all subscriptions for a list of user pubkeys. */
@@ -187,7 +177,7 @@ export class PushService {
       .select()
       .from(pushSubscriptions)
       .where(inArray(pushSubscriptions.pubkey, pubkeys))
-    return rows.map((r) => this.#rowToSubscription(r))
+    return Promise.all(rows.map((r) => this.#rowToSubscription(r)))
   }
 
   /**

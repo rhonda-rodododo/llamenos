@@ -430,7 +430,9 @@ export class FirehoseAgentService {
     const { encrypted, envelopes } = await this.crypto.envelopeEncrypt(
       reportContent,
       recipientPubkeys,
-      LABEL_FIREHOSE_REPORT_WRAP
+      LABEL_FIREHOSE_REPORT_WRAP,
+      '',
+      'content'
     )
 
     // Create conversation with report metadata (follows reports.ts pattern)
