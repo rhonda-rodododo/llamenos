@@ -79,7 +79,7 @@ function subscribeToRelay(
 
 /** Decode hex string (returns null if invalid hex) */
 function isValidHex(s: string): boolean {
-  return /^[0-9a-f]+$/i.test(s) && s.length >= 48 // at least 24-byte nonce
+  return /^[0-9a-f]+$/i.test(s) && s.length >= 56 // at least 12-byte nonce (24 hex) + 16-byte tag (32 hex)
 }
 
 function formEncode(params: Record<string, string>): string {

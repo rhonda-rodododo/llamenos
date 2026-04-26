@@ -60,8 +60,8 @@ export function generateHubKey(): Uint8Array {
 // ---- Hub-scoped symmetric encryption (unchanged) ----
 
 /**
- * Encrypt arbitrary data with the hub key using XChaCha20-Poly1305.
- * Returns hex: nonce(24) + ciphertext.
+ * Encrypt arbitrary data with the hub key using AES-256-GCM.
+ * Returns hex: nonce(12) + ciphertext+tag.
  * The AAD cryptographically binds the ciphertext to a context (e.g. record id + field name).
  */
 export async function encryptForHub(

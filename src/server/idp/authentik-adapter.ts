@@ -4,7 +4,7 @@
  * Users are keyed by Nostr pubkey (hex) as their username.
  * The nsec_secret is stored in user.attributes as an envelope-encrypted hex string.
  *
- * Encryption scheme: XChaCha20-Poly1305, key derived via HKDF from
+ * Encryption scheme: AES-256-GCM, key derived via HKDF from
  * IDP_VALUE_ENCRYPTION_KEY with domain separation label LABEL_IDP_VALUE_WRAP.
  * Stored format: "<nonce_hex>:<ciphertext_hex>"
  */
