@@ -43,6 +43,7 @@ paths = [
   "src/client/lib/recovery-group-tier3\\.ts",
   "src/client/lib/webrtc/sframe-.*\\.ts",
   "src/server/lib/hpke-service\\.ts",
+  "src/client/lib/crypto-service\\.ts",
   "src/shared/types\\.ts",
   "src/shared/hpke-primitives\\.ts",
 ]
