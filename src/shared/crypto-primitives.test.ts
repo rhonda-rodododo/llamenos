@@ -9,6 +9,7 @@ import {
   labelToId,
 } from './crypto-labels'
 import { hkdfDerive, hmacSha256, symmetricDecrypt, symmetricEncrypt } from './crypto-primitives'
+import type { Ciphertext } from './crypto-types'
 
 describe('symmetricEncrypt / symmetricDecrypt', () => {
   const emptyAad = new Uint8Array(0)
@@ -108,6 +109,15 @@ describe('CryptoLabel brand + registry', () => {
 
   test('idToLabel throws on unknown id', () => {
     expect(() => idToLabel(999)).toThrow(/Unknown crypto label id: 999/)
+  })
+})
+
+describe('old wire format rejection', () => {
+  test('old XChaCha20 wire format (24-byte nonce) fails to decrypt', async () => {
+    // Construct a fake old-format ciphertext: 24-byte nonce (48 hex) + arbitrary payload
+    const oldFormat = ('aa'.repeat(24) + 'bb'.repeat(48)) as Ciphertext
+    const key = new Uint8Array(32).fill(1)
+    await expect(symmetricDecrypt(oldFormat, key, new Uint8Array(0))).rejects.toThrow()
   })
 })
 
