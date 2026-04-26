@@ -1,10 +1,6 @@
 import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
-import {
-  LABEL_FILE_KEY,
-  LABEL_FILE_METADATA,
-  labelToId,
-} from '@shared/crypto-labels'
+import { LABEL_FILE_KEY, LABEL_FILE_METADATA, labelToId } from '@shared/crypto-labels'
 import { symmetricDecrypt, symmetricEncrypt } from '@shared/crypto-primitives'
 import type { Ciphertext } from '@shared/crypto-types'
 import type {
