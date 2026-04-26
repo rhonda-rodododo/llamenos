@@ -46,6 +46,7 @@ declare global {
       set: (hubId: string, key: Uint8Array) => void
       has: (hubId: string) => boolean
       size: () => number
+      lastError: () => string | null
     }
     __llamenos_test_crypto: {
       encryptNote: (
@@ -100,11 +101,17 @@ async function bootSPA(): Promise<void> {
       window.__TEST_AUTH_FACADE = authFacadeClient
     })
     void import('./lib/hub-key-cache').then(
-      ({ setHubKeyForTest, getHubKeyForId, getHubKeyCacheSizeForTest }) => {
+      ({
+        setHubKeyForTest,
+        getHubKeyForId,
+        getHubKeyCacheSizeForTest,
+        getLastLoadErrorForTest,
+      }) => {
         window.__TEST_HUB_KEY_CACHE = {
           set: setHubKeyForTest,
           has: (hubId: string) => getHubKeyForId(hubId) !== null,
           size: getHubKeyCacheSizeForTest,
+          lastError: getLastLoadErrorForTest,
         }
       }
     )

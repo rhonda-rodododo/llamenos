@@ -354,6 +354,34 @@ export class CryptoWorkerClient {
     })
   }
 
+  /**
+   * Like hpkeOpen but returns the decrypted bytes as hex instead of UTF-8 text.
+   * Used for binary payloads like hub keys where the plaintext is raw bytes.
+   */
+  async hpkeOpenRaw(
+    envelope: HpkeEnvelope,
+    expectedLabel: CryptoLabel,
+    recordId: string,
+    fieldName: string
+  ): Promise<string> {
+    return this.call<string>({
+      type: 'hpkeOpenRaw',
+      envelope,
+      expectedLabel,
+      recordId,
+      fieldName,
+    })
+  }
+
+  /**
+   * Return the raw 32-byte X25519 public key derived during `handleUnlock`
+   * (or set by `unlockWithHandles`). Returns null when the worker is locked
+   * or the HPKE keypair has not been derived yet.
+   */
+  async getHpkePublicKeyRaw(): Promise<Uint8Array | null> {
+    return this.call<Uint8Array | null>({ type: 'hpkePublicKeyRaw' })
+  }
+
   // ---- Tier 2 root-KEK handlers ----
 
   /**

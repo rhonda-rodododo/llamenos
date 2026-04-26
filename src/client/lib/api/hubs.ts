@@ -1,4 +1,3 @@
-import type { Ciphertext } from '@shared/crypto-types'
 import type { Hub } from '@shared/schemas'
 import {
   API_BASE,
@@ -56,12 +55,9 @@ export async function removeHubMember(hubId: string, pubkey: string) {
 
 // --- Hub Key Envelopes ---
 
-export async function getMyHubKeyEnvelope(hubId: string) {
-  return request<{
-    wrappedKey: Ciphertext
-    ephemeralPubkey: string
-    ephemeralPk?: string
-  } | null>(`/hubs/${hubId}/key-envelope`)
+export async function getMyHubKeyEnvelope(hubId: string, hpkePubkeyHex?: string) {
+  const qs = hpkePubkeyHex ? `?hpkePubkey=${hpkePubkeyHex}` : ''
+  return request<Record<string, unknown> | null>(`/hubs/${hubId}/key-envelope${qs}`)
 }
 
 // --- Hub Archive & Delete ---

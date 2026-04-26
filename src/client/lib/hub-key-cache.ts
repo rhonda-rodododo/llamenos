@@ -19,11 +19,11 @@
  * re-renders and can be accessed from the RelayManager callback.
  */
 
-import { hexToBytes } from '@noble/hashes/utils.js'
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { LABEL_HUB_KEY_WRAP } from '@shared/crypto-labels'
 import type { HpkeEnvelope } from '@shared/hpke-envelope'
 import { getMyHubKeyEnvelope } from './api'
-import { hpkeOpenField } from './crypto-worker-helpers'
+import { cryptoWorker } from './crypto-worker-client'
 import { importHubKeyCryptoKey } from './hub-field-crypto'
 
 interface CachedHubKey {
@@ -34,6 +34,8 @@ interface CachedHubKey {
 const hubKeyCache = new Map<string, CachedHubKey>()
 /** Monotonically-increasing generation counter. Prevents stale concurrent loads from writing. */
 let cacheGeneration = 0
+/** Last error from loadHubKeysForUser — exposed for E2E test debugging. */
+let lastLoadError: string | null = null
 
 /**
  * Retrieve a hub key by hub ID as raw bytes.
@@ -75,15 +77,31 @@ export async function loadHubKeysForUser(hubIds: string[]): Promise<void> {
   const myGeneration = ++cacheGeneration
   hubKeyCache.clear()
 
+  // Get the client's X25519 HPKE pubkey so the server can re-wrap the hub key
+  // for our derived keypair. The server unwraps its own HPKE envelope and
+  // re-wraps for this pubkey, binding the new envelope to the correct AAD.
+  let hpkePubkeyHex: string | undefined
+  try {
+    const rawPub = await cryptoWorker.getHpkePublicKeyRaw()
+    if (rawPub) hpkePubkeyHex = bytesToHex(rawPub)
+  } catch {
+    // Worker may not be ready yet — fall through without HPKE pubkey
+  }
+
   await Promise.allSettled(
     hubIds.map(async (hubId) => {
       try {
-        const raw = await getMyHubKeyEnvelope(hubId)
+        const raw = await getMyHubKeyEnvelope(hubId, hpkePubkeyHex)
         if (!raw) return
-        // Slice 6 will update the server endpoint to return HpkeEnvelope directly.
-        // Until then, the cast is safe only after the TRUNCATE migration.
         const envelope = raw as unknown as HpkeEnvelope
-        const hubKeyHex = await hpkeOpenField(envelope, LABEL_HUB_KEY_WRAP, hubId, 'hub-key')
+        // Hub keys are raw 32-byte binary — use hpkeOpenRaw (returns hex)
+        // instead of hpkeOpenField (returns UTF-8 text, corrupts binary).
+        const hubKeyHex = await cryptoWorker.hpkeOpenRaw(
+          envelope,
+          LABEL_HUB_KEY_WRAP,
+          hubId,
+          'hub-key'
+        )
         const hubKeyBytes = hexToBytes(hubKeyHex)
         const cryptoKey = await importHubKeyCryptoKey(hubKeyBytes)
         // Only write if this load is still the current generation
@@ -91,21 +109,7 @@ export async function loadHubKeysForUser(hubIds: string[]): Promise<void> {
           hubKeyCache.set(hubId, { raw: hubKeyBytes, cryptoKey })
         }
       } catch (err) {
-        // Hub key unavailable or decryption failed — skip; REST polling covers
-        // this hub. Log the cause so dev/test operators can distinguish a
-        // missing envelope (normal for a brand-new member who has not been
-        // wrapped yet) from a decryption failure (potential key drift,
-        // tampering, or wrong device key).
-        //
-        // Production stripping: `vite.config.ts` sets `dropConsole: true` for
-        // prod, so this call is dead-code-eliminated from the shipped client
-        // bundle (verified by `scripts/verify-no-console.sh` in the build
-        // pipeline). The structured-logger replacement is tracked in
-        // `docs/superpowers/specs/2026-04-05-logging-infrastructure-design.md`;
-        // until that lands, console.error is the established client pattern
-        // for genuine failures (see also `lib/mls/core-crypto-loader.ts`).
-        // Replacing the previous bare `catch {}` is the point of this fix —
-        // the silent swallow made operators blind to key drift in dev/test.
+        lastLoadError = `${hubId}: ${err instanceof Error ? err.message : String(err)}`
         // biome-ignore lint/suspicious/noConsole: genuine failure in catch — no structured logger available client-side
         console.error('[hub-key-cache] failed to load hub key', {
           hubId,
@@ -150,4 +154,12 @@ export async function setHubKeyForTest(hubId: string, key: Uint8Array): Promise<
  */
 export function getHubKeyCacheSizeForTest(): number {
   return hubKeyCache.size
+}
+
+/**
+ * Return the last load error for E2E test debugging.
+ * For E2E tests only.
+ */
+export function getLastLoadErrorForTest(): string | null {
+  return lastLoadError
 }

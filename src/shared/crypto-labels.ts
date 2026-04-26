@@ -133,6 +133,14 @@ export const LABEL_SERVER_HPKE_KEY = 'llamenos:server-hpke-key'
 /** HKDF info parameter for server HPKE key (versioned for rotation) */
 export const LABEL_SERVER_HPKE_KEY_INFO = 'llamenos:server-hpke-key:v1'
 
+// --- User HPKE Identity (Tier 1 Slice 2) ---
+
+/** HKDF salt for deriving user X25519 HPKE keypair from secp256k1 nsec */
+export const LABEL_USER_HPKE_KEY = 'llamenos:user-hpke-key'
+
+/** HKDF info parameter for user HPKE key derivation (versioned for rotation) */
+export const LABEL_USER_HPKE_KEY_INFO = 'llamenos:user-hpke-key:v1'
+
 // --- Push Notification Encryption (Epic 86) ---
 
 /** Wake-tier ECIES push payload — decryptable without PIN (minimal metadata only) */

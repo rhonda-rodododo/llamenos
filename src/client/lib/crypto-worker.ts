@@ -92,6 +92,16 @@ type WorkerRequest =
       fieldName: string
     }
   | {
+      // Like hpkeOpen but returns decrypted bytes as hex instead of UTF-8 text.
+      // Used for binary payloads like hub keys.
+      type: 'hpkeOpenRaw'
+      id: string
+      envelope: HpkeEnvelope
+      expectedLabel: CryptoLabel
+      recordId: string
+      fieldName: string
+    }
+  | {
       // Unlock from a key store that returns non-extractable CryptoKey
       // handles (HPKE private key + hub AES-GCM key) plus the raw nsec.
       // The handles are transferred via structured clone.
@@ -272,7 +282,11 @@ function randomBytes(n: number): Uint8Array {
 
 // ---- Operation handlers ----
 
-function handleUnlock(kekHex: string, nonceHex: string, ciphertextHex: string): string {
+async function handleUnlock(
+  kekHex: string,
+  nonceHex: string,
+  ciphertextHex: string
+): Promise<string> {
   const kek = hexToBytes(kekHex)
   const nonce = hexToBytes(nonceHex)
   const ciphertext = hexToBytes(ciphertextHex)
@@ -291,6 +305,27 @@ function handleUnlock(kekHex: string, nonceHex: string, ciphertextHex: string): 
   // Store KEK for MLS IDB key derivation (Tier 6).
   if (kekBytes) kekBytes.fill(0)
   kekBytes = new Uint8Array(kek)
+
+  // Derive X25519 HPKE keypair from nsec via HKDF so the PIN-based unlock
+  // path populates `hpkePrivateKey` just like `unlockWithHandles` does.
+  // Without this, `hpkeOpen` calls (used by hub-key-cache) would fail with
+  // "Worker is locked" because `hpkePrivateKey` would remain null.
+  const { LABEL_USER_HPKE_KEY, LABEL_USER_HPKE_KEY_INFO } = await import('@shared/crypto-labels')
+  const { hkdfDerive } = await import('@shared/crypto-primitives')
+  const { createHpkeSuite } = await import('@shared/crypto-suite')
+  const { asX25519EncryptionKey } = await import('@shared/types')
+  const enc = new TextEncoder()
+  const ikm = hkdfDerive(
+    secretKey,
+    enc.encode(LABEL_USER_HPKE_KEY),
+    enc.encode(LABEL_USER_HPKE_KEY_INFO),
+    32
+  )
+  const suite = createHpkeSuite()
+  const kp = (await suite.kem.deriveKeyPair(ikm)) as CryptoKeyPair
+  hpkePrivateKey = asX25519EncryptionKey(kp.privateKey)
+  hpkePublicKeyRawCache = new Uint8Array(await suite.kem.serializePublicKey(kp.publicKey))
+  ikm.fill(0)
 
   resetRateLimits()
   return publicKeyHex
@@ -458,13 +493,13 @@ function handleExportSession(): {
  * Returns the x-only public key hex on success (same shape as handleUnlock).
  * Throws if the capsule is invalid / tampered.
  */
-function handleImportSession(
+async function handleImportSession(
   tokenHex: string,
   encryptedNsecHex: string,
   capsuleNonceHex: string,
   encryptedKekHex?: string,
   kekNonceHexParam?: string
-): string {
+): Promise<string> {
   const token = hexToBytes(tokenHex)
   const nonce = hexToBytes(capsuleNonceHex)
   const ciphertext = hexToBytes(encryptedNsecHex)
@@ -494,6 +529,25 @@ function handleImportSession(
     }
   }
 
+  // Derive X25519 HPKE keypair from nsec so loadHubKeysForUser can send the
+  // pubkey to the server for re-wrapping after capsule restore.
+  const { LABEL_USER_HPKE_KEY, LABEL_USER_HPKE_KEY_INFO } = await import('@shared/crypto-labels')
+  const { hkdfDerive } = await import('@shared/crypto-primitives')
+  const { createHpkeSuite } = await import('@shared/crypto-suite')
+  const { asX25519EncryptionKey } = await import('@shared/types')
+  const enc = new TextEncoder()
+  const ikm = hkdfDerive(
+    secretKey,
+    enc.encode(LABEL_USER_HPKE_KEY),
+    enc.encode(LABEL_USER_HPKE_KEY_INFO),
+    32
+  )
+  const suite = createHpkeSuite()
+  const kp = (await suite.kem.deriveKeyPair(ikm)) as CryptoKeyPair
+  hpkePrivateKey = asX25519EncryptionKey(kp.privateKey)
+  hpkePublicKeyRawCache = new Uint8Array(await suite.kem.serializePublicKey(kp.publicKey))
+  ikm.fill(0)
+
   resetRateLimits()
   return publicKeyHex
 }
@@ -509,20 +563,38 @@ function handleImportSession(
  * `secretKey` + `publicKeyHex` identically so `signAuditEntry` and `sign`
  * keep working without caring which path was used.
  */
-function handleUnlockWithHandles(
+async function handleUnlockWithHandles(
   nsecRaw: Uint8Array,
   hpkePriv: X25519EncryptionKey,
   hub: AesGcmKey
-): string {
+): Promise<string> {
   if (nsecRaw.byteLength !== 32) {
     throw new Error(`unlockWithHandles nsec must be 32 bytes, got ${nsecRaw.byteLength}`)
   }
   secretKey = new Uint8Array(nsecRaw)
-  nsecRaw.fill(0)
   publicKeyHex = bytesToHex(schnorr.getPublicKey(secretKey))
   hpkePrivateKey = hpkePriv
   _hubKey = hub
-  hpkePublicKeyRawCache = null
+
+  // Derive X25519 public key from nsec so getHpkePublicKeyRaw() can return
+  // it. Without this, loadHubKeysForUser cannot send the pubkey to the
+  // server for re-wrapping and hub key decryption fails after capsule restore.
+  const { LABEL_USER_HPKE_KEY, LABEL_USER_HPKE_KEY_INFO } = await import('@shared/crypto-labels')
+  const { hkdfDerive } = await import('@shared/crypto-primitives')
+  const { createHpkeSuite } = await import('@shared/crypto-suite')
+  const enc = new TextEncoder()
+  const ikm = hkdfDerive(
+    secretKey,
+    enc.encode(LABEL_USER_HPKE_KEY),
+    enc.encode(LABEL_USER_HPKE_KEY_INFO),
+    32
+  )
+  const suite = createHpkeSuite()
+  const kp = (await suite.kem.deriveKeyPair(ikm)) as CryptoKeyPair
+  hpkePublicKeyRawCache = new Uint8Array(await suite.kem.serializePublicKey(kp.publicKey))
+  ikm.fill(0)
+
+  nsecRaw.fill(0)
   resetRateLimits()
   return publicKeyHex
 }
@@ -563,6 +635,27 @@ async function handleHpkeOpen(
   const aad = buildAad(expectedLabel, recordId, fieldName)
   const pt = await hpkeOpen(envelope, hpkePrivateKey, expectedLabel, aad)
   return new TextDecoder().decode(pt)
+}
+
+/**
+ * Like handleHpkeOpen but returns the raw decrypted bytes as hex instead of
+ * UTF-8 text. Used for binary payloads (e.g. hub keys) where the plaintext
+ * is raw bytes, not a text string.
+ */
+async function handleHpkeOpenRaw(
+  envelope: HpkeEnvelope,
+  expectedLabel: CryptoLabel,
+  recordId: string,
+  fieldName: string
+): Promise<string> {
+  if (!secretKey || !hpkePrivateKey) throw new Error('Worker is locked')
+  if (!checkRateLimit('decrypt')) {
+    autoLock()
+    throw new Error('Rate limit exceeded — worker auto-locked')
+  }
+  const aad = buildAad(expectedLabel, recordId, fieldName)
+  const pt = await hpkeOpen(envelope, hpkePrivateKey, expectedLabel, aad)
+  return bytesToHex(new Uint8Array(pt))
 }
 
 // ---- Tier 2 root-KEK handlers ----
@@ -951,10 +1044,10 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
 
     switch (req.type) {
       case 'unlock':
-        result = handleUnlock(req.kekHex, req.nonceHex, req.ciphertextHex)
+        result = await handleUnlock(req.kekHex, req.nonceHex, req.ciphertextHex)
         break
       case 'unlockWithHandles':
-        result = handleUnlockWithHandles(req.nsecRaw, req.hpkePrivateKey, req.hubKey)
+        result = await handleUnlockWithHandles(req.nsecRaw, req.hpkePrivateKey, req.hubKey)
         break
       case 'hpkeSeal':
         result = await handleHpkeSeal(
@@ -967,6 +1060,14 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
         break
       case 'hpkeOpen':
         result = await handleHpkeOpen(req.envelope, req.expectedLabel, req.recordId, req.fieldName)
+        break
+      case 'hpkeOpenRaw':
+        result = await handleHpkeOpenRaw(
+          req.envelope,
+          req.expectedLabel,
+          req.recordId,
+          req.fieldName
+        )
         break
       case 'hpkePublicKeyRaw':
         result = await handleHpkePublicKeyRaw()
@@ -1017,7 +1118,7 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
         result = handleExportSession()
         break
       case 'importSession':
-        result = handleImportSession(
+        result = await handleImportSession(
           req.tokenHex,
           req.encryptedNsecHex,
           req.capsuleNonceHex,
