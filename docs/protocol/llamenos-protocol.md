@@ -793,9 +793,9 @@ Sessions are independent across devices. Revoking a session on one device does n
 | `@hpke/core` | ^1.x | HPKE RFC 9180 base mode — `CipherSuite`, `HkdfSha256`, `Aes256Gcm` |
 | `@hpke/dhkem-x25519` | ^1.x | `DhkemX25519HkdfSha256` KEM (uses `@noble/curves` internally; avoids `crypto.subtle.deriveBits('X25519')` which Bun does not yet implement) |
 | `@wireapp/core-crypto` | v9.3.3 (vendored) | MLS 1.0 protocol implementation (WASM). Manages MLS group state, epoch advancement, encrypt/decrypt, KeyPackage generation. Runs inside the crypto Web Worker. |
-| `@noble/curves` | ^1.x | BIP-340 Schnorr signatures (audit log, Nostr events). **No longer used for ECDH key agreement** — HPKE uses X25519 via the HPKE suite. Retained for legacy ECIES paths (envelope PII, blasts). |
-| `@noble/ciphers` | ^1.x | XChaCha20-Poly1305 for KEK encryption, drafts, hub event encryption, and legacy envelope PII (migration to HPKE planned) |
-| `@noble/hashes` | ^1.x | SHA-256, HKDF-SHA256, PBKDF2-SHA256, hex/utf8 encoding |
+| `@noble/curves` | ^2.x | BIP-340 Schnorr signatures (audit log, Nostr events). **No longer used for ECDH key agreement** — HPKE uses X25519 via the HPKE suite. Retained for legacy ECIES paths (envelope PII, blasts, provisioning, file crypto). |
+| `@noble/ciphers` | ^2.x | XChaCha20-Poly1305 for KEK encryption, drafts, hub event encryption, and legacy envelope PII (migration to HPKE planned) |
+| `@noble/hashes` | ^2.x | SHA-256, HKDF-SHA256, PBKDF2-SHA256, hex/utf8 encoding |
 | `nostr-tools` | ^2.x | Key generation, bech32 nsec/npub encoding |
 | `jose` | ^6.x | JWT signing (HS256), verification, claims parsing |
 | Web Crypto API | — | Random bytes generation, AES-256-GCM (hub fields via non-extractable `CryptoKey`), HKDF, PBKDF2, X25519 key import/export |
