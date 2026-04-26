@@ -1,4 +1,8 @@
-import { beforeEach, describe, expect, test } from 'bun:test'
+import { beforeEach, describe, expect, setDefaultTimeout, test } from 'bun:test'
+
+// PBKDF2 600K iterations can take 2-3s per call on slower machines
+setDefaultTimeout(15000)
+
 import { bytesToHex } from '@noble/hashes/utils.js'
 import {
   clearStoredKey,
