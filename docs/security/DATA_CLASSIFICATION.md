@@ -37,13 +37,23 @@ This document provides a complete inventory of all data stored and processed by 
 | `active` | Plaintext | Account lifetime | Account enabled/disabled |
 | `createdAt` | Plaintext | Account lifetime | Registration timestamp |
 
-#### `jwtRevocations` Table — Revoked JWT Tokens
+#### `user_sessions` Table — Opaque Session Tokens
 
 | Field | Classification | Retention | Notes |
 |-------|---------------|-----------|-------|
-| `jti` | Plaintext | Until JWT expiry | JWT ID (unique per token) |
-| `pubkey` | Plaintext | Until JWT expiry | Pubkey of the revoked user |
-| `expiresAt` | Plaintext | Automatic cleanup | When the JWT would have expired; rows can be pruned after this |
+| `id` | Plaintext | Session lifetime | Unique session identifier |
+| `userPubkey` | Plaintext | Session lifetime | Nostr pubkey of the session owner |
+| `tokenHash` | Hashed (HMAC-SHA256) | Session lifetime | HMAC-SHA256 hash of 32-byte random opaque token; original token never stored |
+| `prevTokenHash` | Hashed (HMAC-SHA256) | Session lifetime | Previous token hash — one-rotation grace window for concurrent refreshes |
+| `ipHash` | Hashed | Session lifetime | Truncated IP hash for audit |
+| `credentialId` | Plaintext | Session lifetime | WebAuthn credential used for login |
+| `encryptedMeta` | **E2EE (Tier 1)** | Session lifetime | Envelope-encrypted session metadata (IP, UA, geolocation) via `LABEL_SESSION_META` |
+| `metaEnvelope` | **E2EE (Tier 1)** | Session lifetime | Per-reader ECIES envelopes for metadata decryption |
+| `createdAt` | Plaintext | Session lifetime | Session creation timestamp |
+| `lastSeenAt` | Plaintext | Session lifetime | Last API activity timestamp |
+| `revokedAt` | Plaintext | Session lifetime | When session was revoked (null if active) |
+| `revokedReason` | Plaintext | Session lifetime | Revocation reason: `user`, `admin`, `lockdown_a/b/c`, `replay`, `expired` |
+| `expiresAt` | Plaintext | Automatic cleanup | Session expiry; rows can be pruned after this |
 
 #### `webauthnCredentials` Table — Passkey Credentials
 
@@ -69,7 +79,7 @@ This document provides a complete inventory of all data stored and processed by 
 | Data | Classification | Lifetime | Notes |
 |------|---------------|----------|-------|
 | Access token | Secret (memory-only) | 15 minutes | Short-lived; contains pubkey + permissions; never persisted to storage |
-| Refresh token | Secret (httpOnly cookie) | Configurable | httpOnly + Secure + SameSite=Strict; revocable via `jwtRevocations` by jti |
+| Refresh token | Secret (httpOnly cookie) | Configurable | Opaque 32-byte random token (base64url); httpOnly + Secure + SameSite=Strict; revocable via `user_sessions` table; rotated on every refresh |
 
 #### Call Records and Notes (PostgreSQL)
 
@@ -332,7 +342,7 @@ The IdP value (one encryption factor) is fetched from Authentik on unlock and he
 | Call metadata | 2 years | Operational analysis |
 | Audit logs | 1 year | Security review |
 | JWT access tokens | 15 minutes (automatic) | Short-lived, non-revocable |
-| JWT refresh tokens | Configurable (revocable) | Revoked via `jwtRevocations` table |
+| Session tokens | Configurable (revocable) | Opaque 32-byte random tokens; revoked via `user_sessions` table; rotated on every refresh |
 | Messaging content | 1 year | Follow-up reference |
 | Volunteer records | Account lifetime + 90 days | Post-departure access |
 
@@ -344,6 +354,6 @@ Note: Llamenos does not currently enforce automated retention policies. Operator
 
 | Date | Version | Changes |
 |------|---------|---------|
-| 2026-04-01 | 2.0 | IdP + JWT Auth Overhaul: Replaced IdentityDO with PostgreSQL `users` table; updated volunteer name/phone from Encrypted-at-Rest to E2EE Tier 1 envelope encryption; added `jwtRevocations`, `webauthnCredentials` tables, Authentik IdP data store, JWT tokens (memory-only), hub-key encrypted org metadata (Tier 2), contact directory (Tier 1 E2EE); replaced Cloudflare/R2 with RustFS; updated client-side key storage to multi-factor; updated session retention for JWT tokens |
+| 2026-04-01 | 2.0 | IdP + JWT Auth Overhaul: Replaced IdentityDO with PostgreSQL `users` table; updated volunteer name/phone from Encrypted-at-Rest to E2EE Tier 1 envelope encryption; added `user_sessions`, `webauthnCredentials` tables, Authentik IdP data store, JWT tokens (memory-only), hub-key encrypted org metadata (Tier 2), contact directory (Tier 1 E2EE); replaced Cloudflare/R2 with RustFS; updated client-side key storage to multi-factor; updated session retention for opaque session tokens |
 | 2026-02-25 | 1.1 | ZK Architecture Overhaul: Updated ConversationDO to E2EE envelope encryption, ShiftManagerDO encrypted details, AuditDO hash chain fields, RecordsDO callrecord: prefix, client-side transcription, hub key in memory-only section, replaced WebSocket broadcast with Nostr relay event |
 | 2026-02-25 | 1.0 | Initial data classification document |

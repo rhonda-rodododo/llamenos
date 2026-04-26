@@ -365,37 +365,39 @@ All authenticated API requests use short-lived JWT access tokens.
 2. Check `iss === "llamenos"` and `exp > now`
 3. Extract `sub` as the authenticated pubkey
 4. Extract `permissions` for authorization checks
-5. (Optional) Check `jti` against `jwt_revocations` table for revoked tokens
+5. (Optional) Check `jti` against short-lived in-memory revocation set for immediate access token invalidation
 
-### 4.2 Refresh Tokens
+### 4.2 Refresh Tokens (Opaque Session Tokens)
 
-Refresh tokens are long-lived JWTs stored as httpOnly cookies, used to obtain new access tokens without re-authentication.
+Refresh tokens are opaque 32-byte random values stored as httpOnly cookies, backed by the `user_sessions` PostgreSQL table. They are NOT JWTs.
 
-**Token structure:**
-```json
-{
-  "type": "refresh",
-  "sub": "<pubkey_hex>",
-  "jti": "<uuid>",
-  "iat": 1711929600,
-  "exp": 1714521600,
-  "iss": "llamenos"
-}
+**Token generation:**
+```
+token = base64url(crypto.getRandomValues(new Uint8Array(32)))
+// 43 characters, URL-safe, no padding
 ```
 
+**Storage:**
+- Token is HMAC-SHA256 hashed before storage in `user_sessions.tokenHash`
+- Previous token hash retained in `prevTokenHash` for one-rotation grace window (concurrent tab tolerance)
+- Session metadata (IP, UA, geolocation) is user-envelope encrypted via `LABEL_SESSION_META`
+
 **Properties:**
-- Algorithm: HS256 with `JWT_SECRET`
-- Expiry: 30 days
+- Token: 32 random bytes, base64url-encoded
+- Expiry: configurable (stored in `user_sessions.expiresAt`)
 - Cookie name: `llamenos-refresh`
-- Cookie attributes: `httpOnly`, `secure`, `sameSite=Strict`, `path=/api/auth/token`
-- Contains `type: "refresh"` claim to distinguish from access tokens
+- Cookie attributes: `httpOnly`, `secure`, `sameSite=Strict`, `path=/api/auth`
+- Companion cookie: `llamenos-session-id` (used for `isCurrent` marker on session list)
 
 **Refresh flow (`POST /api/auth/token/refresh`):**
 1. Server reads the `llamenos-refresh` cookie
-2. Verifies the refresh JWT (signature, expiry, `type === "refresh"`)
-3. Validates the user is still active in the IdP via `idpAdapter.refreshSession(pubkey)`
-4. If valid, issues a new access token with current permissions
-5. If the IdP session is invalid, returns 401 — the user must re-authenticate
+2. HMAC-SHA256 hashes the token and looks up the session in `user_sessions`
+3. Validates session is not revoked and not expired
+4. Validates the user is still active in the IdP via `idpAdapter.refreshSession(pubkey)`
+5. Generates a new opaque token, rotates the hash in `user_sessions` (old hash → `prevTokenHash`)
+6. Issues a new JWT access token with current permissions
+7. Sets the new opaque token in the `llamenos-refresh` cookie
+8. If the IdP session is invalid, returns 401 — the user must re-authenticate
 
 **CSRF protection:** The refresh endpoint requires `Content-Type: application/json`, preventing simple cross-origin form submissions.
 
@@ -419,38 +421,53 @@ Client                                    Server
   |                                          |-- 7. Verify assertion signature
   |                                          |-- 8. Update credential counter
   |                                          |-- 9. Resolve user permissions
-  |                                          |-- 10. Sign access token (15min)
-  |                                          |-- 11. Sign refresh token (30d)
-  |                                          |-- 12. Set refresh cookie (httpOnly)
+  |                                          |-- 10. Sign JWT access token (15min)
+  |                                          |-- 11. Generate opaque refresh token (32B random)
+  |                                          |-- 12. Hash + store in user_sessions; set cookie
   |<-- 13. { accessToken, pubkey } ----------|
 ```
 
 **Rate limiting:** Login endpoints are rate-limited per IP hash (10 requests per 5-minute window).
 
-### 4.4 Token Revocation
+### 4.4 Session Revocation via `user_sessions`
 
-Tokens can be revoked by inserting their `jti` into the `jwt_revocations` PostgreSQL table:
+Sessions are revoked by setting `revokedAt` and `revokedReason` on the corresponding `user_sessions` row. The refresh token is an opaque 32-byte random value (not a JWT); the server stores only its HMAC-SHA256 hash.
 
+**Session table structure:**
 ```sql
-CREATE TABLE jwt_revocations (
-  jti TEXT PRIMARY KEY,
-  pubkey TEXT NOT NULL,
-  expires_at TIMESTAMP NOT NULL,
-  created_at TIMESTAMP DEFAULT NOW() NOT NULL
+CREATE TABLE user_sessions (
+  id TEXT PRIMARY KEY,
+  user_pubkey TEXT NOT NULL,
+  token_hash TEXT NOT NULL,           -- HMAC-SHA256 of opaque 32-byte token
+  prev_token_hash TEXT,               -- one-rotation grace for concurrent refreshes
+  ip_hash TEXT NOT NULL,
+  credential_id TEXT,
+  encrypted_meta TEXT NOT NULL,       -- envelope-encrypted IP/UA/location (LABEL_SESSION_META)
+  meta_envelope JSONB NOT NULL DEFAULT '[]',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  revoked_at TIMESTAMPTZ,
+  revoked_reason TEXT,                -- 'user' | 'admin' | 'lockdown_a/b/c' | 'replay' | 'expired'
+  expires_at TIMESTAMPTZ NOT NULL
 );
 ```
 
-The `expires_at` column matches the token's `exp` claim, allowing periodic cleanup of expired revocation rows. Revocations are used for:
-- Explicit session revocation (`POST /api/auth/session/revoke`)
-- Admin-initiated re-enrollment (`POST /api/auth/admin/re-enroll/:pubkey`)
-- GDPR erasure (all user tokens revoked)
+**Revocation reasons:**
+- `user`: Explicit session revocation (`POST /api/auth/sessions/:id/revoke`)
+- `admin`: Admin-initiated re-enrollment (`POST /api/auth/admin/re-enroll/:pubkey`)
+- `lockdown_a/b/c`: Graduated security lockdown tiers
+- `replay`: Stale token detected (possible token theft)
+- `expired`: Automatic cleanup of expired sessions
+
+**Token rotation on refresh:** Every successful refresh generates a new opaque token. The old token hash moves to `prevTokenHash` (one-rotation grace window), and the new hash replaces `tokenHash`. This ensures that a stolen refresh token becomes useless after the legitimate client's next refresh.
 
 ### 4.5 Session Revocation
 
 `POST /api/auth/session/revoke` performs a full session teardown:
-1. Revokes the user's session in the IdP via `idpAdapter.revokeSession(pubkey)`
-2. Clears the `llamenos-refresh` cookie (sets `maxAge=0`)
-3. The access token naturally expires within 15 minutes (or can be jti-revoked for immediate invalidation)
+1. Marks the session as revoked in `user_sessions` (sets `revokedAt` + `revokedReason`)
+2. Revokes the user's session in the IdP via `idpAdapter.revokeSession(pubkey)`
+3. Clears the `llamenos-refresh` cookie (sets `maxAge=0`)
+4. The JWT access token naturally expires within 15 minutes
 
 ### 4.6 Nostr Relay Authentication (NIP-42)
 
@@ -737,14 +754,14 @@ For devices without cameras, the new device displays a short alphanumeric code (
 ```
 WebAuthn Login
   → Server verifies assertion
-  → Server signs access token (15min, HS256)
-  → Server signs refresh token (30d, HS256)
-  → Refresh token set as httpOnly cookie (path=/api/auth/token)
+  → Server signs JWT access token (15min, HS256)
+  → Server generates opaque refresh token (32 random bytes, hashed in user_sessions)
+  → Refresh token set as httpOnly cookie (path=/api/auth)
   → Access token returned in response body
   └── On each API request: Authorization: Bearer <jwt>
-  └── On token expiry: POST /api/auth/token/refresh → new access token
-  └── On refresh: server checks IdP session is still valid
-  └── On logout: POST /api/auth/session/revoke → IdP session revoked, cookie cleared
+  └── On token expiry: POST /api/auth/token/refresh → new access token + rotated refresh token
+  └── On refresh: server checks IdP session is still valid; rotates opaque token
+  └── On logout: POST /api/auth/session/revoke → session revoked in DB, IdP revoked, cookie cleared
   └── On IdP deactivation: next refresh fails → user forced to re-authenticate
 ```
 
@@ -802,7 +819,7 @@ Suite ID (code constant, not on wire): `llamenos-hpke-v1:x25519-hkdf-sha256-aes2
 | Network MITM | HTTPS/WSS. JWT access tokens expire in 15 minutes. Refresh tokens are httpOnly/secure/sameSite=Strict. |
 | Compromised identity key | MLS epoch ratchet provides forward secrecy — compromising the current epoch key does not reveal past messages. For hub field data (HPKE), compromising the X25519 private key reveals only data encrypted to that key, not hub key material from prior rotations. |
 | Lost device | Recovery key + backup file restores access on new device. Old device's encrypted store is useless without PIN + IdP value. |
-| Stolen JWT | Access tokens expire in 15 minutes. Refresh tokens are httpOnly (not accessible to JS). jti-based revocation available for immediate invalidation. |
+| Stolen JWT | Access tokens expire in 15 minutes. Refresh tokens are opaque (not JWTs), httpOnly (not accessible to JS), and rotated on every refresh — a stolen token is invalidated after the legitimate client's next refresh. Sessions revocable via `user_sessions` table. |
 | IdP compromise | IdP stores only envelope-encrypted `nsec_secret` values (encrypted with server's `IDP_VALUE_ENCRYPTION_KEY`). The IdP cannot derive KEKs or decrypt key stores. |
 | CSRF on refresh | Refresh cookie is `sameSite=Strict` and endpoint requires `Content-Type: application/json`. |
 

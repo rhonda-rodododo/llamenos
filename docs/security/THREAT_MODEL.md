@@ -302,7 +302,7 @@ The system uses short-lived JWT access tokens (15-minute TTL) and longer-lived r
 | Threat | Impact | Window | Mitigation |
 |--------|--------|--------|------------|
 | Access token theft (XSS, memory dump) | Impersonation for API calls | 15 minutes (token TTL) | Short TTL limits window; CSP `script-src 'self'` prevents most XSS; token never persisted to storage |
-| Refresh token theft (cookie exfiltration) | Token renewal for extended access | Until revoked | httpOnly + Secure + SameSite=Strict cookie; revocable via `jwtRevocations` table by jti |
+| Refresh token theft (cookie exfiltration) | Token renewal for extended access | Until revoked | Opaque 32-byte random token; httpOnly + Secure + SameSite=Strict cookie; revocable via `user_sessions` table; rotated on every refresh (stolen token invalidated after next legitimate refresh) |
 | Token injection (forged JWT) | Unauthorized API access | N/A if secret is secure | Requires `JWT_SECRET`; use `openssl rand -hex 32` for 256-bit entropy |
 | JWT_SECRET compromise | All tokens forgeable | Until secret rotation | Rotate immediately; set `JWT_SECRET_PREVIOUS` for 15-minute transition; revoke all refresh tokens |
 | Bulk session hijacking | Mass impersonation | Until detected | Monitor audit logs for anomalous patterns; JWT includes `pubkey` in `sub` claim for attribution |
