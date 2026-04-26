@@ -207,10 +207,12 @@ The engine's `encryptEntityFields` function (from the main spec §3.3.2) is upda
 // In encryptEntityFields, after encryption:
 if (tier.needsBlindIndex) {
   if (field.fieldType === 'multiselect' && Array.isArray(value)) {
+    // Multiselect: hash each option key individually, store as array
     const keys = normalizeMultiselectForBlindIndex(value as string[])
     const hashes = await cryptoWorker.computeBlindIndexBatch(
       keys.map(k => ({ fieldName: field.name, normalizedValue: k }))
     )
+    // Store as string[] — the server uses @> (contains) for multiselect queries
     blindIndexes[field.name] = Array.from(hashes.values())
   } else {
     const normalized = normalizeForBlindIndex(value, field.fieldType)
@@ -222,6 +224,8 @@ if (tier.needsBlindIndex) {
   }
 }
 ```
+
+**Note on multiselect storage type:** The Blind Index Search spec (Part 6, §5.2) defines `bi_customFields` as `Record<string, string>`. This is incorrect for multiselect fields, which produce `Record<string, string | string[]>`. The `bi_customFields` JSONB column type should be updated to `Record<string, string | string[]>` to accommodate both single-value and multi-value blind indexes. The GIN index on `bi_custom_fields` supports both `=` (exact match for single values) and `@>` (containment for arrays).
 
 ## 3. Crypto Labels
 

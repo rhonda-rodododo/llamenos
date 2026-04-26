@@ -81,7 +81,9 @@ The only truly plaintext data is **structural necessities** that the database re
 - **T2 and server-side hub-key are the same cryptographic tier** — same key, same AAD formula — but different execution contexts. The server calls `CryptoService.hubEncryptField()` (e.g., when seeding template labels); the client calls `encryptHubField()` via the crypto worker. The engine must know which context it's in.
 - **T4 (HPKE Envelope) is critical for file attachments.** Files uploaded to entity records (evidence photos, legal documents, medical records) may be subject to attorney-client privilege. Not all hub members should have access — only named recipients on the envelope. The per-file random symmetric key is HPKE-wrapped per recipient under `LABEL_FILE_KEY`; file metadata (filename, MIME type, size) is separately HPKE-wrapped under `LABEL_FILE_METADATA`. The `items_key` indirection layer allows key rotation without re-encrypting file bodies.
 - **T5 (Blind Index) is not standalone encryption** — it's a companion to T2/T3. An indexed field has its value encrypted (T2 or T3) AND its blind index hash stored (T5) simultaneously. The engine computes both in one operation.
-- **T3 vs T4 for PII:** `isPii: true` on a field definition routes to T3 (MLS group) for hub-scoped PII that all members should see (e.g., immigration case A-numbers visible to all case managers). T4 (HPKE envelope) is for per-recipient PII where access is permission-gated (e.g., contact full names visible only to `contacts:envelope-full` holders). The distinction maps to the existing `accessLevel` field: `all`/`assigned` → T2 (hub-key), `admin` with `isPii` → T3 (MLS), per-recipient permissions → T4 (HPKE).
+- **T3 vs T4 for PII:** `isPii: true` on a field definition routes to T3 (MLS group) for hub-scoped PII that all current members should see with forward secrecy (e.g., immigration case A-numbers visible to all case managers). T4 (HPKE envelope) is for **per-recipient restricted** PII where not all hub members should have access (e.g., contact full names visible only to `contacts:envelope-full` holders, file attachments under attorney-client privilege). The routing is: `isPii: true` with `accessLevel: 'all'` or `'assigned'` → T3 (MLS). `accessLevel: 'custom'` with specific `accessRoles` → T4 (HPKE envelope per role holders). `fieldType: 'file'` → always T4.
+- **`isPii` source of truth:** Part 1 (Entity Type Registry) defines `piiFields: jsonb<string[]>` as an array of field names on the entity type. Part 4 (Custom Field Schema Engine) defines `isPii: boolean` on each field definition. The engine uses the **field-level** `isPii` boolean (Part 4's model). The entity-type-level `piiFields` array is treated as a convenience for template seeding — the template loader sets `isPii: true` on each field named in the array during seed. At runtime, `resolveFieldTier()` reads `field.isPii`, not the entity type's `piiFields` array.
+- **Contact PII migration path:** Existing contact envelope-encrypted PII (display names, full names, phones) currently uses ECIES envelopes with label-only AAD. These fields will eventually migrate onto the entity type registry as entity type fields with `isPii: true` and `accessLevel: 'custom'` (for tiered contact visibility — summary vs full PII). Until that migration, they remain on the legacy `decryptObjectFields` path. The AAD Alignment companion spec defines the interim per-record AAD binding upgrade for the legacy path. The Entity Crypto Engine handles contacts **only after** they are registered as entity type instances in the registry.
 
 ### 2.4 Tier Routing Decision Tree
 
@@ -127,6 +129,8 @@ The Entity Crypto Engine is **not a single class** — it's a set of composable 
 | **Server-side engine** | `src/server/lib/entity-crypto-engine.ts` | Hub-key encryption during template seeding, server-secret encryption, blind index validation, tier enforcement (reject unencrypted values for non-T0 fields) |
 
 Both sides share a **tier resolution function** in `src/shared/lib/tier-resolution.ts` that takes a field definition and returns the encryption tier. This is the single source of truth for routing.
+
+**Key asymmetry:** The server-side engine **encrypts but never decrypts** entity field values. T2/T3/T4 field values are opaque ciphertext to the server — it stores and serves them without reading them. The only server-side decryption is for T1 (server-secret) data that the server itself needs at runtime (API credentials, IdP tokens). This preserves the zero-knowledge invariant. The server-side engine's `validateEncryptionCompleteness()` checks structural properties (is a ciphertext present for non-T0 fields?) without decrypting content.
 
 ### 3.2 Shared: Tier Resolution
 
@@ -387,9 +391,12 @@ export async function encryptEntityFields(
 
       // Blind index computation (in addition to encryption, not instead of)
       if (tier.needsBlindIndex) {
-        blindIndexes[field.name] = await cryptoWorker.computeBlindIndex(
-          hubId, field.name, stringValue
-        )
+        const normalized = normalizeForBlindIndex(stringValue, field.fieldType)
+        if (normalized !== null) {
+          blindIndexes[field.name] = await cryptoWorker.computeBlindIndex(
+            field.name, normalized
+          )
+        }
       }
     })
   )
@@ -718,6 +725,17 @@ export async function decryptRelationshipTypeMetadata(
 
 Relationship payloads (notes, join field values, role assignment) are MLS group encrypted. The engine handles this via the same `mlsConversation.encrypt()`/`decrypt()` path used for PII field values.
 
+**Update flow:** When a user updates a relationship's payload (e.g., edits relationship notes):
+1. Client decrypts the current MLS ciphertext via `mlsConversation.decrypt()`
+2. Client modifies the JSON payload (merge new values)
+3. Client re-encrypts the updated payload via `mlsConversation.encrypt()`
+4. Client sends `PATCH /relationships/:id` with the new `encryptedPayload` + `mlsEpoch`
+5. Server stores the new ciphertext, replacing the old one
+
+The server never sees the plaintext at any point. The `mlsEpoch` on the stored row is updated to the current epoch.
+
+**Plaintext `role` field on relationship edges:** The `role` column in `entity_relationships` is intentionally **plaintext** (T0). It stores a machine-name option key (e.g., `"attorney"`, `"witness"`), not a human-readable label. The server needs the role key for filtering and cardinality enforcement. The role **label** (human-readable, e.g., "Attorney") is hub-key encrypted in the relationship type's `encryptedRoles` JSONB — that's T2, not T0.
+
 ### 6.3 Timeline Inline Content (T3 — MLS Group)
 
 Timeline interactions (comments, assessments, referrals) use MLS group encryption for inline content. Linked interactions (notes, calls, messages, file uploads) are plaintext pointers to their source records — the content encryption is handled by the source record's own encryption tier.
@@ -806,9 +824,10 @@ If the hub key is not loaded (user hasn't unlocked, or key cache expired):
 ### 10.2 Missing MLS Conversation
 
 If MLS is not bootstrapped for the hub (pre-Tier-6 hub):
-- **PII fields:** Throws `MlsNotAvailableError` with a user-facing message: "MLS encryption required for this field. Contact your admin."
-- **Non-PII fields:** Unaffected (hub-key encrypted).
-- **Admin action:** The hub admin must bootstrap MLS before PII fields can be used. The entity type admin UI should disable `isPii` toggle on field definitions until MLS is bootstrapped.
+- **PII field reads (decrypt):** Returns `'[Encrypted — MLS required]'` placeholder strings. Components render the placeholder with an explanatory banner. No error thrown — the form is still readable for non-PII fields.
+- **PII field writes (encrypt):** Throws `MlsNotAvailableError`. The mutation is rejected before the API call. The `useEntityCrypto().ready` flag is `false` when PII fields exist but MLS is unavailable — components should disable save buttons in this state.
+- **Non-PII fields:** Unaffected (hub-key encrypted). Reads and writes work normally.
+- **Admin action:** The hub admin must bootstrap MLS before PII fields can be created or edited. The entity type admin UI disables the `isPii` toggle on field definitions until MLS is bootstrapped. See the MLS Preconditions companion spec for the full UX flow.
 
 ### 10.3 Tamper Detection
 
