@@ -265,6 +265,7 @@ async function handleUnlock(
   // The encrypted blob stores nsecHex (64 ASCII hex chars).
   // Decode the hex string to get the raw 32-byte secret key.
   const nsecHex = new TextDecoder().decode(decrypted)
+  decrypted.fill(0)
   secretKey = hexToBytes(nsecHex)
   publicKeyHex = bytesToHex(schnorr.getPublicKey(secretKey))
 
@@ -341,6 +342,7 @@ async function handleReEncrypt(
   const nsecHexBytes = new TextEncoder().encode(bytesToHex(secretKey))
   const packed = await aesGcmEncrypt(nsecHexBytes, newKek, new Uint8Array(0))
   nsecHexBytes.fill(0)
+  newKek.fill(0)
 
   // Split packed hex into nonce (24 hex chars = 12 bytes) and ciphertext
   return {
@@ -411,7 +413,9 @@ async function handleExportSession(): Promise<{
 
   const token = randomBytes(32)
   const nsecHex = bytesToHex(secretKey)
-  const packed = await aesGcmEncrypt(utf8ToBytes(nsecHex), token, new Uint8Array(0))
+  const nsecBytes = utf8ToBytes(nsecHex)
+  const packed = await aesGcmEncrypt(nsecBytes, token, new Uint8Array(0))
+  nsecBytes.fill(0)
   // Split into nonce + ciphertext
   const capsuleNonceHex = packed.slice(0, 24)
   const encryptedNsecHex = packed.slice(24)
@@ -453,6 +457,7 @@ async function handleImportSession(
   const packed = capsuleNonceHex + encryptedNsecHex
   const decrypted = await aesGcmDecrypt(packed, token, new Uint8Array(0))
   const nsecHex = new TextDecoder().decode(decrypted)
+  decrypted.fill(0)
 
   secretKey = hexToBytes(nsecHex)
   publicKeyHex = bytesToHex(schnorr.getPublicKey(secretKey))
