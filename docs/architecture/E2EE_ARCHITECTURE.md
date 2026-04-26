@@ -17,10 +17,12 @@ All persistent data in Llamenos is encrypted using one of three tiers, chosen by
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
 │  TIER 1: Envelope-Encrypted PII (per-user ECIES)                        │
+│  (legacy — HPKE migration planned)                                       │
 │                                                                          │
 │  Who decrypts: Individual user (their nsec)                              │
 │  Symmetric key: Per-record random key, ECIES-wrapped per reader          │
-│  Crypto: XChaCha20-Poly1305 (content) + ECIES secp256k1 (key wrap)     │
+│  Crypto: secp256k1 ECDH ephemeral + SHA-256(label || sharedX)           │
+│          + XChaCha20-Poly1305 key wrap                                   │
 │  Domain label: LABEL_USER_PII, LABEL_CONTACT_PII, LABEL_CONTACT_SUMMARY│
 │                                                                          │
 │  Data: user names, phone numbers, contact records, invite details,       │
@@ -30,15 +32,19 @@ All persistent data in Llamenos is encrypted using one of three tiers, chosen by
 │    encryptedFoo (ciphertext) + fooEnvelopes[] (per-reader ECIES wraps)  │
 │    Each envelope: { pubkey, ephemeralPubkey, wrappedKey }                │
 │    Server stores ciphertext + envelopes; cannot decrypt either           │
+│                                                                          │
+│  Status: Legacy ECIES — active for all envelope PII call sites.          │
+│  Migration to HPKE planned but NOT YET DONE for this tier.               │
 └──────────────────────────────────────────────────────────────────────────┘
 
 ┌──────────────────────────────────────────────────────────────────────────┐
-│  TIER 2: Hub-Key Encrypted Org Metadata (shared XChaCha20)              │
+│  TIER 2: Hub-Key Encrypted Org Metadata (AES-256-GCM via WebCrypto)     │
 │                                                                          │
 │  Who decrypts: All hub members (shared hub key)                          │
-│  Key: Random 32 bytes, ECIES-distributed per member                      │
-│  Crypto: XChaCha20-Poly1305 (nonce || ciphertext, hex-encoded)          │
-│  No domain label in ciphertext — hub key is the domain                   │
+│  Key: Random 32 bytes, HPKE-distributed per device                       │
+│       DHKEM(X25519, HKDF-SHA256) + HKDF-SHA256 + AES-256-GCM           │
+│  Crypto: AES-256-GCM via non-extractable WebCrypto CryptoKey            │
+│  AAD: buildAad(label, recordId, fieldName) — prevents row/column swaps  │
 │                                                                          │
 │  Data: role names/descriptions, shift names, report type names,          │
 │        custom field labels, team names, tag names, hub names             │
@@ -50,30 +56,35 @@ All persistent data in Llamenos is encrypted using one of three tiers, chosen by
 └──────────────────────────────────────────────────────────────────────────┘
 
 ┌──────────────────────────────────────────────────────────────────────────┐
-│  TIER 3: Per-Record Forward Secrecy (ephemeral keys)                    │
+│  TIER 3: MLS Groupwise Encryption (forward secrecy via epoch ratchet)   │
 │                                                                          │
-│  Who decrypts: Author + each admin (individual envelopes)                │
-│  Symmetric key: Random 32 bytes per note/message/report                  │
-│  Crypto: XChaCha20-Poly1305 (content) + ECIES (key wrap per reader)    │
-│  Domain labels: LABEL_NOTE_KEY, LABEL_MESSAGE, LABEL_BLAST_CONTENT      │
+│  Who decrypts: All hub MLS group members                                 │
+│  Protocol: MLS (RFC 9420) via @wireapp/core-crypto WASM                  │
+│  Group ID: llamenos:hub:<hubId> (persistent per hub)                     │
+│  Domain labels: LABEL_NOTE_KEY, LABEL_MESSAGE                            │
 │                                                                          │
-│  Data: call notes, transcripts, reports, SMS/WhatsApp/Signal messages,   │
-│        voicemail transcripts, blast content                              │
+│  Data: call notes, transcripts, reports, SMS/WhatsApp/Signal messages    │
 │                                                                          │
 │  Properties:                                                             │
-│    - Compromising one record key reveals only that record                │
-│    - Each reader gets their own ECIES-wrapped copy of the record key     │
-│    - No single secret decrypts all records                               │
+│    - Notes/messages encrypted through the group's ratchet tree           │
+│    - Epoch advances on membership change provide forward secrecy         │
+│    - No per-recipient key wrapping — group handles distribution          │
+│    - Compromising one epoch does not reveal prior epochs                  │
+│                                                                          │
+│  Remaining ECIES call sites (NOT yet in MLS):                            │
+│    - Blasts (LABEL_BLAST_CONTENT) — external recipients not in group     │
+│    - Voicemail transcripts                                               │
+│    - File attachments                                                    │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Tier Summary Table
 
-| Tier | Key Scope | Key Type | Access Pattern | Example Data |
-|------|-----------|----------|----------------|--------------|
-| 1 | Per-record, per-reader | ECIES envelope | Individual user | User names, phones, contacts |
-| 2 | Per-hub, all members | Shared symmetric | All hub members | Role names, shift names, tags |
-| 3 | Per-record, author+admins | Ephemeral symmetric + ECIES | Author + admins | Notes, messages, transcripts |
+| Tier | Key Scope | Primitive | Access Pattern | Example Data |
+|------|-----------|-----------|----------------|--------------|
+| 1 | Per-record, per-reader | ECIES envelope (legacy — HPKE migration planned) | Individual user | User names, phones, contacts |
+| 2 | Per-hub, all members | AES-256-GCM (WebCrypto), HPKE-distributed hub key | All hub members | Role names, shift names, tags |
+| 3 | Per-hub MLS group | MLS groupwise (RFC 9420, @wireapp/core-crypto) | All hub group members | Notes, messages, transcripts |
 
 ## Multi-Factor KEK Derivation
 
@@ -146,27 +157,39 @@ The user's secret key (nsec) **never exists on the main thread**. All private-ke
 │  CryptoWorkerClient (singleton)      │     │  Closure-scoped state:           │
 │    │                                 │     │    secretKey: Uint8Array | null   │
 │    │  .unlock(kek, nonce, ct)  ──────┼──▶  │    publicKeyHex: string | null   │
-│    │  .sign(messageHex)        ──────┼──▶  │                                  │
-│    │  .decrypt(eph, wrapped, label)──┼──▶  │  Operations:                     │
-│    │  .encrypt(pt, pub, label) ──────┼──▶  │    unlock    — decrypt nsec blob │
-│    │  .decryptEnvelopeField()  ──────┼──▶  │    lock      — zero + null key   │
-│    │  .reEncrypt(newKek)       ──────┼──▶  │    sign      — Schnorr signature │
-│    │  .provisionNsec(eph)      ──────┼──▶  │    decrypt   — ECIES unwrap      │
-│    │  .lock()                  ──────┼──▶  │    encrypt   — ECIES wrap        │
-│    │  .getPublicKey()          ──────┼──▶  │    reEncrypt — KEK rotation      │
-│    │  .isUnlocked()            ──────┼──▶  │    provision — device linking    │
-│    │                                 │     │    decryptEnvelopeField          │
-│    │  ◀── Promise<result> ───────────┼──◀  │      — ECIES unwrap + symmetric  │
-│    │                                 │     │        decrypt in one round trip  │
+│    │  .unlockWithHandles(...)  ──────┼──▶  │    hpkePrivateKey: CryptoKey     │
+│    │  .sign(messageHex)        ──────┼──▶  │      (non-extractable X25519)    │
+│    │  .decrypt(eph, wrapped, label)──┼──▶  │    _hubKey: CryptoKey            │
+│    │  .encrypt(pt, pub, label) ──────┼──▶  │      (non-extractable AES-GCM)  │
+│    │  .hpkeSeal(pt, pub, label)──────┼──▶  │    mlsInstance: CoreCrypto       │
+│    │  .hpkeOpen(env, label)    ──────┼──▶  │      (@wireapp/core-crypto WASM) │
+│    │  .hpkePublicKeyRaw()      ──────┼──▶  │                                  │
+│    │  .mlsInit(hubId)          ──────┼──▶  │  Operations:                     │
+│    │  .mlsEncryptMessage(...)  ──────┼──▶  │    unlock    — decrypt nsec blob │
+│    │  .mlsDecryptMessage(...)  ──────┼──▶  │    unlockWithHandles — install   │
+│    │  .decryptEnvelopeField()  ──────┼──▶  │      non-extractable CryptoKeys  │
+│    │  .reEncrypt(newKek)       ──────┼──▶  │    lock      — zero + null key   │
+│    │  .provisionNsec(eph)      ──────┼──▶  │    sign      — Schnorr signature │
+│    │  .lock()                  ──────┼──▶  │    decrypt   — ECIES unwrap      │
+│    │  .getPublicKey()          ──────┼──▶  │    encrypt   — ECIES wrap        │
+│    │  .isUnlocked()            ──────┼──▶  │    hpkeSeal  — HPKE encrypt      │
+│    │                                 │     │    hpkeOpen  — HPKE decrypt      │
+│    │  ◀── Promise<result> ───────────┼──◀  │    mlsInit   — MLS group setup   │
+│    │                                 │     │    mlsEncryptMessage — MLS seal   │
+│                                      │     │    mlsDecryptMessage — MLS open   │
+│  Request/Response Protocol:          │     │    reEncrypt — KEK rotation      │
+│    { type, id, ...params }     ──▶   │     │    provision — device linking    │
+│    { type: 'success'|'error',        │     │    decryptEnvelopeField          │
+│      id, result|error }       ◀──    │     │      — ECIES unwrap + symmetric  │
+│                                      │     │        decrypt in one round trip  │
+│  Singleton: one worker per tab       │     │                                  │
+│  All pending requests tracked        │     │  Rate Limiting:                  │
+│  by request ID in a Map              │     │    sign:    10/sec, 100/min      │
+│                                      │     │    decrypt: 100/sec, 1000/min    │
+│                                      │     │    encrypt: 10/sec, 100/min      │
 │                                      │     │                                  │
-│  Request/Response Protocol:          │     │  Rate Limiting:                  │
-│    { type, id, ...params }     ──▶   │     │    sign:    10/sec, 100/min      │
-│    { type: 'success'|'error',        │     │    decrypt: 100/sec, 1000/min    │
-│      id, result|error }       ◀──    │     │    encrypt: 10/sec, 100/min      │
-│                                      │     │                                  │
-│  Singleton: one worker per tab       │     │  Auto-lock on rate limit breach  │
-│  All pending requests tracked        │     │  Key zeroed with .fill(0)        │
-│  by request ID in a Map              │     │                                  │
+│                                      │     │  Auto-lock on rate limit breach  │
+│                                      │     │  Key zeroed with .fill(0)        │
 └──────────────────────────────────────┘     └─────────────────────────────────┘
 ```
 
@@ -174,12 +197,14 @@ The user's secret key (nsec) **never exists on the main thread**. All private-ke
 
 | Property | Implementation |
 |----------|---------------|
-| Key isolation | `secretKey` in worker closure; never serialized back to main thread |
-| Zero on lock | `secretKey.fill(0)` then `null` assignment |
+| Key isolation | `secretKey`, `hpkePrivateKey`, `_hubKey`, `mlsInstance` in worker closure; never serialized back to main thread |
+| Zero on lock | `secretKey.fill(0)` then `null` assignment; CryptoKey handles released |
+| Non-extractable keys | HPKE private key and hub AES-GCM key are non-extractable `CryptoKey` handles — WebCrypto prevents export |
 | Rate limiting | Per-operation buckets; exceeding triggers immediate auto-lock |
-| No key export | No message type returns the raw nsec; only derived values (signatures, public key) |
+| No key export | No message type returns raw key material; only derived values (signatures, public key, ciphertext) |
 | Singleton per tab | Module-level `cryptoWorker` instance; `typeof Worker !== 'undefined'` guard for SSR |
 | Combined operations | `decryptEnvelopeField` does ECIES unwrap + symmetric decrypt in one worker round-trip |
+| MLS isolation | CoreCrypto WASM instance runs inside worker; MLS epoch state never leaves the closure |
 
 ## Decrypt-on-Fetch Pattern
 
@@ -233,7 +258,7 @@ Encrypted data is decrypted inside React Query `queryFn` callbacks, not in compo
 │                                                                         │
 │  ON UNLOCK (auth.tsx, AFTER hub keys loaded):                           │
 │    1. PIN entered → KEK derived → crypto worker unlocks                 │
-│    2. loadHubKeysForUser(hubIds) — fetch + ECIES-unwrap hub keys        │
+│    2. loadHubKeysForUser(hubIds) — fetch + HPKE-unwrap hub keys         │
 │    3. invalidateEncryptedQueries() — mark all encrypted domains stale   │
 │    4. React Query refetches → queryFns decrypt with fresh keys          │
 │                                                                         │
@@ -247,9 +272,9 @@ Encrypted data is decrypted inside React Query `queryFn` callbacks, not in compo
 
 Tier 1 decryption (envelope ECIES) involves a crypto worker round-trip per field. A `DecryptCache` (keyed by `label:ciphertext`) avoids redundant worker calls across re-renders and refetches. The cache is a module-level singleton cleared on lock.
 
-## Envelope Encryption for Messaging
+## Encryption for Messaging (MLS + Server-Side Ingest)
 
-Inbound SMS, WhatsApp, and Signal messages are envelope-encrypted on the server immediately upon webhook receipt. The server discards plaintext after encryption — only ciphertext is stored.
+Stored messages use **MLS groupwise encryption** (Tier 3). Inbound messages from external providers are server-encrypted at the webhook boundary, then MLS-encrypted by the first client to claim them.
 
 ```
 INBOUND MESSAGE FLOW:
@@ -263,42 +288,48 @@ INBOUND MESSAGE FLOW:
   │                                            │
   │  1. Parse webhook payload                  │
   │  2. Find or create conversation            │
-  │  3. Determine reader pubkeys:              │
-  │     - All admin pubkeys                    │
-  │     - Assigned volunteer pubkey (if any)   │
-  │  4. Envelope encrypt:                      │
-  │     services.crypto.envelopeEncrypt(       │
-  │       messageText,                         │
-  │       readerPubkeys,                       │
-  │       LABEL_MESSAGE                        │
-  │     )                                      │
-  │  5. Store ONLY ciphertext + envelopes      │
-  │  6. Discard plaintext immediately          │
-  │  7. Publish Nostr event (hub-key encrypted)│
+  │  3. Server-side encrypt (AES-GCM under     │
+  │     LABEL_MESSAGE) — temporary envelope    │
+  │  4. Store server-encrypted ciphertext      │
+  │  5. Discard plaintext immediately          │
+  │  6. Publish Nostr event (hub-key encrypted)│
+  └──────────────────────────────────────────┘
+       │
+       │  First client to fetch unclaimed message:
+       ▼
+  ┌──────────────────────────────────────────┐
+  │  Client: crypto worker                     │
+  │                                            │
+  │  1. Decrypt server-side AES-GCM envelope   │
+  │  2. Re-encrypt via MLS group:              │
+  │     mlsInstance.encrypt(hubGroupId, pt)     │
+  │  3. POST MLS ciphertext back to server     │
+  │  4. Server replaces server-encrypted blob  │
+  │     with MLS ciphertext; discards server   │
+  │     key material for that message          │
   └──────────────────────────────────────────┘
 
 OUTBOUND MESSAGE FLOW:
 
   Volunteer client
        │
-       │  1. Generate per-message random key (32 bytes)
-       │  2. XChaCha20(messageKey, messageText) → encryptedContent
-       │  3. ECIES(messageKey, volunteerPubkey) → volunteerEnvelope
-       │  4. ECIES(messageKey, adminPubkey) × N → adminEnvelopes[]
-       │  5. POST /api/conversations/{id}/messages
-       │     Body: { plaintextForSending, encryptedContent,
-       │             nonce, volunteerEnvelope, adminEnvelopes }
+       │  1. MLS-encrypt message for hub group:
+       │     mlsInstance.encrypt(hubGroupId, messageText)
+       │  2. POST /api/conversations/{id}/messages
+       │     Body: { plaintextForSending, mlsCiphertext }
        ▼
   ┌──────────────────────────────────────────┐
   │  Server:                                   │
   │  1. Forward plaintext to SMS/WhatsApp      │
   │     provider (inherent transport limitation)│
-  │  2. Store ONLY encrypted fields            │
+  │  2. Store ONLY MLS ciphertext              │
   │  3. Discard plaintextForSending            │
   └──────────────────────────────────────────┘
 ```
 
 **Trust boundary**: The server momentarily sees outbound message plaintext because SMS/WhatsApp/Signal providers require it. This is an inherent limitation of non-E2EE transport protocols. The server discards plaintext immediately after forwarding.
+
+**Remaining ECIES messaging call sites**: Blast content (`LABEL_BLAST_CONTENT`) still uses per-recipient ECIES envelope encryption because blast recipients may not be members of the hub MLS group.
 
 ## Hub Key Distribution
 
@@ -310,21 +341,23 @@ GENERATION:
 
 DISTRIBUTION:
   For each hub member (volunteer or admin):
-    wrapHubKeyForMember(hubKey, memberPubkeyHex)
-      → ECIES(hubKey, memberPubkey, LABEL_HUB_KEY_WRAP)
-      → { pubkey, ephemeralPubkey, wrappedKey }
+    wrapHubKeyForMember(hubKey, memberX25519PubkeyRaw)
+      → hpkeSeal(hubKey, memberPubkey, LABEL_HUB_KEY_WRAP)
+      → HpkeEnvelope { v: 3, labelId, enc, ct }
+      Suite: DHKEM(X25519, HKDF-SHA256) + HKDF-SHA256 + AES-256-GCM (RFC 9180)
 
-  Stored server-side: array of RecipientKeyEnvelopes
+  Stored server-side: array of HPKE envelopes per device
   Fetched client-side: GET /api/hub/key → member's envelope
 
 LOADING (client-side, after PIN unlock):
   loadHubKeysForUser(hubIds):
     For each hub:
-      1. getMyHubKeyEnvelope(hubId) → fetch my envelope from server
-      2. unwrapHubKey(envelope)     → ECIES decrypt in crypto worker
-      3. hubKeyCache.set(hubId, hubKey)
+      1. getMyHubKeyEnvelope(hubId) → fetch my HPKE envelope from server
+      2. unwrapHubKey(envelope)     → hpkeOpen in crypto worker
+      3. Import as non-extractable AES-256-GCM CryptoKey
+      4. hubKeyCache.set(hubId, CryptoKey)
 
-  Cache: module-level Map<hubId, Uint8Array>
+  Cache: module-level Map<hubId, CryptoKey> (non-extractable AES-256-GCM)
   Generation counter prevents stale concurrent loads from writing
 
 ROTATION (on member departure):
@@ -345,10 +378,11 @@ ROTATION (on member departure):
 | Property | Mechanism |
 |----------|-----------|
 | Pure random | `crypto.getRandomValues(32)` — no derivation from identity keys |
-| Individual wrapping | ECIES per member with `LABEL_HUB_KEY_WRAP` domain separation |
-| No shared admin secret | Each member gets their own ECIES-wrapped copy |
+| Individual wrapping | HPKE per device with `LABEL_HUB_KEY_WRAP` domain separation (DHKEM(X25519, HKDF-SHA256) + AES-256-GCM) |
+| No shared admin secret | Each member gets their own HPKE-wrapped copy |
+| Non-extractable storage | Hub key imported as non-extractable AES-256-GCM `CryptoKey` — WebCrypto prevents export |
 | Rotation breaks access | New key = new random bytes, no mathematical link to old key |
-| Server cannot decrypt | Server stores ECIES envelopes; needs member's nsec to unwrap |
+| Server cannot decrypt | Server stores HPKE envelopes; needs member's X25519 private key to unwrap |
 
 ## Implemented Architecture
 
@@ -356,15 +390,15 @@ ROTATION (on member departure):
 
 | Data Type | Tier | Encryption | Notes |
 | --------- | ---- | ---------- | ----- |
-| Call notes | 3 | XChaCha20-Poly1305 + ECIES per-note key, dual envelopes (author + admin) | Forward secrecy per note |
-| Transcripts | 3 | Client-generated via WASM Whisper; encrypted with note key | Audio never leaves browser |
-| Reports | 3 | XChaCha20-Poly1305 + ECIES per-report key | Forward secrecy per report |
-| File attachments | 3 | XChaCha20-Poly1305 + ECIES per-file key | Stored in RustFS |
-| SMS messages | 3 | Envelope encryption: per-message random key, ECIES for volunteer + each admin | Server encrypts inbound on receipt |
-| WhatsApp messages | 3 | Envelope encryption: per-message random key, ECIES for volunteer + each admin | Server encrypts inbound on receipt |
-| Signal messages | 3 | Envelope encryption: per-message random key, ECIES for volunteer + each admin | Server encrypts inbound on receipt |
-| Blast content | 3 | Envelope encryption with LABEL_BLAST_CONTENT | Per-blast key |
-| Voicemail transcripts | 3 | Envelope encryption with LABEL_VOICEMAIL_TRANSCRIPT | |
+| Call notes | 3 | MLS groupwise encryption via hub MLS group (forward secrecy via epoch ratchet) | Epoch advances on membership change |
+| Transcripts | 3 | Client-generated via WASM Whisper; MLS-encrypted with note | Audio never leaves browser |
+| Reports | 3 | MLS groupwise encryption via hub MLS group | Forward secrecy via epoch ratchet |
+| File attachments | 1 | XChaCha20-Poly1305 + ECIES per-file key (`LABEL_FILE_KEY`) — HPKE migration planned | Stored in RustFS |
+| SMS messages | 3 | MLS groupwise encryption via hub MLS group; server AES-GCM at ingest, MLS-encrypted by first client | Server discards plaintext at webhook boundary |
+| WhatsApp messages | 3 | MLS groupwise encryption via hub MLS group; server AES-GCM at ingest, MLS-encrypted by first client | Server discards plaintext at webhook boundary |
+| Signal messages | 3 | MLS groupwise encryption via hub MLS group; server AES-GCM at ingest, MLS-encrypted by first client | Server discards plaintext at webhook boundary |
+| Blast content | 3 | ECIES envelope encryption with LABEL_BLAST_CONTENT (legacy — recipients not in MLS group) | Per-blast key |
+| Voicemail transcripts | 3 | ECIES envelope encryption with LABEL_VOICEMAIL_TRANSCRIPT (legacy) | |
 | User names | 1 | ECIES envelope with LABEL_USER_PII | Per-user envelopes |
 | User phones | 1 | ECIES envelope with LABEL_USER_PII | Per-user envelopes |
 | Contact records | 1 | Two-tier: LABEL_CONTACT_SUMMARY (display) + LABEL_CONTACT_PII (full PII) | PBAC-controlled access |
@@ -373,13 +407,13 @@ ROTATION (on member departure):
 | Invite details | 1 | ECIES envelope with LABEL_USER_PII | Per-inviter envelopes |
 | Ban details | 1 | ECIES envelope with LABEL_USER_PII | Per-admin envelopes |
 | Credential fields | 1 | ECIES envelope with LABEL_USER_PII | Per-user envelopes |
-| Role names/descriptions | 2 | Hub-key XChaCha20-Poly1305 | All hub members can decrypt |
-| Shift names | 2 | Hub-key XChaCha20-Poly1305 | All hub members can decrypt |
-| Report type names | 2 | Hub-key XChaCha20-Poly1305 | All hub members can decrypt |
-| Custom field labels | 2 | Hub-key XChaCha20-Poly1305 | All hub members can decrypt |
-| Team names | 2 | Hub-key XChaCha20-Poly1305 | All hub members can decrypt |
-| Tag names | 2 | Hub-key XChaCha20-Poly1305 | All hub members can decrypt |
-| Hub names | 2 | Hub-key XChaCha20-Poly1305 | All hub members can decrypt |
+| Role names/descriptions | 2 | Hub-key AES-256-GCM (WebCrypto, per-record AAD) | All hub members can decrypt |
+| Shift names | 2 | Hub-key AES-256-GCM (WebCrypto, per-record AAD) | All hub members can decrypt |
+| Report type names | 2 | Hub-key AES-256-GCM (WebCrypto, per-record AAD) | All hub members can decrypt |
+| Custom field labels | 2 | Hub-key AES-256-GCM (WebCrypto, per-record AAD) | All hub members can decrypt |
+| Team names | 2 | Hub-key AES-256-GCM (WebCrypto, per-record AAD) | All hub members can decrypt |
+| Tag names | 2 | Hub-key AES-256-GCM (WebCrypto, per-record AAD) | All hub members can decrypt |
+| Hub names | 2 | Hub-key AES-256-GCM (WebCrypto, per-record AAD) | All hub members can decrypt |
 | Volunteer assignments | 1 | Multi-admin envelopes via LABEL_CALL_META | |
 | Shift schedules | 2+plaintext | Encrypted details via LABEL_SHIFT_SCHEDULE; routing pubkeys/times plaintext | |
 | Audit logs | — | Plaintext + SHA-256 hash chain (previousEntryHash + entryHash) for tamper detection | Server-readable, integrity-protected |
@@ -497,7 +531,7 @@ ROTATION (on member departure):
 ## Encryption Key Hierarchy
 
 ```
-User nsec (secp256k1) — IDENTITY AND SIGNING ONLY
+User nsec (secp256k1) — IDENTITY AND SIGNING
     │
     ├─→ Protected by multi-factor KEK:
     │       PIN (PBKDF2) + IdP value (Authentik) + optional WebAuthn PRF
@@ -506,46 +540,67 @@ User nsec (secp256k1) — IDENTITY AND SIGNING ONLY
     ├─→ Auth: WebAuthn session tokens (multi-device)
     │       + Schnorr signatures for Nostr events
     │
-    ├─→ Tier 1 decryption: ECIES unwrap of per-field envelope keys
+    ├─→ Tier 1 decryption (legacy ECIES): unwrap of per-field envelope keys
     │       ├─→ User PII envelopes (LABEL_USER_PII)
     │       ├─→ Contact summary envelopes (LABEL_CONTACT_SUMMARY)
     │       ├─→ Contact PII envelopes (LABEL_CONTACT_PII)
     │       ├─→ Contact relationship envelopes (LABEL_CONTACT_RELATIONSHIP)
     │       └─→ Provider credential envelopes (LABEL_PROVIDER_CREDENTIAL_WRAP)
     │
-    ├─→ Tier 3 decryption: ECIES unwrap of per-record keys
-    │       ├─→ Note keys (LABEL_NOTE_KEY)
-    │       ├─→ Message keys (LABEL_MESSAGE)
+    ├─→ Legacy ECIES call sites (not yet migrated):
     │       ├─→ Blast keys (LABEL_BLAST_CONTENT)
-    │       ├─→ Call metadata keys (LABEL_CALL_META)
-    │       └─→ File keys (LABEL_FILE_KEY)
+    │       ├─→ Backup encryption (LABEL_BACKUP)
+    │       ├─→ Device provisioning (LABEL_DEVICE_PROVISION)
+    │       └─→ Key-store PIN-KEK (XChaCha20-Poly1305 under HKDF-derived KEK)
     │
-    └─→ Hub key unwrap (LABEL_HUB_KEY_WRAP)
-            → enables Tier 2 decryption
+    └─→ Derived X25519 keypair (for HPKE operations)
+            ├─→ Hub key unwrap: hpkeOpen(envelope, LABEL_HUB_KEY_WRAP)
+            │       → enables Tier 2 decryption
+            └─→ HPKE private key held as non-extractable CryptoKey in worker
+
+User HPKE X25519 keypair — HPKE ENCRYPTION/DECRYPTION
+    │   Suite: DHKEM(X25519, HKDF-SHA256) + HKDF-SHA256 + AES-256-GCM (RFC 9180)
+    │   Wire format: HpkeEnvelope { v: 3, labelId, enc, ct }
+    │   AAD: buildAad(label, recordId, fieldName)
+    │
+    ├─→ Hub key unwrap (LABEL_HUB_KEY_WRAP)
+    │       → enables Tier 2 decryption
+    │
+    └─→ Private key: non-extractable CryptoKey in crypto worker closure
+        Public key: raw X25519 bytes stored server-side for encryption by others
 
 Hub Key (random 32 bytes, NOT derived from any identity key)
+    │   Stored as non-extractable AES-256-GCM CryptoKey in client
     │
-    ├─→ Tier 2: Org metadata encryption (XChaCha20-Poly1305)
+    ├─→ Tier 2: Org metadata encryption (AES-256-GCM via WebCrypto)
     │       ├─→ Role names, shift names, report type names
     │       ├─→ Custom field labels, team names, tag names
     │       └─→ Hub names
+    │       AAD: buildAad(label, recordId, fieldName) per encrypted field
     │
     ├─→ Nostr event content encryption (XChaCha20-Poly1305 + HKDF per-event)
     ├─→ Presence encryption (volunteer-tier: boolean only)
     ├─→ Storage credential wrapping (LABEL_STORAGE_CREDENTIAL_WRAP)
     │
-    └─→ Distribution: ECIES-wrapped individually for each member
-        ├─→ Volunteer A envelope
-        ├─→ Volunteer B envelope
-        └─→ Each admin envelope
+    └─→ Distribution: HPKE-wrapped individually for each member
+        ├─→ Volunteer A envelope (HpkeEnvelope)
+        ├─→ Volunteer B envelope (HpkeEnvelope)
+        └─→ Each admin envelope (HpkeEnvelope)
 
-Per-Note Key (random 32 bytes) — Tier 3
-    ├─→ Wrapped for author (ECIES, LABEL_NOTE_KEY)
-    └─→ Wrapped for each admin (ECIES, LABEL_NOTE_KEY)
-
-Per-Message Key (random 32 bytes) — Tier 3
-    ├─→ Wrapped for assigned volunteer (ECIES, LABEL_MESSAGE)
-    └─→ Wrapped for each admin (ECIES, LABEL_MESSAGE)
+MLS Group (llamenos:hub:<hubId>) — Tier 3
+    │   Protocol: MLS (RFC 9420) via @wireapp/core-crypto WASM
+    │   Instance: CoreCrypto in crypto worker closure
+    │
+    ├─→ Call notes: encrypted through group ratchet tree
+    ├─→ Messages (SMS/WhatsApp/Signal): MLS-encrypted after ingest
+    ├─→ Transcripts: encrypted with group key
+    ├─→ Reports: encrypted with group key
+    │
+    ├─→ Forward secrecy: epoch advances on membership change
+    │   Compromising one epoch does not reveal prior epochs
+    │
+    └─→ NOT used for: blasts (external recipients), voicemail (server-side),
+        file attachments (separate per-file key)
 
 Server nsec (secp256k1) — SERVER IDENTITY ONLY
     ├─→ Derived via HKDF from SERVER_NOSTR_SECRET (LABEL_SERVER_NOSTR_KEY)
@@ -556,19 +611,19 @@ Server nsec (secp256k1) — SERVER IDENTITY ONLY
 
 ## Domain Separation Labels (Authoritative Table)
 
-From `src/shared/crypto-labels.ts`:
+From `src/shared/crypto-labels.ts`. Labels used in HPKE envelopes carry a wire-indexed `labelId` from `LABEL_REGISTRY` (42 active indices 0-41, plus 5 permanently retired indices 42-46) for compact serialization. Non-wire labels (KEK derivation, HKDF info, etc.) use the string directly. There are 88 total constants (76 `LABEL_*` exports, 63 branded `CryptoLabel`).
 
 | Label | Purpose | Used By | Tier |
 | ----- | ------- | ------- | ---- |
-| `llamenos:note-key` | ECIES wrapping of per-note symmetric key | Client crypto | 3 |
-| `llamenos:message` | ECIES wrapping of per-message symmetric key | Client + server crypto | 3 |
-| `llamenos:blast-content` | Blast content envelope encryption | Client + server crypto | 3 |
+| `llamenos:note-key` | MLS group encryption of note content | Client crypto (MLS) | 3 |
+| `llamenos:message` | MLS group encryption of message content; server-side AES-GCM at ingest | Client + server crypto | 3 |
+| `llamenos:blast-content` | Blast content ECIES envelope encryption (legacy — external recipients) | Client + server crypto | 3 |
 | `llamenos:transcription` | Transcription key wrapping | Server-side transcription | 3 |
 | `llamenos:file-key` | Per-file attachment key wrapping | Client crypto | 3 |
 | `llamenos:file-metadata` | File metadata ECIES wrapping | Client crypto | 3 |
 | `llamenos:voicemail-audio` | Voicemail audio symmetric key wrapping | Server crypto | 3 |
 | `llamenos:voicemail-transcript` | Voicemail transcript encryption | Server crypto | 3 |
-| `llamenos:hub-key-wrap` | ECIES wrapping of hub key for member distribution | Admin client | — |
+| `llamenos:hub-key-wrap` | HPKE wrapping of hub key for member distribution (DHKEM(X25519) + AES-256-GCM) | Admin client | — |
 | `llamenos:hub-event` | Hub key encryption of Nostr event content | Client Nostr encryption | 2 |
 | `llamenos:call-meta` | Encrypted call record metadata (assignments) | Client + server crypto | 1 |
 | `llamenos:shift-schedule` | Encrypted shift schedule details | Client + server crypto | 2 |
@@ -601,7 +656,7 @@ From `src/shared/crypto-labels.ts`:
 From `src/server/db/crypto-columns.ts`:
 
 ```typescript
-/** Text column storing XChaCha20-Poly1305 ciphertext (hex-encoded nonce || ciphertext) */
+/** Text column storing ciphertext (AES-256-GCM for Tier 2, ECIES for Tier 1, MLS for Tier 3) */
 export const ciphertext = (name: string) => text(name).$type<Ciphertext>()
 
 /** Text column storing an HMAC-SHA256 hash (hex-encoded) */
@@ -628,7 +683,7 @@ The branded `Ciphertext` and `HmacHash` types provide compile-time safety — yo
    Event {
      kind: 20001,  // Ephemeral — relay forwards, never stores
      tags: [["d", hubId], ["t", "llamenos:event"]],  // Generic tag
-     content: XChaCha20(hubKey, {type: "call:ring", callId, callerLast4}),
+     content: XChaCha20-Poly1305(hubKey, {type: "call:ring", callId, callerLast4}),
      pubkey: serverPubkey  // Server signs with its own nsec
    }
    │
@@ -657,28 +712,25 @@ The branded `Ciphertext` and `HmacHash` types provide compile-time safety — yo
 1. Volunteer types message in conversation view
    │
    ▼
-2. Client generates per-message key and encrypts:
-   • messageKey = random 32 bytes
-   • encryptedContent = XChaCha20(messageKey, messageText)
-   • volunteerEnvelope = ECIES(messageKey, volunteerPubkey)
-   • adminEnvelopes[] = ECIES(messageKey, adminPubkey) for each admin
+2. Client MLS-encrypts for hub group:
+   • mlsCiphertext = mlsInstance.encrypt(hubGroupId, messageText)
    • plaintextForSending = raw text (for SMS/WhatsApp provider)
    │
    ▼
 3. POST /api/conversations/{id}/messages
-   Body: { plaintextForSending, encryptedContent, nonce, volunteerEnvelope, adminEnvelopes }
+   Body: { plaintextForSending, mlsCiphertext }
    │
    ▼
 4. Server:
    • Forwards plaintext to SMS/WhatsApp provider (inherent limitation)
-   • Stores ONLY encrypted fields (discards plaintext immediately)
+   • Stores ONLY MLS ciphertext (discards plaintext immediately)
    │
    ▼
 5. Server publishes to Nostr relay:
    Event {
      kind: 20001,
      tags: [["d", hubId], ["t", "llamenos:event"]],
-     content: XChaCha20(hubKey, {type: "message:new", threadId}),
+     content: XChaCha20-Poly1305(hubKey, {type: "message:new", threadId}),
    }
 
 Server NEVER stores: plaintext message
@@ -691,9 +743,9 @@ Server DOES see: outbound plaintext momentarily (inherent SMS/WhatsApp limitatio
 
 | Party | Has | Does NOT Have |
 | ----- | --- | ------------- |
-| Volunteer | Own nsec (in Worker), hub key, own note keys | Other volunteers' nsec, admin nsec |
-| Admin | Admin nsec (in Worker), admin decryption key, hub key | Volunteer nsec |
-| Server | Server nsec, all npubs (public only) | Any user nsec, hub key, note keys |
+| Volunteer | Own nsec + X25519 keypair (in Worker), hub key (non-extractable CryptoKey), MLS group membership | Other volunteers' nsec, admin nsec |
+| Admin | Admin nsec + X25519 keypair (in Worker), hub key, MLS group membership | Volunteer nsec |
+| Server | Server nsec, all npubs + X25519 public keys | Any user nsec, hub key, MLS group state, HPKE/X25519 private keys |
 | Relay | NIP-42 auth tokens | Event content (encrypted), user nsec |
 | Authentik (IdP) | nsecSecret (IdP-bound factor), session tokens | User nsec, PIN, WebAuthn PRF |
 | Apple/Google | Push delivery metadata | Push content (encrypted), identity |
@@ -707,8 +759,8 @@ Server DOES see: outbound plaintext momentarily (inherent SMS/WhatsApp limitatio
 | Relay compromise | N/A | Only encrypted events + generic tags |
 | Subpoena of hosting | Metadata + activity patterns | Encrypted blobs, relay connection metadata |
 | Subpoena of DB only | Full plaintext access | Ciphertext only (relay provides additional protection) |
-| Admin nsec compelled | ALL data decryptable | Only auth compromised (decryption key is separate) |
-| Hub key compromised | N/A | Tier 2 metadata decryptable; Tier 1/3 still safe (per-record keys) |
+| Admin nsec compelled | ALL data decryptable | Only auth compromised (Tier 1 ECIES + MLS group membership required for Tier 3) |
+| Hub key compromised | N/A | Tier 2 metadata decryptable; Tier 1 still safe (per-user ECIES); Tier 3 still safe (MLS group key ≠ hub key) |
 | Device seizure | PIN brute-force → all keys | Multi-factor KEK: need PIN + IdP value + optional PRF |
 | Volunteer departure | Historical access retained | Hub key rotated, departed volunteer locked out of new data |
 | IdP compromise | N/A | IdP has nsecSecret but not PIN; cannot derive KEK alone |
@@ -720,8 +772,8 @@ Server DOES see: outbound plaintext momentarily (inherent SMS/WhatsApp limitatio
 1. **Telephony providers**: See call audio (PSTN) and outbound message content (SMS/WhatsApp)
    - Mitigation: Twilio SDK for calls (no personal phone numbers), document SMS/WhatsApp limitation
 
-2. **Admin decryption key compromise**: Can decrypt all notes and messages
-   - Mitigation: Separate from identity key, hardware key storage, rotation procedures, multi-admin threshold
+2. **Admin nsec + MLS group membership compromise**: Can decrypt all Tier 3 notes and messages
+   - Mitigation: MLS forward secrecy via epoch ratchet, hardware key storage, rotation procedures
 
 3. **Client code integrity**: Malicious client could exfiltrate data
    - Mitigation: Reproducible builds, code signing, SLSA provenance
@@ -753,13 +805,14 @@ Since Llamenos is **pre-production with no deployed users**, we do a clean rewri
 | The server HAS | The server NEVER HAS |
 | --------------- | -------------------- |
 | Its own server nsec (for signing Nostr events) | Admin nsec (admin's private key) |
-| Admin npub (public key, for ECIES encryption) | Volunteer nsec (any volunteer's private key) |
-| Volunteer npubs (for ECIES encryption) | Hub key (symmetric, only clients have it) |
+| Admin npub + X25519 public key (for ECIES/HPKE encryption) | Volunteer nsec (any volunteer's private key) |
+| Volunteer npubs + X25519 public keys (for ECIES/HPKE encryption) | Hub key (non-extractable CryptoKey, only clients have it) |
 | Encrypted blobs it cannot read | Ability to decrypt any user content |
 | Auth tokens (proves identity) | Note/message plaintext (except outbound SMS/WhatsApp momentarily) |
 | Authentik as identity provider (OIDC) | User PINs or WebAuthn PRF output |
+| HPKE envelopes for hub key distribution | HPKE/X25519 private keys (non-extractable, worker-only) |
 
-ECIES encryption only needs the **public key** to encrypt. The private key is only needed to **decrypt**, and that happens client-side (in the crypto worker).
+ECIES and HPKE encryption only need the **public key** to encrypt. The private key is only needed to **decrypt**, and that happens client-side (in the crypto worker). MLS group encryption/decryption also happens entirely in the worker via the CoreCrypto WASM instance.
 
 ### What We Still Need a Server API For
 
@@ -832,7 +885,24 @@ Even with Nostr relay handling all real-time events, we still need a thin REST A
    - Synthetic fallback for device-link flows, auto-rotation to real IdP
    - KEK rotation inside crypto worker (nsec never on main thread)
 
-10. **Epic 75: Native Clients** (Future)
+10. **Tier 1 HPKE Migration** (Completed)
+    - HPKE RFC 9180 suite: DHKEM(X25519, HKDF-SHA256) + HKDF-SHA256 + AES-256-GCM
+    - Wire format: `HpkeEnvelope { v: 3, labelId, enc, ct }` with `buildAad(label, recordId, fieldName)`
+    - Hub key distribution migrated from ECIES to HPKE (`hpkeSeal` / `hpkeOpen`)
+    - Hub field encryption migrated from XChaCha20-Poly1305 to AES-256-GCM via non-extractable WebCrypto CryptoKey
+    - HPKE private key held as non-extractable CryptoKey in crypto worker closure
+    - CI grep guardrails block new callers of legacy `@noble/ciphers/chacha` or `secp256k1.getSharedSecret`
+    - Legacy ECIES retained as sidecar for: envelope PII, blasts, backup, provisioning, key-store PIN-KEK, server-side crypto
+
+11. **Tier 6 MLS Migration** (Completed)
+    - MLS (RFC 9420) via vendored @wireapp/core-crypto WASM in crypto worker
+    - Persistent MLS group per hub (`llamenos:hub:<hubId>`)
+    - Notes and messages encrypted/decrypted through group ratchet tree
+    - Epoch advances on membership change provide forward secrecy
+    - Deleted legacy ECIES per-note/per-message envelope loop
+    - Inbound webhook messages: server AES-GCM at ingest → MLS-encrypted by first client to fetch
+
+12. **Epic 75: Native Clients** (Future)
     - Tauri desktop (macOS + Windows)
     - React Native mobile (Twilio RN SDK)
     - Two-tier push encryption (wake key + nsec)
@@ -843,7 +913,7 @@ Even with Nostr relay handling all real-time events, we still need a thin REST A
 
 **Old (BROKEN):** `hubKey = HKDF(adminNsec, hubId)` — compromise of admin nsec reveals all hub keys past and future.
 
-**New:** `hubKey = crypto.getRandomValues(32)` — random, ECIES-wrapped for each member individually. Rotation generates a genuinely new key with no mathematical link to the old one.
+**New:** `hubKey = crypto.getRandomValues(32)` — random, HPKE-wrapped for each member individually (previously ECIES-wrapped, migrated to HPKE). Rotation generates a genuinely new key with no mathematical link to the old one.
 
 ### 2. Server is Authoritative for State, Relay for Events
 
@@ -873,7 +943,15 @@ Every admin envelope is per-admin ECIES. Adding/removing admins wraps/revokes ke
 
 The crypto worker holds the nsec in a closure. The main thread communicates via `postMessage` with request/response IDs. Rate limiting in the worker auto-locks on abuse. This prevents XSS from trivially exfiltrating the key — an attacker would need to use the worker API, which is rate-limited and auto-locks.
 
-### 8. Honest Trust Boundaries
+### 8. HPKE Replaces ECIES for New Crypto Paths
+
+**Tier 1 primitive**: HPKE RFC 9180 with DHKEM(X25519, HKDF-SHA256) + HKDF-SHA256 + AES-256-GCM. Wire format: `HpkeEnvelope { v: 3, labelId, enc, ct }` with AAD binding `buildAad(label, recordId, fieldName)`. Hub key distribution and hub field encryption are fully migrated to HPKE/AES-256-GCM. Legacy ECIES (secp256k1 ECDH + XChaCha20-Poly1305) is retained as a sidecar for envelope PII, blasts, backup, provisioning, and key-store PIN-KEK. CI guardrails prevent new ECIES callers. See `docs/security/HPKE_MIGRATION_NOTES.md`.
+
+### 9. MLS Replaces Per-Note/Per-Message Envelopes
+
+**Tier 3 primitive**: MLS (RFC 9420) via @wireapp/core-crypto WASM. Each hub has a persistent MLS group (`llamenos:hub:<hubId>`). Notes and messages are encrypted/decrypted through the group's ratchet tree — no per-recipient key wrapping required. Epoch advances on membership change provide forward secrecy that the old ECIES envelope loop could not achieve. The legacy per-note/per-message ECIES envelope code has been deleted for notes and messages.
+
+### 10. Honest Trust Boundaries
 
 | Claim | Reality |
 | ----- | ------- |
@@ -882,6 +960,8 @@ The crypto worker holds the nsec in a closure. The main thread communicates via 
 | "E2EE for all messages" | TRUE for storage. FALSE for the SMS/WhatsApp transport layer (provider sees plaintext — inherent). |
 | "Audio never leaves device" | TRUE for transcription. Audio is captured locally only (volunteer mic). |
 | "Hub key protects org metadata" | TRUE. Server stores ciphertext. But hub key is shared — any hub member can decrypt Tier 2 data. |
+| "MLS provides forward secrecy for notes/messages" | TRUE. Epoch advances on membership change mean departed members cannot decrypt new data. But MLS does not provide backward secrecy — a member added mid-epoch can decrypt prior messages in that epoch. |
+| "HPKE replaces ECIES" | PARTIALLY TRUE. Hub key distribution and hub field encryption use HPKE. Envelope PII, blasts, backup, provisioning, and key-store PIN-KEK still use legacy ECIES. Migration is planned but not complete. |
 
 ## Implementation Checklist
 
@@ -915,7 +995,7 @@ All features verified:
 
 - [x] Tier 1 envelope encryption for all PII fields
 - [x] Tier 2 hub-key encryption for all org metadata
-- [x] Tier 3 forward secrecy for notes, messages, reports
+- [x] Tier 3 MLS groupwise encryption for notes, messages, reports
 - [x] Decrypt-on-fetch pattern across all React Query domains
 - [x] ENCRYPTED_QUERY_KEYS exhaustiveness enforced at compile time
 - [x] Zero plaintext PII in database verified
@@ -927,6 +1007,16 @@ All features verified:
 - [x] Synthetic fallback for device-link flows
 - [x] Auto-rotation from synthetic to real IdP value
 - [x] KEK re-encryption inside crypto worker
+
+### HPKE + MLS Migration — Complete
+
+- [x] HPKE RFC 9180 implementation (`hpkeSeal` / `hpkeOpen` with DHKEM(X25519) + AES-256-GCM)
+- [x] Hub key distribution migrated from ECIES to HPKE
+- [x] Hub field encryption migrated from XChaCha20-Poly1305 to AES-256-GCM via non-extractable WebCrypto CryptoKey
+- [x] MLS groupwise encryption for notes and messages via @wireapp/core-crypto WASM
+- [x] Crypto worker updated with HPKE + MLS operations and non-extractable key handles
+- [x] CI grep guardrails blocking new ECIES callers
+- [x] Legacy ECIES retained as sidecar for remaining call sites (documented)
 
 ### Implementation Verification — In Progress
 
@@ -966,17 +1056,23 @@ All features verified:
 
 | File | Role |
 |------|------|
-| `src/shared/crypto-labels.ts` | All domain separation constants |
+| `src/shared/crypto-labels.ts` | All domain separation constants (88 constants: 76 LABEL_* exports, 63 branded CryptoLabel, 42 wire-indexed in LABEL_REGISTRY) |
 | `src/shared/crypto-types.ts` | Branded `Ciphertext` and `HmacHash` types |
-| `src/client/lib/crypto-worker.ts` | Web Worker — holds nsec, all private-key operations |
-| `src/client/lib/crypto-worker-client.ts` | Main-thread client for crypto worker |
+| `src/shared/hpke-primitives.ts` | HPKE RFC 9180 implementation: `hpkeSeal()` / `hpkeOpen()`, suite config |
+| `src/shared/hpke-envelope.ts` | `HpkeEnvelope` wire format `{ v: 3, labelId, enc, ct }`, `buildAad()` |
+| `src/shared/crypto-suite.ts` | Crypto suite constants and configuration |
+| `src/client/lib/crypto-worker.ts` | Web Worker — holds nsec, HPKE private key, hub key, MLS instance |
+| `src/client/lib/crypto-worker-client.ts` | Main-thread typed RPC client for crypto worker |
 | `src/client/lib/key-manager.ts` | Singleton key manager — multi-factor unlock |
-| `src/client/lib/key-store-v2.ts` | KEK derivation (PBKDF2 + HKDF), encrypted storage |
-| `src/client/lib/hub-key-manager.ts` | Hub key generation, wrapping, rotation |
-| `src/client/lib/hub-key-cache.ts` | Module-level hub key cache |
-| `src/client/lib/hub-field-crypto.ts` | Tier 2 encrypt/decrypt helpers |
-| `src/client/lib/decrypt-fields.ts` | Tier 1 decrypt-on-fetch utilities |
+| `src/client/lib/key-store.ts` | KEK derivation (PBKDF2 + HKDF), encrypted storage |
+| `src/client/lib/hub-key-manager.ts` | Hub key generation, HPKE wrapping, rotation |
+| `src/client/lib/hub-key-cache.ts` | Module-level hub key cache (Map<hubId, CryptoKey>) |
+| `src/client/lib/hub-field-crypto.ts` | Tier 2 AES-256-GCM encrypt/decrypt with per-record AAD |
+| `src/client/lib/decrypt-fields.ts` | Tier 1 decrypt-on-fetch utilities (legacy ECIES) |
+| `src/client/lib/mls/conversation.ts` | MLS group management — encrypt/decrypt via @wireapp/core-crypto |
 | `src/client/lib/query-client.ts` | ENCRYPTED_QUERY_KEYS, invalidation |
 | `src/client/lib/auth.tsx` | Unlock flow: hub key load → query invalidation |
 | `src/server/db/crypto-columns.ts` | Drizzle column type helpers |
-| `src/server/messaging/router.ts` | Server-side envelope encryption on webhook |
+| `src/server/messaging/router.ts` | Server-side AES-GCM encryption on webhook ingest |
+| `vendor/@wireapp/core-crypto/` | Vendored MLS WASM implementation (RFC 9420) |
+| `docs/security/HPKE_MIGRATION_NOTES.md` | HPKE migration status, remaining ECIES call sites, CI guardrails |

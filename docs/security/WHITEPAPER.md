@@ -1,6 +1,6 @@
 # The Llámenos Security Whitepaper
 
-**Version 1.2 — 2026-04-21**
+**Version 1.3 — 2026-04-25**
 **Authors:** Llámenos security working group
 **Status:** Public release. Canonical copy lives at
 `docs/security/WHITEPAPER.md` in the Llámenos source repository. Any copy
@@ -243,56 +243,47 @@ Llámenos explicitly does **not** defend against:
 
 ## 4. Cryptographic architecture
 
-### 4.1 Per-note forward secrecy
+### 4.1 Note and message confidentiality — MLS groupwise encryption
 
-Every note written in Llámenos is encrypted under a fresh
-`XChaCha20-Poly1305` content key. The content key is randomly generated
-at note creation time, used to encrypt the note body, and then wrapped
-separately for each reader of the note — the volunteer who wrote it,
-and every current admin in the hub.
+Every note and message written in Llámenos is encrypted via **MLS
+groupwise encryption** using vendored `@wireapp/core-crypto` (v9.3.3,
+WASM). Each hub owns a persistent MLS group (group ID:
+`llamenos:hub:<hubId>`). Notes and messages are MLS application
+messages inside that group — there is no per-recipient key wrapping.
 
-**Shipped today:** Wrapping is done via the legacy ECIES envelope
-family (`eciesWrapKey` in `src/shared/crypto-primitives.ts`) under the
-domain label `LABEL_NOTE_KEY`. The per-note key is bound to each
-reader pubkey via ECDH over secp256k1, HKDF-SHA256 derivation, and an
-XChaCha20-Poly1305 key-wrap. The wrapped keys are stored as individual
-`RecipientKeyEnvelope` rows — one author envelope + one per current
-admin. The note's ciphertext is stored once. See `encryptNote` /
-`decryptNoteWithKey` in `src/shared/crypto-envelopes.ts`.
+**Ciphersuite:** `MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519`
+(X25519 KEM, AES-128-GCM AEAD, SHA-256 hash, Ed25519 signing).
 
-**(target)** Tier 6 PR #2 replaces this multi-admin envelope loop with
-**MLS groupwise encryption** via vendored `@wireapp/core-crypto`:
-every hub owns an MLS group; notes become MLS application messages
-inside that group; adding or removing an admin is an MLS commit that
-advances the epoch rather than a rewrap of every past envelope.
-`src/client/lib/mls/conversation.ts` is an empty skeleton on `main`
-today — the lifecycle methods land in PR #2. Until then, the ECIES
-envelope path above is the real confidentiality boundary.
+**Forward secrecy:** Epoch advances on every membership change
+(member added, member removed). Past ciphertext encrypted under a
+prior epoch cannot be decrypted with the current epoch's key
+material. This provides forward secrecy at the group level rather
+than at the per-note level — the security property is stronger
+because key rotation is automatic on every membership event, not
+manual.
+
+**Shipped today on `main`:** The MLS implementation landed in Tier 6
+PR #2 (Slices 1–8, PRs #164, #165, #181, #189, #193, #194, #195,
+#208, merged 2026-04-21). The old ECIES + XChaCha20-Poly1305
+multi-admin envelope loop (`encryptNote`, `encryptMessage`) has been
+deleted from `src/shared/crypto-envelopes.ts`.
 
 This means:
 
-- The server never sees the content key.
-- A note can be read by any current member of the envelope set
-  without re-encrypting the note body.
-- When an admin leaves the organization, future notes no longer
-  wrap their key; they cannot read anything written after their
-  removal, even though the ciphertext is still in the database.
-- Recovering a single lost note requires recovering exactly one
-  wrapped key, not re-deriving the entire database.
+- The server stores opaque MLS ciphertext. It never sees the
+  content key or the plaintext.
+- Any current member of the hub's MLS group can decrypt notes and
+  messages encrypted under the current or a past epoch they
+  participated in.
+- When an admin or volunteer leaves the organization, a remove
+  commit advances the epoch. Future notes are encrypted under a
+  key the departed member does not have.
+- The MLS ratchet tree handles key distribution — there is no
+  separate per-note key wrapping step.
 
-Forward secrecy over time is achieved via Cross-signing Log Key
-Rotation (CLKR), described in Tier 3 of the security roadmap. After
-CLKR lands, an admin who loses their device can be revoked via a
-signed event on the Nostr relay; clients hold-back any notes written
-after the revocation event from that admin's envelope set within the
-bounded-consistency window CLKR provides.
-
-**Source:** `src/shared/crypto-envelopes.ts` (note envelope + wrap),
-`src/shared/crypto-primitives.ts` (`eciesWrapKey` /
-`eciesUnwrapKeyWithSecret`), `src/client/lib/crypto-worker.ts` (worker
-RPC surface), `src/server/services/records.ts` (note row storage),
-`src/shared/hpke-primitives.ts` (the HPKE primitive family — not
-currently used for notes; see §0.1 for the MLS target).
+**Source:** `src/client/lib/mls/conversation.ts` (group operations),
+`src/client/lib/crypto-worker.ts` (MLS RPC handlers),
+`vendor/@wireapp/core-crypto/` (vendored WASM bindings).
 
 ### 4.2 Hub key + rotation
 
@@ -421,27 +412,26 @@ encrypted at the webhook boundary before any plaintext touches
 persistent storage. The webhook handler:
 
 1. Validates the provider's signature on the incoming payload.
-2. Generates a per-message random symmetric key.
-3. Encrypts the plaintext under that key with XChaCha20-Poly1305.
-4. Wraps the per-message key, under the domain label `LABEL_MESSAGE`,
-   for every reader (assigned volunteer + each current admin). The
-   wrap primitive on `main` today is **ECIES over secp256k1 + HKDF-
-   SHA256** (`eciesWrapKey` in `src/shared/crypto-primitives.ts`), the
-   same envelope family described in §4.1 for notes. **(target — Tier
-   6 PR #2)** the per-message key and the per-message wrap loop are
-   both replaced by MLS groupwise encryption against the hub's MLS
-   group.
-5. Writes the ciphertext, wrapped keys, and metadata to the database
-   in a single transaction.
-6. Discards the plaintext before returning.
+2. Encrypts the plaintext with AES-GCM under the domain label
+   `LABEL_MESSAGE` (server-side temporary encryption).
+3. Writes the server-encrypted ciphertext and metadata to the
+   database.
+4. Discards the plaintext before returning.
+
+The first client to fetch unclaimed messages **claims** them: the
+client decrypts the server-encrypted ciphertext, then MLS-encrypts
+it via the hub's MLS group (same mechanism as notes, §4.1). The
+server discards the server-encrypted copy once the MLS ciphertext is
+stored. From that point forward, only MLS group members can read
+the message.
 
 The server never writes the plaintext to disk — not even to a log.
 The hot-path test suite grep-checks the messaging service for
 `console.log` on plaintext variables at CI time.
 
-**Source:** `src/shared/crypto-envelopes.ts` (`encryptMessage`),
-`src/server/services/conversation-service.ts`,
-`src/server/middleware/webhook-signature.ts`.
+**Source:** `src/server/messaging/router.ts`,
+`src/client/lib/queries/conversations.ts`,
+`src/client/lib/mls/conversation.ts`.
 
 ---
 
@@ -839,14 +829,16 @@ what you loaded.
 
 None of the curve-based primitives currently in use are post-
 quantum secure: hub-field HPKE uses `DHKEM(X25519, HKDF-SHA256)`,
-note/message ECIES uses secp256k1 + HKDF-SHA256, and the
-identity/Nostr key is schnorr over secp256k1. A sufficiently-
-capable quantum adversary collecting ciphertext today can decrypt
-it later. The Tier 6 roadmap vendors `@wireapp/core-crypto` and
-layers MLS on top of the note envelope, **(target)** providing a
-post-quantum ciphersuite (XWing or P-384 fallback) for new notes
-and messages. Llámenos v1 is not post-quantum secure; Llámenos v2
-will be.
+MLS note/message encryption uses `MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519`
+(X25519 KEM + Ed25519 signing), and the identity/Nostr key is
+schnorr over secp256k1. A sufficiently-capable quantum adversary
+collecting ciphertext today can decrypt it later. MLS (now shipped
+via `@wireapp/core-crypto`) provides the framework for a
+**(target)** post-quantum ciphersuite upgrade (XWing or P-384
+fallback) for new notes and messages without changing the
+application-layer protocol. Legacy ECIES envelope PII
+(secp256k1 ECDH) is additionally vulnerable and is queued for
+HPKE migration. Llámenos v1 is not post-quantum secure.
 
 ### 7.6 Out-of-band leakage
 
@@ -1059,7 +1051,25 @@ For press inquiries or general questions: `info@llamenos.example`.
   and will be documented when they ship to stable.
 - Warrant canary first issued alongside this publication.
 
-### Planned: 1.2 — after Tier 2 P0 recovery-group work merges
+### 1.3 — 2026-04-25
+
+- **Corrected §4.1 (Note encryption).** MLS groupwise encryption via
+  `@wireapp/core-crypto` is now the shipped mechanism for notes and
+  messages on `main`. The old ECIES + XChaCha20-Poly1305 multi-admin
+  envelope loop has been deleted. §4.1 previously described the ECIES
+  path as "shipped today" with MLS as "(target)" — this was stale
+  since the Tier 6 PR #2 merge on 2026-04-21.
+- **Corrected §4.5 (Messaging envelope).** Messages now use the same
+  MLS groupwise encryption as notes, with a server-side AES-GCM
+  ingest step at the webhook boundary. The ECIES wrapping description
+  has been replaced with the MLS claim-and-encrypt pattern.
+- **Corrected §7.5 (Quantum adversary).** Updated to reflect that MLS
+  is shipped (not target), and that the MLS framework provides the
+  upgrade path for post-quantum ciphersuites. Noted legacy ECIES
+  envelope PII as additionally PQ-vulnerable.
+- Updated version header to 1.3.
+
+### Planned: 1.4 — after Tier 2 P0 recovery-group work merges
 
 - Shamir recovery group documentation (HPKE-wrapped shares, threshold
   recovery flow, `recovery-group-section.tsx` integration).
@@ -1075,13 +1085,15 @@ For press inquiries or general questions: `info@llamenos.example`.
 - DTLS fingerprint binding to Nostr-signed signaling.
 - Fallback consent modal.
 
-### Planned: 2.0 — after Tier 6 MLS reaches stage 3
+### Planned: 2.0 — after external MLS audit
 
-- Full rewrite of §4.1 and §4.5 to describe the MLS-based envelope.
-- Post-quantum ciphersuite.
+- Post-quantum ciphersuite upgrade (XWing or P-384 fallback) for
+  MLS groups.
 - Retirement of the HPKE envelope for hub-field confidentiality is
   **not** planned — HPKE remains the right primitive for per-column
-  field encryption. Only the note/message path moves to MLS.
+  field encryption. Only the note/message path uses MLS.
+- Migration of remaining legacy ECIES envelope PII call sites to
+  HPKE.
 
 ---
 

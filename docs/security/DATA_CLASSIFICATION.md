@@ -1,7 +1,7 @@
 # Data Classification Reference
 
-**Version:** 2.0
-**Date:** 2026-04-01
+**Version:** 3.0
+**Date:** 2026-04-25
 
 This document provides a complete inventory of all data stored and processed by Llamenos, with classification levels for security audits, legal review, and GDPR compliance.
 
@@ -9,9 +9,9 @@ This document provides a complete inventory of all data stored and processed by 
 
 | Level | Definition | Examples |
 |-------|------------|----------|
-| **E2EE (Tier 1)** | End-to-end envelope encrypted (ECIES per-recipient); server stores ciphertext only | Note content, volunteer PII, contact directory PII |
-| **E2EE (Tier 2)** | Hub-key encrypted (XChaCha20-Poly1305 with shared symmetric key); decrypted client-side | Role names, shift names, report type names, custom field labels, team names, tag names |
-| **E2EE (Tier 3)** | Per-artifact forward secrecy (unique random key, ECIES-wrapped per reader) | Call notes, transcriptions, messages |
+| **E2EE (Tier 1)** | End-to-end envelope encrypted (legacy ECIES per-recipient — HPKE migration planned); server stores ciphertext only | Volunteer PII, contact directory PII |
+| **E2EE (Tier 2)** | Hub-key encrypted (AES-256-GCM via non-extractable WebCrypto `CryptoKey`, per-record AAD via `buildAad(label, recordId, fieldName)`); hub key HPKE-distributed per device; decrypted client-side | Role names, shift names, report type names, custom field labels, team names, tag names |
+| **E2EE (Tier 3 — MLS)** | MLS groupwise encryption via `@wireapp/core-crypto` WASM; each hub has a persistent MLS group; epoch advances on membership change provide forward secrecy | Call notes, transcriptions, messages |
 | **IdP-Encrypted** | Encrypted server-side with `IDP_VALUE_ENCRYPTION_KEY` via HKDF + XChaCha20-Poly1305 | IdP nsec_secret values |
 | **Hashed** | One-way cryptographic hash; original not recoverable without brute-force | Caller phone numbers |
 | **Plaintext** | Stored unencrypted; accessible to operator and under subpoena | Timestamps, call durations |
@@ -27,23 +27,33 @@ This document provides a complete inventory of all data stored and processed by 
 | Field | Classification | Retention | Notes |
 |-------|---------------|-----------|-------|
 | `pubkey` | Plaintext | Account lifetime | Nostr public key (correlatable) |
-| `encryptedName` | **E2EE (Tier 1)** | Account lifetime | ECIES envelope-encrypted volunteer display name; server stores ciphertext only |
-| `nameEnvelopes` | **E2EE (Tier 1)** | Account lifetime | ECIES-wrapped keys for each authorized reader (admin + self) |
-| `encryptedPhone` | **E2EE (Tier 1)** | Account lifetime | ECIES envelope-encrypted phone; server stores ciphertext |
-| `phoneEnvelopes` | **E2EE (Tier 1)** | Account lifetime | ECIES-wrapped keys for each authorized reader |
+| `encryptedName` | **E2EE (Tier 1)** | Account lifetime | Legacy ECIES envelope-encrypted volunteer display name; server stores ciphertext only |
+| `nameEnvelopes` | **E2EE (Tier 1)** | Account lifetime | Legacy ECIES-wrapped keys for each authorized reader (admin + self) |
+| `encryptedPhone` | **E2EE (Tier 1)** | Account lifetime | Legacy ECIES envelope-encrypted phone; server stores ciphertext |
+| `phoneEnvelopes` | **E2EE (Tier 1)** | Account lifetime | Legacy ECIES-wrapped keys for each authorized reader |
 | `encryptedSecretKey` | **E2EE** | Account lifetime | Multi-factor encrypted nsec (PIN + IdP value + optional WebAuthn PRF) |
 | `roles` | Plaintext | Account lifetime | Role ID array (e.g., `['role-volunteer']`) |
 | `hubRoles` | Plaintext | Account lifetime | Per-hub role assignments |
 | `active` | Plaintext | Account lifetime | Account enabled/disabled |
 | `createdAt` | Plaintext | Account lifetime | Registration timestamp |
 
-#### `jwtRevocations` Table — Revoked JWT Tokens
+#### `user_sessions` Table — Opaque Session Tokens
 
 | Field | Classification | Retention | Notes |
 |-------|---------------|-----------|-------|
-| `jti` | Plaintext | Until JWT expiry | JWT ID (unique per token) |
-| `pubkey` | Plaintext | Until JWT expiry | Pubkey of the revoked user |
-| `expiresAt` | Plaintext | Automatic cleanup | When the JWT would have expired; rows can be pruned after this |
+| `id` | Plaintext | Session lifetime | Unique session identifier |
+| `userPubkey` | Plaintext | Session lifetime | Nostr pubkey of the session owner |
+| `tokenHash` | Hashed (HMAC-SHA256) | Session lifetime | HMAC-SHA256 hash of 32-byte random opaque token; original token never stored |
+| `prevTokenHash` | Hashed (HMAC-SHA256) | Session lifetime | Previous token hash — one-rotation grace window for concurrent refreshes |
+| `ipHash` | Hashed | Session lifetime | Truncated IP hash for audit |
+| `credentialId` | Plaintext | Session lifetime | WebAuthn credential used for login |
+| `encryptedMeta` | **E2EE (Tier 1)** | Session lifetime | Envelope-encrypted session metadata (IP, UA, geolocation) via `LABEL_SESSION_META` |
+| `metaEnvelope` | **E2EE (Tier 1)** | Session lifetime | Per-reader ECIES envelopes for metadata decryption |
+| `createdAt` | Plaintext | Session lifetime | Session creation timestamp |
+| `lastSeenAt` | Plaintext | Session lifetime | Last API activity timestamp |
+| `revokedAt` | Plaintext | Session lifetime | When session was revoked (null if active) |
+| `revokedReason` | Plaintext | Session lifetime | Revocation reason: `user`, `admin`, `lockdown_a/b/c`, `replay`, `expired` |
+| `expiresAt` | Plaintext | Automatic cleanup | Session expiry; rows can be pruned after this |
 
 #### `webauthnCredentials` Table — Passkey Credentials
 
@@ -69,7 +79,7 @@ This document provides a complete inventory of all data stored and processed by 
 | Data | Classification | Lifetime | Notes |
 |------|---------------|----------|-------|
 | Access token | Secret (memory-only) | 15 minutes | Short-lived; contains pubkey + permissions; never persisted to storage |
-| Refresh token | Secret (httpOnly cookie) | Configurable | httpOnly + Secure + SameSite=Strict; revocable via `jwtRevocations` by jti |
+| Refresh token | Secret (httpOnly cookie) | Configurable | Opaque 32-byte random token (base64url); httpOnly + Secure + SameSite=Strict; revocable via `user_sessions` table; rotated on every refresh |
 
 #### Call Records and Notes (PostgreSQL)
 
@@ -84,14 +94,11 @@ This document provides a complete inventory of all data stored and processed by 
 | `callerLast4` | Plaintext | Indefinite | Last 4 digits of caller number |
 | `hasTranscription` | Plaintext | Indefinite | Boolean flag |
 | `hasVoicemail` | Plaintext | Indefinite | Boolean flag |
-| `notes[].encryptedContent` | **E2EE** | Indefinite | XChaCha20-Poly1305 ciphertext |
-| `notes[].authorEnvelope` | **E2EE** | Indefinite | ECIES-wrapped note key (author) |
-| `notes[].adminEnvelope` | **E2EE** | Indefinite | ECIES-wrapped note key (admin) |
+| `notes[].encryptedContent` | **E2EE (Tier 3 — MLS)** | Indefinite | MLS groupwise ciphertext via `@wireapp/core-crypto` |
+| `notes[].mlsEpoch` | Plaintext | Indefinite | MLS epoch number (for group state tracking) |
 | `notes[].authorPubkey` | Plaintext | Indefinite | Who wrote the note |
 | `notes[].createdAt` | Plaintext | Indefinite | Note creation timestamp |
-| `transcription.encryptedContent` | **E2EE** | Indefinite | Encrypted transcript text |
-| `transcription.authorEnvelope` | **E2EE** | Indefinite | ECIES-wrapped key |
-| `transcription.adminEnvelope` | **E2EE** | Indefinite | ECIES-wrapped key |
+| `transcription.encryptedContent` | **E2EE (Tier 3 — MLS)** | Indefinite | MLS groupwise ciphertext (transcript text) |
 
 #### Shift Schedules (PostgreSQL)
 
@@ -124,7 +131,7 @@ These fields are encrypted with the hub's shared symmetric key. All members who 
 
 | Field | Classification | Retention | Notes |
 |-------|---------------|-----------|-------|
-| `encryptedDisplayName` | **E2EE (Tier 1)** | Indefinite | Contact display name (ECIES envelope) |
+| `encryptedDisplayName` | **E2EE (Tier 1)** | Indefinite | Contact display name (legacy ECIES envelope — HPKE migration planned) |
 | `encryptedFullName` | **E2EE (Tier 1)** | Indefinite | Contact legal name |
 | `encryptedPhone` | **E2EE (Tier 1)** | Indefinite | Contact phone number |
 | `encryptedNotes` | **E2EE (Tier 1)** | Indefinite | Freeform contact notes |
@@ -149,10 +156,7 @@ These fields are encrypted with the hub's shared symmetric key. All members who 
 | `channel` | Plaintext | Indefinite | `sms`, `whatsapp`, `signal` |
 | `participantHash` | Hashed (HMAC-SHA256) | Indefinite | Hashed phone/identifier |
 | `assignedVolunteer` | Plaintext | Indefinite | Volunteer pubkey |
-| `messages[].encryptedContent` | **E2EE** | Indefinite | XChaCha20-Poly1305 ciphertext (envelope encryption, Epic 74) |
-| `messages[].authorEnvelope` | **E2EE** | Indefinite | ECIES-wrapped message key (assigned volunteer) |
-| `messages[].adminEnvelopes[]` | **E2EE** | Indefinite | ECIES-wrapped message key (per admin) |
-| `messages[].nonce` | Plaintext | Indefinite | 24-byte nonce for XChaCha20-Poly1305 |
+| `messages[].encryptedContent` | **E2EE (Tier 3 — MLS)** | Indefinite | MLS groupwise ciphertext; server-side AES-GCM ingest at webhook, then MLS-encrypted by first client |
 | `messages[].direction` | Plaintext | Indefinite | `inbound` or `outbound` |
 | `messages[].timestamp` | Plaintext | Indefinite | Message timestamp |
 | `messages[].status` | Plaintext | Indefinite | `sent`, `delivered`, `failed` |
@@ -247,32 +251,22 @@ The IdP value (one encryption factor) is fetched from Authentik on unlock and he
 
 ## Data Flow Diagrams
 
-### Note Encryption Flow
+### Note Encryption Flow (MLS Groupwise — Current)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ VOLUNTEER'S BROWSER                                             │
-│ ┌─────────────┐    ┌──────────────┐    ┌──────────────────────┐ │
-│ │ Note Text   │───▶│ Generate     │───▶│ XChaCha20-Poly1305   │ │
-│ │ + Fields    │    │ noteKey (32B)│    │ encrypt(noteKey,     │ │
-│ └─────────────┘    └──────────────┘    │ nonce, plaintext)    │ │
-│                           │            └──────────┬───────────┘ │
-│                           │                       │             │
-│                           ▼                       ▼             │
-│              ┌────────────────────┐    ┌──────────────────────┐ │
-│              │ ECIES wrap for     │    │ encryptedContent     │ │
-│              │ volunteer pubkey   │    │ (ciphertext)         │ │
-│              └────────┬───────────┘    └──────────────────────┘ │
-│                       │                           │             │
-│              ┌────────┴───────────┐               │             │
-│              │ ECIES wrap for     │               │             │
-│              │ admin pubkey       │               │             │
-│              └────────┬───────────┘               │             │
-│                       │                           │             │
-│                       ▼                           ▼             │
+│ VOLUNTEER'S BROWSER (Crypto Web Worker)                         │
+│ ┌─────────────┐    ┌──────────────────────────────────────────┐ │
+│ │ Note Text   │───▶│ MLS Group Encrypt                       │ │
+│ │ + Fields    │    │ mlsInstance.encrypt(hubGroupId,          │ │
+│ └─────────────┘    │   UTF-8(JSON.stringify({ text, fields })))│ │
+│                    └──────────┬───────────────────────────────┘ │
+│                               │                                 │
+│                               ▼                                 │
 │              ┌────────────────────────────────────────────────┐ │
-│              │ { encryptedContent, authorEnvelope,           │ │
-│              │   adminEnvelope, authorPubkey, createdAt }    │ │
+│              │ MLS application message ciphertext             │ │
+│              │ (authenticated, forward-secret via epoch)      │ │
+│              │ { mlsCiphertext, authorPubkey, mlsEpoch }     │ │
 │              └──────────────────────┬─────────────────────────┘ │
 └─────────────────────────────────────┼───────────────────────────┘
                                       │ HTTPS
@@ -280,11 +274,15 @@ The IdP value (one encryption factor) is fetched from Authentik on unlock and he
 ┌─────────────────────────────────────────────────────────────────┐
 │ SERVER (no access to plaintext)                                 │
 │ ┌─────────────────────────────────────────────────────────────┐ │
-│ │ PostgreSQL stores encrypted note as-is                      │ │
-│ │ Server can see: authorPubkey, createdAt, callId            │ │
-│ │ Server cannot see: note text, custom field values          │ │
+│ │ PostgreSQL stores opaque MLS ciphertext as-is               │ │
+│ │ Server can see: authorPubkey, createdAt, callId, mlsEpoch  │ │
+│ │ Server cannot see: note text, custom field values           │ │
 │ └─────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
+
+Note: All hub MLS group members can decrypt (not just author + admin).
+Epoch advances on membership change provide forward secrecy.
+See E2EE_ARCHITECTURE.md for full MLS group details.
 ```
 
 ### Caller Phone Number Flow
@@ -338,7 +336,7 @@ The IdP value (one encryption factor) is fetched from Authentik on unlock and he
 | Call metadata | 2 years | Operational analysis |
 | Audit logs | 1 year | Security review |
 | JWT access tokens | 15 minutes (automatic) | Short-lived, non-revocable |
-| JWT refresh tokens | Configurable (revocable) | Revoked via `jwtRevocations` table |
+| Session tokens | Configurable (revocable) | Opaque 32-byte random tokens; revoked via `user_sessions` table; rotated on every refresh |
 | Messaging content | 1 year | Follow-up reference |
 | Volunteer records | Account lifetime + 90 days | Post-departure access |
 
@@ -350,6 +348,6 @@ Note: Llamenos does not currently enforce automated retention policies. Operator
 
 | Date | Version | Changes |
 |------|---------|---------|
-| 2026-04-01 | 2.0 | IdP + JWT Auth Overhaul: Replaced IdentityDO with PostgreSQL `users` table; updated volunteer name/phone from Encrypted-at-Rest to E2EE Tier 1 envelope encryption; added `jwtRevocations`, `webauthnCredentials` tables, Authentik IdP data store, JWT tokens (memory-only), hub-key encrypted org metadata (Tier 2), contact directory (Tier 1 E2EE); replaced Cloudflare/R2 with RustFS; updated client-side key storage to multi-factor; updated session retention for JWT tokens |
+| 2026-04-01 | 2.0 | IdP + JWT Auth Overhaul: Replaced IdentityDO with PostgreSQL `users` table; updated volunteer name/phone from Encrypted-at-Rest to E2EE Tier 1 envelope encryption; added `user_sessions`, `webauthnCredentials` tables, Authentik IdP data store, JWT tokens (memory-only), hub-key encrypted org metadata (Tier 2), contact directory (Tier 1 E2EE); replaced Cloudflare/R2 with RustFS; updated client-side key storage to multi-factor; updated session retention for opaque session tokens |
 | 2026-02-25 | 1.1 | ZK Architecture Overhaul: Updated ConversationDO to E2EE envelope encryption, ShiftManagerDO encrypted details, AuditDO hash chain fields, RecordsDO callrecord: prefix, client-side transcription, hub key in memory-only section, replaced WebSocket broadcast with Nostr relay event |
 | 2026-02-25 | 1.0 | Initial data classification document |

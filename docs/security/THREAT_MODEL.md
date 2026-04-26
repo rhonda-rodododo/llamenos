@@ -15,18 +15,18 @@ This document defines the threat model for Llamenos, a secure crisis response ho
 | Asset | Classification | Storage Location | Protection |
 |-------|---------------|-----------------|------------|
 | Caller phone numbers | PII / Safety-Critical | Hashed in PostgreSQL | HMAC-SHA256 with operator secret; last 4 digits stored plaintext for display |
-| Call note content | Confidential | Encrypted in PostgreSQL | E2EE: per-note XChaCha20-Poly1305, ECIES key wrapping |
-| Volunteer identity (name) | PII / Safety-Critical | E2EE in PostgreSQL (`users.encryptedName`) | Tier 1 envelope encryption (ECIES-wrapped per-user); server stores ciphertext only |
-| Volunteer identity (phone) | PII / Safety-Critical | E2EE in PostgreSQL (`users.encryptedPhone`) | Tier 1 envelope encryption; server needs ciphertext for routing but cannot read plaintext |
-| Volunteer private keys (nsec) | Secret | Multi-factor encrypted in browser localStorage | PIN + IdP value + optional WebAuthn PRF; PBKDF2-SHA256 600K iterations + XChaCha20-Poly1305 |
+| Call note content | Confidential | Encrypted in PostgreSQL | E2EE: MLS groupwise encryption via `@wireapp/core-crypto`; server stores opaque MLS ciphertext |
+| Volunteer identity (name) | PII / Safety-Critical | E2EE in PostgreSQL (`users.encryptedName`) | Tier 1 envelope encryption (legacy ECIES per-user — HPKE migration planned); server stores ciphertext only |
+| Volunteer identity (phone) | PII / Safety-Critical | E2EE in PostgreSQL (`users.encryptedPhone`) | Tier 1 envelope encryption (legacy ECIES); server needs ciphertext for routing but cannot read plaintext |
+| Volunteer private keys (nsec) | Secret | Multi-factor encrypted in browser localStorage | PIN + IdP value + optional WebAuthn PRF; PBKDF2-SHA256 600K iterations, factors combined via HKDF-SHA256 → XChaCha20-Poly1305 encrypts nsec |
 | Admin private key (nsec) | Secret | Operator-managed (env var, hardware key) | Never stored server-side |
 | IdP value (nsec_secret) | Secret | Authentik user attributes (encrypted) | XChaCha20-Poly1305 with HKDF-derived key from `IDP_VALUE_ENCRYPTION_KEY` |
 | JWT access tokens | Secret | Memory-only (client), never persisted | Short-lived (15min TTL), signed with `JWT_SECRET` |
-| JWT refresh tokens | Secret | httpOnly secure cookie (client) | Revocable via `jwtRevocations` table (by jti) |
+| JWT refresh tokens | Secret | httpOnly secure cookie (client) | Revocable via `user_sessions` table; rotated on every refresh |
 | WebAuthn credentials | Secret | PostgreSQL (`webauthnCredentials` table) | Credential public keys stored; private keys never leave authenticator |
 | Audit logs | Operational | PostgreSQL | Admin-only access; IP hashes truncated to 96 bits; hash-chained for tamper detection |
 | Shift schedules | Operational | PostgreSQL | Hub-key encrypted names; authenticated access only |
-| Org metadata (role names, shift names, etc.) | Operational | PostgreSQL | Hub-key encrypted (XChaCha20-Poly1305 with shared hub key) |
+| Org metadata (role names, shift names, etc.) | Operational | PostgreSQL | Hub-key encrypted (AES-256-GCM via non-extractable WebCrypto `CryptoKey`, per-record AAD) |
 | Contact directory PII | PII / Safety-Critical | E2EE in PostgreSQL | Tier 1 envelope encryption; display name, full name, phone, notes all encrypted |
 | Telephony credentials | Secret | Environment variables / `.env` | Never in source control; never sent to client |
 
@@ -46,7 +46,7 @@ This document defines the threat model for Llamenos, a secure crisis response ho
 - Auto-lock on idle/tab-hide — limits physical access window
 - Generic PWA name ("Hotline") — reduces identification on seized devices
 - JWT short-lived access tokens (15min) — limits window of stolen token utility
-- Domain-separated ECIES — no cross-context key reuse
+- Domain-separated HPKE (76 `LABEL_*` constants, 42 wire-indexed in `LABEL_REGISTRY`) — no cross-context key reuse
 - Certificate pinning NOT implemented (impractical for web apps; rely on HSTS preload)
 
 **Residual risks**:
@@ -123,7 +123,8 @@ This document defines the threat model for Llamenos, a secure crisis response ho
 │  Volunteer's Browser                                              │
 │  ┌───────────┐ ┌──────────────┐ ┌──────────────┐                │
 │  │ Key Mgr   │ │ Crypto       │ │ Auth Context │                │
-│  │ (closure) │ │ ECIES+XChaCha│ │ JWT + WA     │                │
+│  │ (closure) │ │ HPKE+MLS+    │ │ JWT + WA     │                │
+│  │           │ │ legacy ECIES │ │              │                │
 │  └───────────┘ └──────────────┘ └──────────────┘                │
 │                                                                   │
 │  Decrypted notes exist ONLY here, in memory, while unlocked      │
@@ -179,15 +180,19 @@ This document defines the threat model for Llamenos, a secure crisis response ho
 
 | Property | Mechanism | Strength |
 |----------|-----------|----------|
-| Note confidentiality | XChaCha20-Poly1305 with random per-note key | 256-bit symmetric |
-| Note integrity | Poly1305 MAC (AEAD) | 128-bit |
-| Note forward secrecy | Ephemeral ECDH per note + per recipient | secp256k1 |
-| Key-at-rest confidentiality | PBKDF2-SHA256 (600K iter) + XChaCha20-Poly1305 | ~20 bits PIN + 256-bit key |
+| Note/message confidentiality | MLS groupwise encryption (`MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519`) via `@wireapp/core-crypto` | 128-bit AEAD security (AES-128-GCM within MLS) |
+| Note/message integrity | MLS authenticated encryption (AEAD) | 128-bit |
+| Note/message forward secrecy | MLS epoch ratchet — epoch advances on membership change | X25519 + Ed25519 |
+| Hub-field confidentiality | AES-256-GCM via non-extractable WebCrypto `CryptoKey`, per-record AAD | 256-bit symmetric |
+| Hub key distribution | HPKE RFC 9180: `DHKEM(X25519, HKDF-SHA256) + AES-256-GCM` | 128-bit KEM security |
+| Envelope PII confidentiality | Legacy ECIES (secp256k1 ECDH + XChaCha20-Poly1305) | 128-bit ECDH + 256-bit symmetric |
+| Key-at-rest confidentiality | PBKDF2-SHA256 (600K iter) + HKDF-SHA256 → XChaCha20-Poly1305 | ~20 bits PIN + IdP factor + 256-bit key |
 | Auth token unforgeability | BIP-340 Schnorr signatures (login) | 128-bit security level |
 | JWT access token integrity | HMAC-SHA256 with server `JWT_SECRET` | 256-bit key |
-| JWT refresh token revocability | `jwtRevocations` table keyed by jti | Immediate revocation, cleanup after expiry |
-| Multi-factor KEK strength | PIN + IdP value + optional WebAuthn PRF | Compromise of any single factor insufficient |
+| JWT refresh token revocability | `user_sessions` table with hashed 32-byte tokens; rotated on every refresh | Immediate revocation |
+| Multi-factor KEK strength | PIN + IdP value + optional WebAuthn PRF combined via HKDF-SHA256 | Compromise of any single factor insufficient |
 | Phone hash preimage resistance | HMAC-SHA256 with operator secret | Infeasible without HMAC secret |
+| Domain separation | 76 `LABEL_*` constants (42 wire-indexed in `LABEL_REGISTRY`); HPKE envelopes embed `labelId` cross-checked on open | No cross-context key reuse |
 
 ### What We Do NOT Guarantee
 
@@ -196,7 +201,7 @@ This document defines the threat model for Llamenos, a secure crisis response ho
 | Traffic analysis resistance | No padding, no dummy traffic | Yes — impractical for a web app |
 | Metadata confidentiality | Server needs `callId`, `authorPubkey`, timestamps for routing | Yes — documented trade-off |
 | SMS/WhatsApp E2EE | Provider requires plaintext | Yes — documented per-channel |
-| PIN brute-force resistance (offline) | 4-6 digit PIN, ~10K-1M possibilities | Marginal — recommend 6-digit minimum |
+| PIN brute-force resistance (offline) | 4-6 digit PIN, ~10K-1M possibilities; requires IdP value as co-factor | Marginal PIN alone — multi-factor KEK requires all factors |
 | Server-side key deletion verification | Cannot prove hosting provider/operator deleted data | Yes — fundamental cloud trust limitation |
 
 ## Legal Compulsion and Subpoena Scenarios
@@ -254,7 +259,7 @@ This section documents what data can be obtained through legal process against v
 **With all factors (PIN + IdP value + optional PRF):**
 - Access to that volunteer's decrypted notes
 - Cannot decrypt other volunteers' notes (separate keypairs)
-- Per-note forward secrecy: compromising identity key does not reveal notes without also obtaining the per-note ECIES envelopes
+- MLS forward secrecy: compromising identity key does not reveal past notes — MLS epoch ratchet ensures forward secrecy on membership change
 
 **Mitigations:**
 - Multi-factor KEK makes PIN-only brute-force insufficient
@@ -297,7 +302,7 @@ The system uses short-lived JWT access tokens (15-minute TTL) and longer-lived r
 | Threat | Impact | Window | Mitigation |
 |--------|--------|--------|------------|
 | Access token theft (XSS, memory dump) | Impersonation for API calls | 15 minutes (token TTL) | Short TTL limits window; CSP `script-src 'self'` prevents most XSS; token never persisted to storage |
-| Refresh token theft (cookie exfiltration) | Token renewal for extended access | Until revoked | httpOnly + Secure + SameSite=Strict cookie; revocable via `jwtRevocations` table by jti |
+| Refresh token theft (cookie exfiltration) | Token renewal for extended access | Until revoked | Opaque 32-byte random token; httpOnly + Secure + SameSite=Strict cookie; revocable via `user_sessions` table; rotated on every refresh (stolen token invalidated after next legitimate refresh) |
 | Token injection (forged JWT) | Unauthorized API access | N/A if secret is secure | Requires `JWT_SECRET`; use `openssl rand -hex 32` for 256-bit entropy |
 | JWT_SECRET compromise | All tokens forgeable | Until secret rotation | Rotate immediately; set `JWT_SECRET_PREVIOUS` for 15-minute transition; revoke all refresh tokens |
 | Bulk session hijacking | Mass impersonation | Until detected | Monitor audit logs for anomalous patterns; JWT includes `pubkey` in `sub` claim for attribution |
@@ -617,7 +622,7 @@ When a volunteer departs the organization (whether amicably or under hostile cir
 | Action | Reason |
 |--------|--------|
 | Decrypt new hub events | Hub key is rotated on departure (see Key Revocation Runbook Section 3b); new hub key is not distributed to the departed volunteer |
-| Decrypt other volunteers' notes | They never had those envelope keys; per-note ECIES wrapping is per-recipient |
+| Decrypt other volunteers' notes | They never had those envelope keys; MLS group membership scoped per hub |
 | Decrypt notes created after departure | New notes use new hub key; even if they somehow obtained ciphertext, they lack the decryption key |
 | Access the application | Session revocation on deactivation; WebAuthn credentials tied to their account are revoked |
 | Decrypt admin-only note envelopes | They never had the admin private key |
@@ -628,7 +633,7 @@ The hub key is a shared symmetric key used to encrypt Nostr events visible to al
 
 1. Admin deactivates the volunteer (existing functionality)
 2. All active sessions for the volunteer are revoked (existing)
-3. A new hub key is generated and distributed via ECIES to all remaining members (Epic 76.2)
+3. A new hub key is generated and HPKE-distributed to all remaining devices (Epic 76.2)
 4. All events published after rotation use the new hub key
 5. The departed volunteer retains the old hub key and can decrypt historical hub events they had access to during their tenure
 
@@ -861,7 +866,7 @@ Epic 76.2 introduced a separation between the admin's identity key and decryptio
 ### Design
 
 - **Identity key (nsec)**: Used for Schnorr signature authentication, signing Nostr events, and hub administration (invite/revoke)
-- **Decryption key**: A separate keypair used for ECIES envelope unwrapping (notes, messages, metadata)
+- **Decryption key**: A separate keypair used for ECIES envelope unwrapping (legacy PII) and MLS group membership (notes, messages)
 
 ### Compromise Scenarios
 
@@ -877,8 +882,8 @@ The hub key is a random 32-byte value (`crypto.getRandomValues(new Uint8Array(32
 
 - Compromising any identity key does NOT reveal the hub key
 - Hub key rotation generates a genuinely new random key with no mathematical link to the old one
-- The hub key is distributed via ECIES (wrapped individually per member with `LABEL_HUB_KEY_WRAP`)
-- A compromised hub key reveals only hub-encrypted Nostr event content (presence, call notifications) — NOT individual notes or messages (those use per-artifact keys)
+- The hub key is distributed via HPKE (wrapped per device under `LABEL_HUB_KEY_WRAP` with `HpkeEnvelope { v: 3, labelId, enc, ct }`)
+- A compromised hub key reveals only hub-encrypted Nostr event content (presence, call notifications) — NOT individual notes or messages (those use MLS group encryption)
 
 **Rotation procedure**: See [Key Revocation Runbook, Section 4](KEY_REVOCATION_RUNBOOK.md#4-hub-key-rotation-ceremony).
 

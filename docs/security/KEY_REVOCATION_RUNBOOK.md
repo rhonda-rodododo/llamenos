@@ -51,18 +51,13 @@ These steps must be completed as fast as possible. The goal is to revoke the com
      "http://authentik-server:9000/api/v3/core/users/<user_pk>/"
    ```
 
-3. **Bulk-revoke all JWT refresh tokens** for the compromised admin:
+3. **Bulk-revoke all sessions** for the compromised admin:
    ```sql
    -- Run against the app database
-   INSERT INTO jwt_revocations (jti, pubkey, expires_at, created_at)
-   SELECT jti, pubkey, expires_at, NOW()
-   FROM jwt_active_tokens  -- or revoke all for the pubkey
-   WHERE pubkey = '<compromised_admin_pubkey>';
-   ```
-   If a `jwt_active_tokens` table does not exist, revoke by inserting a sentinel:
-   ```sql
-   INSERT INTO jwt_revocations (jti, pubkey, expires_at)
-   VALUES ('BULK_REVOKE_' || '<compromised_admin_pubkey>', '<compromised_admin_pubkey>', NOW() + INTERVAL '24 hours');
+   UPDATE user_sessions
+   SET revoked_at = NOW(), revoked_reason = 'admin'
+   WHERE user_pubkey = '<compromised_admin_pubkey>'
+     AND revoked_at IS NULL;
    ```
 
 4. **Update the deployment configuration** with the new admin public key:
@@ -125,7 +120,7 @@ After completing all admin key compromise response actions, verify:
 - [ ] New admin keypair is active — admin can log in with the new nsec
 - [ ] Old admin keypair is rejected — login attempt with old nsec fails
 - [ ] Old admin disabled in Authentik — IdP value no longer retrievable
-- [ ] All JWT refresh tokens for old admin are revoked — check `jwt_revocations` table
+- [ ] All sessions for old admin are revoked — check `user_sessions` table (`revoked_at IS NOT NULL`)
 - [ ] Hub key has been rotated — test by publishing a hub event and verifying active members can decrypt
 - [ ] All active volunteer sessions are functional — at least one volunteer confirms they can decrypt notes
 - [ ] Audit log shows the compromise response actions (key rotation, session invalidation, IdP disable)
@@ -150,10 +145,12 @@ The volunteer is cooperating and leaving on good terms. They may retain their ns
 
 2. **Disable the volunteer in Authentik** — prevents IdP value retrieval on any device, blocking key unlock even if they retain their PIN.
 
-3. **Revoke all JWT refresh tokens** for the volunteer:
+3. **Revoke all sessions** for the volunteer:
    ```sql
-   INSERT INTO jwt_revocations (jti, pubkey, expires_at)
-   VALUES ('DEPART_' || '<volunteer_pubkey>', '<volunteer_pubkey>', NOW() + INTERVAL '24 hours');
+   UPDATE user_sessions
+   SET revoked_at = NOW(), revoked_reason = 'admin'
+   WHERE user_pubkey = '<volunteer_pubkey>'
+     AND revoked_at IS NULL;
    ```
 
 4. **Confirm session revocation** -- the volunteer should be logged out of all devices. Verify no active sessions remain in the admin panel.
@@ -202,10 +199,12 @@ The volunteer is leaving on bad terms, has been terminated, or is suspected of a
      "http://authentik-server:9000/api/v3/core/users/?username=<volunteer_pubkey>"
    ```
 
-3. **Bulk-revoke all JWT tokens** for the volunteer:
+3. **Bulk-revoke all sessions** for the volunteer:
    ```sql
-   INSERT INTO jwt_revocations (jti, pubkey, expires_at)
-   VALUES ('HOSTILE_DEPART_' || '<volunteer_pubkey>', '<volunteer_pubkey>', NOW() + INTERVAL '24 hours');
+   UPDATE user_sessions
+   SET revoked_at = NOW(), revoked_reason = 'admin'
+   WHERE user_pubkey = '<volunteer_pubkey>'
+     AND revoked_at IS NULL;
    ```
 
 4. **Rotate the hub key immediately** (see [Section 4](#4-hub-key-rotation-ceremony)). Do not delay.
@@ -434,34 +433,31 @@ docker compose exec app curl -sf -X PATCH \
 
 **Effect**: The user's existing JWT access token remains valid until expiry (max 15 minutes). After that, token refresh fails. For immediate cutoff, combine with JWT revocation (Section 5.2).
 
-### 5.2 Per-Device JWT Session Revocation
+### 5.2 Per-Device Session Revocation
 
 To revoke a specific device's session (e.g., a seized device while keeping the user's other devices active):
 
 ```sql
--- Revoke a specific refresh token by jti
-INSERT INTO jwt_revocations (jti, pubkey, expires_at)
-VALUES ('<specific_jti>', '<pubkey>', '<token_expires_at>');
+-- Revoke a specific session by ID
+UPDATE user_sessions
+SET revoked_at = NOW(), revoked_reason = 'admin'
+WHERE id = '<session_id>';
 ```
 
-The `jti` can be found in the audit log (logged on token issuance) or by decoding the JWT.
+The session ID can be found via the admin session list endpoint (`GET /api/auth/sessions?pubkey=<pubkey>`) or in the audit log.
 
-### 5.3 Bulk JWT Revocation (All Sessions for a User)
+### 5.3 Bulk Session Revocation (All Sessions for a User)
 
 To revoke all sessions for a user across all devices:
 
 ```sql
--- Insert a bulk revocation marker
--- The app server checks for pubkey-level revocations
-INSERT INTO jwt_revocations (jti, pubkey, expires_at)
-VALUES (
-  'BULK_' || gen_random_uuid()::text,
-  '<pubkey>',
-  NOW() + INTERVAL '24 hours'
-);
+UPDATE user_sessions
+SET revoked_at = NOW(), revoked_reason = 'admin'
+WHERE user_pubkey = '<pubkey>'
+  AND revoked_at IS NULL;
 ```
 
-**Note**: Existing access tokens (up to 15 minutes old) will continue to work until they expire. For true immediate lockout, restart the app server to clear any in-memory token caches.
+**Note**: Existing JWT access tokens (up to 15 minutes old) will continue to work until they expire. The revoked sessions prevent token refresh, so full lockout occurs within 15 minutes at most. For true immediate lockout, restart the app server to clear any in-memory token caches.
 
 ### 5.4 Re-Enrollment Flow
 
@@ -473,13 +469,13 @@ After a user has been disabled and their sessions revoked, re-enrollment require
    - New keypair generated in-browser (if pubkey change)
    - New IdP value generated and stored in Authentik
    - New multi-factor KEK derived from PIN + new IdP value + optional WebAuthn PRF
-   - New hub key distributed via ECIES
+   - New hub key distributed via HPKE
 4. **Verify** the user can decrypt hub events and access their assigned data
 
 ### 5.5 Verification Checklist
 
 - [ ] User disabled in Authentik (if applicable)
-- [ ] JWT refresh tokens revoked in `jwt_revocations` table
+- [ ] All sessions revoked in `user_sessions` table (`revoked_at IS NOT NULL`)
 - [ ] User cannot refresh tokens (returns 401)
 - [ ] User cannot retrieve IdP value (returns 403 or user-not-found)
 - [ ] After access token expires (15min), user is fully locked out
