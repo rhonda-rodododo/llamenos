@@ -81,9 +81,9 @@ test.describe('Role Assignment UI', () => {
     await adminPage.getByRole('link', { name: 'Users' }).click()
     await adminPage.getByRole('button', { name: /invite user/i }).click()
 
-    // Click the role dropdown
+    // Click the role dropdown (roles are hub-encrypted; decrypt-on-fetch may be slow on CI)
     const roleDropdown = adminPage.locator('#invite-role')
-    await roleDropdown.click()
+    await roleDropdown.click({ timeout: 30000 })
 
     // All default roles should be present
     await expect(adminPage.getByRole('option', { name: 'Super Admin' })).toBeVisible()
