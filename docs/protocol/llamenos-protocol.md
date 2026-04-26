@@ -834,10 +834,10 @@ The hub key is a shared 32-byte symmetric key used to encrypt Nostr relay events
 ```
 hubKey = crypto.getRandomValues(new Uint8Array(32))
 
-// Wrap for each member via HPKE
-for each memberPubkey in activeMembers:
-  aad = buildAad(LABEL_HUB_KEY_WRAP, memberPubkey, "hub-key-wrap")
-  envelope = hpkeSeal(hubKey, memberX25519PublicKey, LABEL_HUB_KEY_WRAP, aad)
+// Wrap for each device via HPKE
+for each deviceX25519PublicKey in activeDevices:
+  aad = buildAad(LABEL_HUB_KEY_WRAP, devicePubkey, "hub-key-wrap")
+  envelope = hpkeSeal(hubKey, deviceX25519PublicKey, LABEL_HUB_KEY_WRAP, aad)
   // envelope: HpkeEnvelope { v: 3, labelId: 1, enc: <base64url>, ct: <base64url> }
   // Store server-side or publish to relay
 ```

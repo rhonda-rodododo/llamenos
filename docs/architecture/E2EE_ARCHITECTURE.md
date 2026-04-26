@@ -41,7 +41,7 @@ All persistent data in Llamenos is encrypted using one of three tiers, chosen by
 │  TIER 2: Hub-Key Encrypted Org Metadata (AES-256-GCM via WebCrypto)     │
 │                                                                          │
 │  Who decrypts: All hub members (shared hub key)                          │
-│  Key: Random 32 bytes, HPKE-distributed per member                       │
+│  Key: Random 32 bytes, HPKE-distributed per device                       │
 │       DHKEM(X25519, HKDF-SHA256) + HKDF-SHA256 + AES-256-GCM           │
 │  Crypto: AES-256-GCM via non-extractable WebCrypto CryptoKey            │
 │  AAD: buildAad(label, recordId, fieldName) — prevents row/column swaps  │
@@ -346,7 +346,7 @@ DISTRIBUTION:
       → HpkeEnvelope { v: 3, labelId, enc, ct }
       Suite: DHKEM(X25519, HKDF-SHA256) + HKDF-SHA256 + AES-256-GCM (RFC 9180)
 
-  Stored server-side: array of HPKE envelopes per member
+  Stored server-side: array of HPKE envelopes per device
   Fetched client-side: GET /api/hub/key → member's envelope
 
 LOADING (client-side, after PIN unlock):
@@ -378,7 +378,7 @@ ROTATION (on member departure):
 | Property | Mechanism |
 |----------|-----------|
 | Pure random | `crypto.getRandomValues(32)` — no derivation from identity keys |
-| Individual wrapping | HPKE per member with `LABEL_HUB_KEY_WRAP` domain separation (DHKEM(X25519, HKDF-SHA256) + AES-256-GCM) |
+| Individual wrapping | HPKE per device with `LABEL_HUB_KEY_WRAP` domain separation (DHKEM(X25519, HKDF-SHA256) + AES-256-GCM) |
 | No shared admin secret | Each member gets their own HPKE-wrapped copy |
 | Non-extractable storage | Hub key imported as non-extractable AES-256-GCM `CryptoKey` — WebCrypto prevents export |
 | Rotation breaks access | New key = new random bytes, no mathematical link to old key |
