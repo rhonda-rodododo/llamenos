@@ -137,7 +137,7 @@ export function clearHubKeyCache(): void {
  *
  * For E2E tests only — allows Playwright to provision a known hub key so that
  * encrypted org metadata can be decrypted in the browser without going through
- * the full ECIES envelope unwrap flow. Imports the CryptoKey handle so that
+ * the full HPKE envelope unwrap flow. Imports the CryptoKey handle so that
  * both the v1 and v3 read paths work immediately after injection.
  */
 export async function setHubKeyForTest(hubId: string, key: Uint8Array): Promise<void> {
