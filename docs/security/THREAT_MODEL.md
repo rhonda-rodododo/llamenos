@@ -810,7 +810,7 @@ The Nostr relay (strfry, self-hosted) handles all real-time communication. Under
 
 | Protected | Mechanism |
 |-----------|-----------|
-| Event content | All event content is encrypted with the hub key (AES-256-GCM + HKDF per-event) |
+| Event content | All event content is encrypted with the hub key (XChaCha20-Poly1305 + HKDF per-event) |
 | Event type | Actual event type (call:ring, presence, typing, etc.) is inside the encrypted content |
 | Note/message content | Notes and messages are stored via REST API, not through the relay |
 | Volunteer identity | Pubkeys are pseudonymous; relay has no mapping to real identities |

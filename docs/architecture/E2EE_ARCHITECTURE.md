@@ -578,7 +578,7 @@ Hub Key (random 32 bytes, NOT derived from any identity key)
     │       └─→ Hub names
     │       AAD: buildAad(label, recordId, fieldName) per encrypted field
     │
-    ├─→ Nostr event content encryption (AES-256-GCM + HKDF per-event)
+    ├─→ Nostr event content encryption (XChaCha20-Poly1305 + HKDF per-event)
     ├─→ Presence encryption (volunteer-tier: boolean only)
     ├─→ Storage credential wrapping (LABEL_STORAGE_CREDENTIAL_WRAP)
     │
@@ -683,7 +683,7 @@ The branded `Ciphertext` and `HmacHash` types provide compile-time safety — yo
    Event {
      kind: 20001,  // Ephemeral — relay forwards, never stores
      tags: [["d", hubId], ["t", "llamenos:event"]],  // Generic tag
-     content: AES-256-GCM(hubKey, {type: "call:ring", callId, callerLast4}),
+     content: XChaCha20-Poly1305(hubKey, {type: "call:ring", callId, callerLast4}),
      pubkey: serverPubkey  // Server signs with its own nsec
    }
    │
@@ -730,7 +730,7 @@ The branded `Ciphertext` and `HmacHash` types provide compile-time safety — yo
    Event {
      kind: 20001,
      tags: [["d", hubId], ["t", "llamenos:event"]],
-     content: AES-256-GCM(hubKey, {type: "message:new", threadId}),
+     content: XChaCha20-Poly1305(hubKey, {type: "message:new", threadId}),
    }
 
 Server NEVER stores: plaintext message
