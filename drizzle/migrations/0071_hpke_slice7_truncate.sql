@@ -8,6 +8,18 @@
 
 BEGIN;
 
+-- Safety rail: abort if users table has significant data (production guard).
+DO $$
+DECLARE
+  row_count bigint;
+BEGIN
+  SELECT count(*) INTO row_count FROM users;
+  IF row_count > 1000 THEN
+    RAISE EXCEPTION 'Safety rail: users table has % rows — this migration is pre-production only', row_count;
+  END IF;
+END
+$$;
+
 -- Truncate all tables containing ciphertext columns.
 -- CASCADE handles FK references between these tables.
 TRUNCATE TABLE
