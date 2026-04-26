@@ -13,15 +13,3 @@ const UpdateTeamSchema = z.object({
   encryptedDescription: z.string().nullable().optional(),
 })
 export type UpdateTeamInput = z.infer<typeof UpdateTeamSchema>
-
-// ── Add Members ──
-const AddTeamMembersSchema = z.object({
-  pubkeys: z.array(z.string().min(1)).min(1),
-})
-export type AddTeamMembersInput = z.infer<typeof AddTeamMembersSchema>
-
-// ── Assign Contacts ──
-const AssignTeamContactsSchema = z.object({
-  contactIds: z.array(z.string().min(1)).min(1),
-})
-export type AssignTeamContactsInput = z.infer<typeof AssignTeamContactsSchema>
