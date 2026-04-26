@@ -1064,7 +1064,7 @@ All features verified:
 | `src/client/lib/crypto-worker.ts` | Web Worker — holds nsec, HPKE private key, hub key, MLS instance |
 | `src/client/lib/crypto-worker-client.ts` | Main-thread typed RPC client for crypto worker |
 | `src/client/lib/key-manager.ts` | Singleton key manager — multi-factor unlock |
-| `src/client/lib/key-store-v2.ts` | KEK derivation (PBKDF2 + HKDF), encrypted storage |
+| `src/client/lib/key-store.ts` | KEK derivation (PBKDF2 + HKDF), encrypted storage |
 | `src/client/lib/hub-key-manager.ts` | Hub key generation, HPKE wrapping, rotation |
 | `src/client/lib/hub-key-cache.ts` | Module-level hub key cache (Map<hubId, CryptoKey>) |
 | `src/client/lib/hub-field-crypto.ts` | Tier 2 AES-256-GCM encrypt/decrypt with per-record AAD |

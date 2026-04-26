@@ -251,32 +251,22 @@ The IdP value (one encryption factor) is fetched from Authentik on unlock and he
 
 ## Data Flow Diagrams
 
-### Note Encryption Flow
+### Note Encryption Flow (MLS Groupwise — Current)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ VOLUNTEER'S BROWSER                                             │
-│ ┌─────────────┐    ┌──────────────┐    ┌──────────────────────┐ │
-│ │ Note Text   │───▶│ Generate     │───▶│ XChaCha20-Poly1305   │ │
-│ │ + Fields    │    │ noteKey (32B)│    │ encrypt(noteKey,     │ │
-│ └─────────────┘    └──────────────┘    │ nonce, plaintext)    │ │
-│                           │            └──────────┬───────────┘ │
-│                           │                       │             │
-│                           ▼                       ▼             │
-│              ┌────────────────────┐    ┌──────────────────────┐ │
-│              │ ECIES wrap for     │    │ encryptedContent     │ │
-│              │ volunteer pubkey   │    │ (ciphertext)         │ │
-│              └────────┬───────────┘    └──────────────────────┘ │
-│                       │                           │             │
-│              ┌────────┴───────────┐               │             │
-│              │ ECIES wrap for     │               │             │
-│              │ admin pubkey       │               │             │
-│              └────────┬───────────┘               │             │
-│                       │                           │             │
-│                       ▼                           ▼             │
+│ VOLUNTEER'S BROWSER (Crypto Web Worker)                         │
+│ ┌─────────────┐    ┌──────────────────────────────────────────┐ │
+│ │ Note Text   │───▶│ MLS Group Encrypt                       │ │
+│ │ + Fields    │    │ mlsInstance.encrypt(hubGroupId,          │ │
+│ └─────────────┘    │   UTF-8(JSON.stringify({ text, fields })))│ │
+│                    └──────────┬───────────────────────────────┘ │
+│                               │                                 │
+│                               ▼                                 │
 │              ┌────────────────────────────────────────────────┐ │
-│              │ { encryptedContent, authorEnvelope,           │ │
-│              │   adminEnvelope, authorPubkey, createdAt }    │ │
+│              │ MLS application message ciphertext             │ │
+│              │ (authenticated, forward-secret via epoch)      │ │
+│              │ { mlsCiphertext, authorPubkey, mlsEpoch }     │ │
 │              └──────────────────────┬─────────────────────────┘ │
 └─────────────────────────────────────┼───────────────────────────┘
                                       │ HTTPS
@@ -284,11 +274,15 @@ The IdP value (one encryption factor) is fetched from Authentik on unlock and he
 ┌─────────────────────────────────────────────────────────────────┐
 │ SERVER (no access to plaintext)                                 │
 │ ┌─────────────────────────────────────────────────────────────┐ │
-│ │ PostgreSQL stores encrypted note as-is                      │ │
-│ │ Server can see: authorPubkey, createdAt, callId            │ │
-│ │ Server cannot see: note text, custom field values          │ │
+│ │ PostgreSQL stores opaque MLS ciphertext as-is               │ │
+│ │ Server can see: authorPubkey, createdAt, callId, mlsEpoch  │ │
+│ │ Server cannot see: note text, custom field values           │ │
 │ └─────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
+
+Note: All hub MLS group members can decrypt (not just author + admin).
+Epoch advances on membership change provide forward secrecy.
+See E2EE_ARCHITECTURE.md for full MLS group details.
 ```
 
 ### Caller Phone Number Flow

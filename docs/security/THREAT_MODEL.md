@@ -883,7 +883,7 @@ The hub key is a random 32-byte value (`crypto.getRandomValues(new Uint8Array(32
 - Compromising any identity key does NOT reveal the hub key
 - Hub key rotation generates a genuinely new random key with no mathematical link to the old one
 - The hub key is distributed via HPKE (wrapped per device under `LABEL_HUB_KEY_WRAP` with `HpkeEnvelope { v: 3, labelId, enc, ct }`)
-- A compromised hub key reveals only hub-encrypted Nostr event content (presence, call notifications) — NOT individual notes or messages (those use per-artifact keys)
+- A compromised hub key reveals only hub-encrypted Nostr event content (presence, call notifications) — NOT individual notes or messages (those use MLS group encryption)
 
 **Rotation procedure**: See [Key Revocation Runbook, Section 4](KEY_REVOCATION_RUNBOOK.md#4-hub-key-rotation-ceremony).
 
