@@ -79,7 +79,7 @@ function subscribeToRelay(
 
 /** Decode hex string (returns null if invalid hex) */
 function isValidHex(s: string): boolean {
-  return /^[0-9a-f]+$/i.test(s) && s.length >= 48 // at least 24-byte nonce
+  return /^[0-9a-f]+$/i.test(s) && s.length >= 56 // at least 12-byte nonce (24 hex) + 16-byte tag (32 hex)
 }
 
 function formEncode(params: Record<string, string>): string {
@@ -105,15 +105,15 @@ function formEncode(params: Record<string, string>): string {
 type CollectedEvent = { kind: number; content: string; tags: string[][] }
 type DecryptedCallRing = { event: CollectedEvent; plaintext: Record<string, unknown> }
 
-function findOwnCallRingEvent(
+async function findOwnCallRingEvent(
   events: CollectedEvent[],
   eventKey: Uint8Array,
   expectedCallSid: string,
-  decryptFn: (ct: string, key: Uint8Array) => Record<string, unknown> | null
-): DecryptedCallRing | undefined {
+  decryptFn: (ct: string, key: Uint8Array) => Promise<Record<string, unknown> | null>
+): Promise<DecryptedCallRing | undefined> {
   for (const event of events) {
     if (event.kind !== KIND_CALL_RING) continue
-    const plaintext = decryptFn(event.content, eventKey)
+    const plaintext = await decryptFn(event.content, eventKey)
     if (plaintext && plaintext.callSid === expectedCallSid) {
       return { event, plaintext }
     }
@@ -215,7 +215,8 @@ test.describe('Call ring Nostr events', () => {
     const eventKey = deriveServerEventKey(SERVER_NOSTR_SECRET)
     const deadline = Date.now() + 3000
     while (
-      findOwnCallRingEvent(collectedEvents, eventKey, callSid, decryptHubEvent) === undefined &&
+      (await findOwnCallRingEvent(collectedEvents, eventKey, callSid, decryptHubEvent)) ===
+        undefined &&
       Date.now() < deadline
     ) {
       await new Promise((r) => setTimeout(r, 100))
@@ -223,7 +224,7 @@ test.describe('Call ring Nostr events', () => {
 
     ws.close()
 
-    const own = findOwnCallRingEvent(collectedEvents, eventKey, callSid, decryptHubEvent)
+    const own = await findOwnCallRingEvent(collectedEvents, eventKey, callSid, decryptHubEvent)
     expect(
       own,
       `Expected a KIND_CALL_RING event matching this test's callSid (${callSid}) on relay after inbound call`
@@ -270,7 +271,8 @@ test.describe('Call ring Nostr events', () => {
 
     const deadline = Date.now() + 3000
     while (
-      findOwnCallRingEvent(collectedEvents, eventKey, callSid, decryptHubEvent) === undefined &&
+      (await findOwnCallRingEvent(collectedEvents, eventKey, callSid, decryptHubEvent)) ===
+        undefined &&
       Date.now() < deadline
     ) {
       await new Promise((r) => setTimeout(r, 100))
@@ -278,7 +280,7 @@ test.describe('Call ring Nostr events', () => {
 
     ws.close()
 
-    const own = findOwnCallRingEvent(collectedEvents, eventKey, callSid, decryptHubEvent)
+    const own = await findOwnCallRingEvent(collectedEvents, eventKey, callSid, decryptHubEvent)
     expect(own, `Expected a KIND_CALL_RING event matching callSid ${callSid}`).toBeDefined()
 
     // Content must NOT be parseable as JSON (it's hex-encoded ciphertext)
@@ -338,7 +340,8 @@ test.describe('Call ring Nostr events', () => {
 
     const deadline = Date.now() + 3000
     while (
-      findOwnCallRingEvent(collectedEvents, eventKey, callSid, decryptHubEvent) === undefined &&
+      (await findOwnCallRingEvent(collectedEvents, eventKey, callSid, decryptHubEvent)) ===
+        undefined &&
       Date.now() < deadline
     ) {
       await new Promise((r) => setTimeout(r, 100))
@@ -346,7 +349,7 @@ test.describe('Call ring Nostr events', () => {
 
     ws.close()
 
-    const own = findOwnCallRingEvent(collectedEvents, eventKey, callSid, decryptHubEvent)
+    const own = await findOwnCallRingEvent(collectedEvents, eventKey, callSid, decryptHubEvent)
     expect(own, `Expected a KIND_CALL_RING event matching callSid ${callSid}`).toBeDefined()
 
     const tagMap = Object.fromEntries(own!.event.tags.map((t) => [t[0], t[1]]))
@@ -395,7 +398,8 @@ test.describe('Call ring Nostr events', () => {
 
     const deadline = Date.now() + 3000
     while (
-      findOwnCallRingEvent(collectedEvents, eventKey, callSid, decryptHubEvent) === undefined &&
+      (await findOwnCallRingEvent(collectedEvents, eventKey, callSid, decryptHubEvent)) ===
+        undefined &&
       Date.now() < deadline
     ) {
       await new Promise((r) => setTimeout(r, 100))
@@ -403,7 +407,7 @@ test.describe('Call ring Nostr events', () => {
 
     ws.close()
 
-    const own = findOwnCallRingEvent(collectedEvents, eventKey, callSid, decryptHubEvent)
+    const own = await findOwnCallRingEvent(collectedEvents, eventKey, callSid, decryptHubEvent)
     expect(own, `Expected a decryptable CALL_RING event matching callSid ${callSid}`).toBeDefined()
     expect(own!.plaintext.type, 'Decrypted event must have type "call:ring"').toBe('call:ring')
     expect(own!.plaintext.callSid, 'Decrypted event must contain the callSid').toBe(callSid)
@@ -451,7 +455,8 @@ test.describe('Call ring Nostr events', () => {
 
     const deadline = Date.now() + 3000
     while (
-      findOwnCallRingEvent(collectedEvents, eventKey, callSid, decryptHubEvent) === undefined &&
+      (await findOwnCallRingEvent(collectedEvents, eventKey, callSid, decryptHubEvent)) ===
+        undefined &&
       Date.now() < deadline
     ) {
       await new Promise((r) => setTimeout(r, 100))
@@ -459,7 +464,7 @@ test.describe('Call ring Nostr events', () => {
 
     ws.close()
 
-    const own = findOwnCallRingEvent(collectedEvents, eventKey, callSid, decryptHubEvent)
+    const own = await findOwnCallRingEvent(collectedEvents, eventKey, callSid, decryptHubEvent)
     expect(own, `Expected a KIND_CALL_RING event matching callSid ${callSid}`).toBeDefined()
 
     // Without the key, content must not contain any semantic information

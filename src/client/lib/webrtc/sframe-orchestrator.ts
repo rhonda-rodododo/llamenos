@@ -175,7 +175,7 @@ async function publishScoped(
   }
   const json = JSON.stringify(payload)
   const aad = new TextEncoder().encode(`${payload.type}:${payload.callId}`)
-  const encrypted = encryptForHub(json, hubKey, aad)
+  const encrypted = await encryptForHub(json, hubKey, aad)
   const event = await createHubEvent(hubId, kind, encrypted, pubkey, signEvent)
   await relay.publish(event)
 }

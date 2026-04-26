@@ -1,10 +1,10 @@
 /**
- * Multi-factor encrypted key storage using PBKDF2 + HKDF + XChaCha20-Poly1305.
+ * Multi-factor encrypted key storage using PBKDF2 + HKDF + AES-256-GCM.
  *
  * Key derivation:
  *   PIN → PBKDF2-SHA256 (600k iterations, 32-byte salt) → 32-byte pin-derived
  *   [pin-derived ‖ prfOutput? ‖ idpValue] → HKDF-SHA256 (info = 3F or 2F label) → 32-byte KEK
- *   KEK → XChaCha20-Poly1305 encrypts nsec bytes → stored in localStorage as JSON.
+ *   KEK → AES-256-GCM encrypts nsec bytes → stored in localStorage as JSON.
  *
  * 3-factor mode: PIN + WebAuthn PRF output + IdP-bound value
  * 2-factor mode: PIN + IdP-bound value (no PRF)
@@ -12,11 +12,11 @@
  * Decrypted keyPair is held in memory only — never written to storage unencrypted.
  */
 
-import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
 import { hkdf } from '@noble/hashes/hkdf.js'
 import { pbkdf2 } from '@noble/hashes/pbkdf2.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
+import { aesGcmDecrypt, aesGcmEncrypt } from '@shared/aes-gcm'
 import { HMAC_KEYID_PREFIX, LABEL_NSEC_KEK_2F, LABEL_NSEC_KEK_3F } from '@shared/crypto-labels'
 
 const STORAGE_KEY = 'llamenos-encrypted-key'
@@ -61,9 +61,9 @@ export interface KEKFactors {
 export interface EncryptedKeyData {
   version: 2
   kdf: 'pbkdf2-sha256'
-  cipher: 'xchacha20-poly1305'
+  cipher: 'aes-256-gcm'
   salt: string // hex, 32 bytes
-  nonce: string // hex, 24 bytes
+  nonce: string // hex, 12 bytes
   ciphertext: string // hex
   pubkeyHash: string // HMAC_KEYID_PREFIX hash (truncated SHA-256)
   prfUsed: boolean
@@ -104,20 +104,19 @@ export function deriveKEK(factors: KEKFactors): Uint8Array {
  * Encrypt an nsec hex string with a KEK. Returns an encrypted blob.
  * Caller must derive the KEK separately via deriveKEK().
  */
-export function encryptNsec(
+export async function encryptNsec(
   nsecHex: string,
   kek: Uint8Array,
   pubkey: string,
   prfUsed: boolean,
   idpIssuer: string,
   salt: Uint8Array
-): EncryptedKeyData {
-  const nonce = new Uint8Array(24)
-  crypto.getRandomValues(nonce)
-  const cipher = xchacha20poly1305(kek, nonce)
+): Promise<EncryptedKeyData> {
   const plaintext = new TextEncoder().encode(nsecHex)
-  const ciphertext = cipher.encrypt(plaintext)
-  plaintext.fill(0)
+  const packed = await aesGcmEncrypt(plaintext, kek, new Uint8Array(0))
+  // packed is hex: nonce(12 bytes = 24 hex chars) || ciphertext+tag
+  const nonceHex = packed.slice(0, 24)
+  const ctHex = packed.slice(24)
 
   // Hash pubkey for identification — never store plaintext pubkey alongside encrypted key
   const pubkeyHash = bytesToHex(
@@ -127,10 +126,10 @@ export function encryptNsec(
   return {
     version: 2,
     kdf: 'pbkdf2-sha256',
-    cipher: 'xchacha20-poly1305',
+    cipher: 'aes-256-gcm',
     salt: bytesToHex(salt),
-    nonce: bytesToHex(nonce),
-    ciphertext: bytesToHex(ciphertext),
+    nonce: nonceHex,
+    ciphertext: ctHex,
     pubkeyHash,
     prfUsed,
     idpIssuer,
@@ -141,12 +140,11 @@ export function encryptNsec(
  * Decrypt an encrypted blob using a KEK. Returns nsec hex string or null on failure.
  * Caller must derive the KEK separately via deriveKEK().
  */
-export function decryptNsec(data: EncryptedKeyData, kek: Uint8Array): string | null {
+export async function decryptNsec(data: EncryptedKeyData, kek: Uint8Array): Promise<string | null> {
   try {
-    const nonce = hexToBytes(data.nonce)
-    const ciphertext = hexToBytes(data.ciphertext)
-    const cipher = xchacha20poly1305(kek, nonce)
-    const plaintext = cipher.decrypt(ciphertext)
+    // Reconstruct packed hex: nonce || ciphertext
+    const packed = data.nonce + data.ciphertext
+    const plaintext = await aesGcmDecrypt(packed, kek, new Uint8Array(0))
     return new TextDecoder().decode(plaintext)
   } catch {
     return null // Wrong KEK or corrupted data

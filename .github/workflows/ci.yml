@@ -542,42 +542,36 @@ jobs:
             exit 1
           fi
 
-      - name: Tier 1 — no NEW callers of legacy ECIES/XChaCha20 primitives
-        env:
-          TIER1_LEGACY_ALLOW: '^(src/client/lib/(crypto-worker|crypto-worker-client|crypto-worker-helpers|crypto-service|backup|file-crypto|provisioning|key-store|hub-key-manager)\.ts|src/shared/(crypto-envelopes|crypto-primitives|crypto-labels)\.ts|src/server/(idp/authentik-adapter|routes/dev|lib/(crypto-service|agent-identity|hub-event-crypto)|jobs/blast-processor)\.ts)$'
+      - name: Tier 7 — @noble/ciphers fully removed (HPKE + AES-GCM only)
         run: |
-          # Tier 1 PR-A introduced HPKE/AES-GCM as the going-forward crypto
-          # path. The legacy ECIES + XChaCha20-Poly1305 surface in
-          # crypto-worker / crypto-primitives is still in use by call sites
-          # that migrate in PR-B. NEW code must not import from
-          # xchacha20poly1305 or call secp256k1 getSharedSecret; every such
-          # file is on an allowlist below and must be removed from the
-          # allowlist when its PR-B migration lands.
-          HITS=$(grep -rln \
-            -e "from '@noble/ciphers/chacha" \
-            -e 'getSharedSecret' \
-            src/ --include='*.ts' 2>/dev/null \
-            | grep -Ev '\.test\.ts$' \
-            | grep -Ev "$TIER1_LEGACY_ALLOW" || true)
+          # Slice 7 completed the XChaCha20→AES-GCM + ECIES deletion migration.
+          # @noble/ciphers must not appear anywhere in src/ — all symmetric
+          # crypto uses WebCrypto AES-256-GCM via src/shared/aes-gcm.ts, and
+          # all asymmetric key wrapping uses HPKE via @shared/hpke-primitives.
+          HITS=$(grep -rln "from '@noble/ciphers" src/ --include='*.ts' 2>/dev/null || true)
           if [ -n "$HITS" ]; then
-            echo "::error::New file importing legacy ECIES/XChaCha20 primitives:"
+            echo "::error::@noble/ciphers import found — this package was removed in Slice 7:"
             echo "$HITS"
-            echo "Use HPKE primitives from @shared/hpke-primitives instead."
-            echo "If this file is an existing migration target, add it to TIER1_LEGACY_ALLOW."
+            echo "Use @noble/hashes/utils.js for utf8ToBytes/hexToBytes/bytesToHex."
+            echo "Use @shared/aes-gcm for symmetric encryption."
+            echo "Use @shared/hpke-primitives for asymmetric key wrapping."
             exit 1
           fi
 
-      - name: Tier 1 — HPKE opener never falls back to ECIES
+      - name: Tier 7 — no secp256k1 getSharedSecret (ECDH removed)
         run: |
-          # Flag catch blocks near hpkeOpen / decryptHpkeEnvelope calls that
-          # silently retry with a legacy symmetric path — that would be a
-          # downgrade primitive. Only crypto-worker.ts (dual-era) is allowed.
-          if grep -rPn 'catch[^{]*\{[^}]*(decryptEnvelopeField|symmetricDecrypt)' \
-            src/ --include='*.ts' 2>/dev/null \
-            | grep -v '\.test\.ts' \
-            | grep -v 'crypto-worker\.ts' \
-            | grep -v 'crypto-worker-helpers\.ts'; then
-            echo "::error::Silent HPKE→ECIES fallback pattern detected"
+          # secp256k1 ECDH (getSharedSecret) was the ECIES key agreement
+          # primitive. All key wrapping now uses HPKE X25519. secp256k1 is
+          # retained ONLY for Schnorr signing (Nostr identity).
+          # Provisioning still uses secp256k1 ECDH for the SAS key-agreement
+          # protocol (not ECIES) — exclude provisioning.ts and crypto-worker.ts.
+          HITS=$(grep -rln 'getSharedSecret' src/ --include='*.ts' 2>/dev/null \
+            | grep -Ev '\.test\.ts$' \
+            | grep -v 'provisioning\.ts' \
+            | grep -v 'crypto-worker\.ts' || true)
+          if [ -n "$HITS" ]; then
+            echo "::error::secp256k1.getSharedSecret found — use HPKE instead:"
+            echo "$HITS"
             exit 1
           fi
 

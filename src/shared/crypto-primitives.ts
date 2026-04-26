@@ -1,118 +1,36 @@
-import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
-import { utf8ToBytes } from '@noble/ciphers/utils.js'
-import { secp256k1 } from '@noble/curves/secp256k1.js'
 import { hkdf } from '@noble/hashes/hkdf.js'
 import { hmac } from '@noble/hashes/hmac.js'
 import { sha256 } from '@noble/hashes/sha2.js'
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
+import { bytesToHex } from '@noble/hashes/utils.js'
 import { generateSecretKey, getPublicKey, nip19 } from 'nostr-tools'
-import type { CryptoLabel } from './crypto-labels'
-import { idToLabel } from './crypto-labels'
+import { aesGcmDecrypt, aesGcmEncrypt } from './aes-gcm'
 import type { Ciphertext } from './crypto-types'
-import type { Envelope } from './types'
 
 /**
- * Symmetric encryption using XChaCha20-Poly1305 with mandatory AAD binding.
- * Returns hex-encoded: nonce(24 bytes) || ciphertext.
+ * Symmetric encryption using AES-256-GCM with mandatory AAD binding.
+ * Returns hex-encoded: nonce(12 bytes) || ciphertext+tag.
  * The AAD cryptographically binds the ciphertext to a context — use a domain label
  * (e.g. utf8ToBytes(LABEL_*)) or record identifier to prevent cross-context reuse.
  */
-export function symmetricEncrypt(
+export async function symmetricEncrypt(
   plaintext: Uint8Array,
   key: Uint8Array,
   aad: Uint8Array
-): Ciphertext {
-  const nonce = new Uint8Array(24)
-  crypto.getRandomValues(nonce)
-  const cipher = xchacha20poly1305(key, nonce, aad)
-  const ciphertext = cipher.encrypt(plaintext)
-  const packed = new Uint8Array(nonce.length + ciphertext.length)
-  packed.set(nonce)
-  packed.set(ciphertext, nonce.length)
-  return bytesToHex(packed) as Ciphertext
+): Promise<Ciphertext> {
+  return (await aesGcmEncrypt(plaintext, key, aad)) as Ciphertext
 }
 
 /**
- * Symmetric decryption using XChaCha20-Poly1305 with mandatory AAD binding.
- * Input: hex-encoded nonce(24) || ciphertext.
+ * Symmetric decryption using AES-256-GCM with mandatory AAD binding.
+ * Input: hex-encoded nonce(12) || ciphertext+tag.
  * AAD must match what was passed to symmetricEncrypt — mismatch throws (authentication failure).
  */
-export function symmetricDecrypt(
+export async function symmetricDecrypt(
   packed: string | Ciphertext,
   key: Uint8Array,
   aad: Uint8Array
-): Uint8Array {
-  const data = hexToBytes(packed)
-  const nonce = data.slice(0, 24)
-  const ciphertext = data.slice(24)
-  const cipher = xchacha20poly1305(key, nonce, aad)
-  return cipher.decrypt(ciphertext)
-}
-
-/**
- * ECIES key wrapping for a single recipient.
- * Generates ephemeral secp256k1 keypair, derives shared secret via ECDH,
- * derives symmetric key via SHA-256(label || sharedX), wraps with XChaCha20-Poly1305.
- * @deprecated Slice 7 — will be deleted. Use hpkeSeal from @shared/hpke-primitives.
- */
-export function eciesWrapKey(
-  key: Uint8Array,
-  recipientPubkeyHex: string,
-  label: CryptoLabel
-): { wrappedKey: Ciphertext; ephemeralPubkey: string } {
-  const ephemeralSecret = new Uint8Array(32)
-  crypto.getRandomValues(ephemeralSecret)
-  const ephemeralPublicKey = secp256k1.getPublicKey(ephemeralSecret, true)
-
-  const recipientCompressed = hexToBytes(`02${recipientPubkeyHex}`)
-  const shared = secp256k1.getSharedSecret(ephemeralSecret, recipientCompressed)
-  const sharedX = shared.slice(1, 33)
-
-  const labelBytes = utf8ToBytes(label)
-  const keyInput = new Uint8Array(labelBytes.length + sharedX.length)
-  keyInput.set(labelBytes)
-  keyInput.set(sharedX, labelBytes.length)
-  const symmetricKey = sha256(keyInput)
-
-  const nonce = new Uint8Array(24)
-  crypto.getRandomValues(nonce)
-  const cipher = xchacha20poly1305(symmetricKey, nonce)
-  const ciphertext = cipher.encrypt(key)
-
-  const packed = new Uint8Array(nonce.length + ciphertext.length)
-  packed.set(nonce)
-  packed.set(ciphertext, nonce.length)
-
-  return {
-    wrappedKey: bytesToHex(packed) as Ciphertext,
-    ephemeralPubkey: bytesToHex(ephemeralPublicKey),
-  }
-}
-
-/**
- * ECIES key unwrapping. Recovers the symmetric key from an ECIES envelope.
- * @deprecated Slice 7 — will be deleted. Use hpkeOpen from @shared/hpke-primitives.
- */
-export function eciesUnwrapKey(
-  envelope: { wrappedKey: string | Ciphertext; ephemeralPubkey: string },
-  privateKey: Uint8Array,
-  label: CryptoLabel
-): Uint8Array {
-  const ephemeralPub = hexToBytes(envelope.ephemeralPubkey)
-  const shared = secp256k1.getSharedSecret(privateKey, ephemeralPub)
-  const sharedX = shared.slice(1, 33)
-
-  const labelBytes = utf8ToBytes(label)
-  const keyInput = new Uint8Array(labelBytes.length + sharedX.length)
-  keyInput.set(labelBytes)
-  keyInput.set(sharedX, labelBytes.length)
-  const symmetricKey = sha256(keyInput)
-
-  const packed = hexToBytes(envelope.wrappedKey)
-  const nonce = packed.slice(0, 24)
-  const ciphertext = packed.slice(24)
-  const cipher = xchacha20poly1305(symmetricKey, nonce)
-  return cipher.decrypt(ciphertext)
+): Promise<Uint8Array> {
+  return aesGcmDecrypt(packed, key, aad)
 }
 
 /**
@@ -192,102 +110,4 @@ export function isValidNsec(nsec: string): boolean {
   } catch {
     return false
   }
-}
-
-// --- Envelope types ---
-
-/**
- * A symmetric key wrapped via ECIES for a single recipient (no pubkey tag).
- * @deprecated Slice 7 — will be deleted. Use HpkeEnvelope from @shared/hpke-envelope.
- * ECIES-specific key envelope shape (wrappedKey + ephemeralPubkey).
- */
-export interface KeyEnvelope {
-  wrappedKey: Ciphertext // hex: nonce(24) + ciphertext(32 key + 16 tag)
-  ephemeralPubkey: string // hex: compressed 33-byte pubkey (66 chars)
-}
-
-/**
- * A KeyEnvelope tagged with the recipient's x-only pubkey (for multi-recipient scenarios).
- * @deprecated Slice 7 — will be deleted. Use RecipientEnvelope from @shared/types.
- */
-export interface RecipientKeyEnvelope extends KeyEnvelope {
-  pubkey: string // recipient's x-only pubkey (hex, 64 chars)
-}
-
-/**
- * ECIES key unwrap with explicit secret key — for server-side and test usage
- * where no crypto worker is available. Mirror of eciesUnwrapKey but takes secretKey directly.
- * @deprecated Slice 7 — will be deleted. Use hpkeOpen from @shared/hpke-primitives.
- */
-export function eciesUnwrapKeyWithSecret(
-  envelope: KeyEnvelope,
-  secretKey: Uint8Array,
-  label: CryptoLabel
-): Uint8Array {
-  const ephemeralPub = hexToBytes(envelope.ephemeralPubkey)
-  const shared = secp256k1.getSharedSecret(secretKey, ephemeralPub)
-  const sharedX = shared.slice(1, 33)
-
-  const labelBytes = utf8ToBytes(label)
-  const keyInput = new Uint8Array(labelBytes.length + sharedX.length)
-  keyInput.set(labelBytes)
-  keyInput.set(sharedX, labelBytes.length)
-  const symmetricKey = sha256(keyInput)
-
-  const data = hexToBytes(envelope.wrappedKey)
-  const nonce = data.slice(0, 24)
-  const ciphertext = data.slice(24)
-  const cipher = xchacha20poly1305(symmetricKey, nonce)
-  return cipher.decrypt(ciphertext)
-}
-
-// --- Envelope: versioned ECIES envelope with wire-format label enforcement ---
-
-export type { Envelope }
-
-/**
- * Thrown when an Envelope's embedded labelId does not match the expected
- * CryptoLabel, or when the envelope version is not 2.
- * This enforces the "triple-redundant label defense": brand + HKDF + AEAD AAD + wire id.
- * @deprecated Slice 7 — will be deleted. Use HpkeLabelMismatchError from @shared/hpke-primitives.
- */
-export class CryptoLabelMismatchError extends Error {
-  constructor(detail: string | { expected: CryptoLabel; actual: CryptoLabel }) {
-    const msg =
-      typeof detail === 'string'
-        ? detail
-        : `Crypto label mismatch: expected ${detail.expected}, got ${detail.actual}`
-    super(msg)
-    this.name = 'CryptoLabelMismatchError'
-  }
-}
-
-/**
- * Unwrap an Envelope after verifying the embedded labelId matches expectedLabel.
- * Throws CryptoLabelMismatchError if the version is not 2 or the labelId is wrong.
- *
- * @param env            The versioned envelope to unwrap.
- * @param unwrapSecret   Caller-supplied unwrap function (crypto worker, server key, etc.)
- * @param expectedLabel  The CryptoLabel the caller expects this envelope to have been sealed with.
- * @deprecated Slice 7 — will be deleted. Use hpkeOpen from @shared/hpke-primitives.
- */
-export async function decryptEnvelope(
-  env: Envelope,
-  unwrapSecret: (
-    ephemeralPubkey: string,
-    wrapped: Ciphertext,
-    label: CryptoLabel
-  ) => Promise<Uint8Array>,
-  expectedLabel: CryptoLabel
-): Promise<Uint8Array> {
-  // @ts-expect-error Slice 7: ECIES envelope v2 → HPKE v3
-  if (env.v !== 2) {
-    throw new CryptoLabelMismatchError(`Envelope version ${env.v as number} not supported`)
-  }
-  const actualLabel = idToLabel(env.labelId)
-  if (actualLabel !== expectedLabel) {
-    throw new CryptoLabelMismatchError({ expected: expectedLabel, actual: actualLabel })
-  }
-  // @ts-expect-error Slice 7: ECIES → HPKE migration
-  return unwrapSecret(env.ephemeralPubkey, env.wrappedKey, expectedLabel)
 }

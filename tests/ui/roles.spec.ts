@@ -60,7 +60,11 @@ test.describe('Role Assignment UI', () => {
 
   test('Add User form shows all available roles', async ({ adminPage }) => {
     await adminPage.getByRole('link', { name: 'Users' }).click()
-    await adminPage.getByRole('button', { name: /add user/i }).click()
+    await expect(adminPage.getByRole('heading', { name: 'Users' })).toBeVisible()
+
+    await adminPage.getByTestId('user-add-btn').click()
+    // Verify the form rendered before interacting with the dropdown
+    await expect(adminPage.getByTestId('add-user-form')).toBeVisible()
 
     // Click the role dropdown
     const roleDropdown = adminPage.locator('#vol-role')
@@ -74,12 +78,36 @@ test.describe('Role Assignment UI', () => {
     await expect(adminPage.getByRole('option', { name: 'Reporter' })).toBeVisible()
 
     await adminPage.keyboard.press('Escape')
-    await adminPage.getByRole('button', { name: /cancel/i }).click()
+    await adminPage.getByTestId('form-cancel-btn').click()
   })
 
   test('Invite form shows all available roles', async ({ adminPage }) => {
+    // Capture console errors to diagnose CI-only failures (decrypt-on-fetch
+    // errors from the HPKE migration can lock the crypto worker and navigate
+    // away from the Users page before the InviteForm renders).
+    const consoleErrors: string[] = []
+    adminPage.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text())
+    })
+
     await adminPage.getByRole('link', { name: 'Users' }).click()
-    await adminPage.getByRole('button', { name: /invite user/i }).click()
+    await expect(adminPage.getByRole('heading', { name: 'Users' })).toBeVisible()
+
+    // Wait for initial data queries to settle — on CI, the users query
+    // runs decrypt-on-fetch which can trigger key-manager lock if HPKE
+    // envelopes are malformed. Waiting for networkidle ensures decryption
+    // has completed (or failed gracefully) before we interact with the page.
+    await adminPage.waitForLoadState('networkidle')
+
+    // Verify we're still on the Users page (crypto worker lock would
+    // redirect to PIN screen, removing the heading and buttons).
+    await expect(adminPage.getByRole('heading', { name: 'Users' })).toBeVisible()
+
+    await adminPage.getByTestId('invite-user-btn').click()
+    // Verify the form rendered — this is the critical postcondition check.
+    // Without it, #invite-role lookup would silently wait 30s on a page
+    // that navigated away (e.g., due to key-manager lock from decrypt failure).
+    await expect(adminPage.getByTestId('invite-form')).toBeVisible({ timeout: 5000 })
 
     // Click the role dropdown
     const roleDropdown = adminPage.locator('#invite-role')
@@ -93,7 +121,12 @@ test.describe('Role Assignment UI', () => {
     await expect(adminPage.getByRole('option', { name: 'Reporter' })).toBeVisible()
 
     await adminPage.keyboard.press('Escape')
-    await adminPage.getByRole('button', { name: /cancel/i }).click()
+    await adminPage.getByTestId('invite-form-cancel-btn').click()
+
+    // Surface console errors for CI debugging if the test somehow fails
+    if (consoleErrors.length > 0) {
+      console.log('[roles.spec] Console errors during invite test:', consoleErrors.join('\n'))
+    }
   })
 })
 

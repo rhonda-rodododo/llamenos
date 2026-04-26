@@ -573,7 +573,7 @@ export async function importKey(
   const salt = crypto.getRandomValues(new Uint8Array(32))
   const kek = deriveKEK({ pin, idpValue, prfOutput, salt })
 
-  const blob = encryptNsec(nsecHex, kek, pubkey, !!prfOutput, idpIssuer, salt)
+  const blob = await encryptNsec(nsecHex, kek, pubkey, !!prfOutput, idpIssuer, salt)
   storeEncryptedKey(blob)
 
   // Load into worker

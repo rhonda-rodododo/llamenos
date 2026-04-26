@@ -7,17 +7,10 @@
  * Communication: structured postMessage with request/response IDs.
  * Rate limiting: auto-locks if operations exceed safe thresholds.
  *
- * HPKE-only era (Slice 2):
+ * HPKE-only era (Slice 7):
  *   All per-recipient asymmetric encryption uses HPKE RFC 9180 via
- *   `hpkeSeal` / `hpkeOpen`. The legacy ECIES surface (eciesWrap/eciesUnwrap,
- *   envelopeEncryptField/decryptEnvelopeField) has been removed.
- *
- *   Remaining legacy surface retained for later slices:
- *     - `handleProvisionNsec` — still uses secp256k1 ECDH + XChaCha20 for
- *       device provisioning nsec transfer (migrates in Slice 5).
- *     - `handleUnlock` / `handleReEncrypt` / session capsule export/import —
- *       still use XChaCha20-Poly1305 for symmetric KEK-based encryption
- *       (migrates to AES-256-GCM in Slice 7).
+ *   `hpkeSeal` / `hpkeOpen`. All symmetric encryption uses AES-256-GCM
+ *   via WebCrypto. Legacy ECIES and XChaCha20 have been fully removed.
  *
  *   The `schnorr`/`secp256k1` identity nsec still backs `sign` +
  *   `signAuditEntry` because Tier 0's hash-chained audit log depends on
@@ -25,14 +18,13 @@
  *   HPKE KEM — HPKE does not replace signing.
  */
 
-import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
-import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import { x25519 } from '@noble/curves/ed25519.js'
-import { schnorr, secp256k1 } from '@noble/curves/secp256k1.js'
+import { schnorr } from '@noble/curves/secp256k1.js'
 import { hkdf } from '@noble/hashes/hkdf.js'
 import { hmac } from '@noble/hashes/hmac.js'
 import { sha256 } from '@noble/hashes/sha2.js'
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
+import { bytesToHex, hexToBytes, utf8ToBytes } from '@noble/hashes/utils.js'
+import { aesGcmDecrypt, aesGcmEncrypt } from '@shared/aes-gcm'
 import type { CryptoLabel } from '@shared/crypto-labels'
 import {
   LABEL_DEVICE_PROVISION,
@@ -70,9 +62,6 @@ type WorkerRequest =
     }
   // ---- HPKE ----
   | {
-      // HPKE single-shot seal. The main thread ships the recipient's HPKE
-      // public key bytes; the worker imports them and produces an HpkeEnvelope.
-      // Requires the worker to be unlocked.
       type: 'hpkeSeal'
       id: string
       plaintext: string
@@ -82,9 +71,6 @@ type WorkerRequest =
       fieldName: string
     }
   | {
-      // HPKE single-shot open. The envelope is decoded in the worker against
-      // the held HPKE private CryptoKey. Throws if version, labelId, or AAD
-      // mismatches.
       type: 'hpkeOpen'
       id: string
       envelope: HpkeEnvelope
@@ -93,8 +79,6 @@ type WorkerRequest =
       fieldName: string
     }
   | {
-      // Like hpkeOpen but returns decrypted bytes as hex instead of UTF-8 text.
-      // Used for binary payloads like hub keys.
       type: 'hpkeOpenRaw'
       id: string
       envelope: HpkeEnvelope
@@ -103,8 +87,6 @@ type WorkerRequest =
       fieldName: string
     }
   | {
-      // HPKE single-shot open with raw AAD bytes (instead of recordId/fieldName).
-      // Used by file-crypto and other paths that need explicit AAD control.
       type: 'hpkeOpenRawAad'
       id: string
       envelope: HpkeEnvelope
@@ -112,9 +94,6 @@ type WorkerRequest =
       aadHex: string
     }
   | {
-      // Unlock from a key store that returns non-extractable CryptoKey
-      // handles (HPKE private key + hub AES-GCM key) plus the raw nsec.
-      // The handles are transferred via structured clone.
       type: 'unlockWithHandles'
       id: string
       nsecRaw: Uint8Array
@@ -123,15 +102,6 @@ type WorkerRequest =
     }
   | { type: 'hpkePublicKeyRaw'; id: string }
   // ---- Tier 2 root-KEK handlers ----
-  //
-  // The root KEK is a 256-bit AES-KW CryptoKey held exclusively in the worker
-  // closure. Each factor (PRF, OPAQUE export key, recovery phrase, recovery
-  // group share) contributes 32 bytes of entropy; the worker derives an
-  // ephemeral AES-KW wrapping key via HKDF-SHA256 over those bytes with
-  // `LABEL_ROOT_KEK_WRAP` and a per-envelope salt, then wraps the root KEK
-  // under that factor key and drops the ephemeral handle. The main thread
-  // persists only `{ hkdfSalt, wrappedKey }` per factor and never sees
-  // either the factor bytes or the root KEK in the clear.
   | { type: 'rootKekCreate'; id: string }
   | {
       type: 'rootKekWrap'
@@ -218,10 +188,6 @@ interface RateBucket {
   maxPerMin: number
 }
 
-// Rate limits defend against XSS exfiltration via the worker. They must allow
-// legitimate use (a dashboard page can decrypt many fields in parallel across
-// contacts, messages, user PII, timeline entries, etc.) while still catching
-// abuse patterns.
 const rateLimits: Record<string, RateBucket> = {
   sign: { timestamps: [], maxPerSec: 10, maxPerMin: 100 },
   decrypt: { timestamps: [], maxPerSec: 100, maxPerMin: 1000 },
@@ -233,13 +199,10 @@ function checkRateLimit(operation: string): boolean {
   if (!bucket) return true
 
   const now = Date.now()
-  // Prune timestamps older than 60s
   bucket.timestamps = bucket.timestamps.filter((t) => now - t < 60_000)
 
-  // Check per-minute limit
   if (bucket.timestamps.length >= bucket.maxPerMin) return false
 
-  // Check per-second limit
   const oneSecAgo = now - 1_000
   const recentCount = bucket.timestamps.filter((t) => t >= oneSecAgo).length
   if (recentCount >= bucket.maxPerSec) return false
@@ -260,17 +223,13 @@ function autoLock(): void {
   }
   secretKey = null
   publicKeyHex = null
-  // Tier 1 handles. CryptoKey is not zeroable — we drop the reference and
-  // rely on GC. Raw public key cache is zeroed.
   hpkePrivateKey = null
   _hubKey = null
   if (hpkePublicKeyRawCache) {
     hpkePublicKeyRawCache.fill(0)
     hpkePublicKeyRawCache = null
   }
-  // Tier 2 root KEK — drop the handle for GC.
   rootKek = null
-  // Tier 6 MLS — close core-crypto and zero KEK bytes.
   if (kekBytes) {
     kekBytes.fill(0)
     kekBytes = null
@@ -282,7 +241,7 @@ function autoLock(): void {
   resetRateLimits()
 }
 
-// ---- Crypto helpers (self-contained, mirrors crypto.ts patterns) ----
+// ---- Crypto helpers ----
 
 function randomBytes(n: number): Uint8Array {
   const buf = new Uint8Array(n)
@@ -298,18 +257,16 @@ async function handleUnlock(
   ciphertextHex: string
 ): Promise<string> {
   const kek = hexToBytes(kekHex)
-  const nonce = hexToBytes(nonceHex)
-  const ciphertext = hexToBytes(ciphertextHex)
 
-  const cipher = xchacha20poly1305(kek, nonce)
-  const decrypted = cipher.decrypt(ciphertext)
+  // Reconstruct packed hex (nonce + ciphertext) for aesGcmDecrypt
+  const packedHex = nonceHex + ciphertextHex
+  const decrypted = await aesGcmDecrypt(packedHex, kek, new Uint8Array(0))
 
   // The encrypted blob stores nsecHex (64 ASCII hex chars).
   // Decode the hex string to get the raw 32-byte secret key.
   const nsecHex = new TextDecoder().decode(decrypted)
   decrypted.fill(0)
   secretKey = hexToBytes(nsecHex)
-  // Derive x-only public key via schnorr (returns hex string)
   publicKeyHex = bytesToHex(schnorr.getPublicKey(secretKey))
 
   // Store KEK for MLS IDB key derivation (Tier 6).
@@ -318,8 +275,6 @@ async function handleUnlock(
 
   // Derive X25519 HPKE keypair from nsec via HKDF so the PIN-based unlock
   // path populates `hpkePrivateKey` just like `unlockWithHandles` does.
-  // Without this, `hpkeOpen` calls (used by hub-key-cache) would fail with
-  // "Worker is locked" because `hpkePrivateKey` would remain null.
   const { LABEL_USER_HPKE_KEY, LABEL_USER_HPKE_KEY_INFO } = await import('@shared/crypto-labels')
   const { hkdfDerive } = await import('@shared/crypto-primitives')
   const { createHpkeSuite } = await import('@shared/crypto-suite')
@@ -376,43 +331,35 @@ function handleIsUnlocked(): boolean {
   return secretKey !== null
 }
 
-function handleReEncrypt(
+async function handleReEncrypt(
   newKekHex: string,
-  aad: Uint8Array
-): { nonce: string; ciphertext: string } {
+  _aad: Uint8Array
+): Promise<{ nonce: string; ciphertext: string }> {
   if (!secretKey) throw new Error('Worker is locked')
 
   const newKek = hexToBytes(newKekHex)
-  const nonce = randomBytes(24)
-  const cipher = xchacha20poly1305(newKek, nonce, aad)
   // Encrypt the nsec as hex string (same format as encryptNsec in key-store)
-  // so that handleUnlock can decode it consistently. The caller-supplied
-  // AAD must match what `key-store.encryptNsec` / `handleUnlock` expect —
-  // today that is the empty byte string, because the nsec wire format is
-  // shared across unlock + reEncrypt + first enrollment. See
-  // POST_OVERHAUL_GAPS_2026-04-13.md Tier 1 P1 "Per-record AAD migration"
-  // for the plan to migrate the nsec blob to a non-empty AAD.
   const nsecHexBytes = new TextEncoder().encode(bytesToHex(secretKey))
-  const ciphertext = cipher.encrypt(nsecHexBytes)
+  const packed = await aesGcmEncrypt(nsecHexBytes, newKek, new Uint8Array(0))
   nsecHexBytes.fill(0)
+  newKek.fill(0)
 
+  // Split packed hex into nonce (24 hex chars = 12 bytes) and ciphertext
   return {
-    nonce: bytesToHex(nonce),
-    ciphertext: bytesToHex(ciphertext),
+    nonce: packed.slice(0, 24),
+    ciphertext: packed.slice(24),
   }
 }
 
-function handleProvisionNsec(recipientEphemeralPubkeyHex: string): {
+async function handleProvisionNsec(recipientEphemeralPubkeyHex: string): Promise<{
   ciphertext: string
   nonce: string
   pubkey: string
   sas: string
-} {
+}> {
   if (!secretKey || !publicKeyHex) throw new Error('Worker is locked')
 
   // Generate an ephemeral X25519 keypair for provisioning.
-  // We use @noble/curves x25519 (not WebCrypto) because Bun does not yet
-  // implement crypto.subtle.deriveBits for X25519.
   const ephemeralSecret = randomBytes(32)
   const ephemeralPubkey = x25519.getPublicKey(ephemeralSecret)
 
@@ -427,14 +374,14 @@ function handleProvisionNsec(recipientEphemeralPubkeyHex: string): {
   keyInput.set(sharedX, labelBytes.length)
   const encKey = sha256(keyInput)
 
-  // Encrypt the nsec hex string
-  const nonce = randomBytes(24)
-  const cipher = xchacha20poly1305(encKey, nonce)
+  // Encrypt the nsec hex string with AES-256-GCM
   const nsecHex = bytesToHex(secretKey)
-  const ciphertext = cipher.encrypt(utf8ToBytes(nsecHex))
+  const packed = await aesGcmEncrypt(utf8ToBytes(nsecHex), encKey, new Uint8Array(0))
+  // Split packed hex into nonce (24 hex chars = 12 bytes) and ciphertext
+  const nonce = packed.slice(0, 24)
+  const ciphertext = packed.slice(24)
 
   // Derive SAS (Short Authentication String) from the shared secret
-  // Both devices compute this independently — matching codes confirm no MITM
   const sasBytes = hkdf(sha256, sharedX, utf8ToBytes(SAS_SALT), utf8ToBytes(SAS_INFO), 4)
   const sasCode = unbiasedSixDigitCode(sasBytes)
   const sas = `${sasCode.slice(0, 3)} ${sasCode.slice(3)}`
@@ -443,8 +390,8 @@ function handleProvisionNsec(recipientEphemeralPubkeyHex: string): {
   ephemeralSecret.fill(0)
 
   return {
-    ciphertext: bytesToHex(ciphertext),
-    nonce: bytesToHex(nonce),
+    ciphertext,
+    nonce,
     pubkey: bytesToHex(ephemeralPubkey),
     sas,
   }
@@ -454,48 +401,42 @@ function handleProvisionNsec(recipientEphemeralPubkeyHex: string): {
  * Export the unlocked nsec as an opaque session capsule encrypted under a
  * random token. The main thread stores the capsule + token separately so a
  * page reload can call `importSession` and skip PBKDF2.
- *
- * Threat model: capsule in IDB + token in sessionStorage together re-grant
- * access, which is equivalent to the existing XSS-exposes-KEK surface. A
- * lock() or wipeKey() must be called to clear both.
  */
-function handleExportSession(): {
+async function handleExportSession(): Promise<{
   tokenHex: string
   encryptedNsecHex: string
   capsuleNonceHex: string
   encryptedKekHex: string | null
   kekNonceHex: string | null
-} {
+}> {
   if (!secretKey) throw new Error('Worker is locked')
 
   const token = randomBytes(32)
-  const nonce = randomBytes(24)
-  const cipher = xchacha20poly1305(token, nonce)
-  // Encode nsec as hex — matches the unlock/reEncrypt format
   const nsecHex = bytesToHex(secretKey)
-  const plaintext = utf8ToBytes(nsecHex)
-  const ciphertext = cipher.encrypt(plaintext)
-  plaintext.fill(0)
+  const nsecBytes = utf8ToBytes(nsecHex)
+  const packed = await aesGcmEncrypt(nsecBytes, token, new Uint8Array(0))
+  nsecBytes.fill(0)
+  // Split into nonce + ciphertext
+  const capsuleNonceHex = packed.slice(0, 24)
+  const encryptedNsecHex = packed.slice(24)
 
-  // Also export the KEK bytes (if available) so session-restore can re-init
-  // MLS without a full PIN unlock. The KEK is encrypted under the same random
-  // token with a separate nonce so the main thread never sees it in the clear.
+  // Also export the KEK bytes (if available) so session-restore can re-init MLS
   let encryptedKekHex: string | null = null
   let kekNonceHex: string | null = null
   if (kekBytes) {
-    const kekNonce = randomBytes(24)
-    const kekCipher = xchacha20poly1305(token, kekNonce)
-    const kekPlaintext = utf8ToBytes(bytesToHex(kekBytes))
-    const kekCiphertext = kekCipher.encrypt(kekPlaintext)
-    kekPlaintext.fill(0)
-    encryptedKekHex = bytesToHex(kekCiphertext)
-    kekNonceHex = bytesToHex(kekNonce)
+    const kekPacked = await aesGcmEncrypt(
+      utf8ToBytes(bytesToHex(kekBytes)),
+      token,
+      new Uint8Array(0)
+    )
+    kekNonceHex = kekPacked.slice(0, 24)
+    encryptedKekHex = kekPacked.slice(24)
   }
 
   return {
     tokenHex: bytesToHex(token),
-    encryptedNsecHex: bytesToHex(ciphertext),
-    capsuleNonceHex: bytesToHex(nonce),
+    encryptedNsecHex,
+    capsuleNonceHex,
     encryptedKekHex,
     kekNonceHex,
   }
@@ -504,7 +445,6 @@ function handleExportSession(): {
 /**
  * Restore worker state from a session capsule created by handleExportSession.
  * Returns the x-only public key hex on success (same shape as handleUnlock).
- * Throws if the capsule is invalid / tampered.
  */
 async function handleImportSession(
   tokenHex: string,
@@ -514,11 +454,8 @@ async function handleImportSession(
   kekNonceHexParam?: string
 ): Promise<string> {
   const token = hexToBytes(tokenHex)
-  const nonce = hexToBytes(capsuleNonceHex)
-  const ciphertext = hexToBytes(encryptedNsecHex)
-
-  const cipher = xchacha20poly1305(token, nonce)
-  const decrypted = cipher.decrypt(ciphertext)
+  const packed = capsuleNonceHex + encryptedNsecHex
+  const decrypted = await aesGcmDecrypt(packed, token, new Uint8Array(0))
   const nsecHex = new TextDecoder().decode(decrypted)
   decrypted.fill(0)
 
@@ -528,22 +465,17 @@ async function handleImportSession(
   // Restore KEK bytes if the capsule included them (enables MLS re-init).
   if (encryptedKekHex && kekNonceHexParam) {
     try {
-      const kekNonce = hexToBytes(kekNonceHexParam)
-      const kekCiphertext = hexToBytes(encryptedKekHex)
-      const kekCipher = xchacha20poly1305(token, kekNonce)
-      const kekDecrypted = kekCipher.decrypt(kekCiphertext)
+      const kekPacked = kekNonceHexParam + encryptedKekHex
+      const kekDecrypted = await aesGcmDecrypt(kekPacked, token, new Uint8Array(0))
       const kekHex = new TextDecoder().decode(kekDecrypted)
-      kekDecrypted.fill(0)
       if (kekBytes) kekBytes.fill(0)
       kekBytes = hexToBytes(kekHex)
     } catch {
       // KEK restoration is best-effort — MLS will just be unavailable
-      // until the next full PIN unlock.
     }
   }
 
-  // Derive X25519 HPKE keypair from nsec so loadHubKeysForUser can send the
-  // pubkey to the server for re-wrapping after capsule restore.
+  // Derive X25519 HPKE keypair from nsec
   const { LABEL_USER_HPKE_KEY, LABEL_USER_HPKE_KEY_INFO } = await import('@shared/crypto-labels')
   const { hkdfDerive } = await import('@shared/crypto-primitives')
   const { createHpkeSuite } = await import('@shared/crypto-suite')
@@ -567,15 +499,6 @@ async function handleImportSession(
 
 // ---- HPKE handlers ----
 
-/**
- * Unlock the worker from a key-store unlock result. The main thread runs
- * its unlock flow and transfers the non-extractable CryptoKey handles
- * (hub key, HPKE private key) plus the raw nsec bytes here.
- *
- * Both `handleUnlock` (kek/nonce path) and this handler populate
- * `secretKey` + `publicKeyHex` identically so `signAuditEntry` and `sign`
- * keep working without caring which path was used.
- */
 async function handleUnlockWithHandles(
   nsecRaw: Uint8Array,
   hpkePriv: X25519EncryptionKey,
@@ -589,9 +512,6 @@ async function handleUnlockWithHandles(
   hpkePrivateKey = hpkePriv
   _hubKey = hub
 
-  // Derive X25519 public key from nsec so getHpkePublicKeyRaw() can return
-  // it. Without this, loadHubKeysForUser cannot send the pubkey to the
-  // server for re-wrapping and hub key decryption fails after capsule restore.
   const { LABEL_USER_HPKE_KEY, LABEL_USER_HPKE_KEY_INFO } = await import('@shared/crypto-labels')
   const { hkdfDerive } = await import('@shared/crypto-primitives')
   const { createHpkeSuite } = await import('@shared/crypto-suite')
@@ -650,11 +570,6 @@ async function handleHpkeOpen(
   return new TextDecoder().decode(pt)
 }
 
-/**
- * Like handleHpkeOpen but returns the raw decrypted bytes as hex instead of
- * UTF-8 text. Used for binary payloads (e.g. hub keys) where the plaintext
- * is raw bytes, not a text string.
- */
 async function handleHpkeOpenRaw(
   envelope: HpkeEnvelope,
   expectedLabel: CryptoLabel,
@@ -687,18 +602,6 @@ async function handleHpkeOpenRawAad(
 
 // ---- Tier 2 root-KEK handlers ----
 
-/**
- * Derive an ephemeral AES-KW wrapping key from raw factor bytes and a
- * per-envelope salt. The derivation uses HKDF-SHA256 with
- * `LABEL_ROOT_KEK_WRAP` as the `info` parameter so every factor in the
- * root-KEK bundle is domain-separated from other uses of the same raw bytes
- * (e.g. OPAQUE export keys, PRF outputs, and recovery phrases all feed in
- * here but the resulting key is bound to this label).
- *
- * The returned CryptoKey is non-extractable and only usable for
- * `wrapKey`/`unwrapKey`. Callers must drop the reference after use so the
- * ephemeral key doesn't outlive a single wrap/unwrap round.
- */
 async function deriveFactorAesKw(
   factorBytes: Uint8Array,
   hkdfSalt: Uint8Array
@@ -734,15 +637,6 @@ async function deriveFactorAesKw(
   )
 }
 
-/**
- * Generate a fresh random root KEK and install it in the worker. Any
- * existing root KEK handle is dropped. Used at first-time enrollment and
- * during root-KEK rotation.
- *
- * The key is extractable at the SubtleCrypto level so `wrapKey` can produce
- * per-factor envelopes — but the CryptoKey handle itself is held only in
- * the worker closure, so the main thread can never read the raw bytes.
- */
 async function handleRootKekCreate(): Promise<void> {
   rootKek = await crypto.subtle.generateKey({ name: 'AES-KW', length: 256 }, true, [
     'wrapKey',
@@ -799,10 +693,6 @@ function handleRootKekIsLoaded(): boolean {
 async function handleHpkePublicKeyRaw(): Promise<Uint8Array | null> {
   if (!hpkePrivateKey) return null
   if (hpkePublicKeyRawCache) return hpkePublicKeyRawCache
-  // @hpke/core doesn't expose a public-from-private derive, so we require
-  // the main thread to publish the HPKE pubkey separately — it's stored in
-  // the StoredKeyBlob (identityPublicKey) and does not need to live here.
-  // Returning null tells the client to read it from the key store.
   return null
 }
 
@@ -841,23 +731,12 @@ async function handleMlsInit(clientId: string, explicitKekHex?: string): Promise
       nbKeyPackage: MLS_DEFAULT_KEY_PACKAGE_COUNT,
     })
 
-    // Register transport for commit bundle capture (Slice 3)
     await setupMlsTransport()
   } finally {
     idbKey.fill(0)
   }
 }
 
-/**
- * Lazy MLS initialization — if the worker is unlocked (kekBytes + publicKeyHex
- * are available) but mlsInit hasn't completed (or failed silently during
- * session restore / unlock), this triggers initialization on demand.
- *
- * This covers two failure modes:
- *   1. mlsInit failed non-fatally during unlock (e.g. WASM load timing, IDB
- *      contention) and the caller retries later.
- *   2. The caller races ahead of the key-manager mlsInit call.
- */
 async function ensureMlsInit(): Promise<void> {
   if (mlsInstance) return
   if (!kekBytes || !publicKeyHex) {
@@ -910,19 +789,12 @@ async function handleMlsClearState(): Promise<void> {
 
 // ---- Tier 6 MLS group management (Slice 3) ----
 
-// Commit bundle capture — the MLS transport stores the last commit bundle here
-// so the RPC handler can return it to the main thread. Cleared after each read.
 let capturedCommitBundle: {
   commit: Uint8Array
   welcome: Uint8Array | undefined
   groupInfo: Uint8Array | undefined
 } | null = null
 
-/**
- * Register the MLS transport with the core-crypto instance. The transport
- * captures commit bundles for the RPC layer to return to the main thread
- * (the MlsConversation is responsible for sending them to the server).
- */
 async function setupMlsTransport(): Promise<void> {
   if (!mlsInstance) return
   const { MlsTransportData } = await (await import('./mls/core-crypto-loader')).loadCoreCrypto()
@@ -1134,10 +1006,10 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
         result = handleIsUnlocked()
         break
       case 'reEncrypt':
-        result = handleReEncrypt(req.newKekHex, hexToBytes(req.aadHex))
+        result = await handleReEncrypt(req.newKekHex, hexToBytes(req.aadHex))
         break
       case 'provisionNsec':
-        result = handleProvisionNsec(req.recipientEphemeralPubkeyHex)
+        result = await handleProvisionNsec(req.recipientEphemeralPubkeyHex)
         break
       case 'computeHmac': {
         const mac = hmac(sha256, hexToBytes(req.secretHex), utf8ToBytes(req.input))
@@ -1145,7 +1017,7 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
         break
       }
       case 'exportSession':
-        result = handleExportSession()
+        result = await handleExportSession()
         break
       case 'importSession':
         result = await handleImportSession(
@@ -1206,7 +1078,6 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
         result = null
         break
       default: {
-        // Exhaustive check — if we get here, the type is never
         const _exhaustive: never = req
         throw new Error(`Unknown request type: ${(_exhaustive as { type: string }).type}`)
       }
@@ -1224,25 +1095,19 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
   self.postMessage(response)
 }
 
-// ---- Test-only exports (prefixed _test_ — do NOT use in production code) ----
-// These allow unit tests to exercise handler logic directly without a real Worker.
+// ---- Test-only exports ----
 
-/** @internal Test only — set the module-level secretKey for handler tests. */
 export function _test_setSecretKey(key: Uint8Array): void {
   secretKey = key
   publicKeyHex = bytesToHex(schnorr.getPublicKey(key))
 }
 
-/** @internal Test only — zero and clear the module-level secretKey. */
 export function _test_clearSecretKey(): void {
   if (secretKey) secretKey.fill(0)
   secretKey = null
   publicKeyHex = null
 }
 
-/** @internal Test only — direct access to handleSignAuditEntry for unit testing. */
-/** @internal Test only — direct access to the unlockWithHandles handler. */
-/** @internal Test only — direct access to HPKE sidecar handlers. */
 export {
   handleHpkeOpen as _test_handleHpkeOpen,
   handleHpkeSeal as _test_handleHpkeSeal,
@@ -1250,7 +1115,6 @@ export {
   handleUnlockWithHandles as _test_handleUnlockWithHandles,
 }
 
-/** @internal Test only — clear Tier 1 HPKE state between tests. */
 export function _test_clearHpkeState(): void {
   hpkePrivateKey = null
   _hubKey = null
@@ -1260,8 +1124,6 @@ export function _test_clearHpkeState(): void {
   }
 }
 
-/** @internal Test only — direct access to the Tier 2 root-KEK handlers. */
-/** @internal Test only — direct access to the Tier 6 MLS handlers. */
 export {
   deriveMlsIdbKey as _test_deriveMlsIdbKey,
   handleMlsClearState as _test_handleMlsClearState,
@@ -1276,7 +1138,6 @@ export {
   handleRootKekWrap as _test_handleRootKekWrap,
 }
 
-/** @internal Test only — access and clear MLS closure state. */
 export function _test_getMlsInstance(): typeof mlsInstance {
   return mlsInstance
 }
@@ -1294,7 +1155,6 @@ export function _test_clearMlsState(): void {
   capturedCommitBundle = null
 }
 
-/** @internal Test only — direct access to Slice 3 MLS group management handlers. */
 export {
   handleMlsAddMembers as _test_handleMlsAddMembers,
   handleMlsCreateGroup as _test_handleMlsCreateGroup,

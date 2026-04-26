@@ -42,7 +42,7 @@ export async function maybeTranscribe(
       // Server-encrypt the transcription at rest (AES-GCM with server key).
       // Clients will see this as a server-encrypted note; a future MLS claim
       // path can re-encrypt for group decryption.
-      const encrypted = services.crypto.serverEncrypt(result.text, LABEL_MESSAGE)
+      const encrypted = await services.crypto.serverEncrypt(result.text, LABEL_MESSAGE)
 
       await services.records.createNote({
         callId: parentCallSid,
@@ -89,7 +89,7 @@ export async function transcribeVoicemail(
 
     if (result.text) {
       // Server-encrypt voicemail transcription at rest
-      const encrypted = services.crypto.serverEncrypt(result.text, LABEL_VOICEMAIL_TRANSCRIPT)
+      const encrypted = await services.crypto.serverEncrypt(result.text, LABEL_VOICEMAIL_TRANSCRIPT)
 
       await services.records.createNote({
         callId: callSid,

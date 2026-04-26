@@ -138,7 +138,7 @@ routes.openapi(createHubRoute, async (c) => {
       const iamResult = await services.storage.provisionHub(hub.id)
 
       if (iamResult) {
-        const encrypted = services.crypto.serverEncrypt(
+        const encrypted = await services.crypto.serverEncrypt(
           iamResult.secretAccessKey,
           LABEL_STORAGE_CREDENTIAL_WRAP
         )

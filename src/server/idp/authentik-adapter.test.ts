@@ -202,8 +202,8 @@ describe('AuthentikAdapter', () => {
       const secret = new Uint8Array(32).fill(0xab)
 
       // Access private method via cast for round-trip test
-      const encrypted = (
-        adapter as unknown as { encryptSecret(s: Uint8Array): string }
+      const encrypted = await (
+        adapter as unknown as { encryptSecret(s: Uint8Array): Promise<string> }
       ).encryptSecret(secret)
       const user = makeUser({ attributes: { nsec_secret: encrypted } })
 
@@ -233,8 +233,8 @@ describe('AuthentikAdapter', () => {
   describe('rotateNsecSecret', () => {
     test('returns current (new) and previous (old) secrets', async () => {
       const oldSecret = new Uint8Array(32).fill(0x11)
-      const oldEncrypted = (
-        adapter as unknown as { encryptSecret(s: Uint8Array): string }
+      const oldEncrypted = await (
+        adapter as unknown as { encryptSecret(s: Uint8Array): Promise<string> }
       ).encryptSecret(oldSecret)
 
       let patchedAttributes: Record<string, string> | undefined

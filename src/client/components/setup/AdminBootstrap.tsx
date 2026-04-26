@@ -1,7 +1,6 @@
-import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import { schnorr } from '@noble/curves/secp256k1.js'
 import { sha256 } from '@noble/hashes/sha2.js'
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
+import { bytesToHex, hexToBytes, utf8ToBytes } from '@noble/hashes/utils.js'
 import { AUTH_PREFIX } from '@shared/crypto-labels'
 import { generateKeyPair } from '@shared/crypto-primitives'
 import { LANGUAGES } from '@shared/languages'

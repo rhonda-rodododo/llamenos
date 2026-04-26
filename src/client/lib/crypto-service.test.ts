@@ -1,43 +1,52 @@
 import { describe, expect, test } from 'bun:test'
-import { secp256k1 } from '@noble/curves/secp256k1.js'
 import { bytesToHex } from '@noble/hashes/utils.js'
 import { LABEL_USER_PII } from '@shared/crypto-labels'
+import { createHpkeSuite } from '@shared/crypto-suite'
 import { ClientCryptoService } from './crypto-service'
 
 describe('ClientCryptoService', () => {
-  const secretKey = new Uint8Array(32)
-  globalThis.crypto.getRandomValues(secretKey)
-  const pubkey = bytesToHex(secp256k1.getPublicKey(secretKey, true).slice(1))
-  const client = new ClientCryptoService(secretKey, pubkey)
+  async function createTestClient() {
+    const suite = createHpkeSuite()
+    const kp = await suite.kem.generateKeyPair()
+    const pubkeyBytes = await suite.kem.serializePublicKey(kp.publicKey as CryptoKey)
+    const pubkey = bytesToHex(new Uint8Array(pubkeyBytes))
+    const privkeyBytes = await suite.kem.serializePrivateKey(kp.privateKey as CryptoKey)
+    const client = await ClientCryptoService.create(new Uint8Array(privkeyBytes), pubkey)
+    return { client, pubkey }
+  }
 
   describe('envelopeEncrypt / envelopeDecrypt', () => {
-    test('self-encrypt round-trip', () => {
-      const { encrypted, envelopes } = client.envelopeEncrypt('my name', [pubkey], LABEL_USER_PII)
-      const pt = client.envelopeDecrypt(encrypted, envelopes, LABEL_USER_PII)
+    test('self-encrypt round-trip', async () => {
+      const { client, pubkey } = await createTestClient()
+      const { encrypted, envelopes } = await client.envelopeEncrypt(
+        'my name',
+        [pubkey],
+        LABEL_USER_PII
+      )
+      const pt = await client.envelopeDecrypt(encrypted, envelopes, LABEL_USER_PII)
       expect(pt).toBe('my name')
     })
 
-    test('encrypt for self + other recipient', () => {
-      const otherSecret = new Uint8Array(32)
-      globalThis.crypto.getRandomValues(otherSecret)
-      const otherPub = bytesToHex(secp256k1.getPublicKey(otherSecret, true).slice(1))
-      const otherClient = new ClientCryptoService(otherSecret, otherPub)
+    test('encrypt for self + other recipient', async () => {
+      const { client: client1, pubkey: pub1 } = await createTestClient()
+      const { client: client2, pubkey: pub2 } = await createTestClient()
 
-      const { encrypted, envelopes } = client.envelopeEncrypt(
+      const { encrypted, envelopes } = await client1.envelopeEncrypt(
         'shared',
-        [pubkey, otherPub],
+        [pub1, pub2],
         LABEL_USER_PII
       )
 
-      expect(client.envelopeDecrypt(encrypted, envelopes, LABEL_USER_PII)).toBe('shared')
-      expect(otherClient.envelopeDecrypt(encrypted, envelopes, LABEL_USER_PII)).toBe('shared')
+      expect(await client1.envelopeDecrypt(encrypted, envelopes, LABEL_USER_PII)).toBe('shared')
+      expect(await client2.envelopeDecrypt(encrypted, envelopes, LABEL_USER_PII)).toBe('shared')
     })
   })
 
   describe('encryptDraft / decryptDraft', () => {
-    test('round-trip', () => {
-      const ct = client.encryptDraft('draft text')
-      const pt = client.decryptDraft(ct)
+    test('round-trip', async () => {
+      const { client } = await createTestClient()
+      const ct = await client.encryptDraft('draft text')
+      const pt = await client.decryptDraft(ct)
       expect(pt).toBe('draft text')
     })
   })

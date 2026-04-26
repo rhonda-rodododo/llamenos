@@ -1,5 +1,4 @@
-import { utf8ToBytes } from '@noble/ciphers/utils.js'
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
+import { bytesToHex, hexToBytes, utf8ToBytes } from '@noble/hashes/utils.js'
 import { type CryptoLabel, HMAC_IP_PREFIX } from '@shared/crypto-labels'
 import {
   hkdfDerive,
@@ -64,7 +63,7 @@ export class CryptoService {
    * Encrypt a plaintext string with a server-derived key.
    * AAD is derived from the label, binding the ciphertext to this domain.
    */
-  serverEncrypt(plaintext: string, label: CryptoLabel): Ciphertext {
+  async serverEncrypt(plaintext: string, label: CryptoLabel): Promise<Ciphertext> {
     return symmetricEncrypt(utf8ToBytes(plaintext), this.deriveKey(label), utf8ToBytes(label))
   }
 
@@ -72,8 +71,10 @@ export class CryptoService {
    * Decrypt a server-encrypted ciphertext.
    * AAD is derived from the label — must match what was used during encryption.
    */
-  serverDecrypt(ct: Ciphertext, label: CryptoLabel): string {
-    return new TextDecoder().decode(symmetricDecrypt(ct, this.deriveKey(label), utf8ToBytes(label)))
+  async serverDecrypt(ct: Ciphertext, label: CryptoLabel): Promise<string> {
+    return new TextDecoder().decode(
+      await symmetricDecrypt(ct, this.deriveKey(label), utf8ToBytes(label))
+    )
   }
 
   /**
@@ -88,12 +89,12 @@ export class CryptoService {
    * The lower-level `hubEncryptPrimitive` exists only as a test hook for
    * the AEAD primitive itself — production code must not call it directly.
    */
-  hubEncryptField(
+  async hubEncryptField(
     plaintext: string,
     hubKey: Uint8Array,
     recordId: string,
     fieldName: string
-  ): Ciphertext {
+  ): Promise<Ciphertext> {
     return symmetricEncrypt(utf8ToBytes(plaintext), hubKey, hubFieldAad(recordId, fieldName))
   }
 
@@ -101,15 +102,15 @@ export class CryptoService {
    * Decrypt a hub-scoped record field. Returns null on auth failure.
    * Must be called with the same `(recordId, fieldName)` tuple used at encrypt.
    */
-  hubDecryptField(
+  async hubDecryptField(
     ct: Ciphertext,
     hubKey: Uint8Array,
     recordId: string,
     fieldName: string
-  ): string | null {
+  ): Promise<string | null> {
     try {
       return new TextDecoder().decode(
-        symmetricDecrypt(ct, hubKey, hubFieldAad(recordId, fieldName))
+        await symmetricDecrypt(ct, hubKey, hubFieldAad(recordId, fieldName))
       )
     } catch {
       return null
@@ -121,14 +122,22 @@ export class CryptoService {
    * ciphertext MUST go through {@link hubEncryptField} / {@link hubDecryptField}
    * so the AAD formula is consistent with the client.
    */
-  hubEncryptPrimitive(plaintext: string, hubKey: Uint8Array, label: CryptoLabel): Ciphertext {
+  async hubEncryptPrimitive(
+    plaintext: string,
+    hubKey: Uint8Array,
+    label: CryptoLabel
+  ): Promise<Ciphertext> {
     return symmetricEncrypt(utf8ToBytes(plaintext), hubKey, utf8ToBytes(label))
   }
 
   /** Raw hub-key AEAD primitive (decrypt). See {@link hubEncryptPrimitive}. */
-  hubDecryptPrimitive(ct: Ciphertext, hubKey: Uint8Array, label: CryptoLabel): string | null {
+  async hubDecryptPrimitive(
+    ct: Ciphertext,
+    hubKey: Uint8Array,
+    label: CryptoLabel
+  ): Promise<string | null> {
     try {
-      return new TextDecoder().decode(symmetricDecrypt(ct, hubKey, utf8ToBytes(label)))
+      return new TextDecoder().decode(await symmetricDecrypt(ct, hubKey, utf8ToBytes(label)))
     } catch {
       return null
     }
@@ -232,7 +241,7 @@ export class CryptoService {
   ): Promise<{ encrypted: Ciphertext; envelopes: RecipientEnvelope[] }> {
     const dataKey = new Uint8Array(32)
     crypto.getRandomValues(dataKey)
-    const encrypted = symmetricEncrypt(data, dataKey, utf8ToBytes(label))
+    const encrypted = await symmetricEncrypt(data, dataKey, utf8ToBytes(label))
     // Seal data key for server's own X25519 HPKE key
     const serverPubkeyHex = await this.hpke.getServerPubkeyHex()
     const serverEnvelope = await this.hpke.sealForHex(
@@ -258,7 +267,7 @@ export class CryptoService {
     label: CryptoLabel
   ): Promise<Uint8Array> {
     const dataKey = await this.hpke.openForServer(envelope, label, 'envelope', 'key-wrap')
-    return symmetricDecrypt(ct, dataKey, utf8ToBytes(label))
+    return symmetricDecrypt(ct, dataKey, utf8ToBytes(label)) as Promise<Uint8Array>
   }
 
   /** Get the server's HPKE X25519 public key hex (for envelope recipient lists). */

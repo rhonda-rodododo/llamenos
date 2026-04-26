@@ -116,6 +116,7 @@ function UsersPage() {
         <div className="flex gap-2">
           <Button
             variant="outline"
+            data-testid="invite-user-btn"
             onClick={() => {
               setShowInviteForm(true)
               setInviteLink(null)
@@ -413,7 +414,7 @@ function InviteForm({
   }
 
   return (
-    <Card>
+    <Card data-testid="invite-form">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <Mail className="h-4 w-4 text-muted-foreground" />
@@ -460,7 +461,12 @@ function InviteForm({
             <Button type="submit" disabled={createInviteMutation.isPending}>
               {createInviteMutation.isPending ? t('common.loading') : t('users.createInvite')}
             </Button>
-            <Button type="button" variant="outline" onClick={onCancel}>
+            <Button
+              data-testid="invite-form-cancel-btn"
+              type="button"
+              variant="outline"
+              onClick={onCancel}
+            >
               {t('common.cancel')}
             </Button>
           </div>
@@ -509,7 +515,7 @@ function AddUserForm({
   }
 
   return (
-    <Card>
+    <Card data-testid="add-user-form">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <UserPlus className="h-4 w-4 text-muted-foreground" />

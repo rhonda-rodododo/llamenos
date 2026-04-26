@@ -65,8 +65,8 @@ afterAll(async () => {
 
 describe('GdprService.purgeExpiredData hub scoping', () => {
   test('purges only rows in the target hub, leaves other hubs untouched', async () => {
-    const encEvent = crypto_.serverEncrypt('e2e.test.event', LABEL_AUDIT_EVENT)
-    const encDetails = crypto_.serverEncrypt('{}', LABEL_AUDIT_EVENT)
+    const encEvent = await crypto_.serverEncrypt('e2e.test.event', LABEL_AUDIT_EVENT)
+    const encDetails = await crypto_.serverEncrypt('{}', LABEL_AUDIT_EVENT)
 
     // Seed audit_log in both hubs (old)
     const auditIdA = `${RUN_PREFIX}-audit-a`

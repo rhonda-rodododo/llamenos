@@ -1,13 +1,13 @@
 /**
  * Authoritative domain separation constants for all cryptographic operations.
  *
- * Every ECIES derivation, HKDF context, HMAC key, and Schnorr signature binding
+ * Every HPKE seal, HKDF context, HMAC key, and Schnorr signature binding
  * uses a unique context string from this file. This prevents cross-context key
  * reuse attacks where a ciphertext from one domain could be valid in another.
  *
  * RULES:
  * 1. NEVER use raw string literals for crypto contexts — import from here
- * 2. Constants passed as the `label` argument of ECIES/AEAD calls, OR enrolled
+ * 2. Constants passed as the `label` argument of HPKE/AEAD calls, OR enrolled
  *    in LABEL_REGISTRY (wire-format index), MUST carry the `CryptoLabel` brand
  * 3. HKDF salts/info fragments, HMAC key/prefix bytes, SAS salts, auth message
  *    prefixes, and recovery-key salts are NOT crypto-operation labels in the
@@ -18,8 +18,8 @@
 
 // --- Branded type for crypto-operation labels ---
 // Constants carry the CryptoLabel brand if they are passed as the `label`
-// argument of ECIES/AEAD functions (eciesWrapKey, eciesUnwrapKey,
-// symmetricEncrypt, symmetricDecrypt, etc.) OR if they are enrolled in
+// argument of HPKE/AEAD functions (hpkeSeal, hpkeOpen,
+// symmetricEncrypt, symmetricDecrypt) OR if they are enrolled in
 // LABEL_REGISTRY for the stable wire-format index. HKDF salts/info fragments,
 // HMAC prefixes, SAS salts, auth prefixes, and recovery-key salts are plain
 // strings — they are NOT crypto-operation labels in the Tier 0 sense.
@@ -27,7 +27,7 @@
 declare const __CryptoLabelBrand: unique symbol
 export type CryptoLabel = string & { readonly [__CryptoLabelBrand]: never }
 
-// --- ECIES Key Wrapping ---
+// --- HPKE Key Wrapping ---
 
 /** Per-note symmetric key wrapping (forward secrecy) */
 export const LABEL_NOTE_KEY = 'llamenos:note-key' as CryptoLabel
@@ -35,13 +35,13 @@ export const LABEL_NOTE_KEY = 'llamenos:note-key' as CryptoLabel
 /** Per-file symmetric key wrapping */
 export const LABEL_FILE_KEY = 'llamenos:file-key' as CryptoLabel
 
-/** File metadata ECIES wrapping */
+/** File metadata HPKE wrapping */
 export const LABEL_FILE_METADATA = 'llamenos:file-metadata' as CryptoLabel
 
-/** Hub key ECIES distribution wrapping (Epic 76.2) */
+/** Hub key HPKE distribution wrapping (Epic 76.2) */
 export const LABEL_HUB_KEY_WRAP = 'llamenos:hub-key-wrap' as CryptoLabel
 
-// --- ECIES Content Encryption ---
+// --- HPKE Content Encryption ---
 
 /** Server-side transcription encryption */
 export const LABEL_TRANSCRIPTION = 'llamenos:transcription' as CryptoLabel
@@ -49,7 +49,7 @@ export const LABEL_TRANSCRIPTION = 'llamenos:transcription' as CryptoLabel
 /** E2EE message encryption (Epic 74) */
 export const LABEL_MESSAGE = 'llamenos:message' as CryptoLabel
 
-/** Blast content ECIES envelope encryption */
+/** Blast content HPKE envelope encryption */
 export const LABEL_BLAST_CONTENT = 'llamenos:blast-content' as CryptoLabel
 
 /** Encrypted call record metadata (Epic 77) — call assignments in history */
@@ -143,25 +143,25 @@ export const LABEL_USER_HPKE_KEY_INFO = 'llamenos:user-hpke-key:v1'
 
 // --- Push Notification Encryption (Epic 86) ---
 
-/** Wake-tier ECIES push payload — decryptable without PIN (minimal metadata only) */
+/** Wake-tier HPKE push payload — decryptable without PIN (minimal metadata only) */
 export const LABEL_PUSH_WAKE = 'llamenos:push-wake' as CryptoLabel
 
-/** Full-tier ECIES push payload — decryptable only with user's nsec */
+/** Full-tier HPKE push payload — decryptable only with user's nsec */
 export const LABEL_PUSH_FULL = 'llamenos:push-full' as CryptoLabel
 
 // --- Contact Identifier Encryption (Epic 255) ---
 
-/** ECIES/AEAD context for contact identifier encryption at rest */
+/** HPKE/AEAD context for contact identifier encryption at rest */
 export const LABEL_CONTACT_ID = 'llamenos:contact-identifier' as CryptoLabel
 
 // --- Provider Credential Encryption (Epic 48) ---
 
-/** ECIES wrapping of provider OAuth/API credentials stored in SettingsDO */
+/** HPKE wrapping of provider OAuth/API credentials stored in SettingsDO */
 export const LABEL_PROVIDER_CREDENTIAL_WRAP = 'llamenos:provider-credential-wrap:v1' as CryptoLabel
 
 // --- Voicemail Encryption ---
 
-/** Voicemail audio symmetric key wrapping (ECIES) */
+/** Voicemail audio symmetric key wrapping (HPKE) */
 export const LABEL_VOICEMAIL_WRAP = 'llamenos:voicemail-audio' as CryptoLabel
 
 /** Voicemail transcript encryption (domain-separated from generic LABEL_MESSAGE) */
@@ -432,7 +432,7 @@ export const LABEL_REGISTRY = [
   //   44: LABEL_ITEMS_KEY_EXPORT (llamenos:items-key-export:v1)
   //   45: LABEL_NOTE_EPOCH_KEY   (llamenos:note-epoch-key:v1)
   //   46: LABEL_MLS_PROVISION    (llamenos:mls-provision:v1)
-  // Slice 3: server-side envelope labels (ECIES → HPKE migration)
+  // Slice 3: server-side envelope labels (now HPKE)
   LABEL_USER_PII, // 47
   LABEL_SESSION_META, // 48
   LABEL_FIREHOSE_BUFFER_ENCRYPT, // 49

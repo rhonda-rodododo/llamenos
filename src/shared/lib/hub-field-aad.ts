@@ -11,7 +11,7 @@
  * a bare label while client passes `label:id:field`) produce silent decrypt
  * failures that show up as blank labels in the UI. See PR #68 post-review.
  */
-import { utf8ToBytes } from '@noble/ciphers/utils.js'
+import { utf8ToBytes } from '@noble/hashes/utils.js'
 import { LABEL_HUB_FIELD } from '../crypto-labels'
 
 /**

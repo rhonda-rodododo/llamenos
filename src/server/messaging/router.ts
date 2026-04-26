@@ -222,7 +222,10 @@ messaging.post('/:channel/webhook', async (c) => {
   // Server-encrypt the inbound message body under LABEL_MESSAGE.
   // The first client to fetch decrypts via serverDecrypt, re-encrypts via MLS,
   // and PATCHes back via /conversations/{id}/messages/{msgId}/claim.
-  const serverEncryptedBody = services.crypto.serverEncrypt(incoming.body || '', LABEL_MESSAGE)
+  const serverEncryptedBody = await services.crypto.serverEncrypt(
+    incoming.body || '',
+    LABEL_MESSAGE
+  )
 
   // Store the encrypted message
   await services.conversations.addMessage({

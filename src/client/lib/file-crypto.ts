@@ -1,5 +1,4 @@
-import { utf8ToBytes } from '@noble/ciphers/utils.js'
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
+import { bytesToHex, hexToBytes, utf8ToBytes } from '@noble/hashes/utils.js'
 import { LABEL_FILE_KEY, LABEL_FILE_METADATA, labelToId } from '@shared/crypto-labels'
 import { symmetricDecrypt, symmetricEncrypt } from '@shared/crypto-primitives'
 import type { Ciphertext } from '@shared/crypto-types'
@@ -117,7 +116,7 @@ export async function encryptFile(
 
   // Encrypt file content with mandatory AAD binding
   // symmetricEncrypt returns hex — decode to bytes for the upload API
-  const encryptedHex = symmetricEncrypt(plaintextBytes, fileKey, aad)
+  const encryptedHex = await symmetricEncrypt(plaintextBytes, fileKey, aad)
   const encryptedContent = hexToBytes(encryptedHex)
 
   // Wrap the file key for each recipient using HPKE seal
@@ -169,7 +168,7 @@ export async function decryptFile(
 
   // Convert raw bytes to hex for symmetricDecrypt (which expects hex-encoded input)
   const encryptedHex = bytesToHex(new Uint8Array(encryptedContent)) as Ciphertext
-  const plaintext = symmetricDecrypt(encryptedHex, fileKey, aad)
+  const plaintext = await symmetricDecrypt(encryptedHex, fileKey, aad)
 
   // Compute checksum for integrity verification
   const hashBuffer = await crypto.subtle.digest('SHA-256', plaintext.buffer as ArrayBuffer)

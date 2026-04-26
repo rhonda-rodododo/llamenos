@@ -49,29 +49,31 @@ export async function listRoles(
     const now = new Date()
     // Encrypt default role names with hub key (server-initiated seeding)
     const hubKey = hId ? await getHubKeyForRoles(db, cryptoService, hubKeyCache, hId) : null
-    const seeded = await db
-      .insert(roles)
-      .values(
-        DEFAULT_ROLES.map((r) => ({
-          id: r.id,
-          hubId: hId,
-          // AAD must match the client's `(row.id, fieldName)` formula so
-          // hub-field-crypto.ts can decrypt the seeded row.
-          encryptedName: hubKey
-            ? cryptoService.hubEncryptField(r.name, hubKey, r.id, 'encrypted_name')
-            : (r.name as Ciphertext), // Plaintext until hub key available (pre-production)
-          encryptedDescription: r.description
-            ? hubKey
-              ? cryptoService.hubEncryptField(r.description, hubKey, r.id, 'encrypted_description')
-              : (r.description as Ciphertext)
-            : null,
-          permissions: r.permissions,
-          isDefault: r.isDefault,
-          createdAt: now,
-        }))
-      )
-      .onConflictDoNothing()
-      .returning()
+    const roleValues = await Promise.all(
+      DEFAULT_ROLES.map(async (r) => ({
+        id: r.id,
+        hubId: hId,
+        // AAD must match the client's `(row.id, fieldName)` formula so
+        // hub-field-crypto.ts can decrypt the seeded row.
+        encryptedName: hubKey
+          ? await cryptoService.hubEncryptField(r.name, hubKey, r.id, 'encrypted_name')
+          : (r.name as Ciphertext), // Plaintext until hub key available (pre-production)
+        encryptedDescription: r.description
+          ? hubKey
+            ? await cryptoService.hubEncryptField(
+                r.description,
+                hubKey,
+                r.id,
+                'encrypted_description'
+              )
+            : (r.description as Ciphertext)
+          : null,
+        permissions: r.permissions,
+        isDefault: r.isDefault,
+        createdAt: now,
+      }))
+    )
+    const seeded = await db.insert(roles).values(roleValues).onConflictDoNothing().returning()
     // Re-fetch in case another concurrent request already seeded (returning() may be empty)
     if (seeded.length === 0) {
       const refetched = hId

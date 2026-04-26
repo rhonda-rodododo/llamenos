@@ -16,9 +16,8 @@
  *      HPKE-wraps new key to remaining devices, computes commitment hashes
  */
 
-import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import { sha256 } from '@noble/hashes/sha2.js'
-import { bytesToHex } from '@noble/hashes/utils.js'
+import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js'
 import { LABEL_HUB_KEY_WRAP, LABEL_HUB_PTK_PREV_GEN } from '@shared/crypto-labels'
 import { symmetricDecrypt, symmetricEncrypt } from '@shared/crypto-primitives'
 import type { Ciphertext } from '@shared/crypto-types'
@@ -61,11 +60,15 @@ export function generateHubKey(): Uint8Array {
 // ---- Hub-scoped symmetric encryption (unchanged) ----
 
 /**
- * Encrypt arbitrary data with the hub key using XChaCha20-Poly1305.
- * Returns hex: nonce(24) + ciphertext.
+ * Encrypt arbitrary data with the hub key using AES-256-GCM.
+ * Returns hex: nonce(12) + ciphertext+tag.
  * The AAD cryptographically binds the ciphertext to a context (e.g. record id + field name).
  */
-export function encryptForHub(plaintext: string, hubKey: Uint8Array, aad: Uint8Array): Ciphertext {
+export async function encryptForHub(
+  plaintext: string,
+  hubKey: Uint8Array,
+  aad: Uint8Array
+): Promise<Ciphertext> {
   return symmetricEncrypt(utf8ToBytes(plaintext), hubKey, aad)
 }
 
@@ -103,15 +106,15 @@ type HubDecryptResult = { ok: true; value: string } | { ok: false; reason: 'decr
  * just wants a `string | null` should keep using `decryptFromHub`, which
  * delegates to this function.
  */
-export function decryptFromHubWithError(
+export async function decryptFromHubWithError(
   packed: Ciphertext,
   hubKey: Uint8Array,
   aad: Uint8Array
-): HubDecryptResult {
+): Promise<HubDecryptResult> {
   try {
     return {
       ok: true,
-      value: new TextDecoder().decode(symmetricDecrypt(packed, hubKey, aad)),
+      value: new TextDecoder().decode(await symmetricDecrypt(packed, hubKey, aad)),
     }
   } catch (err) {
     // Log every failure — a hub-field that was readable yesterday and is
@@ -137,12 +140,12 @@ export function decryptFromHubWithError(
  * should call `decryptFromHubWithError` directly so the failure isn't
  * silently coalesced into the same value as "no ciphertext yet".
  */
-export function decryptFromHub(
+export async function decryptFromHub(
   packed: Ciphertext,
   hubKey: Uint8Array,
   aad: Uint8Array
-): string | null {
-  const result = decryptFromHubWithError(packed, hubKey, aad)
+): Promise<string | null> {
+  const result = await decryptFromHubWithError(packed, hubKey, aad)
   return result.ok ? result.value : null
 }
 

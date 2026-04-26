@@ -1,26 +1,10 @@
 import { describe, expect, test } from 'bun:test'
-import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
-import { utf8ToBytes } from '@noble/ciphers/utils.js'
-import { secp256k1 } from '@noble/curves/secp256k1.js'
 import { hkdf } from '@noble/hashes/hkdf.js'
 import { sha256 } from '@noble/hashes/sha2.js'
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
+import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js'
 import { decryptDraft, encryptDraft, encryptExport } from '@shared/crypto-envelopes'
-import {
-  type CryptoLabel,
-  HKDF_CONTEXT_EXPORT,
-  HKDF_SALT,
-  LABEL_CALL_META,
-  LABEL_TRANSCRIPTION,
-} from '@shared/crypto-labels'
-import {
-  eciesUnwrapKeyWithSecret,
-  eciesWrapKey,
-  generateKeyPair,
-  isValidNsec,
-  type KeyEnvelope,
-  keyPairFromNsec,
-} from '@shared/crypto-primitives'
+import { HKDF_CONTEXT_EXPORT, HKDF_SALT, LABEL_CALL_META } from '@shared/crypto-labels'
+import { generateKeyPair, isValidNsec, keyPairFromNsec } from '@shared/crypto-primitives'
 
 describe('generateKeyPair', () => {
   test('secretKey is 32 bytes (Uint8Array)', () => {
@@ -93,67 +77,7 @@ describe('keyPairFromNsec / isValidNsec', () => {
   })
 })
 
-describe('eciesWrapKey / eciesUnwrapKeyWithSecret', () => {
-  const TEST_LABEL = 'test:ecies-wrap' as CryptoLabel
-  const OTHER_LABEL = 'test:ecies-other' as CryptoLabel
-
-  function randomKey(): Uint8Array {
-    const key = new Uint8Array(32)
-    crypto.getRandomValues(key)
-    return key
-  }
-
-  test('roundtrip: wrap then unwrap with correct secretKey returns original key', () => {
-    const kp = generateKeyPair()
-    const symmetricKey = randomKey()
-
-    const envelope = eciesWrapKey(symmetricKey, kp.publicKey, TEST_LABEL)
-    const unwrapped = eciesUnwrapKeyWithSecret(envelope, kp.secretKey, TEST_LABEL)
-
-    expect(bytesToHex(unwrapped)).toBe(bytesToHex(symmetricKey))
-  })
-
-  test('wrong private key throws on unwrap', () => {
-    const recipient = generateKeyPair()
-    const attacker = generateKeyPair()
-    const symmetricKey = randomKey()
-
-    const envelope = eciesWrapKey(symmetricKey, recipient.publicKey, TEST_LABEL)
-
-    expect(() => eciesUnwrapKeyWithSecret(envelope, attacker.secretKey, TEST_LABEL)).toThrow()
-  })
-
-  test('nonce uniqueness: two wraps of same key produce different wrappedKey', () => {
-    const kp = generateKeyPair()
-    const symmetricKey = randomKey()
-
-    const envelope1 = eciesWrapKey(symmetricKey, kp.publicKey, TEST_LABEL)
-    const envelope2 = eciesWrapKey(symmetricKey, kp.publicKey, TEST_LABEL)
-
-    expect(envelope1.wrappedKey).not.toBe(envelope2.wrappedKey)
-    expect(envelope1.ephemeralPubkey).not.toBe(envelope2.ephemeralPubkey)
-  })
-
-  test('domain separation: wrap with label A, unwrap with label B throws', () => {
-    const kp = generateKeyPair()
-    const symmetricKey = randomKey()
-
-    const envelope = eciesWrapKey(symmetricKey, kp.publicKey, TEST_LABEL)
-
-    expect(() => eciesUnwrapKeyWithSecret(envelope, kp.secretKey, OTHER_LABEL)).toThrow()
-  })
-
-  test('ephemeral pubkey is 66 hex chars (33 bytes compressed)', () => {
-    const kp = generateKeyPair()
-    const symmetricKey = randomKey()
-
-    const envelope = eciesWrapKey(symmetricKey, kp.publicKey, TEST_LABEL)
-
-    expect(typeof envelope.ephemeralPubkey).toBe('string')
-    expect(envelope.ephemeralPubkey.length).toBe(66)
-    expect(/^[0-9a-f]{66}$/.test(envelope.ephemeralPubkey)).toBe(true)
-  })
-})
+// ── ECIES wrap/unwrap tests removed — HPKE is now the only key-wrapping primitive ──
 
 // ── Note and message ECIES envelope tests removed — both paths now use MLS ──
 
@@ -163,7 +87,6 @@ describe('decryptCallRecord — cross-boundary interop', () => {
   const callMeta = { answeredBy: 'vol_abc123', callerNumber: '+15551234567' }
 
   // Server-side envelope encrypt now uses HPKE. Test round-trip via server's own decrypt.
-  // Cross-boundary client ECIES ↔ server HPKE interop deferred to Slice 2 (client HPKE migration).
   async function encryptCallRecord(metadata: Record<string, unknown>, adminPubkeys: string[]) {
     const { CryptoService } = require('../../server/lib/crypto-service')
     const { HpkeService } = require('../../server/lib/hpke-service')
@@ -201,120 +124,37 @@ describe('decryptCallRecord — cross-boundary interop', () => {
   })
 })
 
-// ── A4: decryptTranscription ──
-
-describe('decryptTranscription (manual)', () => {
-  const transcriptionText = 'This is a test transcription of the call.'
-
-  function encryptTranscriptionManually(plaintext: string, recipientPubkey: string) {
-    const ephemeral = generateKeyPair()
-    const recipientCompressed = hexToBytes(`02${recipientPubkey}`)
-    const shared = secp256k1.getSharedSecret(ephemeral.secretKey, recipientCompressed)
-    const sharedX = shared.slice(1, 33)
-
-    const labelBytes = utf8ToBytes(LABEL_TRANSCRIPTION)
-    const keyInput = new Uint8Array(labelBytes.length + sharedX.length)
-    keyInput.set(labelBytes)
-    keyInput.set(sharedX, labelBytes.length)
-    const symmetricKey = sha256(keyInput)
-
-    const nonce = new Uint8Array(24)
-    crypto.getRandomValues(nonce)
-    const ciphertext = xchacha20poly1305(symmetricKey, nonce).encrypt(utf8ToBytes(plaintext))
-
-    const packed = new Uint8Array(nonce.length + ciphertext.length)
-    packed.set(nonce)
-    packed.set(ciphertext, nonce.length)
-
-    const packedHex = bytesToHex(packed)
-    const ephemeralPubkeyHex = bytesToHex(secp256k1.getPublicKey(ephemeral.secretKey, true))
-
-    return { packedHex, ephemeralPubkeyHex }
-  }
-
-  /** Manually decrypt a transcription using ECDH + domain-separated key + XChaCha20 */
-  function decryptTranscriptionWithKey(
-    packed: string,
-    ephemeralPubkeyHex: string,
-    secretKey: Uint8Array
-  ): string | null {
-    try {
-      const ephemeralPub = hexToBytes(ephemeralPubkeyHex)
-      const shared = secp256k1.getSharedSecret(secretKey, ephemeralPub)
-      const sharedX = shared.slice(1, 33)
-
-      const labelBytes = utf8ToBytes(LABEL_TRANSCRIPTION)
-      const keyInput = new Uint8Array(labelBytes.length + sharedX.length)
-      keyInput.set(labelBytes)
-      keyInput.set(sharedX, labelBytes.length)
-      const symmetricKey = sha256(keyInput)
-
-      const data = hexToBytes(packed)
-      const nonce = data.slice(0, 24)
-      const ciphertext = data.slice(24)
-      const cipher = xchacha20poly1305(symmetricKey, nonce)
-      const plaintext = cipher.decrypt(ciphertext)
-      return new TextDecoder().decode(plaintext)
-    } catch {
-      return null
-    }
-  }
-
-  test('roundtrip: manually ECDH-encrypt → decryptTranscription recovers plaintext', () => {
-    const recipient = generateKeyPair()
-
-    const { packedHex, ephemeralPubkeyHex } = encryptTranscriptionManually(
-      transcriptionText,
-      recipient.publicKey
-    )
-
-    const result = decryptTranscriptionWithKey(packedHex, ephemeralPubkeyHex, recipient.secretKey)
-    expect(result).toBe(transcriptionText)
-  })
-
-  test('wrong key returns null', () => {
-    const recipient = generateKeyPair()
-    const wrongKey = generateKeyPair()
-
-    const { packedHex, ephemeralPubkeyHex } = encryptTranscriptionManually(
-      transcriptionText,
-      recipient.publicKey
-    )
-
-    const result = decryptTranscriptionWithKey(packedHex, ephemeralPubkeyHex, wrongKey.secretKey)
-    expect(result).toBeNull()
-  })
-})
+// ── decryptTranscription (manual ECIES/XChaCha20) tests removed — transcription now uses HPKE ──
 
 // ── A5: encryptDraft / decryptDraft ──
 
 describe('encryptDraft / decryptDraft', () => {
   const draftText = 'Draft note in progress — caller is describing situation...'
 
-  test('roundtrip: encrypt → decrypt recovers original text', () => {
+  test('roundtrip: encrypt → decrypt recovers original text', async () => {
     const kp = generateKeyPair()
 
-    const encrypted = encryptDraft(draftText, kp.secretKey)
-    const decrypted = decryptDraft(encrypted, kp.secretKey)
+    const encrypted = await encryptDraft(draftText, kp.secretKey)
+    const decrypted = await decryptDraft(encrypted, kp.secretKey)
 
     expect(decrypted).toBe(draftText)
   })
 
-  test('wrong key returns null', () => {
+  test('wrong key returns null', async () => {
     const kp = generateKeyPair()
     const wrongKey = generateKeyPair()
 
-    const encrypted = encryptDraft(draftText, kp.secretKey)
-    const result = decryptDraft(encrypted, wrongKey.secretKey)
+    const encrypted = await encryptDraft(draftText, kp.secretKey)
+    const result = await decryptDraft(encrypted, wrongKey.secretKey)
 
     expect(result).toBeNull()
   })
 
-  test('nonce uniqueness: two encryptions of same text differ', () => {
+  test('nonce uniqueness: two encryptions of same text differ', async () => {
     const kp = generateKeyPair()
 
-    const enc1 = encryptDraft(draftText, kp.secretKey)
-    const enc2 = encryptDraft(draftText, kp.secretKey)
+    const enc1 = await encryptDraft(draftText, kp.secretKey)
+    const enc2 = await encryptDraft(draftText, kp.secretKey)
 
     expect(enc1).not.toBe(enc2)
   })
@@ -325,43 +165,50 @@ describe('encryptDraft / decryptDraft', () => {
 describe('encryptExport', () => {
   const exportJson = JSON.stringify({ notes: [{ text: 'Note 1' }], exportedAt: '2026-03-26' })
 
-  test('returns Uint8Array', () => {
+  test('returns Uint8Array', async () => {
     const kp = generateKeyPair()
-    const result = encryptExport(exportJson, kp.secretKey)
+    const result = await encryptExport(exportJson, kp.secretKey)
 
     expect(result).toBeInstanceOf(Uint8Array)
-    // nonce(24) + ciphertext(json.length + 16 poly1305 tag)
-    expect(result.length).toBeGreaterThan(24)
+    // nonce(12) + ciphertext(json.length + 16 AES-GCM tag)
+    expect(result.length).toBeGreaterThan(12)
   })
 
-  test('manual decrypt roundtrip: derive key with HKDF then XChaCha20 decrypt', () => {
+  test('manual decrypt roundtrip: derive key with HKDF then AES-GCM decrypt', async () => {
     const kp = generateKeyPair()
-    const packed = encryptExport(exportJson, kp.secretKey)
+    const packed = await encryptExport(exportJson, kp.secretKey)
 
     // Derive the same key the function uses
     const salt = utf8ToBytes(HKDF_SALT)
     const key = hkdf(sha256, kp.secretKey, salt, utf8ToBytes(HKDF_CONTEXT_EXPORT), 32)
 
-    const nonce = packed.slice(0, 24)
-    const ciphertext = packed.slice(24)
-    const cipher = xchacha20poly1305(key, nonce)
-    const plaintext = new TextDecoder().decode(cipher.decrypt(ciphertext))
+    // AES-GCM: 12-byte nonce, then ciphertext+tag
+    const nonce = packed.slice(0, 12)
+    const ciphertext = packed.slice(12)
+    const cryptoKey = await crypto.subtle.importKey('raw', key, 'AES-GCM', false, ['decrypt'])
+    const pt = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: nonce, tagLength: 128 },
+      cryptoKey,
+      ciphertext
+    )
 
-    expect(plaintext).toBe(exportJson)
+    expect(new TextDecoder().decode(pt)).toBe(exportJson)
   })
 
-  test('wrong key fails to decrypt', () => {
+  test('wrong key fails to decrypt', async () => {
     const kp = generateKeyPair()
     const wrongKey = generateKeyPair()
-    const packed = encryptExport(exportJson, kp.secretKey)
+    const packed = await encryptExport(exportJson, kp.secretKey)
 
     const salt = utf8ToBytes(HKDF_SALT)
     const key = hkdf(sha256, wrongKey.secretKey, salt, utf8ToBytes(HKDF_CONTEXT_EXPORT), 32)
 
-    const nonce = packed.slice(0, 24)
-    const ciphertext = packed.slice(24)
-    const cipher = xchacha20poly1305(key, nonce)
+    const nonce = packed.slice(0, 12)
+    const ciphertext = packed.slice(12)
+    const cryptoKey = await crypto.subtle.importKey('raw', key, 'AES-GCM', false, ['decrypt'])
 
-    expect(() => cipher.decrypt(ciphertext)).toThrow()
+    expect(
+      crypto.subtle.decrypt({ name: 'AES-GCM', iv: nonce, tagLength: 128 }, cryptoKey, ciphertext)
+    ).rejects.toThrow()
   })
 })

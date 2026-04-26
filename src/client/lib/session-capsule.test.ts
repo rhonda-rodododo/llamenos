@@ -26,7 +26,7 @@ const PUBKEY_HASH = asPubkeyHash16('abcdef0123456789')
 const OTHER_HASH = asPubkeyHash16('0123456789abcdef')
 
 const ENC_NSEC = asEncryptedNsec('deadbeef')
-const CAPSULE_NONCE = asCapsuleNonce('a'.repeat(48))
+const CAPSULE_NONCE = asCapsuleNonce('a'.repeat(24))
 
 const TOK_PRIMARY = asSessionToken('1'.repeat(64))
 const TOK_CROSS_TAB = asSessionToken('2'.repeat(64))
@@ -436,14 +436,14 @@ describe('parseSessionCapsule', () => {
   test('accepts a well-formed capsule', () => {
     const raw = {
       encryptedNsec: 'deadbeef',
-      capsuleNonce: 'a'.repeat(48),
+      capsuleNonce: 'a'.repeat(24),
       autoLockExpiresAt: Date.now() + 60_000,
       pubkeyHash: 'abcdef0123456789',
     }
     const parsed = parseSessionCapsule(raw)
     expect(parsed).not.toBeNull()
     expect(parsed?.encryptedNsec as string).toBe('deadbeef')
-    expect(parsed?.capsuleNonce as string).toBe('a'.repeat(48))
+    expect(parsed?.capsuleNonce as string).toBe('a'.repeat(24))
     expect(parsed?.pubkeyHash as string).toBe('abcdef0123456789')
   })
 
@@ -458,7 +458,7 @@ describe('parseSessionCapsule', () => {
     expect(
       parseSessionCapsule({
         encryptedNsec: '',
-        capsuleNonce: 'a'.repeat(48),
+        capsuleNonce: 'a'.repeat(24),
         autoLockExpiresAt: Date.now() + 60_000,
         pubkeyHash: 'abcdef0123456789',
       })
@@ -469,7 +469,7 @@ describe('parseSessionCapsule', () => {
     expect(
       parseSessionCapsule({
         encryptedNsec: 'deadbeef',
-        capsuleNonce: 'a'.repeat(47),
+        capsuleNonce: 'a'.repeat(23),
         autoLockExpiresAt: Date.now() + 60_000,
         pubkeyHash: 'abcdef0123456789',
       })
@@ -480,7 +480,7 @@ describe('parseSessionCapsule', () => {
     expect(
       parseSessionCapsule({
         encryptedNsec: 'deadbeef',
-        capsuleNonce: 'z'.repeat(48),
+        capsuleNonce: 'z'.repeat(24),
         autoLockExpiresAt: Date.now() + 60_000,
         pubkeyHash: 'abcdef0123456789',
       })
@@ -491,7 +491,7 @@ describe('parseSessionCapsule', () => {
     expect(
       parseSessionCapsule({
         encryptedNsec: 'deadbeef',
-        capsuleNonce: 'a'.repeat(48),
+        capsuleNonce: 'a'.repeat(24),
         autoLockExpiresAt: Date.now() + 60_000,
         pubkeyHash: 'abc',
       })
@@ -502,7 +502,7 @@ describe('parseSessionCapsule', () => {
     expect(
       parseSessionCapsule({
         encryptedNsec: 'deadbeef',
-        capsuleNonce: 'a'.repeat(48),
+        capsuleNonce: 'a'.repeat(24),
         autoLockExpiresAt: 'soon',
         pubkeyHash: 'abcdef0123456789',
       })
@@ -513,7 +513,7 @@ describe('parseSessionCapsule', () => {
     expect(
       parseSessionCapsule({
         encryptedNsec: 'deadbeef',
-        capsuleNonce: 'a'.repeat(48),
+        capsuleNonce: 'a'.repeat(24),
         autoLockExpiresAt: 0,
         pubkeyHash: 'abcdef0123456789',
       })
@@ -521,7 +521,7 @@ describe('parseSessionCapsule', () => {
     expect(
       parseSessionCapsule({
         encryptedNsec: 'deadbeef',
-        capsuleNonce: 'a'.repeat(48),
+        capsuleNonce: 'a'.repeat(24),
         autoLockExpiresAt: -1,
         pubkeyHash: 'abcdef0123456789',
       })
@@ -532,7 +532,7 @@ describe('parseSessionCapsule', () => {
     expect(
       parseSessionCapsule({
         encryptedNsec: 'deadbeef',
-        capsuleNonce: 'a'.repeat(48),
+        capsuleNonce: 'a'.repeat(24),
         autoLockExpiresAt: Number.POSITIVE_INFINITY,
         pubkeyHash: 'abcdef0123456789',
       })
@@ -540,7 +540,7 @@ describe('parseSessionCapsule', () => {
     expect(
       parseSessionCapsule({
         encryptedNsec: 'deadbeef',
-        capsuleNonce: 'a'.repeat(48),
+        capsuleNonce: 'a'.repeat(24),
         autoLockExpiresAt: Number.NaN,
         pubkeyHash: 'abcdef0123456789',
       })
@@ -552,7 +552,7 @@ describe('parseSessionCapsule', () => {
     expect(
       parseSessionCapsule({
         encryptedNsec: 'deadbeef',
-        capsuleNonce: 'a'.repeat(48),
+        capsuleNonce: 'a'.repeat(24),
         autoLockExpiresAt: Date.now() + 60_000,
         // pubkeyHash missing
       })

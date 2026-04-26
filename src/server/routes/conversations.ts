@@ -634,7 +634,7 @@ conversations.openapi(claimMessageRoute, async (c) => {
     return c.json({ error: 'Message already claimed or not server-encrypted' }, 409)
   }
 
-  const plaintext = services.crypto.serverDecrypt(
+  const plaintext = await services.crypto.serverDecrypt(
     msg.serverEncryptedBody as import('@shared/crypto-types').Ciphertext,
     LABEL_MESSAGE
   )

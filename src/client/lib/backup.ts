@@ -15,10 +15,9 @@
  * Recovery key: 128-bit random, Base32-encoded, formatted as XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX
  */
 
-import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
-import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import { sha256 } from '@noble/hashes/sha2.js'
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
+import { bytesToHex, hexToBytes, utf8ToBytes } from '@noble/hashes/utils.js'
+import { aesGcmDecrypt, aesGcmEncrypt } from '@shared/aes-gcm'
 import { RECOVERY_SALT } from '@shared/crypto-labels'
 
 const BASE32_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
@@ -116,18 +115,19 @@ async function deriveFromPin(pin: string, salt: Uint8Array): Promise<Uint8Array>
   return new Uint8Array(derived)
 }
 
-function encrypt(plaintext: string, kek: Uint8Array): { nonce: string; ciphertext: string } {
-  const nonce = new Uint8Array(24)
-  crypto.getRandomValues(nonce)
-  const cipher = xchacha20poly1305(kek, nonce)
-  const ct = cipher.encrypt(utf8ToBytes(plaintext))
-  return { nonce: bytesToHex(nonce), ciphertext: bytesToHex(ct) }
+async function encrypt(
+  plaintext: string,
+  kek: Uint8Array
+): Promise<{ nonce: string; ciphertext: string }> {
+  const packed = await aesGcmEncrypt(utf8ToBytes(plaintext), kek, new Uint8Array(0))
+  // packed is hex: nonce(12 bytes = 24 hex chars) || ciphertext+tag
+  return { nonce: packed.slice(0, 24), ciphertext: packed.slice(24) }
 }
 
-function decrypt(nonce: string, ciphertext: string, kek: Uint8Array): string | null {
+async function decrypt(nonce: string, ciphertext: string, kek: Uint8Array): Promise<string | null> {
   try {
-    const cipher = xchacha20poly1305(kek, hexToBytes(nonce))
-    const pt = cipher.decrypt(hexToBytes(ciphertext))
+    const packed = nonce + ciphertext
+    const pt = await aesGcmDecrypt(packed, kek, new Uint8Array(0))
     return new TextDecoder().decode(pt)
   } catch {
     return null
@@ -164,12 +164,12 @@ export async function createBackup(
   const salt = new Uint8Array(16)
   crypto.getRandomValues(salt)
   const kek = await deriveFromPin(pin, salt)
-  const { nonce, ciphertext } = encrypt(nsec, kek)
+  const { nonce, ciphertext } = await encrypt(nsec, kek)
 
   const rSalt = new Uint8Array(16)
   crypto.getRandomValues(rSalt)
   const rKek = await deriveFromRecoveryKey(recoveryKey, rSalt)
-  const { nonce: rNonce, ciphertext: rCt } = encrypt(nsec, rKek)
+  const { nonce: rNonce, ciphertext: rCt } = await encrypt(nsec, rKek)
 
   return {
     v: 1,

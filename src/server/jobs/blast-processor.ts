@@ -325,7 +325,7 @@ export class BlastProcessor {
     encrypted: string,
     hubKey: Uint8Array
   ): Promise<string | null> {
-    return this.crypto.hubDecryptField(
+    return await this.crypto.hubDecryptField(
       encrypted as Ciphertext,
       hubKey,
       subscriberId,

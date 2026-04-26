@@ -17,9 +17,7 @@
  * across the rest of the API surface) remain TODO(tier-1).
  */
 
-import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
-import { utf8ToBytes } from '@noble/ciphers/utils.js'
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
+import { bytesToHex, hexToBytes, utf8ToBytes } from '@noble/hashes/utils.js'
 import { expect, test } from '@playwright/test'
 import { hubFieldAad } from '@shared/lib/hub-field-aad'
 import { TestContext } from '../api-helpers'
@@ -32,24 +30,39 @@ function randomHubKey(): Uint8Array {
   return k
 }
 
-function hubEncrypt(plaintext: string, hubKey: Uint8Array, aad: Uint8Array): string {
-  const nonce = new Uint8Array(24)
+async function hubEncrypt(plaintext: string, hubKey: Uint8Array, aad: Uint8Array): Promise<string> {
+  const nonce = new Uint8Array(12)
   crypto.getRandomValues(nonce)
-  const cipher = xchacha20poly1305(hubKey, nonce, aad)
-  const ct = cipher.encrypt(utf8ToBytes(plaintext))
+  const cryptoKey = await crypto.subtle.importKey('raw', hubKey, 'AES-GCM', false, ['encrypt'])
+  const ct = new Uint8Array(
+    await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv: nonce, additionalData: aad, tagLength: 128 },
+      cryptoKey,
+      utf8ToBytes(plaintext)
+    )
+  )
   const out = new Uint8Array(nonce.length + ct.length)
   out.set(nonce)
   out.set(ct, nonce.length)
   return bytesToHex(out)
 }
 
-function tryHubDecrypt(hex: string, hubKey: Uint8Array, aad: Uint8Array): string | null {
+async function tryHubDecrypt(
+  hex: string,
+  hubKey: Uint8Array,
+  aad: Uint8Array
+): Promise<string | null> {
   try {
     const data = hexToBytes(hex)
-    const nonce = data.slice(0, 24)
-    const ct = data.slice(24)
-    const cipher = xchacha20poly1305(hubKey, nonce, aad)
-    return new TextDecoder().decode(cipher.decrypt(ct))
+    const nonce = data.slice(0, 12)
+    const ct = data.slice(12)
+    const cryptoKey = await crypto.subtle.importKey('raw', hubKey, 'AES-GCM', false, ['decrypt'])
+    const pt = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: nonce, additionalData: aad, tagLength: 128 },
+      cryptoKey,
+      ct
+    )
+    return new TextDecoder().decode(pt)
   } catch {
     return null
   }
@@ -96,7 +109,7 @@ test.describe('Tier 0 hub-field AEAD binding', () => {
     expect(found).toBeDefined()
   })
 
-  test('hub-field ciphertext does not decrypt under a different record or field', () => {
+  test('hub-field ciphertext does not decrypt under a different record or field', async () => {
     // Real cryptographic check of the AAD binding. Uses the SAME hubFieldAad
     // helper the production code calls — if the formula ever drifts, any of
     // these assertions will flip.
@@ -111,20 +124,20 @@ test.describe('Tier 0 hub-field AEAD binding', () => {
     const aadAY = hubFieldAad(recordA, fieldY)
     const aadBY = hubFieldAad(recordB, fieldY)
 
-    const ct = hubEncrypt('secret-name', hubKey, aadAX)
+    const ct = await hubEncrypt('secret-name', hubKey, aadAX)
 
     // Correct AAD decrypts.
-    expect(tryHubDecrypt(ct, hubKey, aadAX)).toBe('secret-name')
+    expect(await tryHubDecrypt(ct, hubKey, aadAX)).toBe('secret-name')
 
     // Wrong record ID.
-    expect(tryHubDecrypt(ct, hubKey, aadBX)).toBeNull()
+    expect(await tryHubDecrypt(ct, hubKey, aadBX)).toBeNull()
     // Wrong field name.
-    expect(tryHubDecrypt(ct, hubKey, aadAY)).toBeNull()
+    expect(await tryHubDecrypt(ct, hubKey, aadAY)).toBeNull()
     // Both wrong.
-    expect(tryHubDecrypt(ct, hubKey, aadBY)).toBeNull()
+    expect(await tryHubDecrypt(ct, hubKey, aadBY)).toBeNull()
 
     // Sanity: different hub key also fails (defense in depth, not an AAD check).
-    expect(tryHubDecrypt(ct, randomHubKey(), aadAX)).toBeNull()
+    expect(await tryHubDecrypt(ct, randomHubKey(), aadAX)).toBeNull()
   })
 
   test('hubFieldAad is deterministic and includes both record and field', () => {

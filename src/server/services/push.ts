@@ -38,15 +38,15 @@ export class PushService {
   ) {}
 
   async #rowToSubscription(row: typeof pushSubscriptions.$inferSelect): Promise<PushSubscription> {
-    const endpoint = this.crypto.serverDecrypt(
+    const endpoint = await this.crypto.serverDecrypt(
       row.encryptedEndpoint as Ciphertext,
       LABEL_PUSH_CREDENTIAL
     )
-    const authKey = this.crypto.serverDecrypt(
+    const authKey = await this.crypto.serverDecrypt(
       row.encryptedAuthKey as Ciphertext,
       LABEL_PUSH_CREDENTIAL
     )
-    const p256dhKey = this.crypto.serverDecrypt(
+    const p256dhKey = await this.crypto.serverDecrypt(
       row.encryptedP256dhKey as Ciphertext,
       LABEL_PUSH_CREDENTIAL
     )
@@ -74,9 +74,12 @@ export class PushService {
     const now = new Date()
 
     // Encrypt push credentials with server key
-    const encryptedEndpoint = this.crypto.serverEncrypt(data.endpoint, LABEL_PUSH_CREDENTIAL)
-    const encryptedAuthKey = this.crypto.serverEncrypt(data.authKey, LABEL_PUSH_CREDENTIAL)
-    const encryptedP256dhKey = this.crypto.serverEncrypt(data.p256dhKey, LABEL_PUSH_CREDENTIAL)
+    const encryptedEndpoint = await this.crypto.serverEncrypt(data.endpoint, LABEL_PUSH_CREDENTIAL)
+    const encryptedAuthKey = await this.crypto.serverEncrypt(data.authKey, LABEL_PUSH_CREDENTIAL)
+    const encryptedP256dhKey = await this.crypto.serverEncrypt(
+      data.p256dhKey,
+      LABEL_PUSH_CREDENTIAL
+    )
 
     // HMAC hash endpoint for dedup
     const endpointHash = this.crypto.hmac(data.endpoint, HMAC_PHONE_PREFIX)

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { utf8ToBytes } from '@noble/ciphers/utils.js'
+import { utf8ToBytes } from '@noble/hashes/utils.js'
 import { LABEL_HUB_FIELD } from '@shared/crypto-labels'
 import { createHpkeSuite } from '@shared/crypto-suite'
 import type { Ciphertext } from '@shared/crypto-types'
@@ -48,74 +48,78 @@ describe('generateHubKey', () => {
 })
 
 describe('encryptForHub / decryptFromHub', () => {
-  test('matching AAD round-trips', () => {
+  test('matching AAD round-trips', async () => {
     const key = generateHubKey()
     const aad = utf8ToBytes(`${LABEL_HUB_FIELD}:row-123:encrypted_name`)
-    const ct = encryptForHub('hello', key, aad)
-    const pt = decryptFromHub(ct, key, aad)
+    const ct = await encryptForHub('hello', key, aad)
+    const pt = await decryptFromHub(ct, key, aad)
     expect(pt).toBe('hello')
   })
 
-  test('mismatched AAD returns null', () => {
+  test('mismatched AAD returns null', async () => {
     const key = generateHubKey()
-    const ct = encryptForHub('hello', key, utf8ToBytes(`${LABEL_HUB_FIELD}:row-A:encrypted_name`))
-    const pt = decryptFromHub(ct, key, utf8ToBytes(`${LABEL_HUB_FIELD}:row-B:encrypted_name`))
+    const ct = await encryptForHub(
+      'hello',
+      key,
+      utf8ToBytes(`${LABEL_HUB_FIELD}:row-A:encrypted_name`)
+    )
+    const pt = await decryptFromHub(ct, key, utf8ToBytes(`${LABEL_HUB_FIELD}:row-B:encrypted_name`))
     expect(pt).toBeNull()
   })
 
-  test('wrong key returns null', () => {
+  test('wrong key returns null', async () => {
     const key1 = generateHubKey()
     const key2 = generateHubKey()
     const aad = utf8ToBytes(`${LABEL_HUB_FIELD}:row-1:name`)
-    const ct = encryptForHub('secret', key1, aad)
-    const pt = decryptFromHub(ct, key2, aad)
+    const ct = await encryptForHub('secret', key1, aad)
+    const pt = await decryptFromHub(ct, key2, aad)
     expect(pt).toBeNull()
   })
 })
 
 describe('decryptFromHubWithError', () => {
-  test('matching key + AAD round-trips with ok: true', () => {
+  test('matching key + AAD round-trips with ok: true', async () => {
     const key = generateHubKey()
     const aad = utf8ToBytes(`${LABEL_HUB_FIELD}:row-1:encrypted_name`)
-    const ct = encryptForHub('hello world', key, aad)
+    const ct = await encryptForHub('hello world', key, aad)
 
-    const result = decryptFromHubWithError(ct, key, aad)
+    const result = await decryptFromHubWithError(ct, key, aad)
     expect(result.ok).toBe(true)
     if (result.ok) {
       expect(result.value).toBe('hello world')
     }
   })
 
-  test('wrong key returns ok: false / decrypt_failed', () => {
+  test('wrong key returns ok: false / decrypt_failed', async () => {
     const key1 = generateHubKey()
     const key2 = generateHubKey()
     const aad = utf8ToBytes(`${LABEL_HUB_FIELD}:row-1:encrypted_name`)
-    const ct = encryptForHub('top secret', key1, aad)
+    const ct = await encryptForHub('top secret', key1, aad)
 
-    const result = decryptFromHubWithError(ct, key2, aad)
+    const result = await decryptFromHubWithError(ct, key2, aad)
     expect(result.ok).toBe(false)
     if (!result.ok) {
       expect(result.reason).toBe('decrypt_failed')
     }
   })
 
-  test('mismatched AAD returns ok: false / decrypt_failed', () => {
+  test('mismatched AAD returns ok: false / decrypt_failed', async () => {
     const key = generateHubKey()
     const aadA = utf8ToBytes(`${LABEL_HUB_FIELD}:row-A:encrypted_name`)
     const aadB = utf8ToBytes(`${LABEL_HUB_FIELD}:row-B:encrypted_name`)
-    const ct = encryptForHub('hello', key, aadA)
+    const ct = await encryptForHub('hello', key, aadA)
 
-    const result = decryptFromHubWithError(ct, key, aadB)
+    const result = await decryptFromHubWithError(ct, key, aadB)
     expect(result.ok).toBe(false)
     if (!result.ok) {
       expect(result.reason).toBe('decrypt_failed')
     }
   })
 
-  test('tampered ciphertext returns ok: false / decrypt_failed', () => {
+  test('tampered ciphertext returns ok: false / decrypt_failed', async () => {
     const key = generateHubKey()
     const aad = utf8ToBytes(`${LABEL_HUB_FIELD}:row-1:encrypted_name`)
-    const ct = encryptForHub('hello', key, aad)
+    const ct = await encryptForHub('hello', key, aad)
 
     // Flip a single hex nibble inside the AEAD tag region (last hex char).
     // This is a tag-mismatch tampering attempt — the ciphertext is still a
@@ -124,18 +128,18 @@ describe('decryptFromHubWithError', () => {
     const flipped = lastHex === '0' ? '1' : '0'
     const tampered = (ct.slice(0, -1) + flipped) as Ciphertext
 
-    const result = decryptFromHubWithError(tampered, key, aad)
+    const result = await decryptFromHubWithError(tampered, key, aad)
     expect(result.ok).toBe(false)
     if (!result.ok) {
       expect(result.reason).toBe('decrypt_failed')
     }
   })
 
-  test('structurally invalid ciphertext returns ok: false (not throw)', () => {
+  test('structurally invalid ciphertext returns ok: false (not throw)', async () => {
     const key = generateHubKey()
     const aad = utf8ToBytes(`${LABEL_HUB_FIELD}:row-1:encrypted_name`)
 
-    const result = decryptFromHubWithError('not-hex-at-all' as Ciphertext, key, aad)
+    const result = await decryptFromHubWithError('not-hex-at-all' as Ciphertext, key, aad)
     expect(result.ok).toBe(false)
     if (!result.ok) {
       expect(result.reason).toBe('decrypt_failed')
@@ -144,21 +148,21 @@ describe('decryptFromHubWithError', () => {
 })
 
 describe('decryptFromHub (legacy null-return shim)', () => {
-  test('delegates to decryptFromHubWithError on success', () => {
+  test('delegates to decryptFromHubWithError on success', async () => {
     const key = generateHubKey()
     const aad = utf8ToBytes(`${LABEL_HUB_FIELD}:row-1:n`)
-    const ct = encryptForHub('legacy-ok', key, aad)
-    expect(decryptFromHub(ct, key, aad)).toBe('legacy-ok')
+    const ct = await encryptForHub('legacy-ok', key, aad)
+    expect(await decryptFromHub(ct, key, aad)).toBe('legacy-ok')
   })
 
-  test('returns null for tampered ciphertext', () => {
+  test('returns null for tampered ciphertext', async () => {
     const key = generateHubKey()
     const aad = utf8ToBytes(`${LABEL_HUB_FIELD}:row-1:n`)
-    const ct = encryptForHub('legacy', key, aad)
+    const ct = await encryptForHub('legacy', key, aad)
     const lastHex = ct[ct.length - 1]
     const flipped = lastHex === '0' ? '1' : '0'
     const tampered = (ct.slice(0, -1) + flipped) as Ciphertext
-    expect(decryptFromHub(tampered, key, aad)).toBeNull()
+    expect(await decryptFromHub(tampered, key, aad)).toBeNull()
   })
 })
 

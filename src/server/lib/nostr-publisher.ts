@@ -9,10 +9,9 @@
  * Callers provide EventTemplates; the publisher signs and publishes.
  */
 
-import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import { hkdf } from '@noble/hashes/hkdf.js'
 import { sha256 } from '@noble/hashes/sha2.js'
-import { hexToBytes } from '@noble/hashes/utils.js'
+import { hexToBytes, utf8ToBytes } from '@noble/hashes/utils.js'
 import { LABEL_SERVER_NOSTR_KEY, LABEL_SERVER_NOSTR_KEY_INFO } from '@shared/crypto-labels'
 import type { EventTemplate, VerifiedEvent } from 'nostr-tools/core'
 import { finalizeEvent, getPublicKey } from 'nostr-tools/pure'

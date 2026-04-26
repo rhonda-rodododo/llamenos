@@ -197,11 +197,13 @@ export class GdprService {
       })
       .from(auditLog)
       .where(eq(auditLog.actorPubkey, pubkey))
-    const auditEntries = auditRows.map((r) => ({
-      id: r.id,
-      event: this.crypto.serverDecrypt(r.encryptedEvent as Ciphertext, LABEL_AUDIT_EVENT),
-      createdAt: r.createdAt.toISOString(),
-    }))
+    const auditEntries = await Promise.all(
+      auditRows.map(async (r) => ({
+        id: r.id,
+        event: await this.crypto.serverDecrypt(r.encryptedEvent as Ciphertext, LABEL_AUDIT_EVENT),
+        createdAt: r.createdAt.toISOString(),
+      }))
+    )
 
     // Hub memberships
     const hubs =
