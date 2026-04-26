@@ -27,6 +27,7 @@
 
 import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
 import { utf8ToBytes } from '@noble/ciphers/utils.js'
+import { x25519 } from '@noble/curves/ed25519.js'
 import { schnorr, secp256k1 } from '@noble/curves/secp256k1.js'
 import { hkdf } from '@noble/hashes/hkdf.js'
 import { hmac } from '@noble/hashes/hmac.js'
@@ -100,6 +101,15 @@ type WorkerRequest =
       expectedLabel: CryptoLabel
       recordId: string
       fieldName: string
+    }
+  | {
+      // HPKE single-shot open with raw AAD bytes (instead of recordId/fieldName).
+      // Used by file-crypto and other paths that need explicit AAD control.
+      type: 'hpkeOpenRawAad'
+      id: string
+      envelope: HpkeEnvelope
+      expectedLabel: CryptoLabel
+      aadHex: string
     }
   | {
       // Unlock from a key store that returns non-extractable CryptoKey
@@ -400,15 +410,15 @@ function handleProvisionNsec(recipientEphemeralPubkeyHex: string): {
 } {
   if (!secretKey || !publicKeyHex) throw new Error('Worker is locked')
 
-  // Support both x-only (64 hex chars) and compressed (66 hex chars) pubkeys
-  const recipientPub =
-    recipientEphemeralPubkeyHex.length === 64
-      ? hexToBytes(`02${recipientEphemeralPubkeyHex}`)
-      : hexToBytes(recipientEphemeralPubkeyHex)
+  // Generate an ephemeral X25519 keypair for provisioning.
+  // We use @noble/curves x25519 (not WebCrypto) because Bun does not yet
+  // implement crypto.subtle.deriveBits for X25519.
+  const ephemeralSecret = randomBytes(32)
+  const ephemeralPubkey = x25519.getPublicKey(ephemeralSecret)
 
-  // ECDH: our secretKey + recipient's ephemeral pubkey
-  const shared = secp256k1.getSharedSecret(secretKey, recipientPub)
-  const sharedX = shared.subarray(1, 33)
+  // X25519 ECDH: our ephemeral secret + recipient's ephemeral pubkey
+  const recipientPubBytes = hexToBytes(recipientEphemeralPubkeyHex)
+  const sharedX = x25519.getSharedSecret(ephemeralSecret, recipientPubBytes)
 
   // Derive encryption key with domain separation
   const labelBytes = utf8ToBytes(LABEL_DEVICE_PROVISION)
@@ -429,10 +439,13 @@ function handleProvisionNsec(recipientEphemeralPubkeyHex: string): {
   const sasCode = unbiasedSixDigitCode(sasBytes)
   const sas = `${sasCode.slice(0, 3)} ${sasCode.slice(3)}`
 
+  // Zero the ephemeral secret
+  ephemeralSecret.fill(0)
+
   return {
     ciphertext: bytesToHex(ciphertext),
     nonce: bytesToHex(nonce),
-    pubkey: publicKeyHex,
+    pubkey: bytesToHex(ephemeralPubkey),
     sas,
   }
 }
@@ -656,6 +669,20 @@ async function handleHpkeOpenRaw(
   const aad = buildAad(expectedLabel, recordId, fieldName)
   const pt = await hpkeOpen(envelope, hpkePrivateKey, expectedLabel, aad)
   return bytesToHex(new Uint8Array(pt))
+}
+
+async function handleHpkeOpenRawAad(
+  envelope: HpkeEnvelope,
+  expectedLabel: CryptoLabel,
+  aad: Uint8Array
+): Promise<string> {
+  if (!secretKey || !hpkePrivateKey) throw new Error('Worker is locked')
+  if (!checkRateLimit('decrypt')) {
+    autoLock()
+    throw new Error('Rate limit exceeded — worker auto-locked')
+  }
+  const pt = await hpkeOpen(envelope, hpkePrivateKey, expectedLabel, aad)
+  return new TextDecoder().decode(pt)
 }
 
 // ---- Tier 2 root-KEK handlers ----
@@ -1068,6 +1095,9 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
           req.recordId,
           req.fieldName
         )
+        break
+      case 'hpkeOpenRawAad':
+        result = await handleHpkeOpenRawAad(req.envelope, req.expectedLabel, hexToBytes(req.aadHex))
         break
       case 'hpkePublicKeyRaw':
         result = await handleHpkePublicKeyRaw()

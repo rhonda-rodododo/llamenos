@@ -1,20 +1,7 @@
-import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
 import { utf8ToBytes } from '@noble/ciphers/utils.js'
-import { secp256k1 } from '@noble/curves/secp256k1.js'
-import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
-import {
-  type CryptoLabel,
-  LABEL_FILE_KEY,
-  LABEL_FILE_METADATA,
-  labelToId,
-} from '@shared/crypto-labels'
-import {
-  decryptEnvelope,
-  eciesWrapKey,
-  symmetricDecrypt,
-  symmetricEncrypt,
-} from '@shared/crypto-primitives'
+import { LABEL_FILE_KEY, LABEL_FILE_METADATA, labelToId } from '@shared/crypto-labels'
+import { symmetricDecrypt, symmetricEncrypt } from '@shared/crypto-primitives'
 import type { Ciphertext } from '@shared/crypto-types'
 import type {
   EncryptedFileMetadata,
@@ -46,59 +33,38 @@ function buildFileAad(fileId: string): Uint8Array {
 }
 
 /**
- * Encrypt a file's metadata for a recipient (ECIES with LABEL_FILE_METADATA domain separation).
- * Unlike key wrapping, this encrypts arbitrary-length data, so it uses raw ECDH+XChaCha20.
+ * Encrypt a file's metadata for a recipient using HPKE direct seal.
  */
-function encryptMetadataForPubkey(
+async function encryptMetadataForPubkey(
   metadata: EncryptedFileMetadata,
   recipientPubkeyHex: string
-): EncryptedMetaItem {
-  const ephemeralSecret = randomBytes(32)
-  const ephemeralPublicKey = secp256k1.getPublicKey(ephemeralSecret, true)
+): Promise<EncryptedMetaItem> {
+  const { createHpkeSuite } = await import('@shared/crypto-suite')
+  const { asX25519EncryptionKey: asX25519 } = await import('@shared/types')
+  const { hpkeSeal } = await import('@shared/hpke-primitives')
+  const suite = createHpkeSuite()
 
-  const recipientCompressed = hexToBytes(`02${recipientPubkeyHex}`)
-  const shared = secp256k1.getSharedSecret(ephemeralSecret, recipientCompressed)
-  const sharedX = shared.slice(1, 33)
-
-  const label = utf8ToBytes(LABEL_FILE_METADATA)
-  const keyInput = new Uint8Array(label.length + sharedX.length)
-  keyInput.set(label)
-  keyInput.set(sharedX, label.length)
-  const symmetricKey = sha256(keyInput)
-
-  const nonce = randomBytes(24)
-  const cipher = xchacha20poly1305(symmetricKey, nonce)
-  const plaintext = utf8ToBytes(JSON.stringify(metadata))
-  const ciphertext = cipher.encrypt(plaintext)
-
-  const packed = new Uint8Array(nonce.length + ciphertext.length)
-  packed.set(nonce)
-  packed.set(ciphertext, nonce.length)
+  const recipientKey = asX25519(
+    (await suite.kem.deserializePublicKey(hexToBytes(recipientPubkeyHex))) as CryptoKey
+  )
+  const plaintext = new TextEncoder().encode(JSON.stringify(metadata))
+  const envelope = await hpkeSeal(plaintext, recipientKey, LABEL_FILE_METADATA, new Uint8Array(0))
 
   return {
     pubkey: recipientPubkeyHex,
-    // @ts-expect-error Slice 5: file crypto ECIES → HPKE migration
-    encryptedContent: bytesToHex(packed) as Ciphertext,
-    ephemeralPubkey: bytesToHex(ephemeralPublicKey),
+    ...envelope,
   }
 }
 
 /**
- * Decrypt file metadata using the recipient's secret key (via crypto worker ECDH).
+ * Decrypt file metadata using the recipient's HPKE private key (via crypto worker).
  */
 export async function decryptFileMetadata(
-  encryptedContentHex: string,
-  ephemeralPubkeyHex: string
+  envelope: Envelope
 ): Promise<EncryptedFileMetadata | null> {
   try {
     const worker = cryptoWorker
-    // TODO(tier-1 per-record-aad): File metadata envelopes were sealed by
-    // `encryptMetadataForPubkey` with empty inner AAD (legacy wire format).
-    // Migrate to `buildAad(LABEL_FILE_METADATA, fileId, 'metadata')` alongside
-    // POST_OVERHAUL_GAPS_2026-04-13.md Tier 1 P1 "Per-record AAD migration".
-    const resultHex = await worker
-      // @ts-expect-error Slice 5: worker.decrypt (ECIES) removed in Slice 2; file crypto migrates in Slice 5
-      .decrypt(ephemeralPubkeyHex, encryptedContentHex, LABEL_FILE_METADATA, new Uint8Array(0))
+    const resultHex = await worker.hpkeOpenRawAad(envelope, LABEL_FILE_METADATA, new Uint8Array(0))
     const plaintext = hexToBytes(resultHex)
     return JSON.parse(new TextDecoder().decode(plaintext))
   } catch {
@@ -115,12 +81,12 @@ interface EncryptedFileUpload {
 }
 
 /**
- * Encrypt a file for multiple recipients (Envelope + fileId-bound AAD).
+ * Encrypt a file for multiple recipients (HPKE key-wrap + fileId-bound AAD).
  *
  * The file content is encrypted with XChaCha20-Poly1305 using an AAD that binds
  * the ciphertext to both LABEL_FILE_KEY and the fileId, preventing cross-file
- * ciphertext substitution attacks. Each recipient gets an Envelope wrapping
- * the same file key via ECIES.
+ * ciphertext substitution attacks. Each recipient gets an HPKE envelope wrapping
+ * the same file key.
  *
  * The fileId must be a client-generated UUID (crypto.randomUUID()) on new uploads
  * and the server-provided file identifier on re-encryption / re-sharing.
@@ -154,20 +120,28 @@ export async function encryptFile(
   const encryptedHex = symmetricEncrypt(plaintextBytes, fileKey, aad)
   const encryptedContent = hexToBytes(encryptedHex)
 
-  // Wrap the file key for each recipient using Envelope (ECIES + wire-format label)
-  const labelId = labelToId(LABEL_FILE_KEY)
-  // @ts-expect-error Slice 5: file crypto ECIES → HPKE migration
-  const recipientEnvelopes: FileKeyEnvelope[] = recipientPubkeys.map((pubkey) => {
-    const { wrappedKey, ephemeralPubkey } = eciesWrapKey(fileKey, pubkey, LABEL_FILE_KEY)
-    return { v: 2, labelId, pubkey, wrappedKey, ephemeralPubkey }
-  })
+  // Wrap the file key for each recipient using HPKE seal
+  const { createHpkeSuite } = await import('@shared/crypto-suite')
+  const { asX25519EncryptionKey: asX25519 } = await import('@shared/types')
+  const { hpkeSeal } = await import('@shared/hpke-primitives')
+  const suite = createHpkeSuite()
+
+  const recipientEnvelopes: FileKeyEnvelope[] = await Promise.all(
+    recipientPubkeys.map(async (pubkey) => {
+      const recipientKey = asX25519(
+        (await suite.kem.deserializePublicKey(hexToBytes(pubkey))) as CryptoKey
+      )
+      const envelope = await hpkeSeal(fileKey, recipientKey, LABEL_FILE_KEY, new Uint8Array(0))
+      return { pubkey, ...envelope }
+    })
+  )
 
   // Zero the file key immediately after use
   fileKey.fill(0)
 
   // Encrypt metadata for each recipient
-  const encryptedMetadata = recipientPubkeys.map((pubkey) =>
-    encryptMetadataForPubkey(metadata, pubkey)
+  const encryptedMetadata = await Promise.all(
+    recipientPubkeys.map((pubkey) => encryptMetadataForPubkey(metadata, pubkey))
   )
 
   return { encryptedContent, recipientEnvelopes, encryptedMetadata }
@@ -188,20 +162,10 @@ export async function decryptFile(
   // Build the same AAD used during encryption
   const aad = buildFileAad(fileId)
 
-  // Unwrap the file key via the crypto worker using decryptEnvelope (version + label checks).
-  // TODO(tier-1 per-record-aad): The ECIES key-wrap on-disk was sealed with
-  // empty inner AAD via `eciesWrapKey` in crypto-primitives. Migrate both
-  // sides to `buildAad(LABEL_FILE_KEY, fileId, 'file-key')` alongside
-  // POST_OVERHAUL_GAPS_2026-04-13.md Tier 1 P1 "Per-record AAD migration".
-  const fileKey = await decryptEnvelope(
-    envelope,
-    (ephemeralPubkey, wrappedKey, label) =>
-      cryptoWorker
-        // @ts-expect-error Slice 5: worker.decrypt (ECIES) removed in Slice 2; file crypto migrates in Slice 5
-        .decrypt(ephemeralPubkey, wrappedKey, label as CryptoLabel, new Uint8Array(0))
-        .then(hexToBytes),
-    LABEL_FILE_KEY
-  )
+  // Unwrap the file key via the crypto worker using HPKE open with raw AAD.
+  const fileKey = await cryptoWorker
+    .hpkeOpenRawAad(envelope, LABEL_FILE_KEY, new Uint8Array(0))
+    .then(hexToBytes)
 
   // Convert raw bytes to hex for symmetricDecrypt (which expects hex-encoded input)
   const encryptedHex = bytesToHex(new Uint8Array(encryptedContent)) as Ciphertext
@@ -227,32 +191,24 @@ export async function rewrapFileKey(
   envelope: Envelope,
   newRecipientPubkeyHex: string
 ): Promise<FileKeyEnvelope> {
-  // Unwrap with version + label check via the crypto worker.
-  // TODO(tier-1 per-record-aad): see note in decryptFile above.
-  const fileKey = await decryptEnvelope(
-    envelope,
-    (ephemeralPubkey, wrappedKey, label) =>
-      cryptoWorker
-        // @ts-expect-error Slice 5: worker.decrypt (ECIES) removed in Slice 2; file crypto migrates in Slice 5
-        .decrypt(ephemeralPubkey, wrappedKey, label as CryptoLabel, new Uint8Array(0))
-        .then(hexToBytes),
-    LABEL_FILE_KEY
-  )
+  // Unwrap file key via worker HPKE open with raw AAD
+  const fileKey = await cryptoWorker
+    .hpkeOpenRawAad(envelope, LABEL_FILE_KEY, new Uint8Array(0))
+    .then(hexToBytes)
 
-  // Re-encrypt for new recipient
-  const { wrappedKey, ephemeralPubkey } = eciesWrapKey(
-    fileKey,
-    newRecipientPubkeyHex,
-    LABEL_FILE_KEY
+  // Re-seal for new recipient
+  const { createHpkeSuite } = await import('@shared/crypto-suite')
+  const { asX25519EncryptionKey: asX25519 } = await import('@shared/types')
+  const { hpkeSeal } = await import('@shared/hpke-primitives')
+  const suite = createHpkeSuite()
+  const recipientKey = asX25519(
+    (await suite.kem.deserializePublicKey(hexToBytes(newRecipientPubkeyHex))) as CryptoKey
   )
+  const newEnvelope = await hpkeSeal(fileKey, recipientKey, LABEL_FILE_KEY, new Uint8Array(0))
   fileKey.fill(0)
 
   return {
-    // @ts-expect-error Slice 5: file crypto ECIES → HPKE migration
-    v: 2,
-    labelId: labelToId(LABEL_FILE_KEY),
     pubkey: newRecipientPubkeyHex,
-    wrappedKey,
-    ephemeralPubkey,
+    ...newEnvelope,
   }
 }

@@ -382,6 +382,23 @@ export class CryptoWorkerClient {
     return this.call<Uint8Array | null>({ type: 'hpkePublicKeyRaw' })
   }
 
+  /**
+   * HPKE single-shot open with raw AAD bytes.
+   * Used by file-crypto and other paths that need explicit AAD control.
+   */
+  async hpkeOpenRawAad(
+    envelope: HpkeEnvelope,
+    expectedLabel: CryptoLabel,
+    aad: Uint8Array
+  ): Promise<string> {
+    return this.call<string>({
+      type: 'hpkeOpenRawAad',
+      envelope,
+      expectedLabel,
+      aadHex: bytesToHex(aad),
+    })
+  }
+
   // ---- Tier 2 root-KEK handlers ----
 
   /**

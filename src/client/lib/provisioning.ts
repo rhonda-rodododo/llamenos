@@ -4,20 +4,20 @@ import { utf8ToBytes } from '@noble/ciphers/utils.js'
  * Device provisioning protocol — Signal-style QR device linking.
  *
  * New Device:
- *   1. Generate ephemeral secp256k1 keypair
+ *   1. Generate ephemeral X25519 keypair
  *   2. Create provisioning room (POST /api/provision/rooms)
  *   3. Display QR containing { roomId, token }
  *   4. Poll room until primary sends encrypted nsec
- *   5. ECDH(eSK, primaryPK) → decrypt nsec
+ *   5. X25519 ECDH(eSK, primaryPK) → decrypt nsec
  *   6. Import nsec with user-chosen PIN
  *
  * Primary Device (authenticated):
  *   1. Scan QR / enter code → get { roomId, token }
  *   2. Fetch room → get new device's ephemeral pubkey
- *   3. ECDH(primarySK, ePK) → encrypt nsec
+ *   3. X25519 ECDH(primarySK, ePK) → encrypt nsec
  *   4. POST encrypted payload to room
  */
-import { secp256k1 } from '@noble/curves/secp256k1.js'
+import { x25519 } from '@noble/curves/ed25519.js'
 import { hkdf } from '@noble/hashes/hkdf.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
@@ -53,15 +53,12 @@ export function computeProvisioningSAS(sharedX: Uint8Array): string {
 }
 
 /**
- * Compute the ECDH shared secret x-coordinate from an ephemeral/primary keypair.
+ * Compute the X25519 shared secret from an ephemeral/primary keypair.
  * Shared between both sides of provisioning for SAS computation.
  */
 function computeSharedX(ourSecretKey: Uint8Array, theirPubkeyHex: string): Uint8Array {
-  // theirPubkeyHex may be x-only (32 bytes/64 hex) or compressed (33 bytes/66 hex)
-  const theirPub =
-    theirPubkeyHex.length === 64 ? hexToBytes(`02${theirPubkeyHex}`) : hexToBytes(theirPubkeyHex)
-  const shared = secp256k1.getSharedSecret(ourSecretKey, theirPub)
-  return shared.slice(1, 33)
+  const theirPubBytes = hexToBytes(theirPubkeyHex)
+  return x25519.getSharedSecret(ourSecretKey, theirPubBytes)
 }
 
 /**
@@ -94,28 +91,29 @@ export interface ProvisioningSession {
   roomId: string
   token: string
   ephemeralSecret: Uint8Array
-  ephemeralPubkey: string // hex, compressed 33-byte
+  ephemeralPubkey: string // hex, raw 32-byte X25519 public key
 }
 
-export async function createProvisioningRoom(): Promise<ProvisioningSession> {
+export function createProvisioningRoom(): Promise<ProvisioningSession> {
   const ephemeralSecret = randomBytes(32)
-  const ephemeralPubkey = secp256k1.getPublicKey(ephemeralSecret, true)
+  const ephemeralPubkey = x25519.getPublicKey(ephemeralSecret)
 
-  const res = await fetch(`${API_BASE}/provision/rooms`, {
+  return fetch(`${API_BASE}/provision/rooms`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ephemeralPubkey: bytesToHex(ephemeralPubkey) }),
     credentials: 'include',
   })
-  if (!res.ok) throw new Error('Failed to create provisioning room')
-  const data = (await res.json()) as { roomId: string; token: string }
-
-  return {
-    roomId: data.roomId,
-    token: data.token,
-    ephemeralSecret,
-    ephemeralPubkey: bytesToHex(ephemeralPubkey),
-  }
+    .then((res) => {
+      if (!res.ok) throw new Error('Failed to create provisioning room')
+      return res.json() as Promise<{ roomId: string; token: string }>
+    })
+    .then((data) => ({
+      roomId: data.roomId,
+      token: data.token,
+      ephemeralSecret,
+      ephemeralPubkey: bytesToHex(ephemeralPubkey),
+    }))
 }
 
 interface ProvisioningRoomStatus {
@@ -143,10 +141,8 @@ export function decryptProvisionedNsec(
   primaryPubkeyHex: string,
   ephemeralSecret: Uint8Array
 ): string {
-  // ECDH with primary device's pubkey
-  const primaryCompressed = hexToBytes(`02${primaryPubkeyHex}`)
-  const shared = secp256k1.getSharedSecret(ephemeralSecret, primaryCompressed)
-  const sharedX = shared.slice(1, 33)
+  // X25519 ECDH with primary device's pubkey
+  const sharedX = computeSharedX(ephemeralSecret, primaryPubkeyHex)
   const symmetricKey = deriveSharedKey(sharedX)
 
   // Decrypt: nonce(24) + ciphertext
@@ -199,10 +195,8 @@ export function encryptNsecForDevice(
   ephemeralPubkeyHex: string,
   primarySecretKey: Uint8Array
 ): string {
-  // ECDH with new device's ephemeral pubkey
-  const ephemeralPub = hexToBytes(ephemeralPubkeyHex)
-  const shared = secp256k1.getSharedSecret(primarySecretKey, ephemeralPub)
-  const sharedX = shared.slice(1, 33)
+  // X25519 ECDH with new device's ephemeral pubkey
+  const sharedX = computeSharedX(primarySecretKey, ephemeralPubkeyHex)
   const symmetricKey = deriveSharedKey(sharedX)
 
   // Encrypt nsec

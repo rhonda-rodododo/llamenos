@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { secp256k1 } from '@noble/curves/secp256k1.js'
+import { x25519 } from '@noble/curves/ed25519.js'
 import { bytesToHex } from '@noble/hashes/utils.js'
-import { generateSecretKey } from 'nostr-tools'
 import {
   computeProvisioningSAS,
   computeSASForNewDevice,
@@ -17,13 +16,10 @@ import {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function genKeypair(): { secret: Uint8Array; pubXOnly: string; pubCompressed: string } {
-  // generateSecretKey from nostr-tools produces a valid secp256k1 private key
-  const secret = generateSecretKey()
-  const compressed = secp256k1.getPublicKey(secret, true) // 33 bytes
-  const pubCompressed = bytesToHex(compressed) // 66 hex chars
-  const pubXOnly = pubCompressed.slice(2) // 64 hex chars (strip "02"/"03" prefix)
-  return { secret, pubXOnly, pubCompressed }
+function genKeypair(): { secret: Uint8Array; pubHex: string } {
+  const secret = crypto.getRandomValues(new Uint8Array(32))
+  const pub = x25519.getPublicKey(secret)
+  return { secret, pubHex: bytesToHex(pub) }
 }
 
 // ---------------------------------------------------------------------------
@@ -111,22 +107,8 @@ describe('SAS symmetry (MITM prevention)', () => {
     const ephemeral = genKeypair()
     const primary = genKeypair()
 
-    // New device: has ephemeral secret + primary's x-only pubkey
-    const sasFromNewDevice = computeSASForNewDevice(ephemeral.secret, primary.pubXOnly)
-
-    // Primary device: has primary secret + ephemeral's x-only pubkey
-    const sasFromPrimary = computeSASForPrimaryDevice(primary.secret, ephemeral.pubXOnly)
-
-    expect(sasFromNewDevice).toBe(sasFromPrimary)
-  })
-
-  test('SAS symmetry holds with compressed pubkeys on both sides', () => {
-    const ephemeral = genKeypair()
-    const primary = genKeypair()
-
-    // computeSharedX handles both 64 and 66 hex pubkeys
-    const sasFromNewDevice = computeSASForNewDevice(ephemeral.secret, primary.pubCompressed)
-    const sasFromPrimary = computeSASForPrimaryDevice(primary.secret, ephemeral.pubCompressed)
+    const sasFromNewDevice = computeSASForNewDevice(ephemeral.secret, primary.pubHex)
+    const sasFromPrimary = computeSASForPrimaryDevice(primary.secret, ephemeral.pubHex)
 
     expect(sasFromNewDevice).toBe(sasFromPrimary)
   })
@@ -137,10 +119,9 @@ describe('SAS symmetry (MITM prevention)', () => {
     const e2 = genKeypair()
     const p2 = genKeypair()
 
-    const sas1 = computeSASForNewDevice(e1.secret, p1.pubXOnly)
-    const sas2 = computeSASForNewDevice(e2.secret, p2.pubXOnly)
+    const sas1 = computeSASForNewDevice(e1.secret, p1.pubHex)
+    const sas2 = computeSASForNewDevice(e2.secret, p2.pubHex)
 
-    // With overwhelming probability two random keypairs yield different SAS
     expect(sas1).not.toBe(sas2)
   })
 
@@ -148,9 +129,8 @@ describe('SAS symmetry (MITM prevention)', () => {
     const e = genKeypair()
     const p = genKeypair()
 
-    const correctSAS = computeSASForNewDevice(e.secret, p.pubXOnly)
-    // Swap — use ephemeral secret with ephemeral pubkey (same keypair) → wrong shared secret
-    const wrongSAS = computeSASForNewDevice(e.secret, e.pubXOnly)
+    const correctSAS = computeSASForNewDevice(e.secret, p.pubHex)
+    const wrongSAS = computeSASForNewDevice(e.secret, e.pubHex)
 
     expect(correctSAS).not.toBe(wrongSAS)
   })
@@ -165,13 +145,8 @@ describe('encryptNsecForDevice / decryptProvisionedNsec', () => {
     const ephemeral = genKeypair()
     const primary = genKeypair()
     const nsec = 'nsec1testvalue0000000000000000000000000000000000000000000000'
-
-    // Primary encrypts using ephemeral's compressed pubkey (66 hex)
-    const encrypted = encryptNsecForDevice(nsec, ephemeral.pubCompressed, primary.secret)
-
-    // New device decrypts using primary's x-only pubkey (64 hex) and ephemeral secret
-    const decrypted = decryptProvisionedNsec(encrypted, primary.pubXOnly, ephemeral.secret)
-
+    const encrypted = encryptNsecForDevice(nsec, ephemeral.pubHex, primary.secret)
+    const decrypted = decryptProvisionedNsec(encrypted, primary.pubHex, ephemeral.secret)
     expect(decrypted).toBe(nsec)
   })
 
@@ -179,10 +154,8 @@ describe('encryptNsecForDevice / decryptProvisionedNsec', () => {
     const ephemeral = genKeypair()
     const primary = genKeypair()
     const nsec = `nsec1${'a'.repeat(59)}`
-
-    const encrypted = encryptNsecForDevice(nsec, ephemeral.pubCompressed, primary.secret)
-    const decrypted = decryptProvisionedNsec(encrypted, primary.pubXOnly, ephemeral.secret)
-
+    const encrypted = encryptNsecForDevice(nsec, ephemeral.pubHex, primary.secret)
+    const decrypted = decryptProvisionedNsec(encrypted, primary.pubHex, ephemeral.secret)
     expect(decrypted).toBe(nsec)
   })
 
@@ -191,12 +164,8 @@ describe('encryptNsecForDevice / decryptProvisionedNsec', () => {
     const wrongEphemeral = genKeypair()
     const primary = genKeypair()
     const nsec = 'nsec1somekeyvalue'
-
-    const encrypted = encryptNsecForDevice(nsec, ephemeral.pubCompressed, primary.secret)
-
-    expect(() =>
-      decryptProvisionedNsec(encrypted, primary.pubXOnly, wrongEphemeral.secret)
-    ).toThrow()
+    const encrypted = encryptNsecForDevice(nsec, ephemeral.pubHex, primary.secret)
+    expect(() => decryptProvisionedNsec(encrypted, primary.pubHex, wrongEphemeral.secret)).toThrow()
   })
 
   test('wrong primary pubkey fails decryption', () => {
@@ -204,33 +173,24 @@ describe('encryptNsecForDevice / decryptProvisionedNsec', () => {
     const primary = genKeypair()
     const wrongPrimary = genKeypair()
     const nsec = 'nsec1somekeyvalue'
-
-    const encrypted = encryptNsecForDevice(nsec, ephemeral.pubCompressed, primary.secret)
-
-    expect(() =>
-      decryptProvisionedNsec(encrypted, wrongPrimary.pubXOnly, ephemeral.secret)
-    ).toThrow()
+    const encrypted = encryptNsecForDevice(nsec, ephemeral.pubHex, primary.secret)
+    expect(() => decryptProvisionedNsec(encrypted, wrongPrimary.pubHex, ephemeral.secret)).toThrow()
   })
 
   test('nonce uniqueness: same inputs produce different ciphertext each time', () => {
     const ephemeral = genKeypair()
     const primary = genKeypair()
     const nsec = 'nsec1nonce_uniqueness_test'
-
-    const enc1 = encryptNsecForDevice(nsec, ephemeral.pubCompressed, primary.secret)
-    const enc2 = encryptNsecForDevice(nsec, ephemeral.pubCompressed, primary.secret)
-
+    const enc1 = encryptNsecForDevice(nsec, ephemeral.pubHex, primary.secret)
+    const enc2 = encryptNsecForDevice(nsec, ephemeral.pubHex, primary.secret)
     expect(enc1).not.toBe(enc2)
   })
 
   test('encrypted output is a valid hex string', () => {
     const ephemeral = genKeypair()
     const primary = genKeypair()
-
-    const encrypted = encryptNsecForDevice('nsec1test', ephemeral.pubCompressed, primary.secret)
-
+    const encrypted = encryptNsecForDevice('nsec1test', ephemeral.pubHex, primary.secret)
     expect(/^[0-9a-f]+$/.test(encrypted)).toBe(true)
-    // nonce(24) + ciphertext(9 + 16 MAC) = 49 bytes minimum → 98 hex chars
     expect(encrypted.length).toBeGreaterThanOrEqual(98)
   })
 })

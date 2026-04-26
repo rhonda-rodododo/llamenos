@@ -1,22 +1,21 @@
 import { describe, expect, test } from 'bun:test'
-import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
-import { utf8ToBytes } from '@noble/ciphers/utils.js'
-import { secp256k1 } from '@noble/curves/secp256k1.js'
-import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { LABEL_FILE_KEY, LABEL_FILE_METADATA, labelToId } from '@shared/crypto-labels'
-import {
-  eciesUnwrapKeyWithSecret,
-  type KeyEnvelope,
-  symmetricDecrypt,
-} from '@shared/crypto-primitives'
+import { symmetricDecrypt } from '@shared/crypto-primitives'
+import { createHpkeSuite } from '@shared/crypto-suite'
 import type { Ciphertext } from '@shared/crypto-types'
+import { hpkeOpen } from '@shared/hpke-primitives'
 import type { Envelope } from '@shared/types'
+import { asX25519EncryptionKey } from '@shared/types'
 import { encryptFile } from './file-crypto'
 
-// Test keypairs — deterministic across test runs via fixed seed
-const secretKey = crypto.getRandomValues(new Uint8Array(32))
-const publicKeyHex = bytesToHex(secp256k1.getPublicKey(secretKey, true).slice(1))
+// Generate test X25519 keypair
+async function generateTestHpkeKeypair() {
+  const suite = createHpkeSuite()
+  const kp = await suite.kem.generateKeyPair()
+  const publicKeyBytes = new Uint8Array(await suite.kem.serializePublicKey(kp.publicKey))
+  return { privateKey: kp.privateKey, publicKeyHex: bytesToHex(publicKeyBytes) }
+}
 
 /** Create a mock File from content bytes */
 function mockFile(content: Uint8Array, name: string, type = 'application/octet-stream'): File {
@@ -25,39 +24,37 @@ function mockFile(content: Uint8Array, name: string, type = 'application/octet-s
 
 /**
  * Decrypt a file in tests (no crypto worker available).
- * Mirrors the production decryptFile path but uses eciesUnwrapKeyWithSecret directly.
+ * Uses HPKE open directly with the test private key.
  */
 async function decryptFileWithSecret(
   encryptedContent: Uint8Array,
   envelope: Envelope,
   fileId: string,
-  sk: Uint8Array
+  privateKey: CryptoKey
 ): Promise<Uint8Array> {
   // Build the same AAD as encryption
-  const labelBytes = utf8ToBytes(LABEL_FILE_KEY)
-  const fileIdBytes = utf8ToBytes(fileId)
+  const labelBytes = new TextEncoder().encode(LABEL_FILE_KEY)
+  const fileIdBytes = new TextEncoder().encode(fileId)
   const aad = new Uint8Array(labelBytes.length + 1 + fileIdBytes.length)
   aad.set(labelBytes, 0)
   aad[labelBytes.length] = labelToId(LABEL_FILE_KEY)
   aad.set(fileIdBytes, labelBytes.length + 1)
 
   // Verify version and labelId
-  // @ts-expect-error Slice 5: ECIES envelope v2 → HPKE v3
-  if (envelope.v !== 2) throw new Error(`Unsupported envelope version: ${envelope.v as number}`)
+  expect(envelope.v).toBe(3)
   if (envelope.labelId !== labelToId(LABEL_FILE_KEY)) {
     throw new Error(
       `Label mismatch: expected ${labelToId(LABEL_FILE_KEY)}, got ${envelope.labelId}`
     )
   }
 
-  // Unwrap file key with the recipient's secret key
-  const keyEnvelope: KeyEnvelope = {
-    // @ts-expect-error Slice 5: ECIES → HPKE migration
-    wrappedKey: envelope.wrappedKey,
-    // @ts-expect-error Slice 5: ECIES → HPKE migration
-    ephemeralPubkey: envelope.ephemeralPubkey,
-  }
-  const fileKey = eciesUnwrapKeyWithSecret(keyEnvelope, sk, LABEL_FILE_KEY)
+  // Unwrap file key with HPKE open
+  const fileKey = await hpkeOpen(
+    envelope,
+    asX25519EncryptionKey(privateKey),
+    LABEL_FILE_KEY,
+    new Uint8Array(0)
+  )
 
   // symmetricDecrypt expects hex-encoded input (nonce+ciphertext)
   const encryptedHex = bytesToHex(encryptedContent) as Ciphertext
@@ -66,6 +63,7 @@ async function decryptFileWithSecret(
 
 describe('encryptFile', () => {
   test('produces encrypted output with key envelope and metadata', async () => {
+    const { publicKeyHex } = await generateTestHpkeKeypair()
     const content = new Uint8Array([1, 2, 3, 4, 5])
     const file = mockFile(content, 'test.txt', 'text/plain')
     const fileId = crypto.randomUUID()
@@ -77,15 +75,15 @@ describe('encryptFile', () => {
     expect(result.encryptedContent.length).toBeGreaterThan(content.length)
     expect(result.recipientEnvelopes).toHaveLength(1)
     expect(result.recipientEnvelopes[0].pubkey).toBe(publicKeyHex)
-    // @ts-expect-error Slice 5: ECIES → HPKE migration
-    expect(result.recipientEnvelopes[0].wrappedKey).toBeTruthy()
-    // @ts-expect-error Slice 5: ECIES → HPKE migration
-    expect(result.recipientEnvelopes[0].ephemeralPubkey).toBeTruthy()
+    expect(result.recipientEnvelopes[0].v).toBe(3)
+    expect(result.recipientEnvelopes[0].enc).toBeTruthy()
+    expect(result.recipientEnvelopes[0].ct).toBeTruthy()
     expect(result.encryptedMetadata).toHaveLength(1)
     expect(result.encryptedMetadata[0].pubkey).toBe(publicKeyHex)
   })
 
-  test('file key envelope can be unwrapped with recipient secret key', async () => {
+  test('file key envelope can be unwrapped with recipient private key', async () => {
+    const { privateKey, publicKeyHex } = await generateTestHpkeKeypair()
     const content = new Uint8Array([10, 20, 30])
     const file = mockFile(content, 'data.bin')
     const fileId = crypto.randomUUID()
@@ -94,28 +92,28 @@ describe('encryptFile', () => {
     const result = await encryptFile(file, fileId, recipients)
     const envelope = result.recipientEnvelopes[0]
 
-    const keyEnvelope: KeyEnvelope = {
-      // @ts-expect-error Slice 5: ECIES → HPKE migration
-      wrappedKey: envelope.wrappedKey,
-      // @ts-expect-error Slice 5: ECIES → HPKE migration
-      ephemeralPubkey: envelope.ephemeralPubkey,
-    }
-    const unwrapped = eciesUnwrapKeyWithSecret(keyEnvelope, secretKey, LABEL_FILE_KEY)
+    const fileKey = await hpkeOpen(
+      envelope,
+      asX25519EncryptionKey(privateKey),
+      LABEL_FILE_KEY,
+      new Uint8Array(0)
+    )
 
-    expect(unwrapped).toBeInstanceOf(Uint8Array)
-    expect(unwrapped.length).toBe(32)
+    expect(fileKey).toBeInstanceOf(Uint8Array)
+    expect(fileKey.length).toBe(32)
 
     // Decrypt file content with unwrapped key + correct AAD
     const decrypted = await decryptFileWithSecret(
       result.encryptedContent,
       envelope,
       fileId,
-      secretKey
+      privateKey
     )
     expect(decrypted).toEqual(content)
   })
 
-  test('metadata envelope can be decrypted with recipient secret key', async () => {
+  test('metadata envelope can be decrypted with recipient private key', async () => {
+    const { privateKey, publicKeyHex } = await generateTestHpkeKeypair()
     const content = new Uint8Array([42])
     const filename = 'secret.pdf'
     const file = mockFile(content, filename, 'application/pdf')
@@ -125,24 +123,13 @@ describe('encryptFile', () => {
     const result = await encryptFile(file, fileId, recipients)
     const metaEnvelope = result.encryptedMetadata[0]
 
-    // Manual ECDH + symmetric decrypt (same algo as decryptFileMetadata)
-    // @ts-expect-error Slice 5: ECIES → HPKE migration
-    const ephemeralPub = hexToBytes(metaEnvelope.ephemeralPubkey)
-    const shared = secp256k1.getSharedSecret(secretKey, ephemeralPub)
-    const sharedX = shared.slice(1, 33)
-    const label = utf8ToBytes(LABEL_FILE_METADATA)
-    const keyInput = new Uint8Array(label.length + sharedX.length)
-    keyInput.set(label)
-    keyInput.set(sharedX, label.length)
-    const symKey = sha256(keyInput)
-
-    // @ts-expect-error Slice 5: ECIES → HPKE migration
-    const encHex = metaEnvelope.encryptedContent as string
-    const encBytes = hexToBytes(encHex)
-    const nonce = encBytes.slice(0, 24)
-    const ciphertext = encBytes.slice(24)
-    const cipher = xchacha20poly1305(symKey, nonce)
-    const plaintext = cipher.decrypt(ciphertext)
+    // HPKE open the metadata envelope directly
+    const plaintext = await hpkeOpen(
+      metaEnvelope,
+      asX25519EncryptionKey(privateKey),
+      LABEL_FILE_METADATA,
+      new Uint8Array(0)
+    )
     const parsed = JSON.parse(new TextDecoder().decode(plaintext))
 
     expect(parsed.originalName).toBe(filename)
@@ -152,9 +139,9 @@ describe('encryptFile', () => {
   })
 
   test('multiple recipients each get their own envelopes', async () => {
-    const key2 = crypto.getRandomValues(new Uint8Array(32))
-    const pub2 = bytesToHex(secp256k1.getPublicKey(key2, true).slice(1))
-    const recipients = [publicKeyHex, pub2]
+    const kp1 = await generateTestHpkeKeypair()
+    const kp2 = await generateTestHpkeKeypair()
+    const recipients = [kp1.publicKeyHex, kp2.publicKeyHex]
     const content = new Uint8Array([99])
     const file = mockFile(content, 'multi.txt', 'text/plain')
     const fileId = crypto.randomUUID()
@@ -165,20 +152,18 @@ describe('encryptFile', () => {
     expect(result.encryptedMetadata).toHaveLength(2)
 
     // Both recipients unwrap the same file key
-    const key1Envelope: KeyEnvelope = {
-      // @ts-expect-error Slice 5: ECIES → HPKE migration
-      wrappedKey: result.recipientEnvelopes[0].wrappedKey,
-      // @ts-expect-error Slice 5: ECIES → HPKE migration
-      ephemeralPubkey: result.recipientEnvelopes[0].ephemeralPubkey,
-    }
-    const key2Envelope: KeyEnvelope = {
-      // @ts-expect-error Slice 5: ECIES → HPKE migration
-      wrappedKey: result.recipientEnvelopes[1].wrappedKey,
-      // @ts-expect-error Slice 5: ECIES → HPKE migration
-      ephemeralPubkey: result.recipientEnvelopes[1].ephemeralPubkey,
-    }
-    const key1Unwrapped = eciesUnwrapKeyWithSecret(key1Envelope, secretKey, LABEL_FILE_KEY)
-    const key2Unwrapped = eciesUnwrapKeyWithSecret(key2Envelope, key2, LABEL_FILE_KEY)
+    const key1Unwrapped = await hpkeOpen(
+      result.recipientEnvelopes[0],
+      asX25519EncryptionKey(kp1.privateKey),
+      LABEL_FILE_KEY,
+      new Uint8Array(0)
+    )
+    const key2Unwrapped = await hpkeOpen(
+      result.recipientEnvelopes[1],
+      asX25519EncryptionKey(kp2.privateKey),
+      LABEL_FILE_KEY,
+      new Uint8Array(0)
+    )
 
     expect(key1Unwrapped).toEqual(key2Unwrapped)
   })
@@ -188,6 +173,7 @@ describe('encryptFile', () => {
 
 describe('file-crypto envelope', () => {
   test('encrypt file produces Envelope with correct v and labelId', async () => {
+    const { publicKeyHex } = await generateTestHpkeKeypair()
     const content = new Uint8Array(1024)
     crypto.getRandomValues(content)
     const file = mockFile(content, 'random.bin')
@@ -196,17 +182,15 @@ describe('file-crypto envelope', () => {
     const { recipientEnvelopes } = await encryptFile(file, fileId, [publicKeyHex])
     const envelope = recipientEnvelopes[0]
 
-    // @ts-expect-error Slice 5: ECIES envelope v2 → HPKE v3
-    expect(envelope.v).toBe(2)
+    expect(envelope.v).toBe(3)
     expect(envelope.labelId).toBe(labelToId(LABEL_FILE_KEY))
-    // @ts-expect-error Slice 5: ECIES → HPKE migration
-    expect(typeof envelope.wrappedKey).toBe('string')
-    // @ts-expect-error Slice 5: ECIES → HPKE migration
-    expect(typeof envelope.ephemeralPubkey).toBe('string')
+    expect(typeof envelope.enc).toBe('string')
+    expect(typeof envelope.ct).toBe('string')
     expect(envelope.pubkey).toBe(publicKeyHex)
   })
 
   test('correct fileId decrypts successfully', async () => {
+    const { privateKey, publicKeyHex } = await generateTestHpkeKeypair()
     const content = new Uint8Array([7, 8, 9, 10])
     const file = mockFile(content, 'aad-test.bin')
     const fileId = crypto.randomUUID()
@@ -216,13 +200,14 @@ describe('file-crypto envelope', () => {
       encryptedContent,
       recipientEnvelopes[0],
       fileId,
-      secretKey
+      privateKey
     )
 
     expect(decrypted).toEqual(content)
   })
 
   test('wrong fileId fails (AAD mismatch)', async () => {
+    const { privateKey, publicKeyHex } = await generateTestHpkeKeypair()
     const content = new Uint8Array(1024)
     crypto.getRandomValues(content)
     const file = mockFile(content, 'aad-mismatch.bin')
@@ -233,11 +218,12 @@ describe('file-crypto envelope', () => {
     // Use a different fileId — the AAD will not match, causing AEAD auth failure
     const wrongFileId = crypto.randomUUID()
     await expect(
-      decryptFileWithSecret(encryptedContent, recipientEnvelopes[0], wrongFileId, secretKey)
+      decryptFileWithSecret(encryptedContent, recipientEnvelopes[0], wrongFileId, privateKey)
     ).rejects.toBeInstanceOf(Error)
   })
 
   test('wrong fileId fails even with correct key (cross-file substitution attack)', async () => {
+    const { privateKey, publicKeyHex } = await generateTestHpkeKeypair()
     // Encrypt two different files with different fileIds
     const file1 = mockFile(new Uint8Array([1, 2, 3]), 'file1.bin')
     const file2 = mockFile(new Uint8Array([4, 5, 6]), 'file2.bin')
@@ -253,12 +239,13 @@ describe('file-crypto envelope', () => {
         result1.encryptedContent,
         result1.recipientEnvelopes[0],
         fileId2,
-        secretKey
+        privateKey
       )
     ).rejects.toBeInstanceOf(Error)
   })
 
   test('envelope labelId check rejects wrong label', async () => {
+    const { privateKey, publicKeyHex } = await generateTestHpkeKeypair()
     const content = new Uint8Array([5, 6, 7])
     const file = mockFile(content, 'label-check.bin')
     const fileId = crypto.randomUUID()
@@ -272,7 +259,7 @@ describe('file-crypto envelope', () => {
     }
 
     await expect(
-      decryptFileWithSecret(encryptedContent, tamperedEnvelope, fileId, secretKey)
+      decryptFileWithSecret(encryptedContent, tamperedEnvelope, fileId, privateKey)
     ).rejects.toBeInstanceOf(Error)
   })
 })
