@@ -209,7 +209,9 @@ discovery.openapi(createFromCallRoute, async (c) => {
     )
   }
 
+  const contactId = crypto.randomUUID()
   const contact = await services.contacts.createContact({
+    id: contactId,
     hubId,
     contactType: body.contactType,
     riskLevel: body.riskLevel,

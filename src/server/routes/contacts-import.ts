@@ -149,6 +149,7 @@ contactImport.openapi(importRoute, async (c) => {
       }
 
       await services.contacts.createContact({
+        id: contactId,
         hubId,
         contactType: contact.contactType || 'caller',
         riskLevel: contact.riskLevel || 'low',

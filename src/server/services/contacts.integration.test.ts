@@ -51,6 +51,7 @@ describe('ContactService', () => {
   test('createContact with Tier 1 fields only', async () => {
     const hub = `${RUN_PREFIX}-t1`
     const contact = await service.createContact({
+      id: crypto.randomUUID(),
       hubId: hub,
       contactType: 'caller',
       riskLevel: 'low',
@@ -79,6 +80,7 @@ describe('ContactService', () => {
     const idHash = fakeHmacHash('hmac-hash-phone-abc')
 
     const contact = await service.createContact({
+      id: crypto.randomUUID(),
       hubId: hub,
       contactType: 'caller',
       riskLevel: 'high',
@@ -113,6 +115,7 @@ describe('ContactService', () => {
     const otherHub = `${RUN_PREFIX}-t3-other`
 
     await service.createContact({
+      id: crypto.randomUUID(),
       hubId: hub,
       contactType: 'caller',
       riskLevel: 'low',
@@ -122,6 +125,7 @@ describe('ContactService', () => {
       createdBy: 'pk',
     })
     await service.createContact({
+      id: crypto.randomUUID(),
       hubId: otherHub,
       contactType: 'caller',
       riskLevel: 'low',
@@ -145,6 +149,7 @@ describe('ContactService', () => {
     const hub = `${RUN_PREFIX}-t4`
 
     await service.createContact({
+      id: crypto.randomUUID(),
       hubId: hub,
       contactType: 'caller',
       riskLevel: 'low',
@@ -154,6 +159,7 @@ describe('ContactService', () => {
       createdBy: 'pk',
     })
     await service.createContact({
+      id: crypto.randomUUID(),
       hubId: hub,
       contactType: 'admin',
       riskLevel: 'low',
@@ -177,6 +183,7 @@ describe('ContactService', () => {
     const hub = `${RUN_PREFIX}-t5`
 
     const contact = await service.createContact({
+      id: crypto.randomUUID(),
       hubId: hub,
       contactType: 'caller',
       riskLevel: 'low',
@@ -211,6 +218,7 @@ describe('ContactService', () => {
     const hub = `${RUN_PREFIX}-t6`
 
     const contact = await service.createContact({
+      id: crypto.randomUUID(),
       hubId: hub,
       contactType: 'caller',
       riskLevel: 'low',
@@ -233,6 +241,7 @@ describe('ContactService', () => {
     const idHash = fakeHmacHash('unique-hash-for-dedup')
 
     await service.createContact({
+      id: crypto.randomUUID(),
       hubId: hub,
       contactType: 'caller',
       riskLevel: 'low',
@@ -288,6 +297,7 @@ describe('ContactService', () => {
     const hub = `${RUN_PREFIX}-t9`
 
     const contact = await service.createContact({
+      id: crypto.randomUUID(),
       hubId: hub,
       contactType: 'caller',
       riskLevel: 'low',
