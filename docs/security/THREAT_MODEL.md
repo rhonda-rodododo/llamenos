@@ -46,7 +46,7 @@ This document defines the threat model for Llamenos, a secure crisis response ho
 - Auto-lock on idle/tab-hide — limits physical access window
 - Generic PWA name ("Hotline") — reduces identification on seized devices
 - JWT short-lived access tokens (15min) — limits window of stolen token utility
-- Domain-separated HPKE (76 `LABEL_*` constants, 41 wire-indexed in `LABEL_REGISTRY`) — no cross-context key reuse
+- Domain-separated HPKE (76 `LABEL_*` constants, 42 wire-indexed in `LABEL_REGISTRY`) — no cross-context key reuse
 - Certificate pinning NOT implemented (impractical for web apps; rely on HSTS preload)
 
 **Residual risks**:
@@ -192,7 +192,7 @@ This document defines the threat model for Llamenos, a secure crisis response ho
 | JWT refresh token revocability | `user_sessions` table with hashed 32-byte tokens; rotated on every refresh | Immediate revocation |
 | Multi-factor KEK strength | PIN + IdP value + optional WebAuthn PRF combined via HKDF-SHA256 | Compromise of any single factor insufficient |
 | Phone hash preimage resistance | HMAC-SHA256 with operator secret | Infeasible without HMAC secret |
-| Domain separation | 76 `LABEL_*` constants (41 wire-indexed in `LABEL_REGISTRY`); HPKE envelopes embed `labelId` cross-checked on open | No cross-context key reuse |
+| Domain separation | 76 `LABEL_*` constants (42 wire-indexed in `LABEL_REGISTRY`); HPKE envelopes embed `labelId` cross-checked on open | No cross-context key reuse |
 
 ### What We Do NOT Guarantee
 

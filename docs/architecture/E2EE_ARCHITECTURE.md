@@ -611,7 +611,7 @@ Server nsec (secp256k1) — SERVER IDENTITY ONLY
 
 ## Domain Separation Labels (Authoritative Table)
 
-From `src/shared/crypto-labels.ts`. Labels used in HPKE envelopes carry a wire-indexed `labelId` from `LABEL_REGISTRY` (41 frozen indices) for compact serialization. Non-wire labels (KEK derivation, HKDF info, etc.) use the string directly. There are 82+ total labels.
+From `src/shared/crypto-labels.ts`. Labels used in HPKE envelopes carry a wire-indexed `labelId` from `LABEL_REGISTRY` (42 active indices 0-41, plus 5 permanently retired indices 42-46) for compact serialization. Non-wire labels (KEK derivation, HKDF info, etc.) use the string directly. There are 88 total constants (76 `LABEL_*` exports, 63 branded `CryptoLabel`).
 
 | Label | Purpose | Used By | Tier |
 | ----- | ------- | ------- | ---- |
@@ -1056,7 +1056,7 @@ All features verified:
 
 | File | Role |
 |------|------|
-| `src/shared/crypto-labels.ts` | All domain separation constants (82+ labels, 41 wire-indexed in LABEL_REGISTRY) |
+| `src/shared/crypto-labels.ts` | All domain separation constants (88 constants: 76 LABEL_* exports, 63 branded CryptoLabel, 42 wire-indexed in LABEL_REGISTRY) |
 | `src/shared/crypto-types.ts` | Branded `Ciphertext` and `HmacHash` types |
 | `src/shared/hpke-primitives.ts` | HPKE RFC 9180 implementation: `hpkeSeal()` / `hpkeOpen()`, suite config |
 | `src/shared/hpke-envelope.ts` | `HpkeEnvelope` wire format `{ v: 3, labelId, enc, ct }`, `buildAad()` |
