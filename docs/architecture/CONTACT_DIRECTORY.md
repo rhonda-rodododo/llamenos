@@ -71,9 +71,9 @@ Hub-scoped tags with hub-key encrypted labels. The `name` field is a plaintext s
 | `id` | text PK | -- | UUID |
 | `hub_id` | text | -- | Hub scope |
 | `name` | text | -- | Plaintext slug (unique per hub) |
-| `encrypted_label` | ciphertext | Hub-key XChaCha20 | Display label |
+| `encrypted_label` | ciphertext | Hub-key AES-256-GCM | Display label |
 | `color` | text | -- | Hex color code |
-| `encrypted_category` | ciphertext | Hub-key XChaCha20 | Optional grouping |
+| `encrypted_category` | ciphertext | Hub-key AES-256-GCM | Optional grouping |
 | `created_by` | text | -- | Pubkey |
 
 ### teams / team_members / contact_team_assignments
