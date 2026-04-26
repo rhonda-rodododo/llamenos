@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## 0.51.6 (2026-04-26)
+
+### Features
+
+- GDPR data export + account erasure UI (#228)
+- HPKE Slice 1 — wire format & type foundation (#231)
+- Phase 2D — upgrade volunteer/invite phone to envelope E2EE (#230)
+- add OpenAPI documentation to undocumented endpoints (#233)
+- HPKE Slices 2+3 — ECIES→HPKE + server envelope decrypt (#235)
+- HPKE Slice 5 — file crypto + provisioning ECIES → HPKE/X25519 (#240)
+- HPKE Slice 7 — XChaCha20→AES-GCM + full ECIES cleanup (#256)
+
+### Fixes
+
+- make demo deploy dispatch non-fatal in release workflow
+- reorganize CHANGELOG.md for knope + fix release notes extraction (#223)
+- stabilize key-manager cross-tab lock test (#234)
+- use canonical RecipientEnvelopeSchema in contacts-import
+- update E2E test stubs from ECIES to HPKE envelope format (#241)
+- cleanup
+- comprehensive E2E fix — Biome + cookies + CSP + invite + zod + import (#253)
+- isolate screeshot tests (#217)
+- update stale ECIES comment in hub-key-cache to HPKE (#255)
+
 ## 0.51.5 (2026-04-22)
 
 ### Fixes
