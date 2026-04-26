@@ -28,26 +28,26 @@ describe('CryptoService', () => {
   // ── serverEncrypt / serverDecrypt ──
 
   describe('serverEncrypt / serverDecrypt', () => {
-    test('round-trip', () => {
-      const ct = crypto.serverEncrypt('hello', LABEL_USER_PII)
-      const pt = crypto.serverDecrypt(ct, LABEL_USER_PII)
+    test('round-trip', async () => {
+      const ct = await crypto.serverEncrypt('hello', LABEL_USER_PII)
+      const pt = await crypto.serverDecrypt(ct, LABEL_USER_PII)
       expect(pt).toBe('hello')
     })
 
-    test('different nonce each time', () => {
-      const a = crypto.serverEncrypt('same', LABEL_USER_PII)
-      const b = crypto.serverEncrypt('same', LABEL_USER_PII)
+    test('different nonce each time', async () => {
+      const a = await crypto.serverEncrypt('same', LABEL_USER_PII)
+      const b = await crypto.serverEncrypt('same', LABEL_USER_PII)
       expect(a).not.toBe(b)
     })
 
-    test('wrong label fails', () => {
-      const ct = crypto.serverEncrypt('secret', LABEL_USER_PII)
-      expect(() => crypto.serverDecrypt(ct, 'wrong:label' as CryptoLabel)).toThrow()
+    test('wrong label fails', async () => {
+      const ct = await crypto.serverEncrypt('secret', LABEL_USER_PII)
+      await expect(crypto.serverDecrypt(ct, 'wrong:label' as CryptoLabel)).rejects.toThrow()
     })
 
-    test('empty string round-trip', () => {
-      const ct = crypto.serverEncrypt('', LABEL_USER_PII)
-      const pt = crypto.serverDecrypt(ct, LABEL_USER_PII)
+    test('empty string round-trip', async () => {
+      const ct = await crypto.serverEncrypt('', LABEL_USER_PII)
+      const pt = await crypto.serverDecrypt(ct, LABEL_USER_PII)
       expect(pt).toBe('')
     })
   })
@@ -208,47 +208,47 @@ describe('CryptoService', () => {
   // ── hubEncryptField / hubDecryptField ��─
 
   describe('hubEncryptField / hubDecryptField', () => {
-    test('round-trip with matching (recordId, fieldName)', () => {
+    test('round-trip with matching (recordId, fieldName)', async () => {
       const hubKey = new Uint8Array(32)
       globalThis.crypto.getRandomValues(hubKey)
 
-      const ct = crypto.hubEncryptField('hub data', hubKey, 'row-1', 'encrypted_name')
-      const pt = crypto.hubDecryptField(ct, hubKey, 'row-1', 'encrypted_name')
+      const ct = await crypto.hubEncryptField('hub data', hubKey, 'row-1', 'encrypted_name')
+      const pt = await crypto.hubDecryptField(ct, hubKey, 'row-1', 'encrypted_name')
       expect(pt).toBe('hub data')
     })
 
-    test('wrong recordId returns null (AAD mismatch)', () => {
+    test('wrong recordId returns null (AAD mismatch)', async () => {
       const hubKey = new Uint8Array(32)
       globalThis.crypto.getRandomValues(hubKey)
 
-      const ct = crypto.hubEncryptField('hub data', hubKey, 'row-1', 'encrypted_name')
-      expect(crypto.hubDecryptField(ct, hubKey, 'row-2', 'encrypted_name')).toBeNull()
+      const ct = await crypto.hubEncryptField('hub data', hubKey, 'row-1', 'encrypted_name')
+      expect(await crypto.hubDecryptField(ct, hubKey, 'row-2', 'encrypted_name')).toBeNull()
     })
 
-    test('wrong fieldName returns null (AAD mismatch)', () => {
+    test('wrong fieldName returns null (AAD mismatch)', async () => {
       const hubKey = new Uint8Array(32)
       globalThis.crypto.getRandomValues(hubKey)
 
-      const ct = crypto.hubEncryptField('hub data', hubKey, 'row-1', 'encrypted_name')
-      expect(crypto.hubDecryptField(ct, hubKey, 'row-1', 'encrypted_description')).toBeNull()
+      const ct = await crypto.hubEncryptField('hub data', hubKey, 'row-1', 'encrypted_name')
+      expect(await crypto.hubDecryptField(ct, hubKey, 'row-1', 'encrypted_description')).toBeNull()
     })
 
-    test('wrong key returns null', () => {
+    test('wrong key returns null', async () => {
       const key1 = new Uint8Array(32)
       globalThis.crypto.getRandomValues(key1)
       const key2 = new Uint8Array(32)
       globalThis.crypto.getRandomValues(key2)
 
-      const ct = crypto.hubEncryptField('data', key1, 'row-1', 'encrypted_name')
-      expect(crypto.hubDecryptField(ct, key2, 'row-1', 'encrypted_name')).toBeNull()
+      const ct = await crypto.hubEncryptField('data', key1, 'row-1', 'encrypted_name')
+      expect(await crypto.hubDecryptField(ct, key2, 'row-1', 'encrypted_name')).toBeNull()
     })
 
-    test('nonce uniqueness', () => {
+    test('nonce uniqueness', async () => {
       const hubKey = new Uint8Array(32)
       globalThis.crypto.getRandomValues(hubKey)
 
-      const a = crypto.hubEncryptField('same', hubKey, 'row-1', 'encrypted_name')
-      const b = crypto.hubEncryptField('same', hubKey, 'row-1', 'encrypted_name')
+      const a = await crypto.hubEncryptField('same', hubKey, 'row-1', 'encrypted_name')
+      const b = await crypto.hubEncryptField('same', hubKey, 'row-1', 'encrypted_name')
       expect(a).not.toBe(b)
     })
   })
@@ -284,25 +284,25 @@ describe('CryptoService', () => {
 describe('CryptoService AAD binding', () => {
   const crypto = createTestCrypto()
 
-  test('serverEncrypt/Decrypt round-trip with AAD', () => {
-    const ct = crypto.serverEncrypt('hello', LABEL_AUDIT_EVENT)
-    expect(crypto.serverDecrypt(ct, LABEL_AUDIT_EVENT)).toBe('hello')
+  test('serverEncrypt/Decrypt round-trip with AAD', async () => {
+    const ct = await crypto.serverEncrypt('hello', LABEL_AUDIT_EVENT)
+    expect(await crypto.serverDecrypt(ct, LABEL_AUDIT_EVENT)).toBe('hello')
   })
 
-  test('serverDecrypt rejects wrong label (AAD mismatch)', () => {
-    const ct = crypto.serverEncrypt('hello', LABEL_AUDIT_EVENT)
-    expect(() => crypto.serverDecrypt(ct, LABEL_USER_PII)).toThrow()
+  test('serverDecrypt rejects wrong label (AAD mismatch)', async () => {
+    const ct = await crypto.serverEncrypt('hello', LABEL_AUDIT_EVENT)
+    await expect(crypto.serverDecrypt(ct, LABEL_USER_PII)).rejects.toThrow()
   })
 
-  test('hubEncryptField/Decrypt round-trip with AAD', () => {
+  test('hubEncryptField/Decrypt round-trip with AAD', async () => {
     const hubKey = new Uint8Array(32).fill(3)
-    const ct = crypto.hubEncryptField('hello', hubKey, 'row-1', 'encrypted_name')
-    expect(crypto.hubDecryptField(ct, hubKey, 'row-1', 'encrypted_name')).toBe('hello')
+    const ct = await crypto.hubEncryptField('hello', hubKey, 'row-1', 'encrypted_name')
+    expect(await crypto.hubDecryptField(ct, hubKey, 'row-1', 'encrypted_name')).toBe('hello')
   })
 
-  test('hubDecryptField returns null on AAD mismatch', () => {
+  test('hubDecryptField returns null on AAD mismatch', async () => {
     const hubKey = new Uint8Array(32).fill(3)
-    const ct = crypto.hubEncryptField('hello', hubKey, 'row-1', 'encrypted_name')
-    expect(crypto.hubDecryptField(ct, hubKey, 'row-1', 'encrypted_description')).toBeNull()
+    const ct = await crypto.hubEncryptField('hello', hubKey, 'row-1', 'encrypted_name')
+    expect(await crypto.hubDecryptField(ct, hubKey, 'row-1', 'encrypted_description')).toBeNull()
   })
 })

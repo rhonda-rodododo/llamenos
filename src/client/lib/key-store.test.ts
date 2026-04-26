@@ -140,70 +140,98 @@ describe('deriveKEK', () => {
 // ---------------------------------------------------------------------------
 
 describe('encryptNsec', () => {
-  test('produces a valid EncryptedKeyData blob', () => {
+  test('produces a valid EncryptedKeyData blob', async () => {
     const salt = makeSalt()
     const idpValue = makeIdpValue()
     const kek = deriveKEK({ pin: '123456', idpValue, salt })
 
-    const blob = encryptNsec(TEST_NSEC_HEX, kek, TEST_PUBKEY, false, 'https://idp.example', salt)
+    const blob = await encryptNsec(
+      TEST_NSEC_HEX,
+      kek,
+      TEST_PUBKEY,
+      false,
+      'https://idp.example',
+      salt
+    )
 
     expect(blob.version).toBe(2)
     expect(blob.kdf).toBe('pbkdf2-sha256')
-    expect(blob.cipher).toBe('xchacha20-poly1305')
+    expect(blob.cipher).toBe('aes-256-gcm')
     expect(blob.prfUsed).toBe(false)
     expect(blob.idpIssuer).toBe('https://idp.example')
     expect(blob.salt).toBe(bytesToHex(salt))
-    // nonce should be 24 bytes = 48 hex chars
-    expect(blob.nonce.length).toBe(48)
+    // nonce should be 12 bytes = 24 hex chars
+    expect(blob.nonce.length).toBe(24)
     // ciphertext should be non-empty
     expect(blob.ciphertext.length).toBeGreaterThan(0)
     // pubkeyHash should be 16 hex chars (truncated SHA-256)
     expect(blob.pubkeyHash.length).toBe(16)
   })
 
-  test('round-trip: encryptNsec -> decryptNsec recovers original nsec', () => {
+  test('round-trip: encryptNsec -> decryptNsec recovers original nsec', async () => {
     const salt = makeSalt()
     const idpValue = makeIdpValue()
     const kek = deriveKEK({ pin: '123456', idpValue, salt })
 
-    const blob = encryptNsec(TEST_NSEC_HEX, kek, TEST_PUBKEY, false, 'https://idp.example', salt)
-    const recovered = decryptNsec(blob, kek)
+    const blob = await encryptNsec(
+      TEST_NSEC_HEX,
+      kek,
+      TEST_PUBKEY,
+      false,
+      'https://idp.example',
+      salt
+    )
+    const recovered = await decryptNsec(blob, kek)
 
     expect(recovered).toBe(TEST_NSEC_HEX)
   })
 
-  test('decrypt with wrong KEK returns null', () => {
+  test('decrypt with wrong KEK returns null', async () => {
     const salt = makeSalt()
     const idpValue = makeIdpValue()
     const kek = deriveKEK({ pin: '123456', idpValue, salt })
     const wrongKek = deriveKEK({ pin: '654321', idpValue, salt })
 
-    const blob = encryptNsec(TEST_NSEC_HEX, kek, TEST_PUBKEY, false, 'https://idp.example', salt)
-    const result = decryptNsec(blob, wrongKek)
+    const blob = await encryptNsec(
+      TEST_NSEC_HEX,
+      kek,
+      TEST_PUBKEY,
+      false,
+      'https://idp.example',
+      salt
+    )
+    const result = await decryptNsec(blob, wrongKek)
 
     expect(result).toBeNull()
   })
 
-  test('prfUsed flag is preserved in blob', () => {
+  test('prfUsed flag is preserved in blob', async () => {
     const salt = makeSalt()
     const idpValue = makeIdpValue()
     const prfOutput = makePrfOutput()
     const kek = deriveKEK({ pin: '123456', idpValue, prfOutput, salt })
 
-    const blob = encryptNsec(TEST_NSEC_HEX, kek, TEST_PUBKEY, true, 'https://idp.example', salt)
+    const blob = await encryptNsec(
+      TEST_NSEC_HEX,
+      kek,
+      TEST_PUBKEY,
+      true,
+      'https://idp.example',
+      salt
+    )
     expect(blob.prfUsed).toBe(true)
 
-    const recovered = decryptNsec(blob, kek)
+    const recovered = await decryptNsec(blob, kek)
     expect(recovered).toBe(TEST_NSEC_HEX)
   })
 
-  test('each encryption produces different ciphertext (random nonce)', () => {
+  test('each encryption produces different ciphertext (random nonce)', async () => {
     const salt = makeSalt()
     const idpValue = makeIdpValue()
     const kek = deriveKEK({ pin: '123456', idpValue, salt })
 
-    const blob1 = encryptNsec(TEST_NSEC_HEX, kek, TEST_PUBKEY, false, 'test', salt)
-    const blob2 = encryptNsec(TEST_NSEC_HEX, kek, TEST_PUBKEY, false, 'test', salt)
+    const blob1 = await encryptNsec(TEST_NSEC_HEX, kek, TEST_PUBKEY, false, 'test', salt)
+    const blob2 = await encryptNsec(TEST_NSEC_HEX, kek, TEST_PUBKEY, false, 'test', salt)
 
     expect(blob1.nonce).not.toBe(blob2.nonce)
     expect(blob1.ciphertext).not.toBe(blob2.ciphertext)
@@ -215,11 +243,11 @@ describe('encryptNsec', () => {
 // ---------------------------------------------------------------------------
 
 describe('storeEncryptedKey / loadEncryptedKey', () => {
-  test('round-trip: store then load returns same blob', () => {
+  test('round-trip: store then load returns same blob', async () => {
     const salt = makeSalt()
     const idpValue = makeIdpValue()
     const kek = deriveKEK({ pin: '123456', idpValue, salt })
-    const blob = encryptNsec(TEST_NSEC_HEX, kek, TEST_PUBKEY, false, 'test-issuer', salt)
+    const blob = await encryptNsec(TEST_NSEC_HEX, kek, TEST_PUBKEY, false, 'test-issuer', salt)
 
     storeEncryptedKey(blob)
     const loaded = loadEncryptedKey()
@@ -255,20 +283,20 @@ describe('storeEncryptedKey / loadEncryptedKey', () => {
     expect(hasStoredKey()).toBe(false)
   })
 
-  test('hasStoredKey returns true after store', () => {
+  test('hasStoredKey returns true after store', async () => {
     const salt = makeSalt()
     const idpValue = makeIdpValue()
     const kek = deriveKEK({ pin: '123456', idpValue, salt })
-    const blob = encryptNsec(TEST_NSEC_HEX, kek, TEST_PUBKEY, false, 'test', salt)
+    const blob = await encryptNsec(TEST_NSEC_HEX, kek, TEST_PUBKEY, false, 'test', salt)
     storeEncryptedKey(blob)
     expect(hasStoredKey()).toBe(true)
   })
 
-  test('clearStoredKey removes the key', () => {
+  test('clearStoredKey removes the key', async () => {
     const salt = makeSalt()
     const idpValue = makeIdpValue()
     const kek = deriveKEK({ pin: '123456', idpValue, salt })
-    const blob = encryptNsec(TEST_NSEC_HEX, kek, TEST_PUBKEY, false, 'test', salt)
+    const blob = await encryptNsec(TEST_NSEC_HEX, kek, TEST_PUBKEY, false, 'test', salt)
     storeEncryptedKey(blob)
     expect(hasStoredKey()).toBe(true)
 
@@ -277,15 +305,15 @@ describe('storeEncryptedKey / loadEncryptedKey', () => {
     expect(loadEncryptedKey()).toBeNull()
   })
 
-  test('full round-trip: store, load, decrypt recovers nsec', () => {
+  test('full round-trip: store, load, decrypt recovers nsec', async () => {
     const salt = makeSalt()
     const idpValue = makeIdpValue()
     const kek = deriveKEK({ pin: '123456', idpValue, salt })
-    const blob = encryptNsec(TEST_NSEC_HEX, kek, TEST_PUBKEY, false, 'test', salt)
+    const blob = await encryptNsec(TEST_NSEC_HEX, kek, TEST_PUBKEY, false, 'test', salt)
 
     storeEncryptedKey(blob)
     const loaded = loadEncryptedKey()!
-    const recovered = decryptNsec(loaded, kek)
+    const recovered = await decryptNsec(loaded, kek)
 
     expect(recovered).toBe(TEST_NSEC_HEX)
   })

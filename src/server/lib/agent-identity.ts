@@ -1,8 +1,8 @@
-import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
 import { schnorr } from '@noble/curves/secp256k1.js'
 import { hkdf } from '@noble/hashes/hkdf.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
+import { aesGcmDecrypt, aesGcmEncrypt } from '@shared/aes-gcm'
 
 /**
  * Generate a random Nostr keypair for an agent, sealing the nsec under a
@@ -20,11 +20,11 @@ import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
  * @param sealLabel Domain separation constant (from crypto-labels.ts)
  * @returns pubkey (hex x-only) and encryptedNsec (hex nonce || ciphertext)
  */
-export function generateAgentKeypair(
+export async function generateAgentKeypair(
   agentId: string,
   sealKey: string,
   sealLabel: string
-): { pubkey: string; encryptedNsec: string } {
+): Promise<{ pubkey: string; encryptedNsec: string }> {
   // Generate random keypair
   const nsecBytes = schnorr.utils.randomSecretKey()
   const pubkeyBytes = schnorr.getPublicKey(nsecBytes)
@@ -41,13 +41,12 @@ export function generateAgentKeypair(
     32
   )
 
-  // Encrypt nsec with XChaCha20-Poly1305
-  const nonce = crypto.getRandomValues(new Uint8Array(24))
-  const cipher = xchacha20poly1305(derivedKey, nonce)
-  const sealed = cipher.encrypt(new TextEncoder().encode(nsecHex))
-
-  // Encode as hex: nonce || ciphertext
-  const encryptedNsec = bytesToHex(nonce) + bytesToHex(sealed)
+  // Encrypt nsec with AES-256-GCM
+  const encryptedNsec = await aesGcmEncrypt(
+    new TextEncoder().encode(nsecHex),
+    derivedKey,
+    new Uint8Array(0)
+  )
 
   // Zero nsec from memory
   nsecBytes.fill(0)
@@ -65,12 +64,12 @@ export function generateAgentKeypair(
  * @returns Hex-encoded nsec (32 bytes)
  * @throws If authentication tag verification fails (wrong agentId, sealKey, or sealLabel)
  */
-export function unsealAgentNsec(
+export async function unsealAgentNsec(
   agentId: string,
   encryptedNsec: string,
   sealKey: string,
   sealLabel: string
-): string {
+): Promise<string> {
   const sealKeyBytes = hexToBytes(sealKey)
   const derivedKey = hkdf(
     sha256,
@@ -80,11 +79,6 @@ export function unsealAgentNsec(
     32
   )
 
-  const combined = hexToBytes(encryptedNsec)
-  const nonce = combined.slice(0, 24)
-  const ciphertext = combined.slice(24)
-
-  const cipher = xchacha20poly1305(derivedKey, nonce)
-  const decrypted = cipher.decrypt(ciphertext)
+  const decrypted = await aesGcmDecrypt(encryptedNsec, derivedKey, new Uint8Array(0))
   return new TextDecoder().decode(decrypted)
 }

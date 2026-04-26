@@ -161,7 +161,7 @@ firehoseRoutes.openapi(createRoute_, async (c) => {
   })
 
   // Generate keypair bound to the real connection ID
-  const { pubkey: agentPubkey, encryptedNsec } = generateAgentKeypair(
+  const { pubkey: agentPubkey, encryptedNsec } = await generateAgentKeypair(
     raw.id,
     sealKey,
     LABEL_FIREHOSE_AGENT_SEAL

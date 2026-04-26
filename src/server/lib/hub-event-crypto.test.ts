@@ -25,28 +25,28 @@ describe('deriveServerEventKey', () => {
 describe('encryptHubEvent / decryptHubEvent', () => {
   const eventKey = deriveServerEventKey('ab'.repeat(32))
 
-  test('roundtrip — encrypt then decrypt recovers original', () => {
+  test('roundtrip — encrypt then decrypt recovers original', async () => {
     const content = { type: 'call.started', hubId: 'hub-123', data: { callSid: 'CA456' } }
-    const encrypted = encryptHubEvent(content, eventKey)
-    const decrypted = decryptHubEvent(encrypted, eventKey)
+    const encrypted = await encryptHubEvent(content, eventKey)
+    const decrypted = await decryptHubEvent(encrypted, eventKey)
     expect(decrypted).toEqual(content)
   })
 
-  test('wrong key returns null', () => {
+  test('wrong key returns null', async () => {
     const wrongKey = deriveServerEventKey('cd'.repeat(32))
-    const encrypted = encryptHubEvent({ test: true }, eventKey)
-    const result = decryptHubEvent(encrypted, wrongKey)
+    const encrypted = await encryptHubEvent({ test: true }, eventKey)
+    const result = await decryptHubEvent(encrypted, wrongKey)
     expect(result).toBeNull()
   })
 
-  test('nonce uniqueness — same input produces different ciphertext', () => {
+  test('nonce uniqueness — same input produces different ciphertext', async () => {
     const content = { same: 'data' }
-    const a = encryptHubEvent(content, eventKey)
-    const b = encryptHubEvent(content, eventKey)
+    const a = await encryptHubEvent(content, eventKey)
+    const b = await encryptHubEvent(content, eventKey)
     expect(a).not.toBe(b)
   })
 
-  test('handles complex payloads — nested objects, arrays, unicode', () => {
+  test('handles complex payloads — nested objects, arrays, unicode', async () => {
     const content = {
       type: 'notification',
       data: {
@@ -55,8 +55,8 @@ describe('encryptHubEvent / decryptHubEvent', () => {
         unicode: '¡Hola! 你好 🔐',
       },
     }
-    const encrypted = encryptHubEvent(content, eventKey)
-    const decrypted = decryptHubEvent(encrypted, eventKey)
+    const encrypted = await encryptHubEvent(content, eventKey)
+    const decrypted = await decryptHubEvent(encrypted, eventKey)
     expect(decrypted).toEqual(content)
   })
 })

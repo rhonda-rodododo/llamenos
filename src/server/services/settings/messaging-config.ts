@@ -22,11 +22,14 @@ export async function getMessagingConfig(
   const configStr = rows[0].config
   let json: string
   try {
-    json = cryptoService.serverDecrypt(configStr as Ciphertext, LABEL_PROVIDER_CREDENTIAL_WRAP)
+    json = await cryptoService.serverDecrypt(
+      configStr as Ciphertext,
+      LABEL_PROVIDER_CREDENTIAL_WRAP
+    )
   } catch {
     // Legacy plaintext — re-encrypt and update
     json = configStr
-    const encrypted = cryptoService.serverEncrypt(json, LABEL_PROVIDER_CREDENTIAL_WRAP)
+    const encrypted = await cryptoService.serverEncrypt(json, LABEL_PROVIDER_CREDENTIAL_WRAP)
     await db
       .update(messagingConfig)
       .set({ config: encrypted })
@@ -44,7 +47,7 @@ export async function updateMessagingConfig(
   const hId = hubId ?? 'global'
   const current = await getMessagingConfig(db, cryptoService, hId)
   const updated = { ...current, ...data }
-  const encrypted = cryptoService.serverEncrypt(
+  const encrypted = await cryptoService.serverEncrypt(
     JSON.stringify(updated),
     LABEL_PROVIDER_CREDENTIAL_WRAP
   )

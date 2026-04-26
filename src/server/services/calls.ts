@@ -25,11 +25,11 @@ export class CallService {
   async getActiveCalls(hubId?: string): Promise<ActiveCall[]> {
     if (hubId) {
       const rows = await this.db.select().from(activeCalls).where(eq(activeCalls.hubId, hubId))
-      return rows.map((r) => this.#rowToActiveCall(r))
+      return Promise.all(rows.map((r) => this.#rowToActiveCall(r)))
     }
     // No hub specified — return all active calls (super admin cross-hub view)
     const rows = await this.db.select().from(activeCalls)
-    return rows.map((r) => this.#rowToActiveCall(r))
+    return Promise.all(rows.map((r) => this.#rowToActiveCall(r)))
   }
 
   async getActiveCall(callSid: string, hubId?: string): Promise<ActiveCall | null> {
@@ -39,12 +39,15 @@ export class CallService {
       .from(activeCalls)
       .where(and(eq(activeCalls.callSid, callSid), eq(activeCalls.hubId, hId)))
       .limit(1)
-    return rows[0] ? this.#rowToActiveCall(rows[0]) : null
+    return rows[0] ? await this.#rowToActiveCall(rows[0]) : null
   }
 
   async createActiveCall(data: CreateActiveCallData): Promise<ActiveCall> {
     // Encrypt caller number with server key (server can decrypt for routing)
-    const encryptedCallerNumber = this.crypto.serverEncrypt(data.callerNumber, LABEL_EPHEMERAL_CALL)
+    const encryptedCallerNumber = await this.crypto.serverEncrypt(
+      data.callerNumber,
+      LABEL_EPHEMERAL_CALL
+    )
 
     const [row] = await this.db
       .insert(activeCalls)
@@ -58,7 +61,7 @@ export class CallService {
         metadata: {},
       })
       .returning()
-    return this.#rowToActiveCall(row)
+    return await this.#rowToActiveCall(row)
   }
 
   async updateActiveCall(
@@ -83,7 +86,7 @@ export class CallService {
       })
       .where(and(eq(activeCalls.callSid, callSid), eq(activeCalls.hubId, hId)))
       .returning()
-    return this.#rowToActiveCall(row)
+    return await this.#rowToActiveCall(row)
   }
 
   async deleteActiveCall(callSid: string, hubId?: string): Promise<void> {
@@ -101,13 +104,13 @@ export class CallService {
       .select()
       .from(callLegs)
       .where(and(eq(callLegs.callSid, callSid), eq(callLegs.hubId, hId)))
-    return rows.map((r) => this.#rowToCallLeg(r))
+    return Promise.all(rows.map((r) => this.#rowToCallLeg(r)))
   }
 
   async createCallLeg(data: CreateCallLegData): Promise<CallLeg> {
     // Encrypt user phone with server key (null for browser-only legs)
     const encryptedPhone = data.phone
-      ? this.crypto.serverEncrypt(data.phone, LABEL_EPHEMERAL_CALL)
+      ? await this.crypto.serverEncrypt(data.phone, LABEL_EPHEMERAL_CALL)
       : undefined
 
     const [row] = await this.db
@@ -122,7 +125,7 @@ export class CallService {
         ...(encryptedPhone ? { encryptedPhone } : {}),
       })
       .returning()
-    return this.#rowToCallLeg(row)
+    return await this.#rowToCallLeg(row)
   }
 
   async updateCallLeg(legSid: string, status: string): Promise<CallLeg> {
@@ -132,7 +135,7 @@ export class CallService {
       .where(eq(callLegs.legSid, legSid))
       .returning()
     if (!row) throw new AppError(404, 'Call leg not found')
-    return this.#rowToCallLeg(row)
+    return await this.#rowToCallLeg(row)
   }
 
   async deleteCallLeg(legSid: string): Promise<void> {
@@ -206,10 +209,10 @@ export class CallService {
 
   // ------------------------------------------------------------------ Private helpers
 
-  #rowToActiveCall(r: typeof activeCalls.$inferSelect): ActiveCall {
+  async #rowToActiveCall(r: typeof activeCalls.$inferSelect): Promise<ActiveCall> {
     // Guard: empty ciphertext means erased — return empty string
     const callerNumber = r.encryptedCallerNumber
-      ? this.crypto.serverDecrypt(r.encryptedCallerNumber as Ciphertext, LABEL_EPHEMERAL_CALL)
+      ? await this.crypto.serverDecrypt(r.encryptedCallerNumber as Ciphertext, LABEL_EPHEMERAL_CALL)
       : ''
 
     return {
@@ -223,9 +226,9 @@ export class CallService {
     }
   }
 
-  #rowToCallLeg(r: typeof callLegs.$inferSelect): CallLeg {
+  async #rowToCallLeg(r: typeof callLegs.$inferSelect): Promise<CallLeg> {
     const phone = r.encryptedPhone
-      ? this.crypto.serverDecrypt(r.encryptedPhone as Ciphertext, LABEL_EPHEMERAL_CALL)
+      ? await this.crypto.serverDecrypt(r.encryptedPhone as Ciphertext, LABEL_EPHEMERAL_CALL)
       : null
 
     return {

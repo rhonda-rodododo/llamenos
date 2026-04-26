@@ -1,6 +1,6 @@
-import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import { hkdf } from '@noble/hashes/hkdf.js'
 import { sha256 } from '@noble/hashes/sha2.js'
+import { utf8ToBytes } from '@noble/hashes/utils.js'
 import { LABEL_SAS_MLS_V3 } from '@shared/crypto-labels'
 import { SAS_EMOJI_NAMES_EN, SAS_EMOJI_TABLE } from './emoji-table'
 

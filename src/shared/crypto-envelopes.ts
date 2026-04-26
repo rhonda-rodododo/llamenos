@@ -1,137 +1,127 @@
 /**
  * Higher-level envelope encryption helpers for blasts, drafts, and exports.
  *
- * Note and message envelope encryption has been removed — both now use MLS
- * (see Slice 5 for notes, Slice 6 for messages).
- *
- * These are pure (no DOM, no crypto worker) so they can run in server, worker, and test contexts.
- * All async/worker-delegating variants live in src/client/lib/crypto-worker-helpers.ts.
+ * Note and message envelope encryption has been removed — both now use MLS.
+ * Blast content uses HPKE per-recipient seal.
+ * Drafts and exports use AES-256-GCM with HKDF-derived keys.
  */
 
-import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
-import { utf8ToBytes } from '@noble/ciphers/utils.js'
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
+import { bytesToHex, hexToBytes, utf8ToBytes } from '@noble/hashes/utils.js'
+import { aesGcmDecrypt, aesGcmEncrypt } from './aes-gcm'
 import {
   HKDF_CONTEXT_DRAFTS,
   HKDF_CONTEXT_EXPORT,
   HKDF_SALT,
   LABEL_BLAST_CONTENT,
 } from './crypto-labels'
-import {
-  eciesUnwrapKeyWithSecret,
-  eciesWrapKey,
-  hkdfDerive,
-  type RecipientKeyEnvelope,
-} from './crypto-primitives'
+import { hkdfDerive } from './crypto-primitives'
 import type { Ciphertext } from './crypto-types'
-import type { BlastContent } from './types'
+import type { BlastContent, RecipientEnvelope } from './types'
 
-// --- Internal helpers ---
-
-function randomBytes(n: number): Uint8Array {
-  const buf = new Uint8Array(n)
-  crypto.getRandomValues(buf)
-  return buf
-}
-
-// --- Blast Content Encryption ---
+// --- Blast Content Encryption (HPKE) ---
 
 export interface EncryptedBlastContentPayload {
   encryptedContent: Ciphertext
-  contentEnvelopes: RecipientKeyEnvelope[]
+  contentEnvelopes: RecipientEnvelope[]
 }
 
-export function encryptBlastContent(
+/**
+ * Encrypt blast content for multiple recipients using HPKE single-shot seal.
+ * Each recipient gets their own HPKE envelope — no shared symmetric key.
+ */
+export async function encryptBlastContent(
   content: BlastContent,
-  recipientPubkeys: string[]
-): EncryptedBlastContentPayload {
-  const blastKey = randomBytes(32)
-  const nonce = randomBytes(24)
-  const cipher = xchacha20poly1305(blastKey, nonce)
-  const ciphertext = cipher.encrypt(utf8ToBytes(JSON.stringify(content)))
+  recipientPubkeyHexes: string[]
+): Promise<EncryptedBlastContentPayload> {
+  const { createHpkeSuite } = await import('./crypto-suite')
+  const { asX25519EncryptionKey } = await import('./types')
+  const { hpkeSeal, buildAad } = await import('./hpke-primitives')
+  const suite = createHpkeSuite()
 
-  const packed = new Uint8Array(nonce.length + ciphertext.length)
-  packed.set(nonce)
-  packed.set(ciphertext, nonce.length)
+  const plaintext = new TextEncoder().encode(JSON.stringify(content))
+  // Use empty string as recordId — blast id isn't known at encrypt time
+  const aad = buildAad(LABEL_BLAST_CONTENT, '', 'content')
+
+  const contentEnvelopes: RecipientEnvelope[] = await Promise.all(
+    recipientPubkeyHexes.map(async (pubkey) => {
+      const recipientKey = asX25519EncryptionKey(
+        (await suite.kem.deserializePublicKey(hexToBytes(pubkey))) as CryptoKey
+      )
+      const envelope = await hpkeSeal(plaintext, recipientKey, LABEL_BLAST_CONTENT, aad)
+      return { pubkey, ...envelope }
+    })
+  )
 
   return {
-    encryptedContent: bytesToHex(packed) as Ciphertext,
-    contentEnvelopes: recipientPubkeys.map((pk) => ({
-      pubkey: pk,
-      ...eciesWrapKey(blastKey, pk, LABEL_BLAST_CONTENT),
-    })),
+    encryptedContent: '' as Ciphertext,
+    contentEnvelopes,
   }
 }
 
 /**
- * Decrypt blast content with an explicit secret key (no worker needed).
- * Used by server-side code and unit tests where the secret key is directly available.
+ * Decrypt blast content from a recipient's HPKE envelope.
+ * Uses the recipient's X25519 private key (via the crypto suite).
  */
-export function decryptBlastContentWithKey(
-  encryptedContent: string,
-  contentEnvelopes: RecipientKeyEnvelope[],
+export async function decryptBlastContentWithKey(
+  _encryptedContent: string,
+  contentEnvelopes: RecipientEnvelope[],
   secretKey: Uint8Array,
   readerPubkey: string
-): BlastContent | null {
+): Promise<BlastContent | null> {
   try {
     const envelope = contentEnvelopes.find((e) => e.pubkey === readerPubkey)
     if (!envelope) return null
 
-    const blastKey = eciesUnwrapKeyWithSecret(envelope, secretKey, LABEL_BLAST_CONTENT)
+    const { createHpkeSuite } = await import('./crypto-suite')
+    const { asX25519EncryptionKey } = await import('./types')
+    const { hpkeOpen, buildAad } = await import('./hpke-primitives')
+    const { LABEL_USER_HPKE_KEY, LABEL_USER_HPKE_KEY_INFO } = await import('./crypto-labels')
 
-    const data = hexToBytes(encryptedContent)
-    const nonce = data.slice(0, 24)
-    const ciphertext = data.slice(24)
-    const cipher = xchacha20poly1305(blastKey, nonce)
-    const plaintext = cipher.decrypt(ciphertext)
-    return JSON.parse(new TextDecoder().decode(plaintext)) as BlastContent
+    // Derive X25519 HPKE private key from nsec
+    const enc = new TextEncoder()
+    const ikm = hkdfDerive(
+      secretKey,
+      enc.encode(LABEL_USER_HPKE_KEY),
+      enc.encode(LABEL_USER_HPKE_KEY_INFO),
+      32
+    )
+    const suite = createHpkeSuite()
+    const kp = (await suite.kem.deriveKeyPair(ikm)) as CryptoKeyPair
+    const hpkePrivateKey = asX25519EncryptionKey(kp.privateKey)
+    ikm.fill(0)
+
+    const aad = buildAad(LABEL_BLAST_CONTENT, '', 'content')
+    const pt = await hpkeOpen(envelope, hpkePrivateKey, LABEL_BLAST_CONTENT, aad)
+    return JSON.parse(new TextDecoder().decode(pt)) as BlastContent
   } catch {
     return null
   }
 }
 
-// --- Draft Encryption ---
-// Same as notes but with "drafts" domain separation for local draft auto-save
+// --- Draft Encryption (AES-256-GCM) ---
 
-export function encryptDraft(plaintext: string, secretKey: Uint8Array): string {
+export async function encryptDraft(plaintext: string, secretKey: Uint8Array): Promise<string> {
   const key = hkdfDerive(secretKey, utf8ToBytes(HKDF_SALT), utf8ToBytes(HKDF_CONTEXT_DRAFTS), 32)
-  const nonce = randomBytes(24)
-  const data = utf8ToBytes(plaintext)
-  const cipher = xchacha20poly1305(key, nonce)
-  const ciphertext = cipher.encrypt(data)
-
-  const packed = new Uint8Array(nonce.length + ciphertext.length)
-  packed.set(nonce)
-  packed.set(ciphertext, nonce.length)
-  return bytesToHex(packed)
+  return aesGcmEncrypt(utf8ToBytes(plaintext), key, new Uint8Array(0))
 }
 
-export function decryptDraft(packed: string, secretKey: Uint8Array): string | null {
+export async function decryptDraft(packed: string, secretKey: Uint8Array): Promise<string | null> {
   try {
     const key = hkdfDerive(secretKey, utf8ToBytes(HKDF_SALT), utf8ToBytes(HKDF_CONTEXT_DRAFTS), 32)
-    const data = hexToBytes(packed)
-    const nonce = data.slice(0, 24)
-    const ciphertext = data.slice(24)
-    const cipher = xchacha20poly1305(key, nonce)
-    const plaintext = cipher.decrypt(ciphertext)
+    const plaintext = await aesGcmDecrypt(packed, key, new Uint8Array(0))
     return new TextDecoder().decode(plaintext)
   } catch {
     return null
   }
 }
 
-// --- Export Encryption ---
-// Encrypts a JSON export blob so it can only be read with the user's key
+// --- Export Encryption (AES-256-GCM) ---
 
-export function encryptExport(jsonString: string, secretKey: Uint8Array): Uint8Array {
+export async function encryptExport(
+  jsonString: string,
+  secretKey: Uint8Array
+): Promise<Uint8Array> {
   const key = hkdfDerive(secretKey, utf8ToBytes(HKDF_SALT), utf8ToBytes(HKDF_CONTEXT_EXPORT), 32)
-  const nonce = randomBytes(24)
-  const data = utf8ToBytes(jsonString)
-  const cipher = xchacha20poly1305(key, nonce)
-  const ciphertext = cipher.encrypt(data)
-
-  const packed = new Uint8Array(nonce.length + ciphertext.length)
-  packed.set(nonce)
-  packed.set(ciphertext, nonce.length)
-  return packed
+  const packed = await aesGcmEncrypt(utf8ToBytes(jsonString), key, new Uint8Array(0))
+  return hexToBytes(packed)
 }

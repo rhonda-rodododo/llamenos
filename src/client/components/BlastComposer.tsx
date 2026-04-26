@@ -47,14 +47,13 @@ export function BlastComposer({ onCreated, onCancel }: BlastComposerProps) {
         return
       }
       const recipientPubkeys = [adminPubkey, ...(serverNostrPubkey ? [serverNostrPubkey] : [])]
-      const { encryptedContent, contentEnvelopes } = encryptBlastContent(
+      const { encryptedContent, contentEnvelopes } = await encryptBlastContent(
         { text: text.trim() },
         recipientPubkeys
       )
       const res = await createBlast({
         name: name.trim(),
         encryptedContent,
-        // @ts-expect-error Slice 3: ECIES → HPKE migration
         contentEnvelopes,
         targetChannels: channels,
       })

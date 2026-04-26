@@ -141,57 +141,62 @@ describe('SAS symmetry (MITM prevention)', () => {
 // ---------------------------------------------------------------------------
 
 describe('encryptNsecForDevice / decryptProvisionedNsec', () => {
-  test('roundtrip: encrypt on primary side, decrypt on new device side', () => {
+  test('roundtrip: encrypt on primary side, decrypt on new device side', async () => {
     const ephemeral = genKeypair()
     const primary = genKeypair()
     const nsec = 'nsec1testvalue0000000000000000000000000000000000000000000000'
-    const encrypted = encryptNsecForDevice(nsec, ephemeral.pubHex, primary.secret)
-    const decrypted = decryptProvisionedNsec(encrypted, primary.pubHex, ephemeral.secret)
+    const encrypted = await encryptNsecForDevice(nsec, ephemeral.pubHex, primary.secret)
+    const decrypted = await decryptProvisionedNsec(encrypted, primary.pubHex, ephemeral.secret)
     expect(decrypted).toBe(nsec)
   })
 
-  test('roundtrip preserves arbitrary nsec strings', () => {
+  test('roundtrip preserves arbitrary nsec strings', async () => {
     const ephemeral = genKeypair()
     const primary = genKeypair()
     const nsec = `nsec1${'a'.repeat(59)}`
-    const encrypted = encryptNsecForDevice(nsec, ephemeral.pubHex, primary.secret)
-    const decrypted = decryptProvisionedNsec(encrypted, primary.pubHex, ephemeral.secret)
+    const encrypted = await encryptNsecForDevice(nsec, ephemeral.pubHex, primary.secret)
+    const decrypted = await decryptProvisionedNsec(encrypted, primary.pubHex, ephemeral.secret)
     expect(decrypted).toBe(nsec)
   })
 
-  test('wrong ephemeral secret fails decryption', () => {
+  test('wrong ephemeral secret fails decryption', async () => {
     const ephemeral = genKeypair()
     const wrongEphemeral = genKeypair()
     const primary = genKeypair()
     const nsec = 'nsec1somekeyvalue'
-    const encrypted = encryptNsecForDevice(nsec, ephemeral.pubHex, primary.secret)
-    expect(() => decryptProvisionedNsec(encrypted, primary.pubHex, wrongEphemeral.secret)).toThrow()
+    const encrypted = await encryptNsecForDevice(nsec, ephemeral.pubHex, primary.secret)
+    await expect(
+      decryptProvisionedNsec(encrypted, primary.pubHex, wrongEphemeral.secret)
+    ).rejects.toThrow()
   })
 
-  test('wrong primary pubkey fails decryption', () => {
+  test('wrong primary pubkey fails decryption', async () => {
     const ephemeral = genKeypair()
     const primary = genKeypair()
     const wrongPrimary = genKeypair()
     const nsec = 'nsec1somekeyvalue'
-    const encrypted = encryptNsecForDevice(nsec, ephemeral.pubHex, primary.secret)
-    expect(() => decryptProvisionedNsec(encrypted, wrongPrimary.pubHex, ephemeral.secret)).toThrow()
+    const encrypted = await encryptNsecForDevice(nsec, ephemeral.pubHex, primary.secret)
+    await expect(
+      decryptProvisionedNsec(encrypted, wrongPrimary.pubHex, ephemeral.secret)
+    ).rejects.toThrow()
   })
 
-  test('nonce uniqueness: same inputs produce different ciphertext each time', () => {
+  test('nonce uniqueness: same inputs produce different ciphertext each time', async () => {
     const ephemeral = genKeypair()
     const primary = genKeypair()
     const nsec = 'nsec1nonce_uniqueness_test'
-    const enc1 = encryptNsecForDevice(nsec, ephemeral.pubHex, primary.secret)
-    const enc2 = encryptNsecForDevice(nsec, ephemeral.pubHex, primary.secret)
+    const enc1 = await encryptNsecForDevice(nsec, ephemeral.pubHex, primary.secret)
+    const enc2 = await encryptNsecForDevice(nsec, ephemeral.pubHex, primary.secret)
     expect(enc1).not.toBe(enc2)
   })
 
-  test('encrypted output is a valid hex string', () => {
+  test('encrypted output is a valid hex string', async () => {
     const ephemeral = genKeypair()
     const primary = genKeypair()
-    const encrypted = encryptNsecForDevice('nsec1test', ephemeral.pubHex, primary.secret)
+    const encrypted = await encryptNsecForDevice('nsec1test', ephemeral.pubHex, primary.secret)
     expect(/^[0-9a-f]+$/.test(encrypted)).toBe(true)
-    expect(encrypted.length).toBeGreaterThanOrEqual(98)
+    // AES-GCM: nonce(12=24hex) + ciphertext+tag(plaintext_len+16 → ×2 hex)
+    expect(encrypted.length).toBeGreaterThanOrEqual(58)
   })
 })
 

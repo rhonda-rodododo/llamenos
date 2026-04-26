@@ -109,16 +109,16 @@ export class ProviderSetup {
 
     if (provider === 'twilio') {
       const credentials = await this.twilio.oauthCallback(code)
-      encryptedCredentials = this.crypto.serverEncrypt(
+      encryptedCredentials = (await this.crypto.serverEncrypt(
         JSON.stringify(credentials),
         LABEL_PROVIDER_CREDENTIAL_WRAP
-      ) as string
+      )) as string
     } else {
       const credentials = await this.telnyx.oauthCallback(code)
-      encryptedCredentials = this.crypto.serverEncrypt(
+      encryptedCredentials = (await this.crypto.serverEncrypt(
         JSON.stringify(credentials),
         LABEL_PROVIDER_CREDENTIAL_WRAP
-      ) as string
+      )) as string
     }
 
     await this.settings.setProviderConfig(config, encryptedCredentials)
@@ -156,10 +156,10 @@ export class ProviderSetup {
       webhooksConfigured: false,
       sipConfigured: false,
     }
-    const encryptedCredentials = this.crypto.serverEncrypt(
+    const encryptedCredentials = (await this.crypto.serverEncrypt(
       JSON.stringify(credentials),
       LABEL_PROVIDER_CREDENTIAL_WRAP
-    ) as string
+    )) as string
     await this.settings.setProviderConfig(config, encryptedCredentials)
 
     return { ok: true }
@@ -433,7 +433,7 @@ export class ProviderSetup {
   private async decryptCredentials(): Promise<string | null> {
     const encrypted = await this.settings.getEncryptedCredentials()
     if (!encrypted) return null
-    return this.crypto.serverDecrypt(encrypted as Ciphertext, LABEL_PROVIDER_CREDENTIAL_WRAP)
+    return await this.crypto.serverDecrypt(encrypted as Ciphertext, LABEL_PROVIDER_CREDENTIAL_WRAP)
   }
 }
 

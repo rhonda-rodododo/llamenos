@@ -105,10 +105,10 @@ function LinkDevicePage() {
     }
   }, [])
 
-  function handleSASConfirm() {
+  async function handleSASConfirm() {
     if (!session || !encryptedNsecData) return
     try {
-      const decryptedNsec = decryptProvisionedNsec(
+      const decryptedNsec = await decryptProvisionedNsec(
         encryptedNsecData.encryptedNsec,
         encryptedNsecData.primaryPubkey,
         session.ephemeralSecret

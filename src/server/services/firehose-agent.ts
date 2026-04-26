@@ -123,7 +123,7 @@ export class FirehoseAgentService {
     }
 
     // Unseal the agent's nsec
-    const nsecHex = unsealAgentNsec(
+    const nsecHex = await unsealAgentNsec(
       connectionId,
       conn.encryptedAgentNsec,
       this.sealKey,

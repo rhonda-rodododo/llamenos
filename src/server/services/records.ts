@@ -107,11 +107,12 @@ export class RecordsService {
 
     // E2EE phone+reason: envelope ciphertext is now empty (HPKE direct), use server-key as DB placeholder
     const encryptedPhone = phoneEnvelope
-      ? phoneEnvelope.encrypted || this.crypto.serverEncrypt(data.phone, LABEL_USER_PII)
-      : this.crypto.serverEncrypt(data.phone, LABEL_USER_PII)
+      ? phoneEnvelope.encrypted || (await this.crypto.serverEncrypt(data.phone, LABEL_USER_PII))
+      : await this.crypto.serverEncrypt(data.phone, LABEL_USER_PII)
     const encryptedReason = reasonEnvelope
-      ? reasonEnvelope.encrypted || this.crypto.serverEncrypt(data.reason ?? '', LABEL_USER_PII)
-      : this.crypto.serverEncrypt(data.reason ?? '', LABEL_USER_PII)
+      ? reasonEnvelope.encrypted ||
+        (await this.crypto.serverEncrypt(data.reason ?? '', LABEL_USER_PII))
+      : await this.crypto.serverEncrypt(data.reason ?? '', LABEL_USER_PII)
 
     const [row] = await this.db
       .insert(bans)
@@ -187,13 +188,13 @@ export class RecordsService {
           phoneHash,
           // E2EE: envelope carries sealed plaintext; server-key as DB placeholder
           encryptedPhone: phoneEnvelope
-            ? phoneEnvelope.encrypted || this.crypto.serverEncrypt(phone, LABEL_USER_PII)
-            : this.crypto.serverEncrypt(phone, LABEL_USER_PII),
+            ? phoneEnvelope.encrypted || (await this.crypto.serverEncrypt(phone, LABEL_USER_PII))
+            : await this.crypto.serverEncrypt(phone, LABEL_USER_PII),
           phoneEnvelopes: phoneEnvelope?.envelopes ?? [],
           encryptedReason: reasonEnvelope
             ? reasonEnvelope.encrypted ||
-              this.crypto.serverEncrypt(data.reason ?? '', LABEL_USER_PII)
-            : this.crypto.serverEncrypt(data.reason ?? '', LABEL_USER_PII),
+              (await this.crypto.serverEncrypt(data.reason ?? '', LABEL_USER_PII))
+            : await this.crypto.serverEncrypt(data.reason ?? '', LABEL_USER_PII),
           reasonEnvelopes: reasonEnvelope?.envelopes ?? [],
         }
       })
@@ -555,8 +556,8 @@ export class RecordsService {
     const hId = hubId ?? 'global'
 
     // Encrypt event and details with server-key (done outside transaction to minimize hold time)
-    const encryptedEvent = this.crypto.serverEncrypt(event, LABEL_AUDIT_EVENT)
-    const encryptedDetails = this.crypto.serverEncrypt(
+    const encryptedEvent = await this.crypto.serverEncrypt(event, LABEL_AUDIT_EVENT)
+    const encryptedDetails = await this.crypto.serverEncrypt(
       JSON.stringify(details ?? {}),
       LABEL_AUDIT_EVENT
     )
@@ -689,25 +690,27 @@ export class RecordsService {
       ],
     }
 
-    let entries = rows.map((r) => {
-      const decryptedEvent = this.crypto.serverDecrypt(
-        r.encryptedEvent as Ciphertext,
-        LABEL_AUDIT_EVENT
-      )
-      const decryptedDetails = JSON.parse(
-        this.crypto.serverDecrypt(r.encryptedDetails as Ciphertext, LABEL_AUDIT_EVENT)
-      ) as Record<string, unknown>
+    let entries = await Promise.all(
+      rows.map(async (r) => {
+        const decryptedEvent = await this.crypto.serverDecrypt(
+          r.encryptedEvent as Ciphertext,
+          LABEL_AUDIT_EVENT
+        )
+        const decryptedDetails = JSON.parse(
+          await this.crypto.serverDecrypt(r.encryptedDetails as Ciphertext, LABEL_AUDIT_EVENT)
+        ) as Record<string, unknown>
 
-      return {
-        id: r.id,
-        event: decryptedEvent,
-        actorPubkey: r.actorPubkey,
-        details: decryptedDetails,
-        createdAt: r.createdAt.toISOString(),
-        previousEntryHash: r.previousEntryHash ?? undefined,
-        entryHash: r.entryHash ?? undefined,
-      }
-    })
+        return {
+          id: r.id,
+          event: decryptedEvent,
+          actorPubkey: r.actorPubkey,
+          details: decryptedDetails,
+          createdAt: r.createdAt.toISOString(),
+          previousEntryHash: r.previousEntryHash ?? undefined,
+          entryHash: r.entryHash ?? undefined,
+        }
+      })
+    )
 
     if (filters.eventType && eventCategories[filters.eventType]) {
       const allowed = eventCategories[filters.eventType]
@@ -809,7 +812,10 @@ export class RecordsService {
     // Decrypt event and keep only callAnswered entries
     const callAnsweredByPubkey = new Map<string, number>()
     for (const r of rows) {
-      const event = this.crypto.serverDecrypt(r.encryptedEvent as Ciphertext, LABEL_AUDIT_EVENT)
+      const event = await this.crypto.serverDecrypt(
+        r.encryptedEvent as Ciphertext,
+        LABEL_AUDIT_EVENT
+      )
       if (event === 'callAnswered') {
         callAnsweredByPubkey.set(r.actorPubkey, (callAnsweredByPubkey.get(r.actorPubkey) ?? 0) + 1)
       }

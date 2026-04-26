@@ -13,7 +13,7 @@ export async function getGeocodingConfig(
   if (!rows[0]) return { provider: null, apiKey: '', countries: [], enabled: false }
   const r = rows[0]
 
-  const apiKey = cryptoService.serverDecrypt(
+  const apiKey = await cryptoService.serverDecrypt(
     r.encryptedApiKey as Ciphertext,
     LABEL_PROVIDER_CREDENTIAL_WRAP
   )
@@ -35,7 +35,7 @@ export async function updateGeocodingConfig(
   const updated = { ...current, ...data }
 
   // Encrypt API key with server key
-  const encryptedApiKey = cryptoService.serverEncrypt(
+  const encryptedApiKey = await cryptoService.serverEncrypt(
     updated.apiKey ?? '',
     LABEL_PROVIDER_CREDENTIAL_WRAP
   )

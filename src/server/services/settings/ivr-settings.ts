@@ -65,7 +65,7 @@ export async function getIvrAudio(
     )
     .limit(1)
   if (!rows[0]) return null
-  const audioData = cryptoService.serverDecrypt(
+  const audioData = await cryptoService.serverDecrypt(
     rows[0].encryptedAudioData as Ciphertext,
     LABEL_IVR_AUDIO
   )
@@ -83,7 +83,7 @@ export async function upsertIvrAudio(
   cryptoService: CryptoService,
   entry: IvrAudioEntry
 ): Promise<void> {
-  const encryptedAudioData = cryptoService.serverEncrypt(entry.audioData, LABEL_IVR_AUDIO)
+  const encryptedAudioData = await cryptoService.serverEncrypt(entry.audioData, LABEL_IVR_AUDIO)
 
   await db
     .insert(ivrAudio)

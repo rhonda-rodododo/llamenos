@@ -67,51 +67,55 @@ export async function updateCustomFields(
   // Any server fallback AAD must use the final row id + field name so the client can decrypt.
   const hubKey = hId ? await getHubKey(hId) : null
 
-  const encryptOrPassthrough = (
+  const encryptOrPassthrough = async (
     encrypted: Ciphertext | undefined,
     plaintext: string,
     recordId: string,
     fieldName: string
-  ): Ciphertext =>
+  ): Promise<Ciphertext> =>
     encrypted ??
     (hubKey
-      ? cryptoService.hubEncryptField(plaintext, hubKey, recordId, fieldName)
+      ? await cryptoService.hubEncryptField(plaintext, hubKey, recordId, fieldName)
       : (plaintext as Ciphertext))
 
-  const rows = await db
-    .insert(customFieldDefinitions)
-    .values(
-      fields.map((f, i) => {
-        const id = f.id || crypto.randomUUID()
-        return {
+  const fieldValues = await Promise.all(
+    fields.map(async (f, i) => {
+      const id = f.id || crypto.randomUUID()
+      return {
+        id,
+        hubId: hId,
+        fieldType: f.type,
+        required: f.required,
+        visibleTo: f.visibleTo ?? 'contacts:envelope-summary',
+        order: i,
+        encryptedFieldName: await encryptOrPassthrough(
+          f.encryptedFieldName,
+          f.name,
           id,
-          hubId: hId,
-          fieldType: f.type,
-          required: f.required,
-          visibleTo: f.visibleTo ?? 'contacts:envelope-summary',
-          order: i,
-          encryptedFieldName: encryptOrPassthrough(
-            f.encryptedFieldName,
-            f.name,
-            id,
-            'encrypted_field_name'
-          ),
-          encryptedLabel: encryptOrPassthrough(f.encryptedLabel, f.label, id, 'encrypted_label'),
-          encryptedOptions:
-            f.encryptedOptions ??
-            (f.options && f.options.length > 0
-              ? hubKey
-                ? cryptoService.hubEncryptField(
-                    JSON.stringify(f.options),
-                    hubKey,
-                    id,
-                    'encrypted_options'
-                  )
-                : (JSON.stringify(f.options) as Ciphertext)
-              : null),
-        }
-      })
-    )
-    .returning()
+          'encrypted_field_name'
+        ),
+        encryptedLabel: await encryptOrPassthrough(
+          f.encryptedLabel,
+          f.label,
+          id,
+          'encrypted_label'
+        ),
+        encryptedOptions:
+          f.encryptedOptions ??
+          (f.options && f.options.length > 0
+            ? hubKey
+              ? await cryptoService.hubEncryptField(
+                  JSON.stringify(f.options),
+                  hubKey,
+                  id,
+                  'encrypted_options'
+                )
+              : (JSON.stringify(f.options) as Ciphertext)
+            : null),
+      }
+    })
+  )
+
+  const rows = await db.insert(customFieldDefinitions).values(fieldValues).returning()
   return rows.map((r) => rowToCustomField(r))
 }

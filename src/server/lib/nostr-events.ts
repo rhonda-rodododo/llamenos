@@ -9,12 +9,12 @@ const log = createLogger('lib.nostr-events')
 let cachedEventKey: Uint8Array | null = null
 
 /** Publish an event to the Nostr relay for real-time sync. Content is encrypted if SERVER_NOSTR_SECRET is set. */
-export function publishNostrEvent(
+export async function publishNostrEvent(
   env: AppEnv['Bindings'],
   kind: number,
   content: Record<string, unknown>,
   hubId?: string
-): void {
+): Promise<void> {
   try {
     const publisher = getNostrPublisher(env)
 
@@ -24,7 +24,7 @@ export function publishNostrEvent(
       if (!cachedEventKey) {
         cachedEventKey = deriveServerEventKey(env.SERVER_NOSTR_SECRET)
       }
-      eventContent = encryptHubEvent(content, cachedEventKey)
+      eventContent = await encryptHubEvent(content, cachedEventKey)
     } else {
       eventContent = JSON.stringify(content)
     }

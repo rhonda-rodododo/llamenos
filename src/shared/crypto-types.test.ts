@@ -15,6 +15,7 @@ import {
 
 const HEX64 = 'a'.repeat(64)
 const HEX48 = 'b'.repeat(48)
+const HEX24 = 'b'.repeat(24)
 const HEX16 = 'c'.repeat(16)
 
 describe('isHex', () => {
@@ -106,8 +107,12 @@ describe('SessionToken brand', () => {
 })
 
 describe('CapsuleNonceHex brand', () => {
-  test('asCapsuleNonce accepts 48 hex chars', () => {
-    expect(asCapsuleNonce(HEX48) as string).toBe(HEX48)
+  test('asCapsuleNonce accepts 24 hex chars (12-byte AES-GCM nonce)', () => {
+    expect(asCapsuleNonce(HEX24) as string).toBe(HEX24)
+  })
+
+  test('asCapsuleNonce rejects 48 hex chars (old XChaCha20 nonce length)', () => {
+    expect(() => asCapsuleNonce(HEX48)).toThrow()
   })
 
   test('asCapsuleNonce rejects SessionToken-shaped input', () => {

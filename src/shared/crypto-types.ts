@@ -12,7 +12,7 @@ import type { Unloggable } from './logger-types'
  * to logger helpers — preventing accidental logging of sensitive data.
  */
 
-/** Encrypted ciphertext — hex-encoded nonce(24) || XChaCha20-Poly1305 ciphertext */
+/** Encrypted ciphertext — hex-encoded nonce(12) || AES-256-GCM ciphertext+tag */
 export type Ciphertext = string & { readonly __brand: 'Ciphertext' } & Unloggable
 
 /** HMAC-SHA256 hash — hex-encoded, one-way, cannot be reversed */
@@ -46,11 +46,11 @@ export type HexString<N extends number = number> = string & {
 /** 32-byte capsule token (64 hex chars). Main-thread opaque handle. */
 export type SessionToken = HexString<64>
 
-/** 24-byte XChaCha20 nonce (48 hex chars). Used to decrypt the capsule. */
-export type CapsuleNonceHex = HexString<48>
+/** 12-byte AES-256-GCM nonce (24 hex chars). Used to decrypt the capsule. */
+export type CapsuleNonceHex = HexString<24>
 
 /**
- * Variable-length worker-encrypted nsec. Content is XChaCha20-Poly1305
+ * Variable-length worker-encrypted nsec. Content is AES-256-GCM
  * ciphertext of the nsec hex string. Length is not fixed so it is branded
  * without a length parameter.
  */
@@ -106,8 +106,8 @@ export function tryHex<N extends number>(s: unknown, length: N): HexString<N> | 
 export const asSessionToken = (s: string): SessionToken => asHex(s, 64)
 export const trySessionToken = (s: unknown): SessionToken | null => tryHex(s, 64)
 
-export const asCapsuleNonce = (s: string): CapsuleNonceHex => asHex(s, 48)
-export const tryCapsuleNonce = (s: unknown): CapsuleNonceHex | null => tryHex(s, 48)
+export const asCapsuleNonce = (s: string): CapsuleNonceHex => asHex(s, 24)
+export const tryCapsuleNonce = (s: unknown): CapsuleNonceHex | null => tryHex(s, 24)
 
 export const asPubkeyHash16 = (s: string): PubkeyHash16 => asHex(s, 16)
 export const tryPubkeyHash16 = (s: unknown): PubkeyHash16 | null => tryHex(s, 16)

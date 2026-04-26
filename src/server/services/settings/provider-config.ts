@@ -41,11 +41,14 @@ export async function getTelephonyProvider(
     if (!configStr) return null
     let json: string
     try {
-      json = cryptoService.serverDecrypt(configStr as Ciphertext, LABEL_PROVIDER_CREDENTIAL_WRAP)
+      json = await cryptoService.serverDecrypt(
+        configStr as Ciphertext,
+        LABEL_PROVIDER_CREDENTIAL_WRAP
+      )
     } catch {
       // Legacy plaintext — re-encrypt and update
       json = configStr
-      const encrypted = cryptoService.serverEncrypt(json, LABEL_PROVIDER_CREDENTIAL_WRAP)
+      const encrypted = await cryptoService.serverEncrypt(json, LABEL_PROVIDER_CREDENTIAL_WRAP)
       await db
         .update(telephonyConfig)
         .set({ config: encrypted })
@@ -65,7 +68,7 @@ export async function updateTelephonyProvider(
   const hId = hubId ?? 'global'
   caches.telephonyConfigCache.delete(hId)
   caches.phoneToHubCache.clear() // phone mapping may have changed
-  const encrypted = cryptoService.serverEncrypt(
+  const encrypted = await cryptoService.serverEncrypt(
     JSON.stringify(config),
     LABEL_PROVIDER_CREDENTIAL_WRAP
   )
@@ -98,7 +101,7 @@ export async function getHubByPhone(
     let cfg: Record<string, unknown>
     try {
       cfg = JSON.parse(
-        cryptoService.serverDecrypt(row.config as Ciphertext, LABEL_PROVIDER_CREDENTIAL_WRAP)
+        await cryptoService.serverDecrypt(row.config as Ciphertext, LABEL_PROVIDER_CREDENTIAL_WRAP)
       ) as Record<string, unknown>
     } catch {
       try {
@@ -125,16 +128,19 @@ export async function getProviderConfig(
   const r = rows[0]
 
   const brandSid = r.encryptedBrandSid
-    ? cryptoService.serverDecrypt(r.encryptedBrandSid as Ciphertext, LABEL_PROVIDER_CREDENTIAL_WRAP)
+    ? await cryptoService.serverDecrypt(
+        r.encryptedBrandSid as Ciphertext,
+        LABEL_PROVIDER_CREDENTIAL_WRAP
+      )
     : undefined
   const campaignSid = r.encryptedCampaignSid
-    ? cryptoService.serverDecrypt(
+    ? await cryptoService.serverDecrypt(
         r.encryptedCampaignSid as Ciphertext,
         LABEL_PROVIDER_CREDENTIAL_WRAP
       )
     : undefined
   const messagingServiceSid = r.encryptedMessagingServiceSid
-    ? cryptoService.serverDecrypt(
+    ? await cryptoService.serverDecrypt(
         r.encryptedMessagingServiceSid as Ciphertext,
         LABEL_PROVIDER_CREDENTIAL_WRAP
       )
@@ -161,13 +167,13 @@ export async function setProviderConfig(
 ): Promise<void> {
   // Encrypt SIDs with server key
   const encryptedBrandSid = config.brandSid
-    ? cryptoService.serverEncrypt(config.brandSid, LABEL_PROVIDER_CREDENTIAL_WRAP)
+    ? await cryptoService.serverEncrypt(config.brandSid, LABEL_PROVIDER_CREDENTIAL_WRAP)
     : null
   const encryptedCampaignSid = config.campaignSid
-    ? cryptoService.serverEncrypt(config.campaignSid, LABEL_PROVIDER_CREDENTIAL_WRAP)
+    ? await cryptoService.serverEncrypt(config.campaignSid, LABEL_PROVIDER_CREDENTIAL_WRAP)
     : null
   const encryptedMessagingServiceSid = config.messagingServiceSid
-    ? cryptoService.serverEncrypt(config.messagingServiceSid, LABEL_PROVIDER_CREDENTIAL_WRAP)
+    ? await cryptoService.serverEncrypt(config.messagingServiceSid, LABEL_PROVIDER_CREDENTIAL_WRAP)
     : null
 
   const values = {
@@ -243,7 +249,7 @@ export async function getSignalRegistrationPending(
   }
   const r = rows[0]
 
-  const number = cryptoService.serverDecrypt(
+  const number = await cryptoService.serverDecrypt(
     r.encryptedNumber as Ciphertext,
     LABEL_PROVIDER_CREDENTIAL_WRAP
   )
@@ -264,7 +270,7 @@ export async function setSignalRegistrationPending(
   pending: SignalRegistrationPending
 ): Promise<void> {
   // Encrypt phone number with server key
-  const encryptedNumber = cryptoService.serverEncrypt(
+  const encryptedNumber = await cryptoService.serverEncrypt(
     pending.number,
     LABEL_PROVIDER_CREDENTIAL_WRAP
   )

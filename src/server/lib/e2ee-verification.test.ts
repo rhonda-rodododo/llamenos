@@ -18,9 +18,7 @@ describe('E2EE verification', () => {
 
     // Server-key decryption CANNOT read envelope-encrypted data
     // (different encryption scheme: symmetric-derived vs HPKE)
-    expect(() => {
-      crypto.serverDecrypt(encrypted, LABEL_USER_PII)
-    }).toThrow()
+    await expect(crypto.serverDecrypt(encrypted, LABEL_USER_PII)).rejects.toThrow()
   })
 
   test('server CAN decrypt its own HPKE envelope', async () => {
@@ -36,9 +34,9 @@ describe('E2EE verification', () => {
     expect(decrypted).toBe('Jane Smith')
   })
 
-  test('server CAN decrypt server-key encrypted data', () => {
-    const ct = crypto.serverEncrypt('+15551234567', LABEL_USER_PII)
-    const pt = crypto.serverDecrypt(ct, LABEL_USER_PII)
+  test('server CAN decrypt server-key encrypted data', async () => {
+    const ct = await crypto.serverEncrypt('+15551234567', LABEL_USER_PII)
+    const pt = await crypto.serverDecrypt(ct, LABEL_USER_PII)
     expect(pt).toBe('+15551234567')
   })
 })

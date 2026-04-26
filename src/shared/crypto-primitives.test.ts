@@ -1,81 +1,44 @@
 import { describe, expect, test } from 'bun:test'
-import { utf8ToBytes } from '@noble/ciphers/utils.js'
-import { secp256k1 } from '@noble/curves/secp256k1.js'
-import { bytesToHex } from '@noble/hashes/utils.js'
+import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js'
 import {
   type CryptoLabel,
   idToLabel,
   LABEL_HUB_KEY_WRAP,
-  LABEL_MESSAGE,
   LABEL_NOTE_KEY,
   LABEL_REGISTRY,
   labelToId,
 } from './crypto-labels'
-import {
-  CryptoLabelMismatchError,
-  decryptEnvelope,
-  type Envelope,
-  eciesUnwrapKey,
-  eciesWrapKey,
-  hkdfDerive,
-  hmacSha256,
-  symmetricDecrypt,
-  symmetricEncrypt,
-} from './crypto-primitives'
-import type { Ciphertext } from './crypto-types'
+import { hkdfDerive, hmacSha256, symmetricDecrypt, symmetricEncrypt } from './crypto-primitives'
 
 describe('symmetricEncrypt / symmetricDecrypt', () => {
   const emptyAad = new Uint8Array(0)
 
-  test('round-trip with random key', () => {
+  test('round-trip with random key', async () => {
     const key = new Uint8Array(32)
     crypto.getRandomValues(key)
     const plaintext = new TextEncoder().encode('hello world')
-    const packed = symmetricEncrypt(plaintext, key, emptyAad)
-    const recovered = symmetricDecrypt(packed, key, emptyAad)
+    const packed = await symmetricEncrypt(plaintext, key, emptyAad)
+    const recovered = await symmetricDecrypt(packed, key, emptyAad)
     expect(new TextDecoder().decode(recovered)).toBe('hello world')
   })
 
-  test('different nonce each time', () => {
+  test('different nonce each time', async () => {
     const key = new Uint8Array(32)
     crypto.getRandomValues(key)
     const plaintext = new TextEncoder().encode('same input')
-    const a = symmetricEncrypt(plaintext, key, emptyAad)
-    const b = symmetricEncrypt(plaintext, key, emptyAad)
+    const a = await symmetricEncrypt(plaintext, key, emptyAad)
+    const b = await symmetricEncrypt(plaintext, key, emptyAad)
     expect(a).not.toBe(b)
   })
 
-  test('wrong key fails', () => {
+  test('wrong key fails', async () => {
     const key1 = new Uint8Array(32)
     crypto.getRandomValues(key1)
     const key2 = new Uint8Array(32)
     crypto.getRandomValues(key2)
     const plaintext = new TextEncoder().encode('secret')
-    const packed = symmetricEncrypt(plaintext, key1, emptyAad)
-    expect(() => symmetricDecrypt(packed, key2, emptyAad)).toThrow()
-  })
-})
-
-describe('eciesWrapKey / eciesUnwrapKey', () => {
-  test('round-trip key wrapping', () => {
-    const recipientSecret = new Uint8Array(32)
-    crypto.getRandomValues(recipientSecret)
-    const recipientPubkey = bytesToHex(secp256k1.getPublicKey(recipientSecret, true).slice(1))
-    const messageKey = new Uint8Array(32)
-    crypto.getRandomValues(messageKey)
-    const envelope = eciesWrapKey(messageKey, recipientPubkey, LABEL_NOTE_KEY)
-    const recovered = eciesUnwrapKey(envelope, recipientSecret, LABEL_NOTE_KEY)
-    expect(bytesToHex(recovered)).toBe(bytesToHex(messageKey))
-  })
-
-  test('wrong label fails', () => {
-    const recipientSecret = new Uint8Array(32)
-    crypto.getRandomValues(recipientSecret)
-    const recipientPubkey = bytesToHex(secp256k1.getPublicKey(recipientSecret, true).slice(1))
-    const messageKey = new Uint8Array(32)
-    crypto.getRandomValues(messageKey)
-    const envelope = eciesWrapKey(messageKey, recipientPubkey, LABEL_NOTE_KEY)
-    expect(() => eciesUnwrapKey(envelope, recipientSecret, LABEL_HUB_KEY_WRAP)).toThrow()
+    const packed = await symmetricEncrypt(plaintext, key1, emptyAad)
+    await expect(symmetricDecrypt(packed, key2, emptyAad)).rejects.toThrow()
   })
 })
 
@@ -152,68 +115,22 @@ describe('AAD binding', () => {
   const key = new Uint8Array(32).fill(7)
   const plaintext = utf8ToBytes('secret message')
 
-  test('matching AAD round-trips', () => {
+  test('matching AAD round-trips', async () => {
     const aad = utf8ToBytes('ctx:record-42')
-    const ct = symmetricEncrypt(plaintext, key, aad)
-    const pt = symmetricDecrypt(ct, key, aad)
+    const ct = await symmetricEncrypt(plaintext, key, aad)
+    const pt = await symmetricDecrypt(ct, key, aad)
     expect(new TextDecoder().decode(pt)).toBe('secret message')
   })
 
-  test('mismatched AAD throws', () => {
-    const ct = symmetricEncrypt(plaintext, key, utf8ToBytes('ctx:record-42'))
-    expect(() => symmetricDecrypt(ct, key, utf8ToBytes('ctx:record-43'))).toThrow()
+  test('mismatched AAD throws', async () => {
+    const ct = await symmetricEncrypt(plaintext, key, utf8ToBytes('ctx:record-42'))
+    await expect(symmetricDecrypt(ct, key, utf8ToBytes('ctx:record-43'))).rejects.toThrow()
   })
 
-  test('empty AAD is allowed and round-trips', () => {
+  test('empty AAD is allowed and round-trips', async () => {
     const aad = new Uint8Array(0)
-    const ct = symmetricEncrypt(plaintext, key, aad)
-    const pt = symmetricDecrypt(ct, key, aad)
+    const ct = await symmetricEncrypt(plaintext, key, aad)
+    const pt = await symmetricDecrypt(ct, key, aad)
     expect(new TextDecoder().decode(pt)).toBe('secret message')
-  })
-})
-
-describe('Envelope v2 + label mismatch', () => {
-  const secretKey = new Uint8Array(32).fill(11)
-  const pubkey = bytesToHex(secp256k1.getPublicKey(secretKey, true).slice(1))
-
-  test('decryptEnvelope succeeds with matching label', async () => {
-    const raw = eciesWrapKey(new Uint8Array(32).fill(5), pubkey, LABEL_NOTE_KEY)
-    const env: Envelope = {
-      // @ts-expect-error Slice 7: ECIES envelope v2 → HPKE v3
-      v: 2,
-      labelId: labelToId(LABEL_NOTE_KEY),
-      wrappedKey: raw.wrappedKey,
-      ephemeralPubkey: raw.ephemeralPubkey,
-    }
-    const unwrap = (_ep: string, _wk: string, _label: CryptoLabel) =>
-      Promise.resolve(new Uint8Array(32).fill(5))
-    const out = await decryptEnvelope(env, unwrap, LABEL_NOTE_KEY)
-    expect(out.length).toBe(32)
-  })
-
-  test('decryptEnvelope rejects wrong labelId', async () => {
-    const env: Envelope = {
-      // @ts-expect-error Slice 7: ECIES envelope v2 → HPKE v3
-      v: 2,
-      labelId: labelToId(LABEL_MESSAGE), // wrong registry id
-      wrappedKey: 'deadbeef' as Ciphertext,
-      ephemeralPubkey: '00'.repeat(33),
-    }
-    const unwrap = () => Promise.resolve(new Uint8Array(0))
-    await expect(decryptEnvelope(env, unwrap, LABEL_NOTE_KEY)).rejects.toBeInstanceOf(
-      CryptoLabelMismatchError
-    )
-  })
-
-  test('decryptEnvelope rejects v !== 2', async () => {
-    const env = {
-      v: 1,
-      labelId: 0,
-      wrappedKey: 'ab' as Ciphertext,
-      ephemeralPubkey: '',
-    } as unknown as Envelope
-    await expect(
-      decryptEnvelope(env, () => Promise.resolve(new Uint8Array(0)), LABEL_NOTE_KEY)
-    ).rejects.toBeInstanceOf(CryptoLabelMismatchError)
   })
 })

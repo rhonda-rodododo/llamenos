@@ -9,7 +9,7 @@
  * - Event deduplication and validation
  */
 
-import { utf8ToBytes } from '@noble/ciphers/utils.js'
+import { utf8ToBytes } from '@noble/hashes/utils.js'
 import { LABEL_HUB_EVENT } from '@shared/crypto-labels'
 import type { Ciphertext } from '@shared/crypto-types'
 import type { Event as NostrEvent } from 'nostr-tools/core'
@@ -287,7 +287,7 @@ export class RelayManager {
     }
   }
 
-  private handleEvent(_subId: string, event: NostrEvent): void {
+  private async handleEvent(_subId: string, event: NostrEvent): Promise<void> {
     // Validate signature and structure
     if (!verifyEvent(event)) return
     if (!validateLlamenosEvent(event)) return
@@ -305,7 +305,7 @@ export class RelayManager {
 
     if (hubKey) {
       // AAD binds the decryption to the hub-event domain
-      const decrypted = decryptFromHub(
+      const decrypted = await decryptFromHub(
         event.content as Ciphertext,
         hubKey,
         utf8ToBytes(LABEL_HUB_EVENT)

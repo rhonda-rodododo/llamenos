@@ -72,7 +72,7 @@ describe('audit-chain', () => {
     const e2 = await service.addAuditEntry(hub, 'event.after', 'pubkey-y')
 
     // Tamper with e1's encrypted details by replacing with different encrypted content
-    const tamperedEncryptedDetails = cryptoSvc.serverEncrypt(
+    const tamperedEncryptedDetails = await cryptoSvc.serverEncrypt(
       JSON.stringify({ safe: false, TAMPERED: true }),
       LABEL_AUDIT_EVENT
     )
@@ -87,11 +87,11 @@ describe('audit-chain', () => {
     const { sha256 } = await import('@noble/hashes/sha2.js')
     const { bytesToHex, utf8ToBytes } = await import('@noble/hashes/utils.js')
 
-    const decryptedEvent = cryptoSvc.serverDecrypt(
+    const decryptedEvent = await cryptoSvc.serverDecrypt(
       tamperedRow.encryptedEvent as CT,
       LABEL_AUDIT_EVENT
     )
-    const decryptedDetails = cryptoSvc.serverDecrypt(
+    const decryptedDetails = await cryptoSvc.serverDecrypt(
       tamperedRow.encryptedDetails as CT,
       LABEL_AUDIT_EVENT
     )

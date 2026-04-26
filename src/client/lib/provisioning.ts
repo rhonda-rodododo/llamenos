@@ -1,5 +1,3 @@
-import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
-import { utf8ToBytes } from '@noble/ciphers/utils.js'
 /**
  * Device provisioning protocol — Signal-style QR device linking.
  *
@@ -20,7 +18,8 @@ import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import { x25519 } from '@noble/curves/ed25519.js'
 import { hkdf } from '@noble/hashes/hkdf.js'
 import { sha256 } from '@noble/hashes/sha2.js'
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
+import { bytesToHex, hexToBytes, utf8ToBytes } from '@noble/hashes/utils.js'
+import { aesGcmDecrypt, aesGcmEncrypt } from '@shared/aes-gcm'
 import { LABEL_DEVICE_PROVISION, SAS_INFO, SAS_SALT } from '@shared/crypto-labels'
 import { unbiasedSixDigitCode } from '@shared/crypto-primitives'
 import { API_BASE } from './api/client'
@@ -136,21 +135,17 @@ export async function pollProvisioningRoom(
   return (await res.json()) as ProvisioningRoomStatus
 }
 
-export function decryptProvisionedNsec(
+export async function decryptProvisionedNsec(
   encryptedNsec: string,
   primaryPubkeyHex: string,
   ephemeralSecret: Uint8Array
-): string {
+): Promise<string> {
   // X25519 ECDH with primary device's pubkey
   const sharedX = computeSharedX(ephemeralSecret, primaryPubkeyHex)
   const symmetricKey = deriveSharedKey(sharedX)
 
-  // Decrypt: nonce(24) + ciphertext
-  const data = hexToBytes(encryptedNsec)
-  const nonce = data.slice(0, 24)
-  const ciphertext = data.slice(24)
-  const cipher = xchacha20poly1305(symmetricKey, nonce)
-  const plaintext = cipher.decrypt(ciphertext)
+  // Decrypt: AES-GCM packed hex (nonce+ciphertext)
+  const plaintext = await aesGcmDecrypt(encryptedNsec, symmetricKey, new Uint8Array(0))
   return new TextDecoder().decode(plaintext)
 }
 
@@ -158,7 +153,7 @@ export function decryptProvisionedNsec(
 
 /**
  * Pack the worker's provisionNsec result into the wire format expected by
- * decryptProvisionedNsec: nonce(24 bytes) || ciphertext, packed as hex.
+ * decryptProvisionedNsec: packed hex (nonce + ciphertext).
  */
 export function packProvisionPayload(workerResult: {
   ciphertext: string
@@ -166,13 +161,9 @@ export function packProvisionPayload(workerResult: {
   pubkey: string
   sas?: string
 }): { encryptedNsec: string; primaryPubkey: string } {
-  const nonceBytes = hexToBytes(workerResult.nonce)
-  const ciphertextBytes = hexToBytes(workerResult.ciphertext)
-  const packed = new Uint8Array(nonceBytes.length + ciphertextBytes.length)
-  packed.set(nonceBytes)
-  packed.set(ciphertextBytes, nonceBytes.length)
+  // Worker returns separate nonce and ciphertext hex — concatenate them
   return {
-    encryptedNsec: bytesToHex(packed),
+    encryptedNsec: workerResult.nonce + workerResult.ciphertext,
     primaryPubkey: workerResult.pubkey,
   }
 }
@@ -190,25 +181,17 @@ export async function getProvisioningRoom(
   return (await res.json()) as { ephemeralPubkey: string; status: string }
 }
 
-export function encryptNsecForDevice(
+export async function encryptNsecForDevice(
   nsec: string,
   ephemeralPubkeyHex: string,
   primarySecretKey: Uint8Array
-): string {
+): Promise<string> {
   // X25519 ECDH with new device's ephemeral pubkey
   const sharedX = computeSharedX(primarySecretKey, ephemeralPubkeyHex)
   const symmetricKey = deriveSharedKey(sharedX)
 
-  // Encrypt nsec
-  const nonce = randomBytes(24)
-  const cipher = xchacha20poly1305(symmetricKey, nonce)
-  const ciphertext = cipher.encrypt(utf8ToBytes(nsec))
-
-  // Pack: nonce(24) + ciphertext
-  const packed = new Uint8Array(nonce.length + ciphertext.length)
-  packed.set(nonce)
-  packed.set(ciphertext, nonce.length)
-  return bytesToHex(packed)
+  // Encrypt nsec with AES-256-GCM, returns packed hex (nonce + ciphertext)
+  return aesGcmEncrypt(utf8ToBytes(nsec), symmetricKey, new Uint8Array(0))
 }
 
 export async function sendProvisionedKey(

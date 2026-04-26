@@ -9,11 +9,10 @@
  * Stored format: "<nonce_hex>:<ciphertext_hex>"
  */
 
-import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
-import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import { hkdf } from '@noble/hashes/hkdf.js'
 import { sha256 } from '@noble/hashes/sha2.js'
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
+import { hexToBytes, utf8ToBytes } from '@noble/hashes/utils.js'
+import { aesGcmDecrypt, aesGcmEncrypt } from '@shared/aes-gcm'
 import { LABEL_IDP_VALUE_WRAP } from '@shared/crypto-labels'
 import type { IdPAdapter, IdPUser, InviteOpts, NsecSecretRotation } from './adapter'
 
@@ -98,7 +97,7 @@ export class AuthentikAdapter implements IdPAdapter {
 
   async createUser(pubkey: string): Promise<IdPUser> {
     const secret = generateRandomBytes(32)
-    const encryptedSecret = this.encryptSecret(secret)
+    const encryptedSecret = await this.encryptSecret(secret)
 
     const res = await this.apiCall('POST', '/api/v3/core/users/', {
       username: pubkey,
@@ -141,7 +140,7 @@ export class AuthentikAdapter implements IdPAdapter {
     if (!encrypted) {
       throw new Error(`No nsec_secret found in Authentik attributes for user ${pubkey}`)
     }
-    return this.decryptSecret(encrypted)
+    return await this.decryptSecret(encrypted)
   }
 
   async rotateNsecSecret(pubkey: string): Promise<NsecSecretRotation> {
@@ -152,9 +151,9 @@ export class AuthentikAdapter implements IdPAdapter {
       throw new Error(`No existing nsec_secret to rotate for user ${pubkey}`)
     }
 
-    const previous = this.decryptSecret(oldEncrypted)
+    const previous = await this.decryptSecret(oldEncrypted)
     const current = generateRandomBytes(32)
-    const newEncrypted = this.encryptSecret(current)
+    const newEncrypted = await this.encryptSecret(current)
 
     const patchAttributes: Record<string, string> = {
       ...user.attributes,
@@ -284,28 +283,18 @@ export class AuthentikAdapter implements IdPAdapter {
   }
 
   /**
-   * Encrypt a secret using XChaCha20-Poly1305.
-   * Returns a hex string in the format "<nonce_hex>:<ciphertext_hex>".
+   * Encrypt a secret using AES-256-GCM.
+   * Returns the hex-encoded nonce(12) || ciphertext+tag.
    */
-  private encryptSecret(secret: Uint8Array): string {
-    const nonce = generateRandomBytes(24)
-    const cipher = xchacha20poly1305(this.encKey, nonce)
-    const ct = cipher.encrypt(secret)
-    return `${bytesToHex(nonce)}:${bytesToHex(ct)}`
+  private async encryptSecret(secret: Uint8Array): Promise<string> {
+    return aesGcmEncrypt(secret, this.encKey, new Uint8Array(0))
   }
 
   /**
-   * Decrypt a stored secret in the format "<nonce_hex>:<ciphertext_hex>".
+   * Decrypt a stored secret. Accepts the new AES-GCM format (hex nonce+ct).
    */
-  private decryptSecret(encrypted: string): Uint8Array {
-    const colonIdx = encrypted.indexOf(':')
-    if (colonIdx === -1) {
-      throw new Error('Invalid encrypted secret format — expected "<nonce>:<ciphertext>"')
-    }
-    const nonce = hexToBytes(encrypted.slice(0, colonIdx))
-    const ct = hexToBytes(encrypted.slice(colonIdx + 1))
-    const cipher = xchacha20poly1305(this.encKey, nonce)
-    return cipher.decrypt(ct)
+  private async decryptSecret(encrypted: string): Promise<Uint8Array> {
+    return aesGcmDecrypt(encrypted, this.encKey, new Uint8Array(0))
   }
 }
 
