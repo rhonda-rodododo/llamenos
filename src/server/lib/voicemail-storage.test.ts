@@ -1,18 +1,20 @@
-import { describe, expect, mock, test } from 'bun:test'
-import { schnorr } from '@noble/curves/secp256k1.js'
+import { beforeAll, describe, expect, mock, test } from 'bun:test'
 import { bytesToHex } from '@noble/hashes/utils.js'
 import { CryptoService } from './crypto-service'
+import { HpkeService } from './hpke-service'
 import { storeVoicemailAudio } from './voicemail-storage'
 
-// Use real crypto with real keypairs instead of mocking the module
-// (mock.module leaks across test files in Bun's test runner)
-const privkey = schnorr.utils.randomSecretKey()
-const pubkey = Buffer.from(schnorr.getPublicKey(privkey)).toString('hex')
-
-// Create a real CryptoService for tests
+// Create a real CryptoService + HpkeService for tests
 const testServerSecret = bytesToHex(crypto.getRandomValues(new Uint8Array(32)))
 const testHmacSecret = bytesToHex(crypto.getRandomValues(new Uint8Array(32)))
-const cryptoService = new CryptoService(testServerSecret, testHmacSecret)
+const hpkeService = new HpkeService(testServerSecret)
+const cryptoService = new CryptoService(testServerSecret, testHmacSecret, hpkeService)
+
+// Use the server's own X25519 pubkey as the "admin" pubkey for tests
+let serverPubkey: string
+beforeAll(async () => {
+  serverPubkey = await hpkeService.getServerPubkeyHex()
+})
 
 describe('storeVoicemailAudio', () => {
   test('downloads, encrypts, stores, and deletes recording', async () => {
@@ -34,7 +36,7 @@ describe('storeVoicemailAudio', () => {
       callSid: 'CA123',
       recordingSid: 'REC456',
       hubId: 'hub-1',
-      adminPubkeys: [pubkey],
+      adminPubkeys: [serverPubkey],
       adapter: mockAdapter as any,
       files: mockFiles as any,
       records: mockRecords as any,
@@ -77,7 +79,7 @@ describe('storeVoicemailAudio', () => {
       callSid: 'CA123',
       recordingSid: 'REC456',
       hubId: 'hub-1',
-      adminPubkeys: [pubkey],
+      adminPubkeys: [serverPubkey],
       adapter: mockAdapter as any,
       files: mockFiles as any,
       records: { updateCallRecord: mock() } as any,
@@ -101,7 +103,7 @@ describe('storeVoicemailAudio', () => {
         callSid: 'CA123',
         recordingSid: 'REC_NULL',
         hubId: 'hub-1',
-        adminPubkeys: [pubkey],
+        adminPubkeys: [serverPubkey],
         adapter: mockAdapter as any,
         files: {} as any,
         records: {} as any,
@@ -130,7 +132,7 @@ describe('storeVoicemailAudio', () => {
         callSid: 'CA999',
         recordingSid: 'REC999',
         hubId: 'hub-1',
-        adminPubkeys: [pubkey],
+        adminPubkeys: [serverPubkey],
         adapter: mockAdapter as any,
         files: mockFiles as any,
         records: { updateCallRecord: mock() } as any,

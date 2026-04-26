@@ -26,6 +26,7 @@ import {
   getTelephony,
 } from './lib/adapters'
 import { CryptoService } from './lib/crypto-service'
+import { HpkeService } from './lib/hpke-service'
 import { createLogger } from './lib/logger'
 import { createStorageAdmin } from './lib/storage-admin'
 import { createStorageManager, resolveStorageCredentials } from './lib/storage-manager'
@@ -144,7 +145,8 @@ async function main() {
     log.warn('Storage not configured — file upload/download routes will return 503')
   }
 
-  const crypto = new CryptoService(env.SERVER_NOSTR_SECRET ?? '', env.HMAC_SECRET ?? '')
+  const hpke = new HpkeService(env.SERVER_NOSTR_SECRET ?? '')
+  const crypto = new CryptoService(env.SERVER_NOSTR_SECRET ?? '', env.HMAC_SECRET ?? '', hpke)
   const services = createServices(db, crypto, storage)
 
   // Initialize firehose agents if seal key is configured
@@ -257,11 +259,7 @@ async function main() {
   setIdPAdapter(idpAdapter)
   log.info('IdP adapter initialized', { adapter: process.env.IDP_ADAPTER || 'authentik' })
 
-  const blastProcessorInterval = scheduleBlastProcessor(
-    services,
-    crypto,
-    env.SERVER_NOSTR_SECRET ?? ''
-  )
+  const blastProcessorInterval = scheduleBlastProcessor(services, crypto, hpke)
   log.info('Blast delivery processor started (30s poll)')
 
   // Eagerly connect Nostr publisher

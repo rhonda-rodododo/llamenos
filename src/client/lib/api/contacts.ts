@@ -70,8 +70,9 @@ export async function createContact(data: {
   riskLevel: string
   tags: string[]
   identifierHash?: string
-  encryptedDisplayName: string
-  displayNameEnvelopes: RecipientEnvelope[]
+  // Pre-encrypted fields (client-side E2EE)
+  encryptedDisplayName?: string
+  displayNameEnvelopes?: RecipientEnvelope[]
   encryptedNotes?: string
   notesEnvelopes?: RecipientEnvelope[]
   encryptedFullName?: string
@@ -80,6 +81,11 @@ export async function createContact(data: {
   phoneEnvelopes?: RecipientEnvelope[]
   encryptedPII?: string
   piiEnvelopes?: RecipientEnvelope[]
+  // Plaintext fields — server envelope-encrypts when client can't HPKE-seal
+  displayName?: string
+  notes?: string
+  fullName?: string
+  phone?: string
 }): Promise<ContactRecord> {
   const res = await request<{ contact: ContactRecord }>(hp('/contacts'), {
     method: 'POST',
@@ -220,8 +226,11 @@ export async function importContacts(data: {
     contactType: string
     riskLevel: string
     tags?: string[]
-    encryptedDisplayName: string
-    displayNameEnvelopes: RecipientEnvelope[]
+    displayName?: string
+    fullName?: string
+    phone?: string
+    encryptedDisplayName?: string
+    displayNameEnvelopes?: RecipientEnvelope[]
     encryptedFullName?: string
     fullNameEnvelopes?: RecipientEnvelope[]
     encryptedPhone?: string

@@ -46,6 +46,7 @@ declare global {
       set: (hubId: string, key: Uint8Array) => void
       has: (hubId: string) => boolean
       size: () => number
+      lastError: () => string | null
     }
     __llamenos_test_crypto: {
       encryptNote: (
@@ -53,7 +54,7 @@ declare global {
         authorPubkey: string,
         adminPubkeys: string[]
       ) => { encryptedContent: string; authorEnvelope: unknown; adminEnvelopes: unknown[] }
-      decryptNote: typeof import('./lib/crypto-worker-helpers').decryptNote
+      decryptNote: () => never
     }
   }
 }
@@ -100,23 +101,28 @@ async function bootSPA(): Promise<void> {
       window.__TEST_AUTH_FACADE = authFacadeClient
     })
     void import('./lib/hub-key-cache').then(
-      ({ setHubKeyForTest, getHubKeyForId, getHubKeyCacheSizeForTest }) => {
+      ({
+        setHubKeyForTest,
+        getHubKeyForId,
+        getHubKeyCacheSizeForTest,
+        getLastLoadErrorForTest,
+      }) => {
         window.__TEST_HUB_KEY_CACHE = {
           set: setHubKeyForTest,
           has: (hubId: string) => getHubKeyForId(hubId) !== null,
           size: getHubKeyCacheSizeForTest,
+          lastError: getLastLoadErrorForTest,
         }
       }
     )
-    void Promise.all([
-      import('@shared/crypto-envelopes'),
-      import('./lib/crypto-worker-helpers'),
-    ]).then(([_envelopes, helpers]) => {
+    void import('@shared/crypto-envelopes').then(() => {
       window.__llamenos_test_crypto = {
         encryptNote: () => {
           throw new Error('encryptNote removed — use MLS')
         },
-        decryptNote: helpers.decryptNote,
+        decryptNote: () => {
+          throw new Error('decryptNote removed — use MLS')
+        },
       }
     })
   }

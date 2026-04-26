@@ -5,6 +5,7 @@ import { bytesToHex } from '@noble/hashes/utils.js'
 import { createDatabase } from '@server/db'
 import { userAuthEvents } from '@server/db/schema'
 import { CryptoService } from '@server/lib/crypto-service'
+import { HpkeService } from '@server/lib/hpke-service'
 import { eq } from 'drizzle-orm'
 import { migrate } from 'drizzle-orm/bun-sql/migrator'
 import { AuthEventsService } from './auth-events'
@@ -29,7 +30,8 @@ beforeAll(async () => {
   await migrate(db, {
     migrationsFolder: path.resolve(import.meta.dir, '../../../drizzle/migrations'),
   })
-  const crypto = new CryptoService('a'.repeat(64), 'b'.repeat(64))
+  const hpke = new HpkeService('a'.repeat(64))
+  const crypto = new CryptoService('a'.repeat(64), 'b'.repeat(64), hpke)
   service = new AuthEventsService(db, crypto)
 })
 

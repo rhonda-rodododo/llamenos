@@ -2,7 +2,7 @@
  * React Query hooks for call resource management.
  *
  * Call records have admin-only envelope-encrypted metadata
- * (answeredBy, callerNumber) decrypted client-side via ECIES.
+ * (answeredBy, callerNumber) decrypted client-side via HPKE.
  */
 
 import { queryOptions, useQuery } from '@tanstack/react-query'
@@ -60,7 +60,13 @@ const callHistoryOptions = (filters?: CallHistoryFilters) =>
           decrypted.push(call)
           continue
         }
-        const meta = await decryptCallRecord(call.encryptedContent, call.adminEnvelopes, pubkey)
+        const env = call.adminEnvelopes?.find((e) => e.pubkey === pubkey)
+        if (!env) {
+          decrypted.push(call)
+          continue
+        }
+        // @ts-expect-error Slice 4: adminEnvelopes will carry HpkeEnvelope per recipient
+        const meta = await decryptCallRecord(env, call.id)
         if (meta) {
           decrypted.push({ ...call, answeredBy: meta.answeredBy, callerNumber: meta.callerNumber })
         } else {

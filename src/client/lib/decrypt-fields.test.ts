@@ -1,20 +1,21 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
 import type { CryptoLabel } from '@shared/crypto-labels'
-// Eagerly import the real module so the mock.module factory can spread its
-// named exports. Otherwise bun's process-wide mock.module strips them and
-// breaks sibling test files that import CryptoWorkerLockedError / CryptoWorkerClient.
+// Eagerly import real modules so mock.module factories can spread named exports.
+// bun's process-wide mock.module would otherwise strip them and break sibling
+// test files that import from these specifiers.
 import * as realCryptoWorkerClient from './crypto-worker-client'
 import { CryptoWorkerLockedError } from './crypto-worker-client'
+import * as realKeyManager from './key-manager'
 
 // We need to mock the crypto-worker-client module and key-manager module
 // before importing decrypt-fields
-const mockDecryptEnvelopeField =
+const mockHpkeOpen =
   mock<
     (
-      encryptedHex: string,
-      ephemeralPubkeyHex: string,
-      wrappedKeyHex: string,
-      label: string
+      envelope: { v: number; labelId: number; enc: string; ct: string },
+      label: string,
+      recordId: string,
+      fieldName: string
     ) => Promise<string>
   >()
 const mockIsUnlocked = mock<() => Promise<boolean>>()
@@ -27,7 +28,7 @@ let lockCallCount = 0
 mock.module('./crypto-worker-client', () => ({
   ...realCryptoWorkerClient,
   cryptoWorker: {
-    decryptEnvelopeField: mockDecryptEnvelopeField,
+    hpkeOpen: mockHpkeOpen,
     isUnlocked: mockIsUnlocked,
     reinitialize: mockReinitialize,
     // Stub for sibling tests whose wipeKey path traverses cryptoWorker.lock.
@@ -38,6 +39,7 @@ mock.module('./crypto-worker-client', () => ({
 }))
 
 mock.module('./key-manager', () => ({
+  ...realKeyManager,
   lock: () => {
     lockCallCount++
     return mockLock()
@@ -57,7 +59,7 @@ const {
 describe('decrypt recovery', () => {
   beforeEach(() => {
     lockCallCount = 0
-    mockDecryptEnvelopeField.mockReset()
+    mockHpkeOpen.mockReset()
     mockIsUnlocked.mockReset()
     mockReinitialize.mockReset()
     mockLock.mockResolvedValue(undefined)
@@ -65,10 +67,10 @@ describe('decrypt recovery', () => {
   })
 
   test('successful decrypt does not trigger lock', async () => {
-    mockDecryptEnvelopeField.mockResolvedValue('Alice')
+    mockHpkeOpen.mockResolvedValue('Alice')
     const obj = {
       encryptedName: 'cafebabe',
-      nameEnvelopes: [{ pubkey: 'aabb', ephemeralPubkey: 'ccdd', wrappedKey: 'eeff' }],
+      nameEnvelopes: [{ pubkey: 'aabb', v: 3, labelId: 1, enc: 'ccdd', ct: 'cafebabe' }],
       name: '[encrypted]',
     }
     await decryptObjectFields(obj, 'aabb')
@@ -77,14 +79,14 @@ describe('decrypt recovery', () => {
   })
 
   test('retries once on timeout then locks when worker reports locked', async () => {
-    mockDecryptEnvelopeField
+    mockHpkeOpen
       .mockRejectedValueOnce(new Error('Crypto worker request timed out'))
       .mockRejectedValueOnce(new Error('Crypto worker request timed out'))
     mockIsUnlocked.mockResolvedValue(false)
 
     const obj = {
       encryptedName: 'cafebabe',
-      nameEnvelopes: [{ pubkey: 'aabb', ephemeralPubkey: 'ccdd', wrappedKey: 'eeff' }],
+      nameEnvelopes: [{ pubkey: 'aabb', v: 3, labelId: 1, enc: 'ccdd', ct: 'cafebabe' }],
       name: '[encrypted]',
     }
     await decryptObjectFields(obj, 'aabb')
@@ -93,13 +95,13 @@ describe('decrypt recovery', () => {
   })
 
   test('retries once on timeout and succeeds on retry', async () => {
-    mockDecryptEnvelopeField
+    mockHpkeOpen
       .mockRejectedValueOnce(new Error('Crypto worker request timed out'))
       .mockResolvedValueOnce('Alice')
 
     const obj = {
       encryptedName: 'cafebabe',
-      nameEnvelopes: [{ pubkey: 'aabb', ephemeralPubkey: 'ccdd', wrappedKey: 'eeff' }],
+      nameEnvelopes: [{ pubkey: 'aabb', v: 3, labelId: 1, enc: 'ccdd', ct: 'cafebabe' }],
       name: '[encrypted]',
     }
     await decryptObjectFields(obj, 'aabb')
@@ -108,11 +110,11 @@ describe('decrypt recovery', () => {
   })
 
   test('CryptoWorkerLockedError triggers lock immediately without retry', async () => {
-    mockDecryptEnvelopeField.mockRejectedValue(new CryptoWorkerLockedError('Not unlocked'))
+    mockHpkeOpen.mockRejectedValue(new CryptoWorkerLockedError('Not unlocked'))
 
     const obj = {
       encryptedName: 'cafebabe',
-      nameEnvelopes: [{ pubkey: 'aabb', ephemeralPubkey: 'ccdd', wrappedKey: 'eeff' }],
+      nameEnvelopes: [{ pubkey: 'aabb', v: 3, labelId: 1, enc: 'ccdd', ct: 'cafebabe' }],
       name: '[encrypted]',
     }
     await decryptObjectFields(obj, 'aabb')
@@ -121,14 +123,14 @@ describe('decrypt recovery', () => {
   })
 
   test('worker unlocked but broken triggers reinitialize + lock', async () => {
-    mockDecryptEnvelopeField
+    mockHpkeOpen
       .mockRejectedValueOnce(new Error('Crypto worker request timed out'))
       .mockRejectedValueOnce(new Error('Crypto worker request timed out'))
     mockIsUnlocked.mockResolvedValue(true) // unlocked but still failing
 
     const obj = {
       encryptedName: 'cafebabe',
-      nameEnvelopes: [{ pubkey: 'aabb', ephemeralPubkey: 'ccdd', wrappedKey: 'eeff' }],
+      nameEnvelopes: [{ pubkey: 'aabb', v: 3, labelId: 1, enc: 'ccdd', ct: 'cafebabe' }],
       name: '[encrypted]',
     }
     await decryptObjectFields(obj, 'aabb')
@@ -137,13 +139,13 @@ describe('decrypt recovery', () => {
   })
 
   test('lock fires only once for multiple concurrent decrypt failures', async () => {
-    mockDecryptEnvelopeField.mockRejectedValue(new CryptoWorkerLockedError('Not unlocked'))
+    mockHpkeOpen.mockRejectedValue(new CryptoWorkerLockedError('Not unlocked'))
 
     const obj = {
       encryptedName: 'cafebabe',
-      nameEnvelopes: [{ pubkey: 'aabb', ephemeralPubkey: 'ccdd', wrappedKey: 'eeff' }],
+      nameEnvelopes: [{ pubkey: 'aabb', v: 3, labelId: 1, enc: 'ccdd', ct: 'cafebabe' }],
       encryptedPhone: 'deadbeef',
-      phoneEnvelopes: [{ pubkey: 'aabb', ephemeralPubkey: '1122', wrappedKey: '3344' }],
+      phoneEnvelopes: [{ pubkey: 'aabb', v: 3, labelId: 1, enc: '1122', ct: 'deadbeef' }],
       name: '[encrypted]',
       phone: '[encrypted]',
     }
@@ -176,7 +178,7 @@ describe('DecryptCache', () => {
 describe('fieldNames filter', () => {
   beforeEach(() => {
     lockCallCount = 0
-    mockDecryptEnvelopeField.mockReset()
+    mockHpkeOpen.mockReset()
     mockIsUnlocked.mockReset()
     mockReinitialize.mockReset()
     mockLock.mockResolvedValue(undefined)
@@ -184,44 +186,43 @@ describe('fieldNames filter', () => {
   })
 
   test('only decrypts the listed fields, ignoring other encrypted fields', async () => {
-    mockDecryptEnvelopeField.mockResolvedValue('decrypted-value')
+    mockHpkeOpen.mockResolvedValue('decrypted-value')
 
     // Object carries fields encrypted under TWO different labels.
     // Without a filter, decryptObjectFields would try to decrypt both.
     const obj = {
       encryptedDisplayName: 'ct-summary',
-      displayNameEnvelopes: [{ pubkey: 'aabb', ephemeralPubkey: 'ccdd', wrappedKey: 'eeff' }],
+      displayNameEnvelopes: [{ pubkey: 'aabb', v: 3, labelId: 1, enc: 'ccdd', ct: 'cafebabe' }],
       encryptedPhone: 'ct-pii',
-      phoneEnvelopes: [{ pubkey: 'aabb', ephemeralPubkey: '1122', wrappedKey: '3344' }],
+      phoneEnvelopes: [{ pubkey: 'aabb', v: 3, labelId: 1, enc: '1122', ct: 'deadbeef' }],
       displayName: '[encrypted]',
       phone: '[encrypted]',
     }
 
     // Pass 1: only decrypt summary fields. Phone must NOT be touched.
     await decryptObjectFields(obj, 'aabb', 'label:summary' as CryptoLabel, ['encryptedDisplayName'])
-    expect(mockDecryptEnvelopeField).toHaveBeenCalledTimes(1)
-    expect(mockDecryptEnvelopeField).toHaveBeenCalledWith(
-      'ct-summary',
-      'ccdd',
-      'eeff',
+    expect(mockHpkeOpen).toHaveBeenCalledTimes(1)
+    // hpkeOpen called with (envelope, label, recordId, fieldName)
+    expect(mockHpkeOpen).toHaveBeenCalledWith(
+      expect.objectContaining({ v: 3, ct: 'cafebabe' }),
       'label:summary',
-      expect.any(Uint8Array)
+      expect.any(String),
+      'displayName'
     )
     expect(obj.displayName).toBe('decrypted-value')
     expect(obj.phone).toBe('[encrypted]') // untouched
 
-    mockDecryptEnvelopeField.mockClear()
+    mockHpkeOpen.mockClear()
 
     // Pass 2: only decrypt PII fields. Display name must NOT be re-attempted
     // with the wrong label (which was the root cause of the recovery-lock bug).
     await decryptObjectFields(obj, 'aabb', 'label:pii' as CryptoLabel, ['encryptedPhone'])
-    expect(mockDecryptEnvelopeField).toHaveBeenCalledTimes(1)
-    expect(mockDecryptEnvelopeField).toHaveBeenCalledWith(
-      'ct-pii',
-      '1122',
-      '3344',
+    expect(mockHpkeOpen).toHaveBeenCalledTimes(1)
+    expect(mockHpkeOpen).toHaveBeenCalledWith(
+      expect.objectContaining({ v: 3, ct: 'deadbeef' }),
       'label:pii',
-      expect.any(Uint8Array)
+      expect.any(String),
+      'phone'
     )
     expect(obj.phone).toBe('decrypted-value')
     // No lock was fired — proves we never hit the retry/recovery branch.
@@ -231,9 +232,9 @@ describe('fieldNames filter', () => {
   test('resolveEncryptedFields skips unlisted fields even when they exist', () => {
     const obj = {
       encryptedName: 'ct-a',
-      nameEnvelopes: [{ pubkey: 'reader', ephemeralPubkey: 'ee', wrappedKey: 'ff' }],
+      nameEnvelopes: [{ pubkey: 'reader', v: 3, labelId: 1, enc: 'ee', ct: 'ct-a' }],
       encryptedPhone: 'ct-b',
-      phoneEnvelopes: [{ pubkey: 'reader', ephemeralPubkey: 'aa', wrappedKey: 'bb' }],
+      phoneEnvelopes: [{ pubkey: 'reader', v: 3, labelId: 1, enc: 'aa', ct: 'ct-b' }],
     }
 
     // Default (no filter): both fields returned
@@ -253,9 +254,9 @@ describe('fieldNames filter', () => {
     // encryptedPhone has a matching envelope for 'reader' and is included.
     const obj = {
       encryptedName: 'ct-a',
-      nameEnvelopes: [{ pubkey: 'someone-else', ephemeralPubkey: 'ee', wrappedKey: 'ff' }],
+      nameEnvelopes: [{ pubkey: 'someone-else', v: 3, labelId: 1, enc: 'ee', ct: 'ct-a' }],
       encryptedPhone: 'ct-b',
-      phoneEnvelopes: [{ pubkey: 'reader', ephemeralPubkey: 'aa', wrappedKey: 'bb' }],
+      phoneEnvelopes: [{ pubkey: 'reader', v: 3, labelId: 1, enc: 'aa', ct: 'ct-b' }],
     }
 
     resolveEncryptedFields(obj, 'reader', ['encryptedPhone'])
@@ -274,7 +275,7 @@ describe('decrypt mismatch callback', () => {
     setOnDecryptMismatch(handler)
     const obj = {
       encryptedName: 'some-ciphertext',
-      nameEnvelopes: [{ pubkey: 'aaaa', ephemeralPubkey: 'bbbb', wrappedKey: 'cccc' }],
+      nameEnvelopes: [{ pubkey: 'aaaa', v: 3, labelId: 1, enc: 'bbbb', ct: 'cccc' }],
     }
     resolveEncryptedFields(obj, 'different-pubkey')
     expect(handler).toHaveBeenCalledWith({
@@ -289,7 +290,7 @@ describe('decrypt mismatch callback', () => {
     setOnDecryptMismatch(handler)
     const obj = {
       encryptedName: 'some-ciphertext',
-      nameEnvelopes: [{ pubkey: 'reader-key', ephemeralPubkey: 'bbbb', wrappedKey: 'cccc' }],
+      nameEnvelopes: [{ pubkey: 'reader-key', v: 3, labelId: 1, enc: 'bbbb', ct: 'cccc' }],
     }
     resolveEncryptedFields(obj, 'reader-key')
     expect(handler).not.toHaveBeenCalled()
@@ -300,7 +301,7 @@ describe('decrypt mismatch callback', () => {
     setOnDecryptMismatch(handler)
     const obj = {
       encryptedName: 'some-ciphertext',
-      nameEnvelopes: [{ pubkey: 'aaaa', ephemeralPubkey: 'bbbb', wrappedKey: 'cccc' }],
+      nameEnvelopes: [{ pubkey: 'aaaa', v: 3, labelId: 1, enc: 'bbbb', ct: 'cccc' }],
     }
     resolveEncryptedFields(obj)
     expect(handler).not.toHaveBeenCalled()
@@ -312,11 +313,11 @@ describe('decrypt mismatch callback', () => {
 
     const obj1 = {
       encryptedName: 'ct-1',
-      nameEnvelopes: [{ pubkey: 'aaaa', ephemeralPubkey: 'bbbb', wrappedKey: 'cccc' }],
+      nameEnvelopes: [{ pubkey: 'aaaa', v: 3, labelId: 1, enc: 'bbbb', ct: 'cccc' }],
     }
     const obj2 = {
       encryptedPhone: 'ct-2',
-      phoneEnvelopes: [{ pubkey: 'aaaa', ephemeralPubkey: 'bbbb', wrappedKey: 'cccc' }],
+      phoneEnvelopes: [{ pubkey: 'aaaa', v: 3, labelId: 1, enc: 'bbbb', ct: 'cccc' }],
     }
 
     resolveEncryptedFields(obj1, 'different-pubkey')
@@ -337,7 +338,7 @@ describe('decrypt mismatch callback', () => {
 
     const obj = {
       encryptedName: 'ct-1',
-      nameEnvelopes: [{ pubkey: 'aaaa', ephemeralPubkey: 'bbbb', wrappedKey: 'cccc' }],
+      nameEnvelopes: [{ pubkey: 'aaaa', v: 3, labelId: 1, enc: 'bbbb', ct: 'cccc' }],
     }
 
     resolveEncryptedFields(obj, 'different-pubkey')
@@ -355,7 +356,7 @@ describe('decrypt mismatch callback', () => {
 
     const obj = {
       encryptedName: 'ct-1',
-      nameEnvelopes: [{ pubkey: 'aaaa', ephemeralPubkey: 'bbbb', wrappedKey: 'cccc' }],
+      nameEnvelopes: [{ pubkey: 'aaaa', v: 3, labelId: 1, enc: 'bbbb', ct: 'cccc' }],
     }
 
     resolveEncryptedFields(obj, 'different-pubkey')

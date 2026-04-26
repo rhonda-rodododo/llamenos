@@ -3,6 +3,7 @@ import path from 'node:path'
 import { createDatabase } from '@server/db'
 import { hubKeys, hubs } from '@server/db/schema'
 import { CryptoService } from '@server/lib/crypto-service'
+import { HpkeService } from '@server/lib/hpke-service'
 import { SettingsService } from '@server/services/settings'
 import { eq } from 'drizzle-orm'
 import { migrate } from 'drizzle-orm/bun-sql/migrator'
@@ -21,7 +22,8 @@ beforeAll(async () => {
   await migrate(db, {
     migrationsFolder: path.resolve(import.meta.dir, '../../../drizzle/migrations'),
   })
-  const crypto = new CryptoService('a'.repeat(64), 'b'.repeat(64))
+  const hpke = new HpkeService('a'.repeat(64))
+  const crypto = new CryptoService('a'.repeat(64), 'b'.repeat(64), hpke)
   service = new SettingsService(db, crypto)
   // Create test hub (encrypted-only schema)
   await service.createHub({
@@ -37,11 +39,10 @@ afterAll(async () => {
   db.$client.close()
 })
 
-function makeEnvelope(pubkey: string) {
+function makeEnvelope(pubkeyHex: string) {
   return {
-    pubkey,
-    wrappedKey: `wrapped-${pubkey}`,
-    ephemeralPubkey: `ephemeral-${pubkey}`,
+    pubkeyHex,
+    envelope: { v: 3 as const, labelId: 0, enc: 'test', ct: 'test' },
   }
 }
 
@@ -54,11 +55,8 @@ describe('hub-key-envelopes', () => {
     ])
 
     const stored = await service.getHubKeyEnvelopes(TEST_HUB_ID)
-    // Note: setHubKeyEnvelopes stores only pubkey + encryptedKey (wrappedKey) to the DB.
-    // ephemeralPubkey is encoded inside encryptedKey by the caller — getHubKeyEnvelopes
-    // always returns ephemeralPubkey: '' as a structural placeholder. Do not assert on it.
     expect(stored.length).toBe(3)
-    const pubkeys = stored.map((e) => e.pubkey).sort()
+    const pubkeys = stored.map((e) => e.pubkeyHex).sort()
     expect(pubkeys).toEqual(['pk-alice', 'pk-bob', 'pk-carol'])
   })
 
@@ -67,7 +65,7 @@ describe('hub-key-envelopes', () => {
 
     const stored = await service.getHubKeyEnvelopes(TEST_HUB_ID)
     expect(stored.length).toBe(2)
-    const pubkeys = stored.map((e) => e.pubkey).sort()
+    const pubkeys = stored.map((e) => e.pubkeyHex).sort()
     expect(pubkeys).toEqual(['pk-dave', 'pk-eve'])
   })
 

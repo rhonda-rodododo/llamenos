@@ -193,15 +193,17 @@ export async function createUserSession(
     lat: geo.lat,
     lon: geo.lon,
   })
-  const { encrypted, envelopes } = params.crypto.envelopeEncrypt(
+  const sessionId = crypto.randomUUID()
+  const { encrypted, envelopes } = await params.crypto.envelopeEncrypt(
     metaPlain,
     [params.pubkey],
-    LABEL_SESSION_META
+    LABEL_SESSION_META,
+    sessionId,
+    'meta'
   )
 
   const token = generateSessionToken()
   const tokenHash = hashSessionToken(token, params.hmacSecret)
-  const sessionId = crypto.randomUUID()
 
   await params.sessions.create({
     id: sessionId,

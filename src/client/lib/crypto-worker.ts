@@ -7,25 +7,22 @@
  * Communication: structured postMessage with request/response IDs.
  * Rate limiting: auto-locks if operations exceed safe thresholds.
  *
- * Tier 1 transition state:
- *   This worker is in a dual-era state. The legacy ECIES/XChaCha20 surface
- *   is still here because the remaining call sites that depend on it
- *   (file-crypto, hub-key-manager, signal-contact, device provisioning,
- *   key-store KEK rotation, notes/files envelope paths) have not yet been
- *   migrated — they carry over to Tier 2+.
+ * HPKE-only era (Slice 2):
+ *   All per-recipient asymmetric encryption uses HPKE RFC 9180 via
+ *   `hpkeSeal` / `hpkeOpen`. The legacy ECIES surface (eciesWrap/eciesUnwrap,
+ *   envelopeEncryptField/decryptEnvelopeField) has been removed.
  *
- *   Tier 1 added an HPKE sidecar for:
- *     - `hpkeSeal` / `hpkeOpen` — RFC 9180 seal/open against HpkeEnvelope.
- *     - `unlockWithHandles` — accept non-extractable CryptoKey handles (HPKE
- *       private key + hub AES-GCM key) alongside the raw-nsec unlock path.
+ *   Remaining legacy surface retained for later slices:
+ *     - `handleProvisionNsec` — still uses secp256k1 ECDH + XChaCha20 for
+ *       device provisioning nsec transfer (migrates in Slice 5).
+ *     - `handleUnlock` / `handleReEncrypt` / session capsule export/import —
+ *       still use XChaCha20-Poly1305 for symmetric KEK-based encryption
+ *       (migrates to AES-256-GCM in Slice 7).
  *
- *   Rules while the sidecar coexists:
- *     - Never add a NEW caller that uses the ECIES surface; use HPKE.
- *     - Never silently fall back from HPKE to ECIES on open failure.
- *     - The `schnorr`/`secp256k1` identity nsec still backs `sign` +
- *       `signAuditEntry` because Tier 0's hash-chained audit log depends on
- *       it. That is a signing keypair and is independent of the X25519
- *       HPKE KEM — HPKE does not replace signing.
+ *   The `schnorr`/`secp256k1` identity nsec still backs `sign` +
+ *   `signAuditEntry` because Tier 0's hash-chained audit log depends on
+ *   it. That is a signing keypair and is independent of the X25519
+ *   HPKE KEM — HPKE does not replace signing.
  */
 
 import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
@@ -54,52 +51,10 @@ type WorkerRequest =
   | { type: 'unlock'; id: string; kekHex: string; nonceHex: string; ciphertextHex: string }
   | { type: 'lock'; id: string }
   | { type: 'sign'; id: string; messageHex: string }
-  | {
-      // Legacy ECIES key unwrap (label-id envelope path). Domain separation
-      // comes from `label` (used to derive the symmetric wrapping key). The
-      // inner AEAD is bound to `aad` — every caller MUST provide its intended
-      // AAD (typically `buildAad(label, recordId, fieldName)`). Legacy call
-      // sites that need to read already-stored wire format may pass
-      // `new Uint8Array(0)` with a TODO comment until they migrate. New code
-      // should use the HPKE `hpkeSeal`/`hpkeOpen` sidecar below instead.
-      type: 'decrypt'
-      id: string
-      ephemeralPubkeyHex: string
-      wrappedKeyHex: string
-      label: CryptoLabel
-      aadHex: string
-    }
-  | {
-      // ECIES key wrap. The caller-supplied `aadHex` is threaded into the
-      // inner XChaCha20-Poly1305 AEAD alongside the label-derived key.
-      type: 'encrypt'
-      id: string
-      plaintextHex: string
-      recipientPubkeyHex: string
-      label: CryptoLabel
-      aadHex: string
-    }
   | { type: 'getPublicKey'; id: string }
   | { type: 'isUnlocked'; id: string }
   | { type: 'reEncrypt'; id: string; newKekHex: string; aadHex: string }
   | { type: 'provisionNsec'; id: string; recipientEphemeralPubkeyHex: string }
-  | {
-      type: 'decryptEnvelopeField'
-      id: string
-      encryptedHex: string
-      ephemeralPubkeyHex: string
-      wrappedKeyHex: string
-      label: CryptoLabel
-      aadHex: string
-    }
-  | {
-      type: 'envelopeEncryptField'
-      id: string
-      plaintext: string
-      recipientPubkeysHex: string[]
-      label: CryptoLabel
-      aadHex: string
-    }
   | { type: 'signAuditEntry'; id: string; entryHashHex: string }
   | { type: 'computeHmac'; id: string; input: string; secretHex: string }
   | { type: 'exportSession'; id: string }
@@ -112,13 +67,11 @@ type WorkerRequest =
       encryptedKekHex?: string
       kekNonceHex?: string
     }
-  // ---- Tier 1 HPKE sidecar ----
+  // ---- HPKE ----
   | {
       // HPKE single-shot seal. The main thread ships the recipient's HPKE
       // public key bytes; the worker imports them and produces an HpkeEnvelope.
-      // Public-key operations do not need our secret, but we still require
-      // the worker to be unlocked so an XSS attacker cannot invoke sealing
-      // as a grinder primitive while the user is logged out.
+      // Requires the worker to be unlocked.
       type: 'hpkeSeal'
       id: string
       plaintext: string
@@ -130,7 +83,7 @@ type WorkerRequest =
   | {
       // HPKE single-shot open. The envelope is decoded in the worker against
       // the held HPKE private CryptoKey. Throws if version, labelId, or AAD
-      // mismatches — never falls back to ECIES.
+      // mismatches.
       type: 'hpkeOpen'
       id: string
       envelope: HpkeEnvelope
@@ -139,11 +92,19 @@ type WorkerRequest =
       fieldName: string
     }
   | {
+      // Like hpkeOpen but returns decrypted bytes as hex instead of UTF-8 text.
+      // Used for binary payloads like hub keys.
+      type: 'hpkeOpenRaw'
+      id: string
+      envelope: HpkeEnvelope
+      expectedLabel: CryptoLabel
+      recordId: string
+      fieldName: string
+    }
+  | {
       // Unlock from a key store that returns non-extractable CryptoKey
-      // handles (HPKE private key + hub AES-GCM key) plus the raw nsec. The
-      // handles are transferred via structured clone. The nsec still arrives
-      // as raw bytes because no current runtime offers a non-extractable
-      // wrapKey path for X25519 schnorr/secp256k1 — see native-curves-check.
+      // handles (HPKE private key + hub AES-GCM key) plus the raw nsec.
+      // The handles are transferred via structured clone.
       type: 'unlockWithHandles'
       id: string
       nsecRaw: Uint8Array
@@ -319,81 +280,13 @@ function randomBytes(n: number): Uint8Array {
   return buf
 }
 
-/**
- * ECIES wrap: encrypt a plaintext under a recipient's public key with domain
- * separation. Uses ephemeral ECDH + SHA-256(label || sharedX) + XChaCha20-Poly1305.
- *
- * The caller-supplied `aad` is threaded into the inner AEAD so the ciphertext
- * is cryptographically bound to the caller's context (typically
- * `buildAad(label, recordId, fieldName)`). Callers that need to preserve an
- * existing wire format must pass `new Uint8Array(0)` explicitly.
- */
-function eciesWrap(
-  plaintext: Uint8Array,
-  recipientPubkeyHex: string,
-  label: string,
-  aad: Uint8Array
-): { ephemeralPubkeyHex: string; wrappedKeyHex: string } {
-  const ephemeralSecret = randomBytes(32)
-  const ephemeralPublicKey = secp256k1.getPublicKey(ephemeralSecret, true)
-
-  // x-only pubkey -> compressed with "02" prefix
-  const recipientCompressed = hexToBytes(`02${recipientPubkeyHex}`)
-  const shared = secp256k1.getSharedSecret(ephemeralSecret, recipientCompressed)
-  const sharedX = shared.subarray(1, 33)
-
-  const labelBytes = utf8ToBytes(label)
-  const keyInput = new Uint8Array(labelBytes.length + sharedX.length)
-  keyInput.set(labelBytes)
-  keyInput.set(sharedX, labelBytes.length)
-  const symmetricKey = sha256(keyInput)
-
-  const nonce = randomBytes(24)
-  const cipher = xchacha20poly1305(symmetricKey, nonce, aad)
-  const ciphertext = cipher.encrypt(plaintext)
-
-  const packed = new Uint8Array(nonce.length + ciphertext.length)
-  packed.set(nonce)
-  packed.set(ciphertext, nonce.length)
-
-  return {
-    ephemeralPubkeyHex: bytesToHex(ephemeralPublicKey),
-    wrappedKeyHex: bytesToHex(packed),
-  }
-}
-
-/**
- * ECIES unwrap: decrypt using our secret key + ephemeral pubkey with domain
- * separation. The AAD must match what was passed to `eciesWrap` when the
- * ciphertext was produced — mismatch throws at AEAD-open time.
- */
-function eciesUnwrap(
-  ephemeralPubkeyHex: string,
-  wrappedKeyHex: string,
-  sk: Uint8Array,
-  label: string,
-  aad: Uint8Array
-): Uint8Array {
-  const ephemeralPub = hexToBytes(ephemeralPubkeyHex)
-  const shared = secp256k1.getSharedSecret(sk, ephemeralPub)
-  const sharedX = shared.subarray(1, 33)
-
-  const labelBytes = utf8ToBytes(label)
-  const keyInput = new Uint8Array(labelBytes.length + sharedX.length)
-  keyInput.set(labelBytes)
-  keyInput.set(sharedX, labelBytes.length)
-  const symmetricKey = sha256(keyInput)
-
-  const data = hexToBytes(wrappedKeyHex)
-  const nonce = data.slice(0, 24)
-  const ciphertext = data.slice(24)
-  const cipher = xchacha20poly1305(symmetricKey, nonce, aad)
-  return cipher.decrypt(ciphertext)
-}
-
 // ---- Operation handlers ----
 
-function handleUnlock(kekHex: string, nonceHex: string, ciphertextHex: string): string {
+async function handleUnlock(
+  kekHex: string,
+  nonceHex: string,
+  ciphertextHex: string
+): Promise<string> {
   const kek = hexToBytes(kekHex)
   const nonce = hexToBytes(nonceHex)
   const ciphertext = hexToBytes(ciphertextHex)
@@ -412,6 +305,27 @@ function handleUnlock(kekHex: string, nonceHex: string, ciphertextHex: string): 
   // Store KEK for MLS IDB key derivation (Tier 6).
   if (kekBytes) kekBytes.fill(0)
   kekBytes = new Uint8Array(kek)
+
+  // Derive X25519 HPKE keypair from nsec via HKDF so the PIN-based unlock
+  // path populates `hpkePrivateKey` just like `unlockWithHandles` does.
+  // Without this, `hpkeOpen` calls (used by hub-key-cache) would fail with
+  // "Worker is locked" because `hpkePrivateKey` would remain null.
+  const { LABEL_USER_HPKE_KEY, LABEL_USER_HPKE_KEY_INFO } = await import('@shared/crypto-labels')
+  const { hkdfDerive } = await import('@shared/crypto-primitives')
+  const { createHpkeSuite } = await import('@shared/crypto-suite')
+  const { asX25519EncryptionKey } = await import('@shared/types')
+  const enc = new TextEncoder()
+  const ikm = hkdfDerive(
+    secretKey,
+    enc.encode(LABEL_USER_HPKE_KEY),
+    enc.encode(LABEL_USER_HPKE_KEY_INFO),
+    32
+  )
+  const suite = createHpkeSuite()
+  const kp = (await suite.kem.deriveKeyPair(ikm)) as CryptoKeyPair
+  hpkePrivateKey = asX25519EncryptionKey(kp.privateKey)
+  hpkePublicKeyRawCache = new Uint8Array(await suite.kem.serializePublicKey(kp.publicKey))
+  ikm.fill(0)
 
   resetRateLimits()
   return publicKeyHex
@@ -432,43 +346,6 @@ function handleSign(messageHex: string): string {
   const message = hexToBytes(messageHex)
   const signature = schnorr.sign(message, secretKey)
   return bytesToHex(signature)
-}
-
-function handleDecrypt(
-  ephemeralPubkeyHex: string,
-  wrappedKeyHex: string,
-  label: CryptoLabel,
-  aad: Uint8Array
-): string {
-  if (!secretKey) throw new Error('Worker is locked')
-
-  if (!checkRateLimit('decrypt')) {
-    autoLock()
-    throw new Error('Rate limit exceeded — worker auto-locked')
-  }
-
-  const result = eciesUnwrap(ephemeralPubkeyHex, wrappedKeyHex, secretKey, label, aad)
-  return bytesToHex(result)
-}
-
-function handleEncrypt(
-  plaintextHex: string,
-  recipientPubkeyHex: string,
-  label: CryptoLabel,
-  aad: Uint8Array
-): { ephemeralPubkeyHex: string; wrappedKeyHex: string } {
-  // Encrypt doesn't need our nsec (uses ephemeral key), but we keep it
-  // in the worker for API consistency and to enforce the worker-is-unlocked
-  // invariant for all crypto operations.
-  if (!secretKey) throw new Error('Worker is locked')
-
-  if (!checkRateLimit('encrypt')) {
-    autoLock()
-    throw new Error('Rate limit exceeded — worker auto-locked')
-  }
-
-  const plaintext = hexToBytes(plaintextHex)
-  return eciesWrap(plaintext, recipientPubkeyHex, label, aad)
 }
 
 function handleSignAuditEntry(entryHashHex: string): string {
@@ -616,13 +493,13 @@ function handleExportSession(): {
  * Returns the x-only public key hex on success (same shape as handleUnlock).
  * Throws if the capsule is invalid / tampered.
  */
-function handleImportSession(
+async function handleImportSession(
   tokenHex: string,
   encryptedNsecHex: string,
   capsuleNonceHex: string,
   encryptedKekHex?: string,
   kekNonceHexParam?: string
-): string {
+): Promise<string> {
   const token = hexToBytes(tokenHex)
   const nonce = hexToBytes(capsuleNonceHex)
   const ciphertext = hexToBytes(encryptedNsecHex)
@@ -652,36 +529,72 @@ function handleImportSession(
     }
   }
 
+  // Derive X25519 HPKE keypair from nsec so loadHubKeysForUser can send the
+  // pubkey to the server for re-wrapping after capsule restore.
+  const { LABEL_USER_HPKE_KEY, LABEL_USER_HPKE_KEY_INFO } = await import('@shared/crypto-labels')
+  const { hkdfDerive } = await import('@shared/crypto-primitives')
+  const { createHpkeSuite } = await import('@shared/crypto-suite')
+  const { asX25519EncryptionKey } = await import('@shared/types')
+  const enc = new TextEncoder()
+  const ikm = hkdfDerive(
+    secretKey,
+    enc.encode(LABEL_USER_HPKE_KEY),
+    enc.encode(LABEL_USER_HPKE_KEY_INFO),
+    32
+  )
+  const suite = createHpkeSuite()
+  const kp = (await suite.kem.deriveKeyPair(ikm)) as CryptoKeyPair
+  hpkePrivateKey = asX25519EncryptionKey(kp.privateKey)
+  hpkePublicKeyRawCache = new Uint8Array(await suite.kem.serializePublicKey(kp.publicKey))
+  ikm.fill(0)
+
   resetRateLimits()
   return publicKeyHex
 }
 
-// ---- Tier 1 HPKE sidecar handlers ----
+// ---- HPKE handlers ----
 
 /**
  * Unlock the worker from a key-store unlock result. The main thread runs
  * its unlock flow and transfers the non-extractable CryptoKey handles
  * (hub key, HPKE private key) plus the raw nsec bytes here.
  *
- * This sits alongside `handleUnlock` (kek/nonce path) — callers migrate at
- * their own pace while Tier 1 rolls out. Both paths populate `secretKey` +
- * `publicKeyHex` identically so `signAuditEntry` and `sign` keep working
- * without caring which path was used.
+ * Both `handleUnlock` (kek/nonce path) and this handler populate
+ * `secretKey` + `publicKeyHex` identically so `signAuditEntry` and `sign`
+ * keep working without caring which path was used.
  */
-function handleUnlockWithHandles(
+async function handleUnlockWithHandles(
   nsecRaw: Uint8Array,
   hpkePriv: X25519EncryptionKey,
   hub: AesGcmKey
-): string {
+): Promise<string> {
   if (nsecRaw.byteLength !== 32) {
     throw new Error(`unlockWithHandles nsec must be 32 bytes, got ${nsecRaw.byteLength}`)
   }
   secretKey = new Uint8Array(nsecRaw)
-  nsecRaw.fill(0)
   publicKeyHex = bytesToHex(schnorr.getPublicKey(secretKey))
   hpkePrivateKey = hpkePriv
   _hubKey = hub
-  hpkePublicKeyRawCache = null
+
+  // Derive X25519 public key from nsec so getHpkePublicKeyRaw() can return
+  // it. Without this, loadHubKeysForUser cannot send the pubkey to the
+  // server for re-wrapping and hub key decryption fails after capsule restore.
+  const { LABEL_USER_HPKE_KEY, LABEL_USER_HPKE_KEY_INFO } = await import('@shared/crypto-labels')
+  const { hkdfDerive } = await import('@shared/crypto-primitives')
+  const { createHpkeSuite } = await import('@shared/crypto-suite')
+  const enc = new TextEncoder()
+  const ikm = hkdfDerive(
+    secretKey,
+    enc.encode(LABEL_USER_HPKE_KEY),
+    enc.encode(LABEL_USER_HPKE_KEY_INFO),
+    32
+  )
+  const suite = createHpkeSuite()
+  const kp = (await suite.kem.deriveKeyPair(ikm)) as CryptoKeyPair
+  hpkePublicKeyRawCache = new Uint8Array(await suite.kem.serializePublicKey(kp.publicKey))
+  ikm.fill(0)
+
+  nsecRaw.fill(0)
   resetRateLimits()
   return publicKeyHex
 }
@@ -722,6 +635,27 @@ async function handleHpkeOpen(
   const aad = buildAad(expectedLabel, recordId, fieldName)
   const pt = await hpkeOpen(envelope, hpkePrivateKey, expectedLabel, aad)
   return new TextDecoder().decode(pt)
+}
+
+/**
+ * Like handleHpkeOpen but returns the raw decrypted bytes as hex instead of
+ * UTF-8 text. Used for binary payloads (e.g. hub keys) where the plaintext
+ * is raw bytes, not a text string.
+ */
+async function handleHpkeOpenRaw(
+  envelope: HpkeEnvelope,
+  expectedLabel: CryptoLabel,
+  recordId: string,
+  fieldName: string
+): Promise<string> {
+  if (!secretKey || !hpkePrivateKey) throw new Error('Worker is locked')
+  if (!checkRateLimit('decrypt')) {
+    autoLock()
+    throw new Error('Rate limit exceeded — worker auto-locked')
+  }
+  const aad = buildAad(expectedLabel, recordId, fieldName)
+  const pt = await hpkeOpen(envelope, hpkePrivateKey, expectedLabel, aad)
+  return bytesToHex(new Uint8Array(pt))
 }
 
 // ---- Tier 2 root-KEK handlers ----
@@ -1110,10 +1044,10 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
 
     switch (req.type) {
       case 'unlock':
-        result = handleUnlock(req.kekHex, req.nonceHex, req.ciphertextHex)
+        result = await handleUnlock(req.kekHex, req.nonceHex, req.ciphertextHex)
         break
       case 'unlockWithHandles':
-        result = handleUnlockWithHandles(req.nsecRaw, req.hpkePrivateKey, req.hubKey)
+        result = await handleUnlockWithHandles(req.nsecRaw, req.hpkePrivateKey, req.hubKey)
         break
       case 'hpkeSeal':
         result = await handleHpkeSeal(
@@ -1126,6 +1060,14 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
         break
       case 'hpkeOpen':
         result = await handleHpkeOpen(req.envelope, req.expectedLabel, req.recordId, req.fieldName)
+        break
+      case 'hpkeOpenRaw':
+        result = await handleHpkeOpenRaw(
+          req.envelope,
+          req.expectedLabel,
+          req.recordId,
+          req.fieldName
+        )
         break
       case 'hpkePublicKeyRaw':
         result = await handleHpkePublicKeyRaw()
@@ -1155,22 +1097,6 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       case 'sign':
         result = handleSign(req.messageHex)
         break
-      case 'decrypt':
-        result = handleDecrypt(
-          req.ephemeralPubkeyHex,
-          req.wrappedKeyHex,
-          req.label,
-          hexToBytes(req.aadHex)
-        )
-        break
-      case 'encrypt':
-        result = handleEncrypt(
-          req.plaintextHex,
-          req.recipientPubkeyHex,
-          req.label,
-          hexToBytes(req.aadHex)
-        )
-        break
       case 'getPublicKey':
         result = handleGetPublicKey()
         break
@@ -1183,35 +1109,6 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       case 'provisionNsec':
         result = handleProvisionNsec(req.recipientEphemeralPubkeyHex)
         break
-      case 'envelopeEncryptField': {
-        // Generate a random symmetric key, encrypt the plaintext with it, and
-        // ECIES-wrap the key for each recipient. Returns { encryptedHex, envelopes }.
-        //
-        // The outer field AEAD binds the caller-supplied AAD (`req.aadHex`).
-        // The inner ECIES key-wrap for each recipient uses an empty AAD to
-        // match the existing on-wire envelope format — callers that need
-        // per-record binding on the key-wrap path should migrate to HPKE.
-        // TODO(tier-1 per-record-aad): revisit inner key-wrap AAD alongside
-        // POST_OVERHAUL_GAPS_2026-04-13.md Tier 1 P1 "Per-record AAD migration".
-        const messageKey = randomBytes(32)
-        const fieldNonce = randomBytes(24)
-        const fieldCipher = xchacha20poly1305(messageKey, fieldNonce, hexToBytes(req.aadHex))
-        const ct = fieldCipher.encrypt(utf8ToBytes(req.plaintext))
-        const packed = new Uint8Array(fieldNonce.length + ct.length)
-        packed.set(fieldNonce)
-        packed.set(ct, fieldNonce.length)
-        const envelopes = req.recipientPubkeysHex.map((pub) => {
-          const wrapped = eciesWrap(messageKey, pub, req.label, new Uint8Array(0))
-          return {
-            recipientPubkey: pub,
-            ephemeralPubkeyHex: wrapped.ephemeralPubkeyHex,
-            wrappedKeyHex: wrapped.wrappedKeyHex,
-          }
-        })
-        messageKey.fill(0)
-        result = { encryptedHex: bytesToHex(packed), envelopes }
-        break
-      }
       case 'computeHmac': {
         const mac = hmac(sha256, hexToBytes(req.secretHex), utf8ToBytes(req.input))
         result = bytesToHex(mac)
@@ -1221,7 +1118,7 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
         result = handleExportSession()
         break
       case 'importSession':
-        result = handleImportSession(
+        result = await handleImportSession(
           req.tokenHex,
           req.encryptedNsecHex,
           req.capsuleNonceHex,
@@ -1229,35 +1126,6 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
           req.kekNonceHex
         )
         break
-      case 'decryptEnvelopeField': {
-        if (!secretKey) throw new Error('Worker is locked')
-        if (!checkRateLimit('decrypt')) {
-          autoLock()
-          throw new Error('Rate limit exceeded — worker auto-locked')
-        }
-        // Step 1: ECIES unwrap the per-field symmetric message key.
-        // Inner ECIES AEAD uses empty AAD to match on-wire envelope format
-        // produced by `envelopeEncryptField`.
-        // TODO(tier-1 per-record-aad): revisit alongside the per-record AAD
-        // migration in POST_OVERHAUL_GAPS_2026-04-13.md Tier 1 P1.
-        const messageKey = eciesUnwrap(
-          req.ephemeralPubkeyHex,
-          req.wrappedKeyHex,
-          secretKey,
-          req.label,
-          new Uint8Array(0)
-        )
-        // Step 2: Symmetric decrypt the field ciphertext — the caller-supplied
-        // AAD binds the ciphertext to its context (matches
-        // `envelopeEncryptField`'s outer AEAD).
-        const fieldData = hexToBytes(req.encryptedHex)
-        const fieldNonce = fieldData.slice(0, 24)
-        const fieldCiphertext = fieldData.slice(24)
-        const fieldCipher = xchacha20poly1305(messageKey, fieldNonce, hexToBytes(req.aadHex))
-        const plaintext = fieldCipher.decrypt(fieldCiphertext)
-        result = new TextDecoder().decode(plaintext)
-        break
-      }
       case 'signAuditEntry':
         result = handleSignAuditEntry(req.entryHashHex)
         break

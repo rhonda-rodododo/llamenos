@@ -59,12 +59,12 @@ export class IdentityService {
 
   async getUsers(): Promise<User[]> {
     const rows = await this.db.select().from(users)
-    return rows.map((r) => this.#rowToUser(r))
+    return Promise.all(rows.map((r) => this.#rowToUser(r)))
   }
 
   async getUser(pubkey: string): Promise<User | null> {
     const rows = await this.db.select().from(users).where(eq(users.pubkey, pubkey)).limit(1)
-    return rows[0] ? this.#rowToUser(rows[0]) : null
+    return rows[0] ? await this.#rowToUser(rows[0]) : null
   }
 
   async createUser(data: CreateUserData): Promise<User> {
@@ -77,11 +77,19 @@ export class IdentityService {
       throw new AppError(500, 'Cannot create user: no valid envelope recipients for PII encryption')
     }
 
-    const nameEnvelope = this.crypto.envelopeEncrypt(data.name ?? '', piiRecipients, LABEL_USER_PII)
-    const phoneEnvelope = this.crypto.envelopeEncrypt(
+    const nameEnvelope = await this.crypto.envelopeEncrypt(
+      data.name ?? '',
+      piiRecipients,
+      LABEL_USER_PII,
+      '',
+      'name'
+    )
+    const phoneEnvelope = await this.crypto.envelopeEncrypt(
       data.phone ?? '',
       piiRecipients,
-      LABEL_USER_PII
+      LABEL_USER_PII,
+      '',
+      'phone'
     )
 
     const [row] = await this.db
@@ -103,7 +111,7 @@ export class IdentityService {
         nameEnvelopes: nameEnvelope.envelopes,
       })
       .returning()
-    return this.#rowToUser(row)
+    return await this.#rowToUser(row)
   }
 
   async updateUser(pubkey: string, data: UpdateUserData, isAdmin = false): Promise<User> {
@@ -138,17 +146,21 @@ export class IdentityService {
         throw new AppError(500, 'Cannot update PII: no valid envelope recipients')
       }
       if (allowed.name !== undefined) {
-        nameEnvelope = this.crypto.envelopeEncrypt(
+        nameEnvelope = await this.crypto.envelopeEncrypt(
           allowed.name as string,
           piiRecipients,
-          LABEL_USER_PII
+          LABEL_USER_PII,
+          '',
+          'name'
         )
       }
       if (allowed.phone !== undefined) {
-        phoneEnvelope = this.crypto.envelopeEncrypt(
+        phoneEnvelope = await this.crypto.envelopeEncrypt(
           allowed.phone as string,
           piiRecipients,
-          LABEL_USER_PII
+          LABEL_USER_PII,
+          '',
+          'phone'
         )
       }
     }
@@ -197,7 +209,7 @@ export class IdentityService {
       })
       .where(eq(users.pubkey, pubkey))
       .returning()
-    return this.#rowToUser(row)
+    return await this.#rowToUser(row)
   }
 
   async deleteUser(pubkey: string): Promise<void> {
@@ -226,8 +238,20 @@ export class IdentityService {
         throw new AppError(400, 'Invalid pubkey for bootstrap admin')
       }
       const recipients = [pubkey]
-      const nameEnvelope = this.crypto.envelopeEncrypt('Admin', recipients, LABEL_USER_PII)
-      const phoneEnvelope = this.crypto.envelopeEncrypt('', recipients, LABEL_USER_PII)
+      const nameEnvelope = await this.crypto.envelopeEncrypt(
+        'Admin',
+        recipients,
+        LABEL_USER_PII,
+        '',
+        'name'
+      )
+      const phoneEnvelope = await this.crypto.envelopeEncrypt(
+        '',
+        recipients,
+        LABEL_USER_PII,
+        '',
+        'phone'
+      )
 
       const [row] = await tx
         .insert(users)
@@ -248,7 +272,7 @@ export class IdentityService {
           nameEnvelopes: nameEnvelope.envelopes,
         })
         .returning()
-      return this.#rowToUser(row)
+      return await this.#rowToUser(row)
     })
   }
 
@@ -274,7 +298,7 @@ export class IdentityService {
       })
       .where(eq(users.pubkey, data.pubkey))
       .returning()
-    return this.#rowToUser(row)
+    return await this.#rowToUser(row)
   }
 
   async removeHubRole(pubkey: string, hubId: string): Promise<User> {
@@ -294,14 +318,14 @@ export class IdentityService {
       .where(eq(users.pubkey, pubkey))
       .returning()
     if (!row) throw new AppError(404, 'User not found')
-    return this.#rowToUser(row)
+    return await this.#rowToUser(row)
   }
 
   // ------------------------------------------------------------------ Invites
 
   async getInvites(): Promise<InviteCode[]> {
     const rows = await this.db.select().from(inviteCodes).where(isNull(inviteCodes.usedAt))
-    return rows.map((r) => this.#rowToInvite(r))
+    return Promise.all(rows.map((r) => this.#rowToInvite(r)))
   }
 
   async createInvite(data: CreateInviteData): Promise<InviteCode> {
@@ -318,20 +342,19 @@ export class IdentityService {
       throw new AppError(500, 'Cannot create invite: no admin pubkeys for PII encryption')
     }
 
-    // Include server pubkey so the server can envelope-decrypt the name
-    // for the validateInvite welcome page without a separate server-key copy.
-    const serverPubkey = this.crypto.getServerPubkey()
-    const nameRecipients = [...new Set([...adminPubkeys, serverPubkey])]
-
-    const phoneEnvelope = this.crypto.envelopeEncrypt(
+    const phoneEnvelope = await this.crypto.envelopeEncrypt(
       data.phone ?? '',
       adminPubkeys,
-      LABEL_USER_PII
+      LABEL_USER_PII,
+      '',
+      'phone'
     )
-    const nameEnvelope = this.crypto.envelopeEncrypt(
+    const nameEnvelope = await this.crypto.envelopeEncrypt(
       data.name ?? '',
-      nameRecipients,
-      LABEL_USER_PII
+      adminPubkeys,
+      LABEL_USER_PII,
+      '',
+      'name'
     )
 
     const [row] = await this.db
@@ -347,7 +370,7 @@ export class IdentityService {
         nameEnvelopes: nameEnvelope.envelopes,
       })
       .returning()
-    return this.#rowToInvite(row)
+    return await this.#rowToInvite(row)
   }
 
   async validateInvite(
@@ -361,15 +384,12 @@ export class IdentityService {
     // Name is envelope-encrypted — server unwraps its own envelope to display
     // on the welcome page. Falls back to empty if the server envelope is missing
     // (e.g. invites created before the server was added as a recipient).
-    let name: string | undefined
-    try {
-      name = this.#envelopeDecryptName(
-        row.encryptedName as Ciphertext,
-        row.nameEnvelopes as RecipientEnvelope[]
-      )
-    } catch {
-      // Envelope missing or decrypt failed — name stays undefined
-    }
+    const name = await this.crypto.envelopeDecryptFromList(
+      (row.nameEnvelopes as RecipientEnvelope[]) ?? [],
+      LABEL_USER_PII,
+      '',
+      'name'
+    )
     return { valid: true, name, roleIds: row.roleIds as string[] }
   }
 
@@ -391,15 +411,14 @@ export class IdentityService {
         .set({ usedAt: new Date(), usedBy: data.pubkey })
         .where(eq(inviteCodes.code, data.code))
 
-      // Invite phone is E2EE (Phase 2D) — server cannot decrypt.
-      // Invite name has a server-encrypted copy for validateInvite.
-      // The new user gets empty phone/name — they fill in during profile setup.
-      let inviteName = ''
-      try {
-        inviteName = this.crypto.serverDecrypt(invite.encryptedName as Ciphertext, LABEL_USER_PII)
-      } catch {
-        // E2EE-only name — leave empty, user fills in during profile setup
-      }
+      // Invite name: server-decrypt from HPKE envelope
+      const inviteName =
+        (await this.crypto.envelopeDecryptFromList(
+          (invite.nameEnvelopes as RecipientEnvelope[]) ?? [],
+          LABEL_USER_PII,
+          '',
+          'name'
+        )) ?? ''
 
       // E2EE envelope-encrypt the new user's PII (no server-key fallback)
       const adminPubkeys = (await this.getSuperAdminPubkeys()).filter(isValidPubkey)
@@ -413,9 +432,21 @@ export class IdentityService {
         )
       }
 
-      const nameEnvelope = this.crypto.envelopeEncrypt(inviteName, piiRecipients, LABEL_USER_PII)
+      const nameEnvelope = await this.crypto.envelopeEncrypt(
+        inviteName,
+        piiRecipients,
+        LABEL_USER_PII,
+        '',
+        'name'
+      )
       // Phone: empty for now — user enters their own phone during profile setup
-      const phoneEnvelope = this.crypto.envelopeEncrypt('', piiRecipients, LABEL_USER_PII)
+      const phoneEnvelope = await this.crypto.envelopeEncrypt(
+        '',
+        piiRecipients,
+        LABEL_USER_PII,
+        '',
+        'phone'
+      )
 
       // Create user
       const [row] = await tx
@@ -437,7 +468,7 @@ export class IdentityService {
           nameEnvelopes: nameEnvelope.envelopes,
         })
         .returning()
-      return this.#rowToUser(row)
+      return await this.#rowToUser(row)
     })
   }
 
@@ -459,7 +490,7 @@ export class IdentityService {
       .where(eq(inviteCodes.code, code))
       .returning()
     if (!row) throw new AppError(404, 'Invite not found')
-    return this.#rowToInvite(row)
+    return await this.#rowToInvite(row)
   }
 
   // ------------------------------------------------------------------ WebAuthn Credentials
@@ -469,12 +500,14 @@ export class IdentityService {
       .select()
       .from(webauthnCredentials)
       .where(eq(webauthnCredentials.pubkey, pubkey))
-    return rows.map((r) => this.#rowToCredential(r))
+    return Promise.all(rows.map((r) => this.#rowToCredential(r)))
   }
 
   async getAllWebAuthnCredentials(): Promise<Array<WebAuthnCredential & { ownerPubkey: string }>> {
     const rows = await this.db.select().from(webauthnCredentials)
-    return rows.map((r) => ({ ...this.#rowToCredential(r), ownerPubkey: r.pubkey }))
+    return Promise.all(
+      rows.map(async (r) => ({ ...(await this.#rowToCredential(r)), ownerPubkey: r.pubkey }))
+    )
   }
 
   async addWebAuthnCredential(data: AddWebAuthnCredentialData): Promise<void> {
@@ -483,7 +516,7 @@ export class IdentityService {
     // E2EE encrypt label for the credential owner's pubkey
     const labelEnvelope =
       cred.label && isValidPubkey(data.pubkey)
-        ? this.crypto.envelopeEncrypt(cred.label, [data.pubkey], LABEL_USER_PII)
+        ? await this.crypto.envelopeEncrypt(cred.label, [data.pubkey], LABEL_USER_PII, '', 'label')
         : undefined
 
     await this.db.insert(webauthnCredentials).values({
@@ -742,15 +775,20 @@ export class IdentityService {
 
   // ------------------------------------------------------------------ Private helpers
 
-  #rowToUser(r: typeof users.$inferSelect): User {
-    // Phase 2D: all user PII is E2EE (envelope-encrypted). Server never decrypts.
+  async #rowToUser(r: typeof users.$inferSelect): Promise<User> {
     const nameEnvelopes = (r.nameEnvelopes as import('@shared/types').RecipientEnvelope[]) ?? []
     const phoneEnvelopes = (r.phoneEnvelopes as import('@shared/types').RecipientEnvelope[]) ?? []
 
+    // Server-decrypt PII from the server's own HPKE envelope
+    const name =
+      (await this.crypto.envelopeDecryptFromList(nameEnvelopes, LABEL_USER_PII, '', 'name')) ?? ''
+    const phone =
+      (await this.crypto.envelopeDecryptFromList(phoneEnvelopes, LABEL_USER_PII, '', 'phone')) ?? ''
+
     return {
       pubkey: r.pubkey,
-      name: nameEnvelopes.length > 0 ? '[encrypted]' : '',
-      phone: phoneEnvelopes.length > 0 ? '[encrypted]' : '',
+      name,
+      phone,
       roles: r.roles as string[],
       hubRoles: r.hubRoles as Array<{ hubId: string; roleIds: string[] }>,
       active: r.active,
@@ -766,7 +804,8 @@ export class IdentityService {
         | MessagingChannelType[]
         | undefined,
       messagingEnabled: r.messagingEnabled ?? undefined,
-      // E2EE envelope fields for client-side decryption
+      // E2EE envelope fields for client-side decryption (when X25519 pubkey
+      // registration is implemented, user envelopes will also be present)
       ...(nameEnvelopes.length > 0
         ? { encryptedName: r.encryptedName as string, nameEnvelopes }
         : {}),
@@ -776,39 +815,31 @@ export class IdentityService {
     }
   }
 
-  /** Decrypt an envelope-encrypted name using the server's own envelope. */
-  #envelopeDecryptName(
-    encryptedName: Ciphertext,
-    envelopes: RecipientEnvelope[]
-  ): string | undefined {
-    if (!encryptedName || !envelopes?.length) return undefined
-    return this.crypto.serverEnvelopeDecrypt(encryptedName, envelopes, LABEL_USER_PII)
-  }
-
-  #rowToInvite(r: typeof inviteCodes.$inferSelect): InviteCode {
-    // Name: server-encrypted copy exists for validateInvite welcome page.
-    // Envelopes stored alongside for admin list decryption (client-side).
+  async #rowToInvite(r: typeof inviteCodes.$inferSelect): Promise<InviteCode> {
     const inviteNameEnvelopes =
       (r.nameEnvelopes as import('@shared/types').RecipientEnvelope[]) ?? []
-    let name = ''
-    if (inviteNameEnvelopes.length > 0) {
-      name = '[encrypted]'
-    } else if (r.encryptedName) {
-      try {
-        name = this.crypto.serverDecrypt(r.encryptedName as Ciphertext, LABEL_USER_PII)
-      } catch {
-        name = ''
-      }
-    }
+    const name =
+      (await this.crypto.envelopeDecryptFromList(
+        inviteNameEnvelopes,
+        LABEL_USER_PII,
+        '',
+        'name'
+      )) ?? ''
 
-    // Phone: Phase 2D — E2EE only, server never decrypts.
     const invitePhoneEnvelopes =
       (r.phoneEnvelopes as import('@shared/types').RecipientEnvelope[]) ?? []
+    const phone =
+      (await this.crypto.envelopeDecryptFromList(
+        invitePhoneEnvelopes,
+        LABEL_USER_PII,
+        '',
+        'phone'
+      )) ?? ''
 
     return {
       code: r.code,
       name,
-      phone: invitePhoneEnvelopes.length > 0 ? '[encrypted]' : '',
+      phone,
       roleIds: r.roleIds as string[],
       createdBy: r.createdBy,
       createdAt: r.createdAt.toISOString(),
@@ -876,15 +907,17 @@ export class IdentityService {
     await this.db.update(users).set({ active }).where(eq(users.pubkey, pubkey))
   }
 
-  #rowToCredential(r: typeof webauthnCredentials.$inferSelect): WebAuthnCredential {
+  async #rowToCredential(r: typeof webauthnCredentials.$inferSelect): Promise<WebAuthnCredential> {
     const labelEnvelopes = (r.labelEnvelopes as import('@shared/types').RecipientEnvelope[]) ?? []
+    const label =
+      (await this.crypto.envelopeDecryptFromList(labelEnvelopes, LABEL_USER_PII, '', 'label')) ?? ''
     return {
       id: r.id,
       publicKey: r.publicKey,
       counter: Number(r.counter),
       transports: r.transports as string[],
       backedUp: r.backedUp,
-      label: labelEnvelopes.length > 0 ? '[encrypted]' : '', // E2EE label decrypted client-side
+      label,
       createdAt: r.createdAt.toISOString(),
       lastUsedAt: r.lastUsedAt.toISOString(),
       // E2EE envelope fields for client-side decryption

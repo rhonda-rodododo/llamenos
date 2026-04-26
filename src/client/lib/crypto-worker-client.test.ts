@@ -109,7 +109,7 @@ async function seedWorkerWithHpkeKeys(): Promise<{
 
   // 3. Hand an nsec into the worker alongside the HPKE + hub handles.
   const nsec = new Uint8Array(32).fill(9)
-  const pubkeyHex = _test_handleUnlockWithHandles(new Uint8Array(nsec), priv, hub)
+  const pubkeyHex = await _test_handleUnlockWithHandles(new Uint8Array(nsec), priv, hub)
   return { recipientPub, pubkeyHex }
 }
 

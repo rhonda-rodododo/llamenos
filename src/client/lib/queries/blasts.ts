@@ -1,7 +1,7 @@
 /**
  * React Query hooks for blast messaging resource management.
  *
- * Blast content is E2EE — decrypted client-side via ECIES envelopes
+ * Blast content is E2EE — decrypted client-side via HPKE envelopes
  * when the key manager is unlocked.
  */
 
@@ -63,13 +63,13 @@ const blastsListOptions = (hubId = 'global') =>
 
       const decryptedContent: DecryptedBlastContent = {}
       for (const blast of blasts) {
-        if (blast.encryptedContent && blast.contentEnvelopes?.length) {
-          decryptedContent[blast.id] = await decryptBlastContent(
-            blast.encryptedContent,
-            // @ts-expect-error Slice 3: ECIES → HPKE migration
-            blast.contentEnvelopes,
-            pk
-          )
+        if (blast.contentEnvelopes?.length) {
+          // Slice 4: contentEnvelopes will carry HpkeEnvelope per recipient.
+          // Until then, the cast bridges the old RecipientEnvelope → HpkeEnvelope shape.
+          const env = blast.contentEnvelopes.find((e) => e.pubkey === pk)
+          if (env) {
+            decryptedContent[blast.id] = await decryptBlastContent(env, blast.id)
+          }
         }
       }
 

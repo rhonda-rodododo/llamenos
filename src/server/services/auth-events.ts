@@ -43,12 +43,14 @@ export class AuthEventsService {
 
   async record(input: RecordAuthEventInput): Promise<UserAuthEventRow> {
     const plaintext = JSON.stringify(input.payload)
-    const { encrypted, envelopes } = this.crypto.envelopeEncrypt(
+    const id = crypto.randomUUID()
+    const { encrypted, envelopes } = await this.crypto.envelopeEncrypt(
       plaintext,
       [input.userPubkey],
-      LABEL_AUTH_EVENT
+      LABEL_AUTH_EVENT,
+      id,
+      'payload'
     )
-    const id = crypto.randomUUID()
     const rows = await this.db
       .insert(userAuthEvents)
       .values({

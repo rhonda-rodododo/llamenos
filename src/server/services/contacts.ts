@@ -15,6 +15,8 @@ import type { TeamsService } from './teams'
 // ------------------------------------------------------------------ Input/Output types
 
 export interface CreateContactInput {
+  /** Pre-generated UUID — MUST match the recordId used for HPKE AAD binding. */
+  id: string
   hubId: string
   contactType: string
   riskLevel: string
@@ -90,7 +92,7 @@ export class ContactService {
   // ------------------------------------------------------------------ CRUD
 
   async createContact(input: CreateContactInput): Promise<ContactRow> {
-    const id = crypto.randomUUID()
+    const id = input.id
     const now = new Date()
     const [row] = await this.db
       .insert(contacts)

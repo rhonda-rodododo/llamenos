@@ -1,4 +1,5 @@
 import { createRoute, z } from '@hono/zod-openapi'
+import { LABEL_CONTACT_PII, LABEL_CONTACT_SUMMARY } from '@shared/crypto-labels'
 import type { Ciphertext, HmacHash } from '@shared/crypto-types'
 import type { RecipientEnvelope } from '@shared/types'
 import { createRouter } from '../lib/openapi'
@@ -17,8 +18,11 @@ const ContactImportSchema = z.object({
         contactType: z.string(),
         riskLevel: z.string(),
         tags: z.array(z.string()).optional(),
-        encryptedDisplayName: z.string(),
-        displayNameEnvelopes: z.array(EnvelopeSchema),
+        displayName: z.string().optional(),
+        fullName: z.string().optional(),
+        phone: z.string().optional(),
+        encryptedDisplayName: z.string().optional(),
+        displayNameEnvelopes: z.array(EnvelopeSchema).optional(),
         encryptedFullName: z.string().optional(),
         fullNameEnvelopes: z.array(EnvelopeSchema).optional(),
         encryptedPhone: z.string().optional(),
@@ -93,19 +97,70 @@ contactImport.openapi(importRoute, async (c) => {
         }
       }
 
+      const contactId = crypto.randomUUID()
+
+      // Server-side envelope encryption for plaintext fields
+      const hasEncDisplayName = contact.encryptedDisplayName && contact.displayNameEnvelopes
+      let encDisplayName = contact.encryptedDisplayName as Ciphertext | undefined
+      let dispEnvelopes = contact.displayNameEnvelopes as unknown as RecipientEnvelope[] | undefined
+      if (!hasEncDisplayName && contact.displayName) {
+        const env = await services.crypto.envelopeEncrypt(
+          contact.displayName,
+          [],
+          LABEL_CONTACT_SUMMARY,
+          contactId,
+          'displayName'
+        )
+        encDisplayName = env.encrypted
+        dispEnvelopes = env.envelopes
+      }
+
+      let encFullName = contact.encryptedFullName as Ciphertext | undefined
+      let fnEnv = contact.fullNameEnvelopes as unknown as RecipientEnvelope[] | undefined
+      if (!contact.encryptedFullName && contact.fullName) {
+        const env = await services.crypto.envelopeEncrypt(
+          contact.fullName,
+          [],
+          LABEL_CONTACT_PII,
+          contactId,
+          'fullName'
+        )
+        encFullName = env.encrypted
+        fnEnv = env.envelopes
+      }
+
+      let encPhone = contact.encryptedPhone as Ciphertext | undefined
+      let phoneEnv = contact.phoneEnvelopes as unknown as RecipientEnvelope[] | undefined
+      if (!contact.encryptedPhone && contact.phone) {
+        const env = await services.crypto.envelopeEncrypt(
+          contact.phone,
+          [],
+          LABEL_CONTACT_PII,
+          contactId,
+          'phone'
+        )
+        encPhone = env.encrypted
+        phoneEnv = env.envelopes
+      }
+
+      if (!encDisplayName) {
+        errors.push({ index: i, error: 'displayName or encryptedDisplayName is required' })
+        continue
+      }
+
       await services.contacts.createContact({
+        id: contactId,
         hubId,
         contactType: contact.contactType || 'caller',
         riskLevel: contact.riskLevel || 'low',
         tags: contact.tags ?? [],
         identifierHash: contact.identifierHash as HmacHash | undefined,
-        encryptedDisplayName: contact.encryptedDisplayName as Ciphertext,
-        displayNameEnvelopes: (contact.displayNameEnvelopes ??
-          []) as unknown as RecipientEnvelope[],
-        encryptedFullName: contact.encryptedFullName as Ciphertext | undefined,
-        fullNameEnvelopes: (contact.fullNameEnvelopes ?? []) as unknown as RecipientEnvelope[],
-        encryptedPhone: contact.encryptedPhone as Ciphertext | undefined,
-        phoneEnvelopes: (contact.phoneEnvelopes ?? []) as unknown as RecipientEnvelope[],
+        encryptedDisplayName: encDisplayName,
+        displayNameEnvelopes: (dispEnvelopes ?? []) as RecipientEnvelope[],
+        encryptedFullName: encFullName,
+        fullNameEnvelopes: (fnEnv ?? []) as RecipientEnvelope[],
+        encryptedPhone: encPhone,
+        phoneEnvelopes: (phoneEnv ?? []) as RecipientEnvelope[],
         encryptedPII: contact.encryptedPII as Ciphertext | undefined,
         piiEnvelopes: (contact.piiEnvelopes ?? []) as unknown as RecipientEnvelope[],
         createdBy: pubkey ?? '',

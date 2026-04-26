@@ -228,17 +228,15 @@ export class FirehoseAgentService {
           continue
         }
 
-        const content = this.crypto.envelopeDecrypt(
+        const content = await this.crypto.envelopeDecrypt(
           parsed.encrypted as Ciphertext,
           contentEnvelope as RecipientEnvelope,
-          agent.nsecBytes,
           LABEL_FIREHOSE_BUFFER_ENCRYPT
         )
 
-        const senderJson = this.crypto.envelopeDecrypt(
+        const senderJson = await this.crypto.envelopeDecrypt(
           senderParsed.encrypted as Ciphertext,
           senderEnvelope as RecipientEnvelope,
-          agent.nsecBytes,
           LABEL_FIREHOSE_BUFFER_ENCRYPT
         )
 
@@ -429,10 +427,12 @@ export class FirehoseAgentService {
     }
 
     // Envelope-encrypt the report content
-    const { encrypted, envelopes } = this.crypto.envelopeEncrypt(
+    const { encrypted, envelopes } = await this.crypto.envelopeEncrypt(
       reportContent,
       recipientPubkeys,
-      LABEL_FIREHOSE_REPORT_WRAP
+      LABEL_FIREHOSE_REPORT_WRAP,
+      '',
+      'content'
     )
 
     // Create conversation with report metadata (follows reports.ts pattern)

@@ -10,6 +10,7 @@ import {
   noteEnvelopes,
 } from '@server/db/schema'
 import { CryptoService } from '@server/lib/crypto-service'
+import { HpkeService } from '@server/lib/hpke-service'
 import { GdprService } from '@server/services/gdpr'
 import { LABEL_AUDIT_EVENT } from '@shared/crypto-labels'
 import { sql } from 'drizzle-orm'
@@ -35,7 +36,8 @@ beforeAll(async () => {
   await migrate(db, {
     migrationsFolder: path.resolve(import.meta.dir, '../../../drizzle/migrations'),
   })
-  crypto_ = new CryptoService('', '')
+  const hpke = new HpkeService('')
+  crypto_ = new CryptoService('', '', hpke)
   service = new GdprService(db, crypto_)
 })
 

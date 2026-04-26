@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import path from 'node:path'
 import { createDatabase } from '@server/db'
 import { CryptoService } from '@server/lib/crypto-service'
+import { HpkeService } from '@server/lib/hpke-service'
 import { ContactService } from '@server/services/contacts'
 import type { Ciphertext, HmacHash } from '@shared/crypto-types'
 import { migrate } from 'drizzle-orm/bun-sql/migrator'
@@ -15,7 +16,8 @@ const RUN_PREFIX = `test-hub-contacts-${crypto.randomUUID().slice(0, 8)}`
 
 let db: ReturnType<typeof createDatabase>
 let service: ContactService
-const cryptoSvc = new CryptoService('0'.repeat(64), '1'.repeat(64))
+const hpkeSvc = new HpkeService('0'.repeat(64))
+const cryptoSvc = new CryptoService('0'.repeat(64), '1'.repeat(64), hpkeSvc)
 
 // Helpers to produce branded types without real encryption in tests
 const fakeCiphertext = (s: string) => s as Ciphertext
@@ -49,6 +51,7 @@ describe('ContactService', () => {
   test('createContact with Tier 1 fields only', async () => {
     const hub = `${RUN_PREFIX}-t1`
     const contact = await service.createContact({
+      id: crypto.randomUUID(),
       hubId: hub,
       contactType: 'caller',
       riskLevel: 'low',
@@ -77,6 +80,7 @@ describe('ContactService', () => {
     const idHash = fakeHmacHash('hmac-hash-phone-abc')
 
     const contact = await service.createContact({
+      id: crypto.randomUUID(),
       hubId: hub,
       contactType: 'caller',
       riskLevel: 'high',
@@ -111,6 +115,7 @@ describe('ContactService', () => {
     const otherHub = `${RUN_PREFIX}-t3-other`
 
     await service.createContact({
+      id: crypto.randomUUID(),
       hubId: hub,
       contactType: 'caller',
       riskLevel: 'low',
@@ -120,6 +125,7 @@ describe('ContactService', () => {
       createdBy: 'pk',
     })
     await service.createContact({
+      id: crypto.randomUUID(),
       hubId: otherHub,
       contactType: 'caller',
       riskLevel: 'low',
@@ -143,6 +149,7 @@ describe('ContactService', () => {
     const hub = `${RUN_PREFIX}-t4`
 
     await service.createContact({
+      id: crypto.randomUUID(),
       hubId: hub,
       contactType: 'caller',
       riskLevel: 'low',
@@ -152,6 +159,7 @@ describe('ContactService', () => {
       createdBy: 'pk',
     })
     await service.createContact({
+      id: crypto.randomUUID(),
       hubId: hub,
       contactType: 'admin',
       riskLevel: 'low',
@@ -175,6 +183,7 @@ describe('ContactService', () => {
     const hub = `${RUN_PREFIX}-t5`
 
     const contact = await service.createContact({
+      id: crypto.randomUUID(),
       hubId: hub,
       contactType: 'caller',
       riskLevel: 'low',
@@ -209,6 +218,7 @@ describe('ContactService', () => {
     const hub = `${RUN_PREFIX}-t6`
 
     const contact = await service.createContact({
+      id: crypto.randomUUID(),
       hubId: hub,
       contactType: 'caller',
       riskLevel: 'low',
@@ -231,6 +241,7 @@ describe('ContactService', () => {
     const idHash = fakeHmacHash('unique-hash-for-dedup')
 
     await service.createContact({
+      id: crypto.randomUUID(),
       hubId: hub,
       contactType: 'caller',
       riskLevel: 'low',
@@ -286,6 +297,7 @@ describe('ContactService', () => {
     const hub = `${RUN_PREFIX}-t9`
 
     const contact = await service.createContact({
+      id: crypto.randomUUID(),
       hubId: hub,
       contactType: 'caller',
       riskLevel: 'low',

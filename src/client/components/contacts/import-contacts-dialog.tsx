@@ -1,7 +1,3 @@
-import { utf8ToBytes } from '@noble/ciphers/utils.js'
-import { type CryptoLabel, LABEL_CONTACT_PII, LABEL_CONTACT_SUMMARY } from '@shared/crypto-labels'
-import type { Ciphertext } from '@shared/crypto-types'
-import type { RecipientEnvelope } from '@shared/types'
 import { AlertTriangle, CheckCircle2, FileUp, Loader2, Upload, X } from 'lucide-react'
 import { useCallback, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -17,9 +13,6 @@ import {
 } from '@/components/ui/dialog'
 import { Progress } from '@/components/ui/progress'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { getContactRecipients } from '@/lib/api'
-import { cryptoWorker } from '@/lib/crypto-worker-client'
-import * as keyManager from '@/lib/key-manager'
 import { useImportContacts } from '@/lib/queries/contacts'
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -166,28 +159,6 @@ function parseJSON(text: string): ParseResult {
   return { ok: true, rows, warnings }
 }
 
-async function envelopeEncrypt(
-  plaintext: string,
-  recipientPubkeys: string[],
-  label: CryptoLabel
-): Promise<{ encrypted: Ciphertext; envelopes: RecipientEnvelope[] }> {
-  const { encryptedHex, envelopes } = await cryptoWorker.envelopeEncryptField(
-    plaintext,
-    recipientPubkeys,
-    label,
-    utf8ToBytes(label)
-  )
-  return {
-    encrypted: encryptedHex as Ciphertext,
-    // @ts-expect-error Slice 2: ECIES → HPKE migration
-    envelopes: envelopes.map((e) => ({
-      pubkey: e.recipientPubkey,
-      wrappedKey: e.wrappedKeyHex as Ciphertext,
-      ephemeralPubkey: e.ephemeralPubkeyHex,
-    })),
-  }
-}
-
 // ── Component ──────────────────────────────────────────────────────────────
 
 interface ImportContactsDialogProps {
@@ -280,78 +251,34 @@ export function ImportContactsDialog({
   )
 
   async function handleImport() {
-    if (!parseResult?.ok) return
-
-    const unlocked = await keyManager.isUnlocked()
-    if (!unlocked) {
-      toast.error(
-        t('contacts.errorKeyLocked', {
-          defaultValue: 'Encryption key is locked. Please unlock first.',
-        })
-      )
-      return
-    }
-
-    const pk = await keyManager.getPublicKeyHex()
-    if (!pk) {
-      toast.error(t('contacts.errorNoPubkey', { defaultValue: 'Could not retrieve public key' }))
-      return
-    }
+    if (!parseResult || !parseResult.ok) return
 
     setStage('importing')
     setProgress(0)
 
     try {
-      const { summaryPubkeys, piiPubkeys } = await getContactRecipients()
-      if (!summaryPubkeys.includes(pk)) summaryPubkeys.push(pk)
-      if (!piiPubkeys.includes(pk)) piiPubkeys.push(pk)
-
       const { rows } = parseResult
-      const encryptedContacts: Parameters<typeof importMutation.mutateAsync>[0]['contacts'] = []
+      const contacts: Parameters<typeof importMutation.mutateAsync>[0]['contacts'] = []
 
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i]
-
-        const { encrypted: encryptedDisplayName, envelopes: displayNameEnvelopes } =
-          await envelopeEncrypt(row.displayName, summaryPubkeys, LABEL_CONTACT_SUMMARY)
-
-        let encryptedFullName: string | undefined
-        let fullNameEnvelopes: RecipientEnvelope[] | undefined
-        if (row.fullName) {
-          const r = await envelopeEncrypt(row.fullName, piiPubkeys, LABEL_CONTACT_PII)
-          encryptedFullName = r.encrypted
-          fullNameEnvelopes = r.envelopes
-        }
-
-        let encryptedPhone: string | undefined
-        let phoneEnvelopes: RecipientEnvelope[] | undefined
-        if (row.phone) {
-          const r = await envelopeEncrypt(row.phone, piiPubkeys, LABEL_CONTACT_PII)
-          encryptedPhone = r.encrypted
-          phoneEnvelopes = r.envelopes
-        }
-
-        encryptedContacts.push({
+        contacts.push({
           contactType: row.contactType,
           riskLevel: row.riskLevel,
           tags: row.tags,
-          encryptedDisplayName,
-          displayNameEnvelopes,
-          encryptedFullName,
-          fullNameEnvelopes,
-          encryptedPhone,
-          phoneEnvelopes,
+          displayName: row.displayName,
+          fullName: row.fullName,
+          phone: row.phone,
         })
-
         setProgress(Math.round(((i + 1) / rows.length) * 90))
       }
 
       setProgress(95)
-      const res = await importMutation.mutateAsync({ contacts: encryptedContacts })
+      const res = await importMutation.mutateAsync({ contacts })
       setProgress(100)
       setResult(res)
       setStage('done')
-    } catch (_err) {
+    } catch (err) {
       toast.error(t('contacts.importFailed', { defaultValue: 'Import failed' }))
       setStage('preview')
     }

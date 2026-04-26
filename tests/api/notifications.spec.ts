@@ -113,8 +113,8 @@ test.describe('Notification API', () => {
     expect(body).toHaveProperty('id')
     expect(typeof body.id).toBe('string')
     expect(body.endpoint).toBe(endpoint)
-    // deviceLabel is E2EE envelope-encrypted — server returns '[encrypted]' sentinel
-    expect(body.deviceLabel).toBe('[encrypted]')
+    // deviceLabel is HPKE envelope-encrypted — server decrypts its own envelope
+    expect(body.deviceLabel).toBe('Test Browser')
   })
 
   test('POST /api/notifications/subscribe works without optional deviceLabel (200)', async () => {

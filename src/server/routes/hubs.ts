@@ -1,5 +1,5 @@
 import { createRoute, z } from '@hono/zod-openapi'
-import { LABEL_STORAGE_CREDENTIAL_WRAP } from '@shared/crypto-labels'
+import { LABEL_HUB_KEY_WRAP, LABEL_STORAGE_CREDENTIAL_WRAP } from '@shared/crypto-labels'
 import { eq } from 'drizzle-orm'
 import type { Hub } from '../../shared/types'
 import { getDb } from '../db'
@@ -657,17 +657,59 @@ routes.openapi(getKeyEnvelopeRoute, async (c) => {
   const services = c.get('services')
 
   const envelopes = await services.settings.getHubKeyEnvelopes(hubId)
-  const myEnvelope = envelopes.find((e) => e.pubkey === pubkey)
-  if (!myEnvelope) return c.json({ error: 'not_a_member' }, 404)
+  log.info('key-envelope request', {
+    hubId,
+    pubkey: pubkey?.slice(0, 8),
+    hpkePubkey: c.req.query('hpkePubkey')?.slice(0, 8),
+    envelopeCount: envelopes.length,
+  })
 
-  return c.json(
-    {
-      wrappedKey: myEnvelope.wrappedKey,
-      ephemeralPubkey: myEnvelope.ephemeralPubkey,
-      ephemeralPk: myEnvelope.ephemeralPubkey, // backwards compat
-    },
-    200
-  )
+  // If the client provides its X25519 HPKE pubkey, the server unwraps its own
+  // hub key envelope and re-wraps for the client's X25519 key. This bridges
+  // the secp256k1→X25519 gap: the server wraps hub keys for member secp256k1
+  // pubkeys (legacy), but HPKE decryption requires the client's X25519 key
+  // derived from nsec via HKDF.
+  const hpkePubkeyHex = c.req.query('hpkePubkey')
+  if (hpkePubkeyHex && hpkePubkeyHex.length === 64) {
+    // Verify the user is a member (has any envelope keyed to their secp256k1 pubkey)
+    const isMember = envelopes.some((e) => e.pubkeyHex === pubkey)
+    if (!isMember) {
+      log.info('key-envelope: not a member', { pubkey: pubkey?.slice(0, 8) })
+      return c.json({ error: 'not_a_member' }, 404)
+    }
+
+    try {
+      const hubKey = await services.hpke.unwrapHubKey(envelopes)
+      const recipientBytes = new Uint8Array(
+        hpkePubkeyHex.match(/.{2}/g)!.map((b) => Number.parseInt(b, 16))
+      )
+      const envelope = await services.hpke.sealFor(
+        hubKey,
+        recipientBytes,
+        LABEL_HUB_KEY_WRAP,
+        hubId,
+        'hub-key'
+      )
+      log.info('key-envelope: re-wrapped OK', { hubId })
+      return c.json(envelope, 200)
+    } catch (err) {
+      log.error('key-envelope: re-wrap failed', {
+        err: err instanceof Error ? err.message : String(err),
+      })
+    }
+  }
+
+  // Legacy path: return the member's stored envelope directly
+  const myEnvelope = envelopes.find((e) => e.pubkeyHex === pubkey)
+  if (!myEnvelope) {
+    log.info('key-envelope: legacy not found', {
+      pubkey: pubkey?.slice(0, 8),
+      stored: envelopes.map((e) => e.pubkeyHex.slice(0, 8)),
+    })
+    return c.json({ error: 'not_a_member' }, 404)
+  }
+
+  return c.json(myEnvelope.envelope, 200)
 })
 
 // ── GET /{hubId}/key — get my hub key (membership required) ──
@@ -713,10 +755,10 @@ routes.openapi(getHubKeyRoute, async (c) => {
   if (!hub) return c.json({ error: 'Hub not found' }, 404)
 
   const envelopes = await services.settings.getHubKeyEnvelopes(hubId)
-  const myEnvelope = envelopes.find((e) => e.pubkey === pubkey)
+  const myEnvelope = envelopes.find((e) => e.pubkeyHex === pubkey)
   if (!myEnvelope) return c.json({ error: 'No key envelope for this user' }, 404)
 
-  return c.json({ envelope: myEnvelope }, 200)
+  return c.json({ envelope: myEnvelope.envelope }, 200)
 })
 
 // ── PUT /{hubId}/key — set hub key envelopes ──
@@ -735,9 +777,13 @@ const setHubKeyRoute = createRoute({
           schema: z.object({
             envelopes: z.array(
               z.object({
-                pubkey: z.string(),
-                wrappedKey: z.string(),
-                ephemeralPubkey: z.string(),
+                pubkeyHex: z.string(),
+                envelope: z.object({
+                  v: z.literal(3),
+                  labelId: z.number(),
+                  enc: z.string(),
+                  ct: z.string(),
+                }),
               })
             ),
           }),

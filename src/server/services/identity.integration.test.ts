@@ -3,6 +3,7 @@ import path from 'node:path'
 import { createDatabase } from '@server/db'
 import { users, webauthnCredentials } from '@server/db/schema'
 import { CryptoService } from '@server/lib/crypto-service'
+import { HpkeService } from '@server/lib/hpke-service'
 import { IdentityService } from '@server/services/identity'
 import type { Ciphertext } from '@shared/crypto-types'
 import { eq } from 'drizzle-orm'
@@ -23,7 +24,8 @@ beforeAll(async () => {
   await migrate(db, {
     migrationsFolder: path.resolve(import.meta.dir, '../../../drizzle/migrations'),
   })
-  service = new IdentityService(db, new CryptoService('', ''))
+  const hpke = new HpkeService('')
+  service = new IdentityService(db, new CryptoService('', '', hpke))
   // Clean up prior test credential
   await db.delete(webauthnCredentials).where(eq(webauthnCredentials.id, TEST_CRED_ID))
   // Insert test credential with counter=5

@@ -6,7 +6,7 @@
  */
 
 import { expect, test } from '@playwright/test'
-import { TestContext, createUserWithKey, uniqueName, uniquePhone } from '../api-helpers'
+import { createUserWithKey, TestContext, uniqueName, uniquePhone } from '../api-helpers'
 import { ADMIN_NSEC } from '../helpers'
 import {
   type AuthedRequest,
@@ -49,8 +49,9 @@ test.describe('User Lifecycle', () => {
     const { users } = await listRes.json()
     const found = users.find((v: { pubkey: string }) => v.pubkey === pubkey)
     expect(found).toBeDefined()
-    // Name is E2EE envelope-encrypted — server returns [encrypted] sentinel and envelope fields
-    expect(found.encryptedName).toBeTruthy()
+    // With HPKE, server decrypts its own envelope — name is returned as plaintext
+    expect(found.name).toBe('Lifecycle Create Test')
+    // HPKE envelopes are present for client-side decryption
     expect(Array.isArray(found.nameEnvelopes)).toBe(true)
     expect(found.nameEnvelopes.length).toBeGreaterThan(0)
   })
@@ -202,17 +203,13 @@ test.describe('User Lifecycle', () => {
     expect(res.status()).toBe(200)
     const body = await res.json()
     expect(body.view).toBe('admin')
-    // Phone is E2EE envelope-encrypted — server returns encrypted fields for client-side decryption.
-    // Admin decrypts encryptedPhone using their private key + phoneEnvelopes.
-    expect(body).toHaveProperty('encryptedPhone')
-    expect(body.encryptedPhone).toBeTruthy()
+    // With HPKE, server decrypts its own envelope — unmask=true returns full plaintext phone
+    const phone = body.user?.phone ?? body.phone
+    expect(phone).toBeTruthy()
+    expect(phone).toMatch(/^\+\d{10,}$/)
+    // HPKE envelopes are present for client-side decryption
     expect(Array.isArray(body.phoneEnvelopes)).toBe(true)
     expect(body.phoneEnvelopes.length).toBeGreaterThan(0)
-    // Full plaintext phone must NOT be returned by server (E2EE — server cannot decrypt)
-    const phone = body.user?.phone ?? body.phone
-    if (phone) {
-      expect(phone).not.toMatch(/^\+\d{10,}$/)
-    }
   })
 
   test('user cannot unmask other users phone', async () => {

@@ -22,10 +22,8 @@ export const hubKeys = pgTable(
   {
     hubId: text('hub_id').notNull(),
     pubkey: text('pubkey').notNull(),
-    /** ECIES-wrapped hub key for this member */
-    encryptedKey: text('encrypted_key').notNull(),
-    /** Ephemeral pubkey used in ECIES encryption (x-only, hex) */
-    ephemeralPubkey: text('ephemeral_pubkey'),
+    /** HPKE envelope JSON (HpkeEnvelope: { v, labelId, enc, ct }) */
+    envelope: text('envelope').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [primaryKey({ columns: [table.hubId, table.pubkey] })]

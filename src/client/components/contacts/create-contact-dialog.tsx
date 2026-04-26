@@ -1,7 +1,4 @@
-import { utf8ToBytes } from '@noble/ciphers/utils.js'
-import { type CryptoLabel, LABEL_CONTACT_PII, LABEL_CONTACT_SUMMARY } from '@shared/crypto-labels'
-import type { Ciphertext, HmacHash } from '@shared/crypto-types'
-import type { RecipientEnvelope } from '@shared/types'
+import type { HmacHash } from '@shared/crypto-types'
 import { AlertTriangle, Loader2, Lock } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -25,44 +22,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  type ContactRecord,
-  checkContactDuplicate,
-  getContactRecipients,
-  hashContactPhone,
-} from '@/lib/api'
+import { type ContactRecord, checkContactDuplicate, hashContactPhone } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
-import { cryptoWorker } from '@/lib/crypto-worker-client'
 import * as keyManager from '@/lib/key-manager'
 import { useCreateContact } from '@/lib/queries/contacts'
 import { useToast } from '@/lib/toast'
-
-/**
- * Envelope-encrypt plaintext for multiple recipients via the crypto worker.
- * Keeps the random message key material inside the worker rather than the
- * main thread, and reuses the canonical ECIES/XChaCha primitive stack.
- */
-async function envelopeEncryptViaWorker(
-  plaintext: string,
-  recipientPubkeys: string[],
-  label: CryptoLabel
-): Promise<{ encrypted: Ciphertext; envelopes: RecipientEnvelope[] }> {
-  const { encryptedHex, envelopes } = await cryptoWorker.envelopeEncryptField(
-    plaintext,
-    recipientPubkeys,
-    label,
-    utf8ToBytes(label)
-  )
-  return {
-    encrypted: encryptedHex as Ciphertext,
-    // @ts-expect-error Slice 2: ECIES → HPKE migration
-    envelopes: envelopes.map((e) => ({
-      pubkey: e.recipientPubkey,
-      wrappedKey: e.wrappedKeyHex as Ciphertext,
-      ephemeralPubkey: e.ephemeralPubkeyHex,
-    })),
-  }
-}
 
 interface Props {
   open: boolean
@@ -153,85 +117,26 @@ export function CreateContactDialog({ open, onOpenChange, onCreated }: Props) {
 
     setSubmitting(true)
     try {
-      const pk = await keyManager.getPublicKeyHex()
-      if (!pk) {
-        setError(t('contacts.errorNoPubkey', 'Could not retrieve public key'))
-        return
-      }
-
-      // Fetch authorized recipients from server — ensure current user is always included
-      const { summaryPubkeys, piiPubkeys } = await getContactRecipients()
-      if (!summaryPubkeys.includes(pk)) summaryPubkeys.push(pk)
-      if (!piiPubkeys.includes(pk)) piiPubkeys.push(pk)
-
       const tags = form.tags
 
-      // Encrypt Tier 1: display name (required)
-      const { encrypted: encryptedDisplayName, envelopes: displayNameEnvelopes } =
-        await envelopeEncryptViaWorker(
-          form.displayName.trim(),
-          summaryPubkeys,
-          LABEL_CONTACT_SUMMARY
-        )
-
-      // Encrypt notes if present
-      let encryptedNotes: string | undefined
-      let notesEnvelopes: RecipientEnvelope[] | undefined
-      if (form.notes.trim()) {
-        const result = await envelopeEncryptViaWorker(
-          form.notes.trim(),
-          summaryPubkeys,
-          LABEL_CONTACT_SUMMARY
-        )
-        encryptedNotes = result.encrypted
-        notesEnvelopes = result.envelopes
-      }
-
-      // Encrypt Tier 2 fields if present
-      let encryptedFullName: string | undefined
-      let fullNameEnvelopes: RecipientEnvelope[] | undefined
-      let encryptedPhone: string | undefined
-      let phoneEnvelopes: RecipientEnvelope[] | undefined
+      // Get HMAC hash for phone dedup if phone is present
       let identifierHash: HmacHash | undefined
-
-      if (canViewPii) {
-        if (form.fullName.trim()) {
-          const result = await envelopeEncryptViaWorker(
-            form.fullName.trim(),
-            piiPubkeys,
-            LABEL_CONTACT_PII
-          )
-          encryptedFullName = result.encrypted
-          fullNameEnvelopes = result.envelopes
-        }
-
-        if (form.phone.trim()) {
-          // Get HMAC from server (client doesn't have the HMAC secret)
-          const { identifierHash: hash } = await hashContactPhone(form.phone.trim())
-          identifierHash = hash as HmacHash
-          const result = await envelopeEncryptViaWorker(
-            form.phone.trim(),
-            piiPubkeys,
-            LABEL_CONTACT_PII
-          )
-          encryptedPhone = result.encrypted
-          phoneEnvelopes = result.envelopes
-        }
+      if (canViewPii && form.phone.trim()) {
+        const { identifierHash: hash } = await hashContactPhone(form.phone.trim())
+        identifierHash = hash as HmacHash
       }
 
+      // Send plaintext to server — server does envelope encryption
+      // (Client-side HPKE sealing deferred until X25519 pubkey registration)
       const contact = await createContactMutation.mutateAsync({
         contactType: form.contactType,
         riskLevel: form.riskLevel,
         tags,
         identifierHash,
-        encryptedDisplayName,
-        displayNameEnvelopes,
-        encryptedNotes,
-        notesEnvelopes,
-        encryptedFullName,
-        fullNameEnvelopes,
-        encryptedPhone,
-        phoneEnvelopes,
+        displayName: form.displayName.trim(),
+        notes: form.notes.trim() || undefined,
+        fullName: canViewPii && form.fullName.trim() ? form.fullName.trim() : undefined,
+        phone: canViewPii && form.phone.trim() ? form.phone.trim() : undefined,
       })
 
       toast(t('contacts.created', 'Contact created'), 'success')
@@ -367,7 +272,7 @@ export function CreateContactDialog({ open, onOpenChange, onCreated }: Props) {
                   placeholder={t('contacts.placeholders.phone', '+1 555 000 0000')}
                 />
                 {/* Dedup check happens on blur via the wrapper div */}
-                <div onBlur={handlePhoneBlur} tabIndex={-1} role="presentation">
+                <div onBlur={handlePhoneBlur}>
                   {checkingDup && (
                     <p className="flex items-center gap-1 text-xs text-muted-foreground">
                       <Loader2 className="size-3 animate-spin" />

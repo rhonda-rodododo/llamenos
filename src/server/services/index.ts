@@ -1,5 +1,6 @@
 import type { Database } from '../db'
 import type { CryptoService } from '../lib/crypto-service'
+import type { HpkeService } from '../lib/hpke-service'
 import type { StorageManager } from '../types'
 import { DrizzleAuditLogService } from './audit-log-service'
 import { AuthEventsService } from './auth-events'
@@ -79,6 +80,7 @@ export interface Services {
   providerHealth?: ProviderHealthService
   storage: StorageManager | null
   crypto: CryptoService
+  hpke: HpkeService
   signalContacts: SignalContactsService
   securityPrefs: SecurityPrefsService
   securityActions: SecurityActionsService
@@ -144,5 +146,6 @@ export function createServices(
     firehose: new FirehoseService(db, crypto),
     storage,
     crypto,
+    hpke: crypto.hpke,
   }
 }

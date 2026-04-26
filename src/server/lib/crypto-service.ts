@@ -1,16 +1,7 @@
 import { utf8ToBytes } from '@noble/ciphers/utils.js'
-import { secp256k1 } from '@noble/curves/secp256k1.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
+import { type CryptoLabel, HMAC_IP_PREFIX } from '@shared/crypto-labels'
 import {
-  type CryptoLabel,
-  HMAC_IP_PREFIX,
-  LABEL_HUB_KEY_WRAP,
-  LABEL_SERVER_NOSTR_KEY,
-  LABEL_SERVER_NOSTR_KEY_INFO,
-} from '@shared/crypto-labels'
-import {
-  eciesUnwrapKey,
-  eciesWrapKey,
   hkdfDerive,
   hmacSha256,
   symmetricDecrypt,
@@ -19,12 +10,13 @@ import {
 import type { Ciphertext, HmacHash } from '@shared/crypto-types'
 import { hubFieldAad } from '@shared/lib/hub-field-aad'
 import type { RecipientEnvelope } from '@shared/types'
+import type { HpkeService } from './hpke-service'
 
 /**
  * Server-side cryptographic operations.
  *
  * Encryption tiers (in order of preference):
- * 1. Envelope E2EE (ECIES per-recipient) — contacts, notes, PII, user/invite phone
+ * 1. Envelope E2EE (HPKE per-recipient key-wrap) — contacts, notes, PII, user/invite phone
  * 2. Hub-key E2EE (symmetric, all hub members) — org metadata (role/hub/team/shift/tag names)
  * 3. Server-key (below) — ONLY for fields the server must process at runtime
  *
@@ -44,13 +36,12 @@ import type { RecipientEnvelope } from '@shared/types'
  */
 export class CryptoService {
   private derivedKeys = new Map<string, Uint8Array>()
-  private cachedServerPrivateKey: Uint8Array | null = null
-  private cachedServerPubkey: string | null = null
   private cachedHmacKey: Uint8Array | null = null
 
   constructor(
     private readonly serverSecret: string,
-    private readonly hmacSecret: string
+    private readonly hmacSecret: string,
+    readonly hpke: HpkeService
   ) {}
 
   private deriveKey(label: CryptoLabel): Uint8Array {
@@ -67,21 +58,6 @@ export class CryptoService {
       this.cachedHmacKey = hexToBytes(this.hmacSecret)
     }
     return this.cachedHmacKey
-  }
-
-  private getServerPrivateKey(): { privateKey: Uint8Array; pubkey: string } {
-    if (!this.cachedServerPrivateKey) {
-      this.cachedServerPrivateKey = hkdfDerive(
-        hexToBytes(this.serverSecret),
-        utf8ToBytes(LABEL_SERVER_NOSTR_KEY),
-        utf8ToBytes(LABEL_SERVER_NOSTR_KEY_INFO),
-        32
-      )
-      this.cachedServerPubkey = bytesToHex(
-        secp256k1.getPublicKey(this.cachedServerPrivateKey, true).slice(1)
-      )
-    }
-    return { privateKey: this.cachedServerPrivateKey, pubkey: this.cachedServerPubkey! }
   }
 
   /**
@@ -163,128 +139,131 @@ export class CryptoService {
     return bytesToHex(hmacSha256(this.getHmacKey(), data)) as HmacHash
   }
 
-  envelopeEncrypt(
+  /**
+   * Envelope-encrypt a plaintext string.
+   *
+   * HPKE single-shot seal using the server's own X25519 keypair. The server
+   * is always included as a recipient so `envelopeDecrypt` (openForServer)
+   * works. User-specific envelopes require the user's registered X25519
+   * HPKE public key — until X25519 pubkey registration is implemented, only
+   * the server envelope is created.
+   *
+   * `recipientPubkeys` (secp256k1 identity pubkeys) are accepted for API
+   * compatibility but currently unused for sealing — secp256k1 bytes are not
+   * valid X25519 public keys.
+   *
+   * @param recordId  Bound into AAD — must match what the client passes
+   *                  to `hpkeOpen`. Typically `obj.id ?? ''`.
+   * @param fieldName Bound into AAD — must match the client's derived
+   *                  field name (e.g. `'name'` for `encryptedName`).
+   */
+  async envelopeEncrypt(
     plaintext: string,
-    recipientPubkeys: string[],
-    label: CryptoLabel
-  ): { encrypted: Ciphertext; envelopes: RecipientEnvelope[] } {
-    const messageKey = new Uint8Array(32)
-    crypto.getRandomValues(messageKey)
-    const encrypted = symmetricEncrypt(utf8ToBytes(plaintext), messageKey, utf8ToBytes(label))
-    // @ts-expect-error Slice 3: server crypto ECIES → HPKE migration
-    const envelopes: RecipientEnvelope[] = recipientPubkeys.map((pk) => ({
-      pubkey: pk,
-      ...eciesWrapKey(messageKey, pk, label),
-    }))
-    return { encrypted, envelopes }
+    _recipientPubkeys: string[],
+    label: CryptoLabel,
+    recordId = '',
+    fieldName = ''
+  ): Promise<{ encrypted: Ciphertext; envelopes: RecipientEnvelope[] }> {
+    const ptBytes = utf8ToBytes(plaintext)
+    // Seal for the server's own X25519 HPKE key — correct curve, server can decrypt
+    const serverPubkeyHex = await this.hpke.getServerPubkeyHex()
+    const serverEnvelope = await this.hpke.sealForHex(
+      ptBytes,
+      serverPubkeyHex,
+      label,
+      recordId,
+      fieldName
+    )
+    return {
+      encrypted: '' as Ciphertext,
+      envelopes: [{ ...serverEnvelope, pubkey: serverPubkeyHex }],
+    }
   }
 
-  envelopeDecrypt(
-    ct: Ciphertext,
+  /**
+   * Decrypt an envelope-encrypted field using the server's HPKE key.
+   *
+   * HPKE single-shot open — the envelope contains the sealed plaintext
+   * directly. The `ct` parameter is ignored (legacy column compat).
+   */
+  async envelopeDecrypt(
+    _ct: Ciphertext,
     envelope: RecipientEnvelope,
-    secretKey: Uint8Array,
-    label: CryptoLabel
-  ): string {
-    // @ts-expect-error Slice 3: server crypto ECIES → HPKE migration
-    const messageKey = eciesUnwrapKey(envelope, secretKey, label)
-    return new TextDecoder().decode(symmetricDecrypt(ct, messageKey, utf8ToBytes(label)))
+    label: CryptoLabel,
+    recordId = '',
+    fieldName = ''
+  ): Promise<string> {
+    const pt = await this.hpke.openForServer(envelope, label, recordId, fieldName)
+    return new TextDecoder().decode(pt)
   }
 
-  envelopeEncryptBinary(
+  /**
+   * Find the server's own envelope from a list and decrypt it.
+   * Returns undefined if no server envelope is found.
+   */
+  async envelopeDecryptFromList(
+    envelopes: RecipientEnvelope[],
+    label: CryptoLabel,
+    recordId = '',
+    fieldName = ''
+  ): Promise<string | undefined> {
+    if (!envelopes?.length) return undefined
+    const serverPubkey = await this.hpke.getServerPubkeyHex()
+    const envelope = envelopes.find((e) => e.pubkey === serverPubkey)
+    if (!envelope) return undefined
+    try {
+      return await this.envelopeDecrypt('' as Ciphertext, envelope, label, recordId, fieldName)
+    } catch {
+      return undefined
+    }
+  }
+
+  /**
+   * Envelope-encrypt binary data for multiple recipients.
+   *
+   * Uses the shared-ciphertext model: random data key → symmetric encrypt →
+   * HPKE-seal the data key per recipient. Suitable for large binary data
+   * (voicemail audio) where per-recipient copies would be wasteful.
+   */
+  async envelopeEncryptBinary(
     data: Uint8Array,
-    recipientPubkeys: string[],
+    _recipientPubkeys: string[],
     label: CryptoLabel
-  ): { encrypted: Ciphertext; envelopes: RecipientEnvelope[] } {
+  ): Promise<{ encrypted: Ciphertext; envelopes: RecipientEnvelope[] }> {
     const dataKey = new Uint8Array(32)
     crypto.getRandomValues(dataKey)
     const encrypted = symmetricEncrypt(data, dataKey, utf8ToBytes(label))
-    // @ts-expect-error Slice 3: server crypto ECIES → HPKE migration
-    const envelopes: RecipientEnvelope[] = recipientPubkeys.map((pk) => ({
-      pubkey: pk,
-      ...eciesWrapKey(dataKey, pk, label),
-    }))
-    return { encrypted, envelopes }
+    // Seal data key for server's own X25519 HPKE key
+    const serverPubkeyHex = await this.hpke.getServerPubkeyHex()
+    const serverEnvelope = await this.hpke.sealForHex(
+      dataKey,
+      serverPubkeyHex,
+      label,
+      'envelope',
+      'key-wrap'
+    )
+    dataKey.fill(0)
+    return {
+      encrypted,
+      envelopes: [{ ...serverEnvelope, pubkey: serverPubkeyHex }],
+    }
   }
 
-  envelopeDecryptBinary(
+  /**
+   * Decrypt envelope-encrypted binary data using the server's HPKE key.
+   */
+  async envelopeDecryptBinary(
     ct: Ciphertext,
     envelope: RecipientEnvelope,
-    secretKey: Uint8Array,
     label: CryptoLabel
-  ): Uint8Array {
-    // @ts-expect-error Slice 3: server crypto ECIES → HPKE migration
-    const dataKey = eciesUnwrapKey(envelope, secretKey, label)
+  ): Promise<Uint8Array> {
+    const dataKey = await this.hpke.openForServer(envelope, label, 'envelope', 'key-wrap')
     return symmetricDecrypt(ct, dataKey, utf8ToBytes(label))
   }
 
-  unwrapHubKey(
-    envelopes: Array<{ pubkey: string; wrappedKey: string; ephemeralPubkey: string }>
-  ): Uint8Array {
-    const { privateKey, pubkey } = this.getServerPrivateKey()
-    const envelope = envelopes.find((e) => e.pubkey === pubkey)
-    if (!envelope) {
-      throw new Error(`No hub key envelope for server pubkey ${pubkey}`)
-    }
-    return eciesUnwrapKey(envelope, privateKey, LABEL_HUB_KEY_WRAP)
-  }
-
-  /** Get the server's x-only public key hex (for hub key envelope inclusion). */
-  getServerPubkey(): string {
-    return this.getServerPrivateKey().pubkey
-  }
-
-  /**
-   * Envelope-decrypt using the server's own private key.
-   * Finds the server's envelope in the array and unwraps the message key.
-   * Throws if no envelope matches the server pubkey.
-   */
-  serverEnvelopeDecrypt(
-    ct: Ciphertext,
-    envelopes: RecipientEnvelope[],
-    label: CryptoLabel
-  ): string {
-    const { privateKey, pubkey } = this.getServerPrivateKey()
-    const envelope = envelopes.find((e) => e.pubkey === pubkey)
-    if (!envelope) {
-      throw new Error(`No envelope for server pubkey ${pubkey}`)
-    }
-    return this.envelopeDecrypt(ct, envelope, privateKey, label)
-  }
-
-  /**
-   * Generate a random hub key and ECIES-wrap it for each recipient pubkey.
-   * Always includes the server's own pubkey so the server can later re-wrap
-   * for new members (e.g., when an invite is redeemed).
-   */
-  generateAndWrapHubKey(recipientPubkeys: string[]): {
-    hubKey: Uint8Array
-    envelopes: Array<{ pubkey: string; wrappedKey: string; ephemeralPubkey: string }>
-  } {
-    const hubKey = crypto.getRandomValues(new Uint8Array(32))
-    const serverPubkey = this.getServerPubkey()
-    const allPubkeys = [...new Set([...recipientPubkeys, serverPubkey])]
-    const envelopes = allPubkeys.map((pubkey) => {
-      const { wrappedKey, ephemeralPubkey } = eciesWrapKey(hubKey, pubkey, LABEL_HUB_KEY_WRAP)
-      return { pubkey, wrappedKey, ephemeralPubkey }
-    })
-    return { hubKey, envelopes }
-  }
-
-  /**
-   * Wrap an existing hub key for a new recipient pubkey.
-   * Server unwraps its own envelope, then ECIES-wraps for the new recipient.
-   */
-  wrapHubKeyForNewMember(
-    existingEnvelopes: Array<{ pubkey: string; wrappedKey: string; ephemeralPubkey: string }>,
-    newMemberPubkey: string
-  ): { pubkey: string; wrappedKey: string; ephemeralPubkey: string } {
-    const hubKey = this.unwrapHubKey(existingEnvelopes)
-    const { wrappedKey, ephemeralPubkey } = eciesWrapKey(
-      hubKey,
-      newMemberPubkey,
-      LABEL_HUB_KEY_WRAP
-    )
-    return { pubkey: newMemberPubkey, wrappedKey, ephemeralPubkey }
+  /** Get the server's HPKE X25519 public key hex (for envelope recipient lists). */
+  async getServerPubkey(): Promise<string> {
+    return this.hpke.getServerPubkeyHex()
   }
 }
 

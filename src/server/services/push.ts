@@ -37,7 +37,7 @@ export class PushService {
     protected readonly crypto: CryptoService
   ) {}
 
-  #rowToSubscription(row: typeof pushSubscriptions.$inferSelect): PushSubscription {
+  async #rowToSubscription(row: typeof pushSubscriptions.$inferSelect): Promise<PushSubscription> {
     const endpoint = this.crypto.serverDecrypt(
       row.encryptedEndpoint as Ciphertext,
       LABEL_PUSH_CREDENTIAL
@@ -51,23 +51,11 @@ export class PushService {
       LABEL_PUSH_CREDENTIAL
     )
 
-    // Device label: if envelopes exist, this is E2EE — server can't decrypt.
-    // Otherwise try server-key decrypt for legacy data.
     const dlEnvelopes =
       (row.deviceLabelEnvelopes as import('@shared/types').RecipientEnvelope[]) ?? []
-    let deviceLabel: string | null = null
-    if (dlEnvelopes.length > 0) {
-      deviceLabel = '[encrypted]'
-    } else if (row.encryptedDeviceLabel) {
-      try {
-        deviceLabel = this.crypto.serverDecrypt(
-          row.encryptedDeviceLabel as Ciphertext,
-          LABEL_USER_PII
-        )
-      } catch {
-        // Decryption failed — leave as null
-      }
-    }
+    const deviceLabel =
+      (await this.crypto.envelopeDecryptFromList(dlEnvelopes, LABEL_USER_PII, '', 'deviceLabel')) ??
+      null
 
     return {
       id: row.id,
@@ -93,19 +81,19 @@ export class PushService {
     // HMAC hash endpoint for dedup
     const endpointHash = this.crypto.hmac(data.endpoint, HMAC_PHONE_PREFIX)
 
-    // E2EE envelope-encrypt device label for the user's own pubkey (client-side decryption)
-    // Only attempt if pubkey looks like a valid 64-char hex secp256k1 x-only pubkey
-    let labelEnvelope: ReturnType<CryptoService['envelopeEncrypt']> | undefined
-    if (data.deviceLabel && /^[0-9a-f]{64}$/i.test(data.pubkey)) {
-      labelEnvelope = this.crypto.envelopeEncrypt(data.deviceLabel, [data.pubkey], LABEL_USER_PII)
+    // HPKE envelope-encrypt device label (server's own HPKE key is always a recipient)
+    let labelEnvelope: Awaited<ReturnType<CryptoService['envelopeEncrypt']>> | undefined
+    if (data.deviceLabel) {
+      labelEnvelope = await this.crypto.envelopeEncrypt(
+        data.deviceLabel,
+        [data.pubkey],
+        LABEL_USER_PII,
+        '',
+        'deviceLabel'
+      )
     }
 
-    // E2EE device label: use envelope ciphertext if available, fallback to server-key
-    const encryptedDeviceLabel = data.deviceLabel
-      ? labelEnvelope
-        ? labelEnvelope.encrypted
-        : this.crypto.serverEncrypt(data.deviceLabel, LABEL_USER_PII)
-      : undefined
+    const encryptedDeviceLabel = labelEnvelope?.encrypted
 
     const [row] = await this.db
       .insert(pushSubscriptions)
@@ -133,7 +121,7 @@ export class PushService {
         },
       })
       .returning()
-    return this.#rowToSubscription(row)
+    return await this.#rowToSubscription(row)
   }
 
   /** Remove a subscription by endpoint, verifying ownership by pubkey. */
@@ -173,7 +161,7 @@ export class PushService {
       .select()
       .from(pushSubscriptions)
       .where(eq(pushSubscriptions.pubkey, pubkey))
-    return rows.map((r) => this.#rowToSubscription(r))
+    return Promise.all(rows.map((r) => this.#rowToSubscription(r)))
   }
 
   /** Get all subscriptions for a list of user pubkeys. */
@@ -183,7 +171,7 @@ export class PushService {
       .select()
       .from(pushSubscriptions)
       .where(inArray(pushSubscriptions.pubkey, pubkeys))
-    return rows.map((r) => this.#rowToSubscription(r))
+    return Promise.all(rows.map((r) => this.#rowToSubscription(r)))
   }
 
   /**

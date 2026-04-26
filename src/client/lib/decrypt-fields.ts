@@ -9,11 +9,11 @@
  * → decrypted value written to `foo`.
  */
 
-import { utf8ToBytes } from '@noble/ciphers/utils.js'
 import { type CryptoLabel, LABEL_USER_PII } from '@shared/crypto-labels'
+import type { HpkeEnvelope } from '@shared/hpke-envelope'
 import type { RecipientEnvelope } from '@shared/types'
 import { createDebugLog } from '@/lib/debug-log'
-import { cryptoWorker, isWorkerLockedError } from './crypto-worker-client'
+import { CryptoWorkerLockedError, cryptoWorker, isWorkerLockedError } from './crypto-worker-client'
 import * as keyManager from './key-manager'
 
 const log = createDebugLog('llamenos:decrypt')
@@ -143,33 +143,21 @@ async function fireLockOnce(): Promise<void> {
  * primary guard is that `decryptObjectFields` / `resolveEncryptedFields`
  * only scans the fields the caller asked for.
  *
- * AAD: callers can pass an explicit `aadOverride` to bind the decrypt to a
- * specific `(recordId, fieldName)` tuple. When omitted (legacy callers), the
- * AAD falls back to label-only — matching what the encrypt path currently
- * produces for envelope-encrypted fields (contacts, sessions, bans, call
- * records). Migrating those fields to per-record AAD is tracked as a
- * follow-up in AEAD_AUDIT_2026-04-10.md; see Tier 1 PR-B notes.
+ * With HPKE (Slice 2+), the envelope IS the ciphertext — each recipient
+ * has their own `HpkeEnvelope { v: 3, labelId, enc, ct }`. The `recordId`
+ * and `fieldName` params bind the AAD via `buildAad(label, recordId, fieldName)`.
  */
 async function decryptFieldWithRecovery(
-  ciphertext: string,
-  envelope: RecipientEnvelope,
+  envelope: HpkeEnvelope,
   label: CryptoLabel,
-  aadOverride?: Uint8Array
+  recordId: string,
+  fieldName: string
 ): Promise<string | null> {
   const worker = cryptoWorker
-  const aad = aadOverride ?? utf8ToBytes(label)
 
   // First attempt
   try {
-    return await worker.decryptEnvelopeField(
-      ciphertext,
-      // @ts-expect-error Slice 2: ECIES → HPKE migration
-      envelope.ephemeralPubkey,
-      // @ts-expect-error Slice 2: ECIES → HPKE migration
-      envelope.wrappedKey,
-      label,
-      aad
-    )
+    return await worker.hpkeOpen(envelope, label, recordId, fieldName)
   } catch (firstErr) {
     // Known locked — no point retrying, fire lock so PIN prompt appears
     if (isWorkerLockedError(firstErr)) {
@@ -179,15 +167,7 @@ async function decryptFieldWithRecovery(
 
     // Transient error — retry once
     try {
-      return await worker.decryptEnvelopeField(
-        ciphertext,
-        // @ts-expect-error Slice 2: ECIES → HPKE migration
-        envelope.ephemeralPubkey,
-        // @ts-expect-error Slice 2: ECIES → HPKE migration
-        envelope.wrappedKey,
-        label,
-        aad
-      )
+      return await worker.hpkeOpen(envelope, label, recordId, fieldName)
     } catch (secondErr) {
       // Both attempts failed.
       if (isWorkerLockedError(secondErr)) {
@@ -230,10 +210,8 @@ async function decryptFieldWithRecovery(
 interface EncryptedFieldRef {
   /** The destination key on the object, e.g. `"name"` for `encryptedName`. */
   plaintextKey: string
-  /** Hex-encoded ciphertext from `encryptedFoo`. */
-  ciphertext: string
-  /** The matching ECIES envelope for the reader. */
-  envelope: RecipientEnvelope
+  /** The matching HPKE envelope for the reader. */
+  envelope: HpkeEnvelope
 }
 
 // ---------------------------------------------------------------------------
@@ -243,21 +221,19 @@ interface EncryptedFieldRef {
 /**
  * Scan a plain object for encrypted field pairs and return refs.
  *
- * Looks for keys matching `encrypted<Foo>` and a corresponding `<foo>Envelopes`
- * array. Derives `plaintextKey` by stripping the `encrypted` prefix and
- * lower-casing the first character.
+ * HPKE format: looks for keys matching `<foo>Envelopes` where each element is
+ * an `HpkeEnvelope` tagged with a `pubkey`. The corresponding plaintext key is
+ * `foo`. Each recipient's envelope IS the ciphertext (no separate
+ * `encryptedFoo` blob).
  *
  * When `fieldNames` is provided, only those specific encrypted keys are
  * considered — this is REQUIRED whenever an object holds fields encrypted
  * under more than one domain-separation label (e.g. contacts carry both
- * LABEL_CONTACT_SUMMARY and LABEL_CONTACT_PII fields). Calling the scanner
- * without a filter on a multi-label object would attempt to decrypt every
- * encrypted field with the wrong label and fail AEAD authentication.
+ * LABEL_CONTACT_SUMMARY and LABEL_CONTACT_PII fields).
  *
  * @param obj           Any plain object (API response body, etc.)
  * @param readerPubkey  If provided, only return refs whose envelope matches
- *                      this pubkey. If omitted, returns the first envelope in
- *                      the array for each field.
+ *                      this pubkey. If omitted, returns the first envelope.
  * @param fieldNames    If provided, restricts the scan to this exact set of
  *                      encrypted field keys (e.g. `['encryptedDisplayName']`).
  */
@@ -279,20 +255,20 @@ export function resolveEncryptedFields(
     const plaintextKey = suffix.charAt(0).toLowerCase() + suffix.slice(1)
     const envelopesKey = `${plaintextKey}Envelopes`
 
-    const ciphertext = obj[key]
     const envelopes = obj[envelopesKey]
 
-    if (typeof ciphertext !== 'string' || !Array.isArray(envelopes) || envelopes.length === 0) {
+    if (!Array.isArray(envelopes) || envelopes.length === 0) {
       continue
     }
 
-    const envelope: RecipientEnvelope | undefined = readerPubkey
-      ? (envelopes as RecipientEnvelope[]).find((e) => e.pubkey === readerPubkey)
-      : (envelopes[0] as RecipientEnvelope)
+    // Slice 4: envelopes will carry HpkeEnvelope per recipient with pubkey tag
+    const tagged = envelopes as Array<{ pubkey: string } & HpkeEnvelope>
 
-    if (!envelope) {
+    const match = readerPubkey ? tagged.find((e) => e.pubkey === readerPubkey) : tagged[0]
+
+    if (!match) {
       if (readerPubkey) {
-        const envelopePubkeys = (envelopes as RecipientEnvelope[]).map((e) => e.pubkey)
+        const envelopePubkeys = tagged.map((e) => e.pubkey)
         if (decryptDebugEnabled()) {
           log(`No envelope for reader on field "${key}"`, {
             readerPubkey,
@@ -301,8 +277,6 @@ export function resolveEncryptedFields(
         }
         if (!mismatchFired) {
           mismatchFired = true
-          // Always log mismatch — this is a security-relevant event (key doesn't
-          // match stored envelopes). Per-field debug detail is gated above.
           log(
             `Pubkey/envelope mismatch detected on field "${key}". Reader pubkey does not match any envelope.`
           )
@@ -312,7 +286,7 @@ export function resolveEncryptedFields(
       continue
     }
 
-    refs.push({ plaintextKey, ciphertext, envelope })
+    refs.push({ plaintextKey, envelope: match })
   }
 
   return refs
@@ -354,24 +328,31 @@ export async function decryptObjectFields<T extends Record<string, unknown>>(
   }
   if (refs.length === 0) return obj
 
+  // The recordId for AAD binding comes from the object's `id` field (if present).
+  const recordId = (obj as Record<string, unknown>).id as string | undefined
+
   await Promise.all(
-    refs.map(async ({ plaintextKey, ciphertext, envelope }) => {
-      // Check cache first
-      const cached = decryptCache.get(ciphertext, label)
+    refs.map(async ({ plaintextKey, envelope }) => {
+      // Cache key is the stringified envelope (ct field is unique per seal)
+      const cacheKey = envelope.ct
+      const cached = decryptCache.get(cacheKey, label)
       if (cached !== null) {
         ;(obj as Record<string, unknown>)[plaintextKey] = cached
         return
       }
 
-      const plaintext = await decryptFieldWithRecovery(ciphertext, envelope, label)
+      const plaintext = await decryptFieldWithRecovery(
+        envelope,
+        label,
+        recordId ?? '',
+        plaintextKey
+      )
       if (plaintext !== null) {
-        decryptCache.set(ciphertext, label, plaintext)
+        decryptCache.set(cacheKey, label, plaintext)
         ;(obj as Record<string, unknown>)[plaintextKey] = plaintext
       } else if (decryptDebugEnabled()) {
         log(`Decryption returned null for "${plaintextKey}"`)
       }
-      // If null, field keeps its server placeholder ("[encrypted]")
-      // but lock has been fired — PIN prompt will appear
     })
   )
 
@@ -396,16 +377,18 @@ export async function decryptObjectFields<T extends Record<string, unknown>>(
  * @returns The same array, with each item mutated in place.
  */
 /**
- * Decrypt a ciphertext + single envelope (ECIES wrapped key) to plaintext JSON.
- * Returns null on failure. Used for session meta, etc., where the payload is
- * envelope-encrypted JSON outside the standard `encryptedFoo + fooEnvelopes` convention.
+ * Decrypt an HPKE envelope to plaintext JSON. Returns null on failure.
+ * Used for session meta, etc., where the payload is envelope-encrypted JSON
+ * outside the standard `encryptedFoo + fooEnvelopes` convention.
  */
 export async function decryptEnvelopeJson<T>(
-  ciphertext: string,
-  envelope: RecipientEnvelope,
-  label: CryptoLabel
+  envelope: HpkeEnvelope,
+  label: CryptoLabel,
+  recordId: string,
+  fieldName: string
 ): Promise<T | null> {
-  const cached = decryptCache.get(ciphertext, label)
+  const cacheKey = envelope.ct
+  const cached = decryptCache.get(cacheKey, label)
   if (cached !== null) {
     try {
       return JSON.parse(cached) as T
@@ -413,9 +396,9 @@ export async function decryptEnvelopeJson<T>(
       return null
     }
   }
-  const plaintext = await decryptFieldWithRecovery(ciphertext, envelope, label)
+  const plaintext = await decryptFieldWithRecovery(envelope, label, recordId, fieldName)
   if (plaintext === null) return null
-  decryptCache.set(ciphertext, label, plaintext)
+  decryptCache.set(cacheKey, label, plaintext)
   try {
     return JSON.parse(plaintext) as T
   } catch {

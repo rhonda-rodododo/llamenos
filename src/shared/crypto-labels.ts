@@ -133,6 +133,14 @@ export const LABEL_SERVER_HPKE_KEY = 'llamenos:server-hpke-key'
 /** HKDF info parameter for server HPKE key (versioned for rotation) */
 export const LABEL_SERVER_HPKE_KEY_INFO = 'llamenos:server-hpke-key:v1'
 
+// --- User HPKE Identity (Tier 1 Slice 2) ---
+
+/** HKDF salt for deriving user X25519 HPKE keypair from secp256k1 nsec */
+export const LABEL_USER_HPKE_KEY = 'llamenos:user-hpke-key'
+
+/** HKDF info parameter for user HPKE key derivation (versioned for rotation) */
+export const LABEL_USER_HPKE_KEY_INFO = 'llamenos:user-hpke-key:v1'
+
 // --- Push Notification Encryption (Epic 86) ---
 
 /** Wake-tier ECIES push payload — decryptable without PIN (minimal metadata only) */
@@ -424,6 +432,13 @@ export const LABEL_REGISTRY = [
   //   44: LABEL_ITEMS_KEY_EXPORT (llamenos:items-key-export:v1)
   //   45: LABEL_NOTE_EPOCH_KEY   (llamenos:note-epoch-key:v1)
   //   46: LABEL_MLS_PROVISION    (llamenos:mls-provision:v1)
+  // Slice 3: server-side envelope labels (ECIES → HPKE migration)
+  LABEL_USER_PII, // 47
+  LABEL_SESSION_META, // 48
+  LABEL_FIREHOSE_BUFFER_ENCRYPT, // 49
+  // User auth event + signal contact envelopes
+  LABEL_AUTH_EVENT, // 50
+  LABEL_SIGNAL_CONTACT, // 51
 ] as const satisfies readonly CryptoLabel[]
 
 export function labelToId(label: CryptoLabel): number {
