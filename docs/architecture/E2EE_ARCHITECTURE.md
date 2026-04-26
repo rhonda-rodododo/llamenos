@@ -393,7 +393,7 @@ ROTATION (on member departure):
 | Call notes | 3 | MLS groupwise encryption via hub MLS group (forward secrecy via epoch ratchet) | Epoch advances on membership change |
 | Transcripts | 3 | Client-generated via WASM Whisper; MLS-encrypted with note | Audio never leaves browser |
 | Reports | 3 | MLS groupwise encryption via hub MLS group | Forward secrecy via epoch ratchet |
-| File attachments | 3 | XChaCha20-Poly1305 + ECIES per-file key (legacy) | Stored in RustFS |
+| File attachments | 1 | XChaCha20-Poly1305 + ECIES per-file key (`LABEL_FILE_KEY`) — HPKE migration planned | Stored in RustFS |
 | SMS messages | 3 | MLS groupwise encryption via hub MLS group; server AES-GCM at ingest, MLS-encrypted by first client | Server discards plaintext at webhook boundary |
 | WhatsApp messages | 3 | MLS groupwise encryption via hub MLS group; server AES-GCM at ingest, MLS-encrypted by first client | Server discards plaintext at webhook boundary |
 | Signal messages | 3 | MLS groupwise encryption via hub MLS group; server AES-GCM at ingest, MLS-encrypted by first client | Server discards plaintext at webhook boundary |

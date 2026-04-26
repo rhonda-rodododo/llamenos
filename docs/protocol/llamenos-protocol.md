@@ -83,8 +83,8 @@ Per-Message Key (LEGACY — replaced by MLS)
 
 Per-File Key
   32-byte random
-  └── HPKE-wrapped via items-key indirection (MLS exporter → items_key → file key wrap)
-  └── Legacy: ECIES-wrapped per recipient for pre-MLS files (Section 7)
+  └── ECIES-wrapped per recipient (LABEL_FILE_KEY) — migration to HPKE planned
+  └── File metadata: ECIES-wrapped per recipient (LABEL_FILE_METADATA)
 
 Draft Encryption Key
   Derived: HKDF-SHA256(secretKey, "llamenos:hkdf-salt:v1", "llamenos:drafts")
@@ -625,11 +625,13 @@ For outbound messages (volunteer -> SMS/WhatsApp):
 
 Files use a two-layer scheme:
 
-1. **File Key**: Random 32-byte key encrypts the file content
-2. **Key Wrapping**: File key is HPKE-wrapped via items-key indirection — the MLS exporter secret derives a per-user `items_key` (`LABEL_ITEMS_KEY_EXPORT`), which wraps the file key. For pre-MLS files, legacy ECIES wrapping per recipient is retained.
-3. **Metadata**: File metadata (name, type, size, checksum) encrypted separately per recipient
+1. **File Key**: Random 32-byte key encrypts the file content (XChaCha20-Poly1305)
+2. **Key Wrapping**: File key is ECIES-wrapped per recipient (`LABEL_FILE_KEY`) — migration to HPKE is planned but not yet implemented
+3. **Metadata**: File metadata (name, type, size, checksum) ECIES-encrypted separately per recipient (`LABEL_FILE_METADATA`)
 
 Chunked upload: file is encrypted client-side, split into chunks, uploaded, and reassembled server-side. The server never sees plaintext.
+
+**Note**: The items-key indirection design (MLS exporter secret → per-user `items_key` via `LABEL_ITEMS_KEY_EXPORT` → file key wrap) is specified but not yet implemented. File crypto currently uses direct ECIES wrapping per recipient.
 
 ## 8. Draft Encryption
 

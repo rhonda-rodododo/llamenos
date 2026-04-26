@@ -26,7 +26,7 @@ This directory contains security documentation for Llamenos, a crisis response h
 | **Tier 1: E2EE Envelope** | Legacy ECIES per-recipient key wrapping (secp256k1 ECDH + XChaCha20-Poly1305); HPKE migration planned | Volunteer PII (name, phone), contact directory PII | None — ciphertext only |
 | **Tier 2: Hub-Key** | AES-256-GCM via non-extractable WebCrypto `CryptoKey`, per-record AAD via `buildAad(label, recordId, fieldName)`. Hub key HPKE-distributed per device. | Role names, shift names, report types, custom fields, teams, tags | None — hub key held by members only |
 | **Tier 3: MLS Groupwise** | MLS groupwise encryption via `@wireapp/core-crypto` WASM. Each hub has a persistent MLS group; epoch advances on membership change provide forward secrecy. | Call notes, transcriptions, messages, reports | None — server stores opaque MLS ciphertext |
-| **HPKE Envelope** | HPKE RFC 9180: `DHKEM(X25519, HKDF-SHA256) + HKDF-SHA256 + AES-256-GCM`. Wire format: `HpkeEnvelope { v: 3, labelId, enc, ct }` | Hub key distribution, session capsules, file key wrapping, device enrollment | None — HPKE sealed to recipient X25519 public key |
+| **HPKE Envelope** | HPKE RFC 9180: `DHKEM(X25519, HKDF-SHA256) + HKDF-SHA256 + AES-256-GCM`. Wire format: `HpkeEnvelope { v: 3, labelId, enc, ct }` | Hub key distribution, session capsules, PUK wrapping, device enrollment | None — HPKE sealed to recipient X25519 public key |
 | **IdP-Encrypted** | XChaCha20-Poly1305 with HKDF-derived key | IdP nsec_secret values (one KEK factor) | Accessible only with `IDP_VALUE_ENCRYPTION_KEY` |
 
 ### End-to-End Encrypted (Zero-Knowledge)
@@ -39,7 +39,7 @@ The server **cannot read** these, even under legal compulsion:
 | Call transcriptions | MLS groupwise encryption (Tier 3) | Yes (epoch-based ratchet) |
 | Encrypted reports | MLS groupwise encryption (Tier 3) | Yes (epoch-based ratchet) |
 | Messages (SMS/WhatsApp/Signal) | MLS groupwise encryption (Tier 3); server AES-GCM at webhook ingest | Yes (epoch-based ratchet) |
-| File attachments | HPKE-wrapped file key (items-key indirection) + AES-256-GCM body | Yes (per-file ephemeral key) |
+| File attachments | ECIES-wrapped per-file key (`LABEL_FILE_KEY`) + XChaCha20-Poly1305 body (HPKE migration planned) | No (re-encrypted on key rotation) |
 | Volunteer name | Legacy ECIES envelope (Tier 1) | No (re-encrypted on key rotation) |
 | Volunteer phone | Legacy ECIES envelope (Tier 1) | No (re-encrypted on key rotation) |
 | Contact directory PII | Legacy ECIES envelope (Tier 1) | No (re-encrypted on key rotation) |
