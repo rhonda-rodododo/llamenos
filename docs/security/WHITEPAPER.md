@@ -671,7 +671,30 @@ integrity failure.
 **Source:** `src/client/lib/gossip-version.ts`,
 `src/shared/schemas/gossip-version.ts`.
 
-### 5.7 Compositional guarantee
+### 5.7 Service worker hardening
+
+The service worker operates in prompt mode: updates are not applied
+silently. When the browser detects a new SW version, the user must
+explicitly consent before the update is activated.
+
+The SW performs manifest-verified caching: on install, it fetches the
+signed release manifest, verifies the Ed25519 signature against a
+build-time-pinned public key, and stores the verified release tag.
+An anti-downgrade check refuses to install manifests with a lower
+semver than the currently stored version.
+
+**Limitation:** This is Trust-on-First-Use. The first install trusts
+whatever the server delivers. The service worker cannot verify itself
+on first load — that is the fundamental web trust problem. For
+returning users, the hardened SW provides meaningful protection against
+a server compromise that occurs after the initial install.
+
+**(status on `main`)** Prompt-mode registration, manifest verification,
+and anti-downgrade are implemented. The SW verifier is defense-in-depth
+alongside the main-thread binary verifier (§5.5), which is the
+fail-closed gate.
+
+### 5.8 Compositional guarantee
 
 Properties 5.1 through 5.6 are not redundant — each is designed to
 catch a different failure mode of the others:
@@ -867,6 +890,19 @@ introduced a server-side `user_sessions` table so admins can revoke
 specific sessions on demand. This reduces the window but does not
 eliminate it. Watch the sessions page in the settings UI and
 revoke anything unfamiliar immediately.
+
+### 7.8 Web trust gap
+
+The web platform cannot provide native-app-level code integrity
+guarantees. A compromised server can serve modified JavaScript on first
+load, before any client-side verification runs. The service worker
+hardening (§5.7) mitigates this for returning users via TOFU, but
+first-load protection requires a trust anchor outside the web page —
+which the web platform does not provide on mobile.
+
+Native clients (Tauri for desktop, planned iOS and Android apps) move
+the trust anchor to OS-level code signing and are the long-term answer.
+The web client is a v1 transitional tool.
 
 ---
 

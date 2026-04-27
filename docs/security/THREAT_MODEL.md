@@ -929,6 +929,35 @@ Transcription runs entirely in-browser via WASM (Whisper via `@huggingface/trans
 
 ---
 
+## Web Trust Gap — Server Compromise and Code Delivery
+
+**The fundamental problem:** Every web application downloads its code from a server on each page load. For an E2EE web app, this creates a structural contradiction: the application claims to protect data from the server, but the server controls which code runs on the client. A compromised server (or one coerced by legal process) can serve modified JavaScript that silently exfiltrates keys, plaintext, or session material.
+
+**This is not a Llamenos-specific bug.** It is a structural property of the web platform. Emily Stark (Chrome security team): "there is no long-term trustable notion of what 'the application' is" on the web.
+
+**What Llamenos does to mitigate:**
+
+| Layer | Type | Scope |
+|-------|------|-------|
+| Binary verifier (Ed25519) | Detection | All users, every page load |
+| Split-origin CSP (`connect-src 'none'` on crypto iframe) | Containment | All users |
+| Hardened service worker (prompt mode, manifest-verified caching, anti-downgrade) | Prevention (TOFU) | Returning users |
+| Fleet gossip (Nostr kind 20002) | Detection | All verified clients |
+| Third-party verifiers | Detection | When allied orgs participate |
+| Reproducible builds + cosign | Audit | Security researchers |
+
+**What Llamenos cannot mitigate on the web platform:**
+
+1. **First-load compromise:** If a user's first visit occurs while the server is compromised, they receive malicious code. No web-only mechanism prevents this.
+2. **iOS Safari cache eviction:** iOS aggressively evicts service worker caches. After eviction, the next load is unprotected TOFU.
+3. **Targeted single-load SMCD:** Malicious code served to one user for one page load, then reverted, may evade detection.
+
+**Strategic direction:** Native clients (Tauri desktop in v2, planned iOS and Android native apps) are the definitive answer. The web client is a transitional tool for v1. Users in high-threat environments should prefer the desktop Tauri app.
+
+**Industry precedent:** Signal has no web client for messaging. WhatsApp Web has no mobile web E2EE client. ProtonMail acknowledges the web client is the weak link. Every serious E2EE application either uses native apps or honestly acknowledges the web trust gap.
+
+---
+
 ## Revision History
 
 | Date | Version | Author | Changes |
