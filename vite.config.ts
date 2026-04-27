@@ -71,7 +71,7 @@ export default defineConfig(({ mode }) => ({
       strategies: 'injectManifest',
       srcDir: 'src/client',
       filename: 'service-worker.ts',
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: ['favicon.svg', 'apple-touch-icon.svg'],
       manifest: {
         name: 'Hotline',
@@ -119,6 +119,8 @@ export default defineConfig(({ mode }) => ({
     '__BUILD_TIME__': JSON.stringify(buildTime),
     '__BUILD_COMMIT__': JSON.stringify(buildCommit),
     '__BUILD_VERSION__': JSON.stringify(buildVersion),
+    '__PINNED_SIGNING_KEY__': JSON.stringify(process.env.VITE_RELEASE_SIGNING_PUBKEY || ''),
+    '__API_ORIGIN__': JSON.stringify(process.env.VITE_API_ORIGIN || ''),
   },
   build: {
     outDir: 'dist/client',

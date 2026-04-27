@@ -89,6 +89,13 @@ async function bootSPA(): Promise<void> {
   ])
   bootCryptoSandbox()
 
+  // Gate 2.5: register service worker in prompt mode (after verification passes).
+  // The SW update is never applied automatically — the user must consent via the
+  // SwUpdatePrompt component. This prevents a compromised server from silently
+  // replacing the SW.
+  const { initSwRegistration } = await import('@/lib/sw-register')
+  initSwRegistration()
+
   // Gate 3: wire test globals (Playwright uses these against prod builds).
   // CSP script-src restricts execution to same-origin in production.
   if (typeof window !== 'undefined') {
