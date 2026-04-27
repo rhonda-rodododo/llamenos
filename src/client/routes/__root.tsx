@@ -42,6 +42,7 @@ import { NotificationPromptBanner } from '@/components/notification-prompt-banne
 import { OfflineBanner } from '@/components/offline-banner'
 import { PanicWipeIndicator } from '@/components/panic-wipe-indicator'
 import { PwaInstallBanner } from '@/components/pwa-install-banner'
+import { SwUpdatePrompt } from '@/components/sw-update-prompt'
 import { useAuth } from '@/lib/auth'
 import { useConfig, useHasMessaging } from '@/lib/config'
 import { cryptoWorker } from '@/lib/crypto-worker-client'
@@ -584,6 +585,7 @@ function AuthenticatedLayout() {
         {demoMode && <DemoBanner />}
         <NotificationPromptBanner />
         <PwaInstallBanner />
+        <SwUpdatePrompt />
         <KeyMismatchBanner />
 
         {/* Mobile top bar */}
