@@ -1,10 +1,10 @@
 ---
-title: Web E2EE Server Compromise Mitigation
+title: Web E2EE Server Compromise Mitigation (v1 Interim)
 status: draft
 date: 2026-04-27
 ---
 
-# Web E2EE Server Compromise Mitigation
+# Web E2EE Server Compromise Mitigation (v1 Interim)
 
 **Date:** 2026-04-27
 **Status:** Draft
@@ -19,13 +19,6 @@ Every web application downloads its code from a server on each page load. For an
 
 This is not a bug in Llamenos. It is a structural property of the web platform. Emily Stark (Chrome security team) articulates it precisely: "there is no long-term trustable notion of what 'the application' is" on the web, because application code is downloaded afresh on approximately each connection.
 
-Native mobile apps partially solve this through OS-mediated app stores: Apple and Google review and sign application binaries, providing an independent trust anchor between the developer and the user. Desktop apps increasingly do not have this property (Electron apps auto-update from the developer's servers, which "looks a lot more like the web's code distribution model").
-
-**For Llamenos specifically:**
-
-- **Desktop is addressed**: The sibling v2 repo (`llamenos-platform`) ships a Tauri native wrapper. Code-signed binaries update through a separate channel from the web server. The trust anchor is the OS + code signing certificate.
-- **The gap is mobile web**: Volunteers using Android or iOS browsers have no native wrapper. They load code from the server on every visit. This spec addresses that gap.
-
 ### What a compromised server can do
 
 1. Serve modified JavaScript to one targeted user (Selective Malicious Code Delivery / SMCD)
@@ -37,671 +30,271 @@ Native mobile apps partially solve this through OS-mediated app stores: Apple an
 
 ### What existing Tier 4 infrastructure provides
 
-Llamenos already has significant mitigation infrastructure (see Tier 4 spec brief):
+Llamenos already has significant detection infrastructure (see Tier 4 spec brief):
 
 | Layer | Mechanism | Limitation |
 |-------|-----------|------------|
-| Binary verifier | Ed25519 signature verification of release manifest | Depends on itself not being tampered; first load is unverified |
-| Split-origin CSP | Crypto iframe at separate origin, `connect-src 'none'` | Requires compromising two origins, but both are still web-served |
-| Reproducible builds | `SOURCE_DATE_EPOCH`, cosign, SBOM, `verify-build.sh` | Post-hoc verification; does not prevent execution of bad code |
-| Fleet gossip | Clients publish bundle hash to Nostr relay | Detection after the fact; targeted SMCD of one device is detectable only if other devices compare |
-| Third-party verifiers | Allied orgs verify and publish verdicts | Requires operational verifier infrastructure; delay between deploy and detection |
-| Service worker SRI | Precached assets validated against integrity hashes | SW itself auto-updates; first install is from the server |
-| Warrant canary | Regular signed statements | Social/legal signal only; no technical enforcement |
+| Binary verifier | Ed25519 signature verification of release manifest | Self-referential: depends on itself not being tampered |
+| Split-origin CSP | Crypto iframe at separate origin, `connect-src 'none'` | Requires compromising two origins, but both are web-served |
+| Reproducible builds | `SOURCE_DATE_EPOCH`, cosign, SBOM, `verify-build.sh` | Post-hoc verification; does not prevent execution |
+| Fleet gossip | Clients publish bundle hash to Nostr relay | Detection after the fact; targeted SMCD hard to catch |
+| Third-party verifiers | Allied orgs verify and publish verdicts | Delay between deploy and detection |
+| Service worker SRI | Precached assets validated against integrity hashes | SW itself auto-updates silently; first install unverified |
+| Warrant canary | Regular signed statements | Social/legal signal only |
 
-**The honest assessment**: These layers make mass SMCD detectable within minutes and raise the cost of targeted SMCD significantly. But they do not prevent a first-load compromise, and they depend on the verifier code itself not being tampered with (a circular dependency).
+**The honest assessment**: These layers make mass SMCD detectable and raise the cost of targeted SMCD. But they do not prevent a first-load compromise, and they are self-referential (the server delivers the verifier that verifies the server's code).
 
 ---
 
-## 2. Threat Model Scope
+## 2. Strategic Direction: Native Clients Are the Answer
 
-### In scope
+### Why browser extensions are not the path forward
 
-- **Server compromise**: Attacker gains write access to the web server or CDN serving the SPA bundle
-- **Legal compulsion**: Court order requiring the hosting provider to serve modified code to a specific user (FISA 702, UK Technical Capability Notice, equivalent)
-- **CDN/hosting provider compromise**: Attacker compromises Cloudflare Pages, Netlify, or equivalent static hosting
-- **Targeted SMCD**: Modified code served to a single user, with all other users receiving legitimate code
-- **Service worker poisoning**: Attacker serves a malicious service worker that persists compromise
+Research into browser extension approaches (WEBCAT, WhatsApp Code Verify, custom extensions) revealed that the mobile coverage matrix is fundamentally broken:
+
+| Platform | Extension support | Pre-execution blocking | Market share |
+|----------|------------------|----------------------|-------------|
+| Firefox Android | Full (`webRequest` blocking) | Yes | ~2% |
+| Safari iOS | Partial (`declarativeNetRequest` only) | No (detection only) | ~27% |
+| Chrome Android | None | No | ~65% |
+| iOS Chrome/Firefox | None (WebKit forced) | No | ~5% |
+
+Building and maintaining two extension codebases (Firefox MV2 + Safari Web Extension) for AMO and App Store distribution would provide pre-execution protection to ~2% of mobile users. The remaining ~98% would still rely on the service worker (TOFU) and the self-referential binary verifier. This is excessive engineering for marginal security improvement.
+
+**Every serious E2EE application has reached the same conclusion:**
+
+| App | Approach | Mobile story |
+|-----|----------|-------------|
+| **Signal** | Native apps only | No web client for messaging |
+| **WhatsApp** | Code Verify extension (desktop only) | No mobile web E2EE client |
+| **ProtonMail** | Web + native apps | Acknowledges web client is the weak link |
+| **Element/Matrix** | WEBCAT integration (alpha, Firefox only) | Native apps for mobile |
+| **Bitwarden** | WEBCAT integration (alpha, Firefox only) | Native apps for mobile |
+
+The pattern is clear: **native clients are the real solution**. The v2 platform (`llamenos-platform`) ships Tauri for desktop and will ship native iOS and Android clients. The web client is a transitional tool, not the long-term security-critical path.
+
+### v1 interim strategy
+
+Rather than building an extension ecosystem that will be superseded by native clients, the v1 web client should:
+
+1. **Harden the service worker** -- highest-impact, lowest-cost change for all platforms
+2. **Integrate Sigstore** -- strengthens the release signing pipeline (benefits native builds too)
+3. **Document the web trust gap honestly** -- so users in high-threat environments know to wait for native clients or use the desktop Tauri app
+
+---
+
+## 3. Threat Model Scope
+
+### In scope (v1 interim mitigations)
+
+- **Server compromise**: Attacker gains write access to the web server or CDN
+- **Legal compulsion**: Court order requiring modified code delivery
+- **Service worker poisoning**: Malicious SW update persisting compromise
 
 ### Out of scope
 
-- **Browser zero-days**: If the browser itself is compromised, no web-layer mitigation helps
+- **Browser zero-days**: No web-layer mitigation helps
 - **OS-level compromise**: Keyloggers, screen capture, memory inspection
-- **Physical device access with unlocked screen**: Game over regardless
-- **Network-level TLS interception**: Addressed by HSTS preload + certificate transparency (separate concern)
+- **Network-level TLS interception**: Addressed by HSTS preload + CT (separate concern)
 - **Desktop clients**: Addressed by Tauri native wrapper in v2
-
-### Relationship to existing threat model
-
-This spec extends `docs/security/THREAT_MODEL.md` section "Compelled runtime instrumentation" and the Tier 4 delivery hardening spec. It does not replace either document. The existing threat model's honest acknowledgment that "modifying server code to capture data before encryption (requires deployment access)" is a real attack is the starting point for this work.
+- **Native mobile clients**: Addressed by v2 platform (iOS + Android)
 
 ---
 
-## 3. Research Findings
+## 4. Phase 1: Service Worker Hardening
 
-### 3.1 Browser Extension Approaches
+The single highest-impact change for v1. Protects all returning users on all platforms.
 
-#### 3.1.1 Firefox Android Extensions
+### 4.1 Switch from `autoUpdate` to `prompt`
 
-**Status: Available and capable.**
+**Current state:** `vite-plugin-pwa` configured with `registerType: 'autoUpdate'` -- the weakest possible mode. A compromised server can silently replace the service worker and all cached assets.
 
-Firefox for Android (Fenix) supports the full WebExtensions API, including:
-- `webRequest` API (blocking mode) -- can intercept all HTTP requests before they execute
-- `declarativeNetRequest` -- declarative rule-based request modification
-- Content scripts with full DOM access
-- Background scripts (persistent in MV2, event-driven in MV3)
+**Change:** Switch to `registerType: 'prompt'` with manifest verification before update activation.
 
-Firefox on Android has supported an open extension ecosystem since late 2023. The `webRequest` API is not deprecated in Firefox (unlike Chrome/Chromium) and Mozilla has stated it has no plans to deprecate MV2. This is a critical differentiator.
+**Behavior after change:**
+- When a new SW version is detected, the user sees a prompt with current and new version numbers
+- The SW verifies the new version's manifest signature before offering the update
+- User explicitly accepts or defers the update
+- If verification fails: stays on current version, alerts the user
 
-**Relevance to Llamenos**: A Firefox Android extension can intercept the initial HTML and all script loads, compute hashes, verify against a pinned manifest, and block execution if verification fails -- before any application code runs. This eliminates the bootstrap trust problem for Firefox Android users.
+**UX impact:** Users must explicitly accept updates. This is a deliberate trade-off -- security over convenience.
 
-**Limitation**: Market share. Firefox on Android is approximately 1-3% of mobile browser usage. However, for a security-focused app serving crisis hotline volunteers, recommending a specific browser is acceptable and common practice (Signal requires its own app; ProtonMail recommends specific clients).
+### 4.2 Manifest-verified caching
 
-#### 3.1.2 Firefox iOS Extensions
+Transform the SW from a performance cache into a verification cache:
 
-**Status: Not available.**
+1. On install (first load or accepted update), the SW fetches the signed release manifest
+2. Verifies the manifest signature (Ed25519, migrating to Sigstore in Phase 2)
+3. For each resource in the manifest, fetches content and computes SHA-384
+4. Only caches resources whose hashes match the manifest
+5. Subsequent page loads are served from the verified cache
+6. Cache misses: fetch from network, verify hash, cache if valid, refuse if mismatch
 
-Firefox on iOS does not support extensions. Apple requires all iOS browsers to use the WebKit engine (outside the EU), and Apple's iOS extension system is incompatible with Firefox add-ons. There is no indication this will change.
+### 4.3 Self-verification on update
 
-**EU exception (iOS 17.4+)**: In the EU, Apple now allows alternative browser engines under the Digital Markets Act. Firefox could theoretically ship Gecko on iOS in the EU and support extensions. As of April 2026, this has not shipped. Even if it does, it would be EU-only.
+When the browser detects a new SW version (byte-for-byte diff on the SW script):
 
-#### 3.1.3 Safari Web Extensions on iOS
+1. The current (trusted) SW intercepts the update flow
+2. Fetches the new SW script and computes its hash
+3. Verifies the hash against the signed manifest
+4. Only allows activation if verification passes
+5. If verification fails: stays on current version, alerts the user, publishes divergence to fleet gossip
 
-**Status: Partially capable, with critical limitations.**
+### 4.4 Anti-downgrade protection
 
-Safari on iOS supports Web Extensions (since iOS 15), including:
-- `declarativeNetRequest` -- supported and actively maintained (Safari 18.5 shipped bug fixes in early 2026)
-- Content scripts -- supported, subject to page CSP
-- Background scripts -- supported (non-persistent)
+The SW refuses to install a manifest with a version number lower than the current one. Prevents an attacker from serving an older (vulnerable) version.
 
-**Critical limitation**: `webRequest` (blocking mode) is NOT available on iOS Safari extensions. The `declarativeNetRequest` API can block or redirect requests based on static rules, but it cannot inspect response bodies or compute hashes of served content. Content scripts run after page load, which is too late to prevent execution of malicious code.
+### 4.5 Eviction recovery
 
-**Workaround**: A Safari extension could use `declarativeNetRequest` to redirect the initial page load to an extension-hosted verification page, which then fetches the real page content, verifies it, and injects it into the DOM. This is fragile and has significant UX implications.
+iOS Safari aggressively evicts SW caches under storage pressure. After eviction:
 
-**Assessment**: Safari iOS extensions can provide detection (content script comparing DOM against expected hashes) but not prevention (cannot block script execution before it happens). This is weaker than the Firefox Android approach but still valuable as a detection layer.
+- Next load is equivalent to a first load (TOFU)
+- The SW re-fetches the manifest and re-verifies all resources
+- This is an inherent limitation of the web platform on iOS -- documented honestly
 
-#### 3.1.4 WhatsApp's Code Verify Extension
+### 4.6 Implementation files
 
-**Status: Production, desktop-only.**
-
-Meta's Code Verify extension (open source, available for Chrome, Firefox, Edge) verifies WhatsApp Web's served code against hashes published to Cloudflare. On mismatch, it displays a red indicator.
-
-**Architecture**: The extension fetches a root hash from Cloudflare (independent of WhatsApp's servers), then verifies every script and resource hash against it. This is essentially the same pattern as Llamenos' binary verifier, but running in a browser extension (which has a trust anchor outside the web page).
-
-**Limitation**: Desktop-only. No mobile version. The extension model does not translate to iOS Safari (no `webRequest`). Could work on Firefox Android.
-
-**Relevance**: Validates the extension-based verification approach. The Llamenos verifier extension should follow this pattern.
-
-#### 3.1.5 WEBCAT (Freedom of the Press Foundation)
-
-**Status: Alpha, Firefox-only (MV2).**
-
-WEBCAT (Web-based Code Assurance and Transparency) is a browser extension developed by the Freedom of the Press Foundation (SecureDrop project). It provides blocking code verification: if any resource fails verification, the page does not load.
-
-**Architecture**:
-1. Developers sign an application manifest using Sigstore (OIDC identity + transparency log)
-2. The browser extension intercepts page loads via `webRequest` (MV2)
-3. Before any script executes, the extension verifies every resource hash against the signed manifest
-4. On failure: page load is aborted entirely (fail-closed)
-5. Signing operations are logged to Sigstore's Rekor transparency log
-
-**Key properties**:
-- **Blocking verification**: Unlike Code Verify (which shows an indicator), WEBCAT prevents execution. This is the correct failure mode for high-security applications.
-- **Transparency log**: Sigstore integration means signing events are publicly auditable. A compromised developer who signs a malicious manifest leaves evidence in the transparency log.
-- **Decentralized enrollment**: Alpha release introduced decentralized enrollment infrastructure.
-- **Proven integrations**: Successfully integrated with Jitsi, Element, Bitwarden, and GlobaLeaks.
-
-**Critical limitation**: Requires MV2 `webRequest` API. This means:
-- Works on Firefox desktop and Firefox Android
-- Does NOT work on Chrome/Chromium (MV3 removed blocking `webRequest`)
-- Does NOT work on Safari iOS (no `webRequest`)
-
-**Assessment**: WEBCAT is the strongest existing solution for the bootstrap trust problem on platforms that support it. Llamenos should either adopt WEBCAT directly or build a compatible extension following the same architecture. The Sigstore transparency log integration is particularly valuable -- it addresses the "who watches the watcher" problem.
-
-### 3.2 Platform-Level Approaches
-
-#### 3.2.1 Trusted Web Activities (TWA) on Android
-
-**Status: Production, Android Chrome only.**
-
-A TWA wraps a PWA in an Android app shell, published through the Google Play Store. Digital Asset Links (DAL) verify that the app and website share the same developer.
-
-**Security properties**:
-- Code is served over HTTPS (standard web security)
-- DAL verification binds the app to the website via signing key
-- App binary is distributed through the Play Store (Google's review + signing)
-
-**What TWA does NOT provide**:
-- No subresource integrity verification beyond standard HTTPS
-- No protection against the web server serving different content to the TWA vs. direct browser access
-- The web content is still fetched from the server on each load -- TWA does not bundle or sign the web content
-- DAL only verifies domain ownership, not content integrity
-
-**Assessment**: TWA provides Play Store distribution (installability, discoverability, auto-update via Play) but does NOT solve the server compromise problem. The web content is still dynamic and server-controlled. TWA is useful for distribution but not for integrity.
-
-#### 3.2.2 Isolated Web Apps (IWA)
-
-**Status: Early development, ChromeOS only.**
-
-Chrome's Isolated Web Apps proposal delivers web apps as signed Web Bundles. The app is identified by its signing key, not its serving origin. This is architecturally the right solution -- it moves the trust anchor from the server to the signing key, just like native apps.
-
-**Current limitations**:
-- Available only on ChromeOS
-- Not compiled for Android
-- Not available on iOS/Safari
-- Restricted to an allowlist of approved developers
-- No timeline for mobile support
-
-**Assessment**: IWA is the web platform's eventual answer to this problem, but it is years away from being usable on mobile. Not viable for Llamenos in the near term. Worth monitoring.
-
-#### 3.2.3 Web Bundles / Signed HTTP Exchanges (SXG)
-
-**Status: SXG is Chrome-only and declining; Web Bundles are early.**
-
-- SXG is supported in Chrome 73+ but has been rejected by Firefox ("considered harmful") and Safari
-- Cloudflare deprecated SXG support in October 2025
-- Web Bundles are part of the IWA proposal but not independently deployable for integrity purposes
-- No mobile Safari support
-
-**Assessment**: Not viable as a standalone integrity mechanism. The ecosystem has moved away from SXG. Web Bundles may become relevant if IWA ships broadly, but that is speculative.
-
-### 3.3 Web Platform Primitives
-
-#### 3.3.1 Import Maps with Integrity
-
-**Status: Shipping in Chrome 127+ and Safari 18+.**
-
-The `integrity` field in import maps allows specifying SRI hashes for ES module imports:
-
-```json
-{
-  "imports": { "./app.js": "./app-abc123.js" },
-  "integrity": { "./app-abc123.js": "sha384-..." }
-}
-```
-
-**Properties**:
-- Browser enforces integrity before module execution
-- Covers dynamically imported modules, not just static `<script>` tags
-- Polyfill available via `es-module-shims` for older browsers
-
-**Critical limitation**: The import map itself is delivered in a `<script type="importmap">` tag in the HTML document. If the server is compromised, the attacker can serve a modified import map with hashes matching the malicious scripts. Import map integrity protects against CDN tampering (where the CDN serves JS but the origin serves HTML), but NOT against origin compromise.
-
-**Relevance to Llamenos**: Useful as defense-in-depth for the split-origin architecture (import map served from app origin, scripts potentially from CDN). Does not solve the core problem.
-
-#### 3.3.2 Service Worker as Trust Anchor
-
-**Status: Viable with significant caveats.**
-
-A service worker installed from a known-good state can intercept all subsequent fetches and verify integrity before allowing execution. This is the Trust-on-First-Use (TOFU) model.
-
-**How it works**:
-1. User installs the PWA from a known-good state (or verifies the first load via an extension)
-2. The service worker pins the expected hashes of all application resources
-3. On subsequent page loads, the SW intercepts all fetch requests
-4. For each resource, the SW computes a hash and compares against the pinned manifest
-5. On mismatch: the SW can refuse to serve the resource, display a warning, or serve the cached known-good version
-
-**Properties**:
-- Works on all platforms (Android Chrome, iOS Safari, Firefox)
-- No extension required
-- Survives page reloads (SW persists until explicitly updated or evicted)
-- Can refuse to execute updates until user consents
-
-**Critical limitations**:
-
-1. **First load is unprotected**: The SW itself must be served by the server on first install. If the first load is compromised, the SW is compromised.
-2. **SW update mechanism**: Browsers check for SW updates every 24 hours (or on navigation). A compromised server can serve a malicious SW update. The SW can be configured to require user consent before updating (`prompt` mode in workbox), but the update check itself fetches from the server.
-3. **Browser eviction**: Browsers can evict SW caches under storage pressure (especially on iOS Safari, which is aggressive about this). After eviction, the next load is equivalent to a first load.
-4. **SW byte-for-byte check**: Browsers re-fetch the SW script on each navigation and compare byte-for-byte. If the served SW differs by even one byte, the browser installs the new version. A compromised server can exploit this to replace the SW.
-
-**Mitigation for limitations 2-4**: The SW can embed a signing key and verify its own updates. Before activating a new SW version, the installing SW can fetch the signed manifest and verify the new SW's hash. This creates a chain of trust from the first known-good install. However, this is complex and has edge cases (what if the browser force-updates the SW? what if the user clears site data?).
-
-**Current Llamenos state**: The project uses `vite-plugin-pwa` with `registerType: 'autoUpdate'`, which means SW updates are applied silently. This is the weakest possible configuration for security. Switching to `registerType: 'prompt'` is a prerequisite for using the SW as a trust anchor.
-
-**Assessment**: The service worker is the most broadly available mechanism for persistent integrity verification. It provides meaningful protection for repeat visits after a verified first load. The first-load problem remains, but combining SW with extension-based first-load verification (on platforms that support it) creates a strong layered defense.
-
-#### 3.3.3 Subresource Integrity (SRI)
-
-**Status: Broadly supported.**
-
-SRI allows specifying expected hashes on `<script>` and `<link>` tags. The browser refuses to execute resources whose content does not match the hash.
-
-```html
-<script src="app.js" integrity="sha384-..." crossorigin="anonymous"></script>
-```
-
-**Limitation**: Same as import map integrity -- the SRI hashes are in the HTML document, which is served by the server. A compromised server serves matching hashes. SRI protects against CDN/transit tampering, not origin compromise.
-
-**Relevance**: Useful in the split-origin architecture where HTML and JS are served from different hosts.
-
-### 3.4 Transparency and Auditing Approaches
-
-#### 3.4.1 Source Code Transparency (Proton / Daniel Huigens)
-
-**Status: Proposal stage (W3C WICG submission).**
-
-Daniel Huigens (Proton cryptography lead) proposed publishing web app source code hashes to a transparency log (analogous to Certificate Transparency for TLS certificates).
-
-**Mechanism**:
-1. Developer builds the web app and creates a signed Web Bundle
-2. The bundle hash is published to a transparency log (append-only Merkle tree)
-3. When a browser loads the web app, it checks that the served code's hash appears in the transparency log
-4. If the hash is not in the log (or the log shows a different hash for this domain+version), the browser can warn or block
-
-**Key insight**: This makes SMCD publicly auditable. A compromised server can still serve malicious code, but the malicious code's hash will either (a) be absent from the log (detectable by the browser) or (b) be present in the log (meaning the developer signed it, creating a public evidence trail).
-
-**Current status**: Proposal submitted to W3C WICG after the "Secure the Web Forward" workshop (2023). No browser implementation. This is the right long-term direction for the web platform, but it requires browser vendor adoption.
-
-#### 3.4.2 Binary Transparency Logs
-
-**Status: Production for Android (Google), proposed for web.**
-
-Google's Android Binary Transparency publishes APK hashes to a Merkle tree log. The WAIT paper ("Protecting the Integrity of Web Applications with Binary-Equivalent Transparency") proposes the same for web apps.
-
-**Relevance**: The concept is sound. Llamenos already publishes checksums in GitHub Releases. The gap is that no browser natively checks these logs. The WEBCAT extension and Llamenos' binary verifier fill this gap in software, but the long-term solution requires browser-native support.
-
-#### 3.4.3 Sigstore Integration
-
-**Status: Production infrastructure.**
-
-Sigstore provides keyless signing (via OIDC identity) with a public transparency log (Rekor). Tinfoil has demonstrated browser-native Sigstore verification in 50KB of JavaScript (down from 80MB WASM).
-
-**Relevance**: Llamenos' release signing currently uses Ed25519 with a build-time-pinned key. Migrating to Sigstore would add:
-- OIDC-based identity (ties signatures to a GitHub Actions workflow, not just a key)
-- Public transparency log (every signing event is auditable)
-- Keyless verification (no need to pin a key; verify against the OIDC identity)
-- Browser-native verification via `sigstore-browser` + `tuf-browser` libraries
-
-This does not solve the bootstrap problem (the verification code is still served by the server), but it significantly strengthens the auditing layer.
-
-### 3.5 What Other E2EE Apps Do
-
-| App | Approach | Mobile Story |
-|-----|----------|-------------|
-| **Signal** | Native apps only (no web client for messaging) | iOS App Store + Google Play Store |
-| **WhatsApp Web** | Code Verify browser extension (desktop) | No mobile web client for E2EE messaging |
-| **ProtonMail** | Open source + third-party audits + Key Transparency | Native apps for mobile; web client is the weak link (acknowledged) |
-| **Element/Matrix** | Open source + WEBCAT integration (alpha) | Native apps for mobile; web client relies on trust |
-| **CryptPad** | Sandboxed iframe (separate origin for crypto) | Same web client on mobile; sandboxed iframe helps but does not prevent SMCD |
-| **Bitwarden** | Open source + third-party audits + WEBCAT integration (alpha) | Native apps for mobile; browser extension for desktop |
-
-**Pattern**: Every serious E2EE application either (a) uses native apps for the primary client or (b) acknowledges the web trust gap honestly and layers mitigations. No one has fully solved the web E2EE trust problem for mobile browsers.
+| File | Change |
+|------|--------|
+| `vite.config.ts` | Change `registerType` to `'prompt'`, update workbox config |
+| `src/client/lib/sw-register.ts` | New: SW registration with update prompt logic |
+| `src/client/lib/sri-workbox-plugin.ts` | Extend: manifest verification in SW install/activate |
+| `src/client/components/sw-update-prompt.tsx` | New: UI component for update consent |
 
 ---
 
-## 4. Proposed Architecture
+## 5. Phase 2: Sigstore Integration
 
-### Design Principle
+Strengthens the release signing pipeline. Benefits both the web client and future native clients.
 
-Accept that the web platform cannot provide the same trust guarantees as native apps. Instead of pretending otherwise, build the strongest layered defense achievable on each platform and be transparent about the residual risk.
+### 5.1 Why Sigstore over standalone Ed25519
 
-The architecture follows a tiered approach where each tier adds protection for a broader set of users, with the strongest guarantees reserved for users who take specific actions (installing an extension or using a recommended browser).
+| Property | Current Ed25519 | Sigstore |
+|----------|----------------|----------|
+| Identity binding | Key only (who holds it?) | OIDC identity (tied to GitHub Actions workflow) |
+| Transparency | None (trust the key) | Public Rekor log (every signing event auditable) |
+| Key management | Must protect and rotate a private key | Keyless (ephemeral signing via OIDC) |
+| Verification | Requires pinned public key | Verify against OIDC identity + transparency log |
+| "Who watches the watcher" | Nothing | Rekor log -- a malicious signing leaves evidence |
 
-### 4.1 Tier Overview
+### 5.2 Architecture
 
-```
-Tier 5: Native app (Tauri desktop, future mobile native)
-        Trust anchor: OS code signing
-        Coverage: Desktop users (existing)
+1. **CI/CD signing**: GitHub Actions release workflow signs the release manifest using `sigstore-js`. The signing identity is the GitHub Actions OIDC token, binding the signature to the repo, workflow file, and commit SHA.
 
-Tier 4: WEBCAT-compatible browser extension
-        Trust anchor: Extension store + Sigstore transparency log
-        Coverage: Firefox Android users
+2. **Transparency log**: Every signing event is recorded in Sigstore's Rekor log. Append-only, publicly auditable.
 
-Tier 3: Safari Web Extension (detection mode)
-        Trust anchor: App Store review + declarativeNetRequest
-        Coverage: iOS Safari users
+3. **Browser-native verification**: Use Tinfoil's `sigstore-browser` (~50KB) for in-browser Sigstore verification via WebCrypto. This supplements (and eventually replaces) the current Ed25519 verification in the binary verifier.
 
-Tier 2: Pinned service worker with manifest verification
-        Trust anchor: TOFU from first verified load
-        Coverage: All returning users on all platforms
+4. **Ed25519 retained as fallback**: For offline/air-gapped verification and as a transition period backup.
 
-Tier 1: Client-side binary verifier + fleet gossip + third-party verifiers
-        Trust anchor: None (self-referential), but raises detection probability
-        Coverage: All users (existing Tier 4 infrastructure)
+### 5.3 Implementation files
 
-Tier 0: Reproducible builds + public checksums + transparency
-        Trust anchor: Social/reputational
-        Coverage: Auditors, security researchers
-```
-
-### 4.2 Platform Coverage Matrix
-
-| Platform | Browser | Tier 5 | Tier 4 | Tier 3 | Tier 2 | Tier 1 | Tier 0 |
-|----------|---------|--------|--------|--------|--------|--------|--------|
-| Desktop | Any | Tauri | -- | -- | SW | Verifier | Repro |
-| Android | Firefox | -- | WEBCAT ext | -- | SW | Verifier | Repro |
-| Android | Chrome | -- | -- | -- | SW | Verifier | Repro |
-| iOS | Safari | -- | -- | Safari ext | SW | Verifier | Repro |
-| iOS | Chrome* | -- | -- | -- | SW | Verifier | Repro |
-| iOS | Firefox* | -- | -- | -- | SW | Verifier | Repro |
-| EU iOS | Firefox (Gecko) | -- | Possible** | -- | SW | Verifier | Repro |
-
-\* iOS Chrome and iOS Firefox use WebKit engine; they have Safari's capabilities, not Chrome's/Firefox's.
-
-\** If Firefox ships Gecko on iOS in the EU with extension support, WEBCAT could work there. Speculative.
-
-### 4.3 Detailed Architecture: WEBCAT-Compatible Extension (Tier 4)
-
-#### For Firefox Android
-
-Build a Llamenos Verifier extension following the WEBCAT architecture:
-
-1. **Manifest signing**: CI/CD pipeline signs the release manifest using Sigstore (tied to the GitHub Actions OIDC identity). The signature and bundle hashes are published to Rekor.
-
-2. **Extension intercept**: On every navigation to the Llamenos app origin, the extension:
-   - Intercepts the HTML response via `webRequest.onBeforeRequest` (blocking)
-   - Fetches the signed manifest from a configurable verification endpoint (default: Llamenos API, but pinnable to an independent source)
-   - Verifies the Sigstore signature against the expected OIDC identity
-   - Checks that the manifest's content hash appears in the Rekor transparency log
-   - Parses the HTML to extract all `<script>` and `<link>` references
-   - For each referenced resource, computes SHA-384 and compares against the manifest
-   - If all hashes match: allows the page to load
-   - If any hash mismatches or verification fails: blocks the page and displays a full-page warning with details
-
-3. **Manifest pinning**: The extension stores the last-known-good manifest. If the verification endpoint is unavailable, the extension can verify against the pinned manifest (with a warning that freshness cannot be confirmed).
-
-4. **Update alerting**: When the manifest changes (new release), the extension displays a notification before allowing the new version to load, showing the version change and a link to the release notes.
-
-5. **Distribution**: Published to Firefox Add-ons (AMO) for both desktop and Android. The extension itself is signed by AMO, providing an independent trust anchor.
-
-#### Integration with existing infrastructure
-
-- The extension consumes the same `SignedReleaseManifest` that the existing binary verifier uses
-- Sigstore signing replaces (or supplements) the current Ed25519 release signing
-- The extension can also verify the crypto-sandbox iframe origin (split-origin architecture)
-
-### 4.4 Detailed Architecture: Safari iOS Extension (Tier 3)
-
-Build a Llamenos Verifier Safari extension:
-
-1. **Content script verification**: After page load, the content script:
-   - Enumerates all `<script>` and `<link>` elements in the DOM
-   - Fetches each resource via `fetch()` and computes SHA-384
-   - Compares against the signed manifest (fetched from verification endpoint)
-   - If mismatch: injects a full-page warning overlay and attempts to prevent further script execution via DOM manipulation
-
-2. **declarativeNetRequest rules**: Static rules that:
-   - Block known-bad resource patterns (if a compromised hash is identified)
-   - Redirect the app's service worker registration to a verification-first flow
-
-3. **Limitation acknowledgment**: This is detection, not prevention. By the time the content script runs, the application code has already executed. The content script can detect the tampering and warn the user, but it cannot prevent initial execution. This must be documented honestly in the security properties.
-
-4. **Distribution**: Published to the iOS App Store as a Safari Web Extension. Apple's App Store review provides a (weak) independent trust anchor.
-
-### 4.5 Detailed Architecture: Pinned Service Worker (Tier 2)
-
-Transform the existing service worker from a caching layer into a verification layer:
-
-1. **Switch from `autoUpdate` to `prompt`**: The service worker no longer auto-updates. When a new version is detected, the user sees a prompt with:
-   - Current version and new version
-   - Whether the new version's manifest signature is valid
-   - A "Verify and Update" button and a "Stay on Current Version" button
-
-2. **Manifest-verified caching**: The service worker maintains a verified resource cache:
-   - On install (first load or update), the SW fetches the signed release manifest
-   - Verifies the manifest signature (Ed25519 or Sigstore)
-   - For each resource in the manifest, fetches and hashes the content
-   - Only caches resources whose hashes match the manifest
-   - Subsequent page loads are served from the verified cache
-
-3. **Fetch interception**: For all navigation and subresource requests:
-   - If the resource is in the verified cache: serve from cache
-   - If not in cache: fetch from network, verify hash against manifest, cache if valid
-   - If hash mismatch: refuse to serve, display integrity error
-
-4. **Self-verification on update**: When the browser detects a new SW version:
-   - The current (trusted) SW fetches the new SW script
-   - Computes its hash and verifies against the manifest
-   - Only allows the update to proceed if verification passes
-   - If verification fails: stays on current version and alerts the user
-
-5. **Eviction recovery**: If the browser evicts the SW cache:
-   - Next load is equivalent to a first load (unverified)
-   - The SW re-fetches the manifest and re-verifies all resources
-   - If an extension is installed (Tier 3/4), the extension provides first-load verification
-   - If no extension: TOFU -- the user must trust this particular load
-
-6. **Anti-downgrade**: The SW refuses to install a manifest with a version number lower than the current one. This prevents an attacker from serving an older (vulnerable) version.
-
-### 4.6 Detailed Architecture: Sigstore Integration (Cross-Tier)
-
-Migrate release signing from standalone Ed25519 to Sigstore:
-
-1. **CI/CD signing**: The GitHub Actions release workflow signs the release manifest using `sigstore-js`. The signing identity is the GitHub Actions OIDC token, which binds the signature to:
-   - The GitHub repository (`llamenos/llamenos-hotline`)
-   - The GitHub Actions workflow file
-   - The git commit SHA
-
-2. **Transparency log**: Every signing event is recorded in Sigstore's Rekor log. This is append-only and publicly auditable.
-
-3. **Browser-native verification**: Use Tinfoil's `sigstore-browser` (50KB) for in-browser Sigstore verification via WebCrypto. This replaces the current `@noble/curves/ed25519` verification in the binary verifier.
-
-4. **Multiple verification paths**: The manifest can be verified via:
-   - The browser extension (Tier 3/4) -- strongest, pre-execution
-   - The service worker (Tier 2) -- strong for repeat visits
-   - The in-page binary verifier (Tier 1) -- weakest, post-execution
-   - External verifiers (Tier 0) -- independent, asynchronous
-
-### 4.7 Recommended Browser Guidance
-
-The security properties vary significantly by browser choice. Llamenos should provide clear guidance to users:
-
-**Highest security (mobile)**:
-- Android: Firefox with Llamenos Verifier extension installed
-- iOS: Safari with Llamenos Verifier extension installed
-
-**Standard security (mobile)**:
-- Any modern browser with PWA installed (service worker provides TOFU verification)
-
-**Reduced security (mobile)**:
-- Any browser without PWA installed (relying on in-page verifier only)
-
-This guidance should be surfaced at onboarding and in the security settings page.
+| File | Change |
+|------|--------|
+| `.github/workflows/release.yml` | Add Sigstore signing step, publish to Rekor |
+| `src/client/lib/binary-verifier.ts` | Add Sigstore verification path alongside Ed25519 |
+| `src/shared/schemas/gossip-version.ts` | Extend `SignedReleaseManifest` with Sigstore certificate chain |
 
 ---
 
-## 5. Design Decisions
+## 6. Phase 3: Honest Documentation
 
-### D1: WEBCAT compatibility over custom extension
+Update the security documentation to clearly communicate the web trust gap and the path forward.
 
-**Decision**: Build the Llamenos verifier extension to be compatible with the WEBCAT protocol rather than inventing a new one.
+### 6.1 Threat model update
 
-**Rationale**: WEBCAT is backed by the Freedom of the Press Foundation, has an IACR paper (2025/797), is already integrated with Element/Bitwarden/Jitsi, and uses Sigstore for transparency. Building on a standard increases auditability and allows allied organizations to verify Llamenos using the same tooling they use for other E2EE apps.
+Add a "Web Trust Gap" section to `docs/security/THREAT_MODEL.md`:
 
-**Trade-off**: WEBCAT requires MV2 (`webRequest` blocking), which limits Chrome/Chromium support. Since our primary mobile target is Firefox Android (the only mobile browser with full extension support), this is acceptable.
+- Acknowledge the fundamental limitation of web-delivered code
+- Document what the SW hardening and Sigstore integration provide (and don't)
+- State that native clients (v2) are the intended long-term solution
+- Recommend the desktop Tauri app for users in high-threat environments until native mobile ships
 
-### D2: Service worker prompt mode is mandatory
+### 6.2 Whitepaper update
 
-**Decision**: Switch from `registerType: 'autoUpdate'` to `registerType: 'prompt'` with manifest verification before update activation.
+Add a section to `docs/security/WHITEPAPER.md` covering:
 
-**Rationale**: Silent auto-update means a compromised server can silently replace the service worker. Prompt mode gives the user (and the SW's verification logic) an opportunity to verify before activating. This is a UX regression (users must explicitly accept updates) but a significant security improvement.
+- The web trust problem and industry-wide approaches
+- Llamenos' interim mitigations (SW hardening, Sigstore, fleet gossip, reproducible builds)
+- The v2 native client roadmap as the definitive answer
+- Honest comparison table: web client vs native client security properties
 
-### D3: Sigstore over standalone Ed25519
+### 6.3 Onboarding guidance
 
-**Decision**: Migrate release signing to Sigstore, retaining Ed25519 as a fallback for offline/air-gapped verification.
+Surface security tier information during volunteer onboarding:
 
-**Rationale**: Sigstore provides (a) OIDC identity binding (signature tied to GitHub Actions, not just a key), (b) public transparency log (signing events auditable by anyone), and (c) keyless verification (no need to trust a pinned public key). The Ed25519 key can still be used for environments without internet access to reach Rekor.
+- If on desktop: recommend the Tauri app
+- If on mobile: explain that the web client provides detection-level protection, native apps are coming
+- Link to the security documentation for users who want the full picture
 
-### D4: Honest tiering over false confidence
+### 6.4 Implementation files
 
-**Decision**: Explicitly document that different platforms provide different security levels. Do not claim uniform protection.
-
-**Rationale**: The Signal cryptographer's review identified the gap specifically because the existing documentation was honest about limitations. Maintaining this honesty is a feature. Users in high-threat environments should know that Firefox Android with the extension provides stronger guarantees than iOS Safari, and should plan accordingly.
-
-### D5: Firefox Android as the recommended mobile browser
-
-**Decision**: Recommend Firefox Android as the highest-security mobile browser for Llamenos.
-
-**Rationale**: Firefox Android is the only mobile browser that supports `webRequest` in blocking mode, which is required for pre-execution verification. This is not a political choice; it is a technical capability assessment. Chrome on Android does not support extensions at all. Safari on iOS does not support `webRequest`.
-
-### D6: No Trusted Web Activity wrapper
-
-**Decision**: Do not pursue a TWA wrapper for Android.
-
-**Rationale**: TWA does not solve the server compromise problem. The web content is still fetched from the server on each load. TWA provides Play Store distribution, but the Firefox extension approach provides both distribution (via AMO) and integrity verification. Adding a TWA would be engineering effort that does not improve the security properties.
-
----
-
-## 6. Implementation Considerations
-
-### 6.1 Service Worker Changes
-
-**File**: `vite.config.ts` (vite-plugin-pwa configuration)
-
-- Change `registerType` from `'autoUpdate'` to `'prompt'`
-- Add manifest verification logic to the service worker's `install` event
-- Add self-verification logic to the SW update flow
-- Add anti-downgrade version check
-- Move SRI validation to occur before cache population
-
-**File**: `src/client/lib/sw-update.ts` (new)
-
-- React hook for managing SW update prompts
-- Displays version change information
-- Triggers manifest verification before allowing update
-- Integrates with the existing notification system
-
-### 6.2 Browser Extension
-
-**New directory**: `extensions/llamenos-verifier/`
-
-- `manifest.json` (MV2 for Firefox, targeting both desktop and Android)
-- `background.js` -- request interception, manifest verification, Sigstore check
-- `content.js` -- DOM verification for Safari fallback mode
-- `popup/` -- extension popup showing verification status
-- `lib/sigstore-browser.js` -- Tinfoil's browser-native Sigstore verification
-
-**Distribution**:
-- Firefox: Published to AMO (addons.mozilla.org)
-- Safari: Published to iOS App Store as a Safari Web Extension
-- Chrome: Not supported (MV3 lacks blocking `webRequest`); users directed to Firefox
-
-### 6.3 Sigstore Migration
-
-**File**: `.github/workflows/release.yml`
-
-- Add Sigstore signing step after build
-- Publish signature + certificate + Rekor entry alongside existing cosign artifacts
-- Generate WEBCAT-compatible manifest format
-
-**File**: `src/client/lib/binary-verifier.ts`
-
-- Add Sigstore verification path (via `sigstore-browser`)
-- Retain Ed25519 verification as fallback
-- Accept either signature type in the manifest
-
-**File**: `src/shared/schemas/gossip-version.ts`
-
-- Extend `SignedReleaseManifest` schema to include Sigstore certificate chain
-- Add Rekor log entry reference
-
-### 6.4 Onboarding and Security Guidance
-
-**File**: `src/client/components/onboarding/` (existing)
-
-- Add browser recommendation step
-- Show platform-specific security tier
-- Link to extension installation for Firefox Android and iOS Safari
-
-**File**: `docs/security/THREAT_MODEL.md`
-
-- Add "Web Trust Gap" section referencing this spec
-- Update "Compelled runtime instrumentation" section with new mitigations
-
-### 6.5 Configuration Changes
-
-**New environment variables**:
-- `VITE_SIGSTORE_OIDC_ISSUER` -- expected OIDC issuer for Sigstore verification
-- `VITE_SIGSTORE_IDENTITY` -- expected signing identity (GitHub Actions workflow)
-- `VITE_WEBCAT_MANIFEST_URL` -- URL for WEBCAT-compatible manifest (defaults to API origin)
+| File | Change |
+|------|--------|
+| `docs/security/THREAT_MODEL.md` | Add "Web Trust Gap" section |
+| `docs/security/WHITEPAPER.md` | Add web trust discussion + native client roadmap |
+| Onboarding components | Add security tier guidance (deferred to v2 onboarding flow) |
 
 ---
 
 ## 7. Limitations and Honest Assessment
 
-### What this architecture solves
+### What v1 interim mitigations provide
 
-1. **Firefox Android users with extension**: Pre-execution blocking verification of all served code. Sigstore transparency log makes signing events auditable. This is close to native-app-level trust for the web platform. The trust anchor is AMO (Mozilla's extension signing) + Sigstore (public transparency log) -- two independent parties neither of which is the Llamenos server.
+1. **Service worker hardening**: Protects all returning users on all platforms via TOFU. A compromised server cannot silently update the SW or cached resources. Users must consent to updates. This is the strongest web-native defense available.
 
-2. **iOS Safari users with extension**: Post-execution detection of served code tampering. Not as strong as pre-execution blocking, but detectable within seconds of page load. Combined with the service worker's verified cache, repeat visits are protected.
+2. **Sigstore integration**: Makes release signing publicly auditable. A compromised build pipeline that signs a malicious manifest leaves evidence in the Rekor transparency log. This strengthens the "who watches the watcher" problem.
 
-3. **All returning users (service worker)**: TOFU model provides integrity verification for repeat visits. A compromised server cannot silently update the service worker or the cached resources without the user's knowledge.
+3. **Combined with existing Tier 4**: Fleet gossip detects mass SMCD within minutes. Reproducible builds allow independent verification. Split-origin CSP forces attackers to compromise two origins.
 
-4. **All users (fleet gossip + verifiers)**: Mass SMCD is detectable within minutes. Targeted SMCD is detectable if it persists across multiple page loads.
+### What v1 interim mitigations do NOT provide
 
-### What this architecture does NOT solve
+1. **First-load protection**: If a user's first visit occurs while the server is compromised, they receive malicious code. No web-only mechanism can prevent this.
 
-1. **First load without extension**: If a user visits Llamenos for the first time in a browser without the extension installed, and the server is compromised at that exact moment, the user receives malicious code. There is no browser-native mechanism to prevent this on any platform. This is the fundamental web trust problem.
+2. **iOS cache eviction recovery**: iOS Safari evicts SW caches aggressively. After eviction, the next load is unprotected TOFU.
 
-2. **iOS without extension**: iOS forces all browsers to use WebKit. WebKit does not support `webRequest` in extensions. The best achievable protection on iOS without the Safari extension is the service worker (TOFU after first load) plus the in-page verifier (which is self-referential). This is weaker than Android Firefox.
+3. **Prevention of targeted single-load SMCD**: If the attacker serves malicious code to one user for one page load, detection depends on timing and gossip coverage.
 
-3. **Chrome on Android without extension**: Chrome on Android does not support extensions. Users are limited to the service worker + in-page verifier. Recommending Firefox is the mitigation.
+4. **An independent trust anchor**: The SW, the verifier, and the signing verification code are all delivered by the server on first load. This circularity is the fundamental web trust problem. Sigstore adds external auditability but not a runtime trust anchor.
 
-4. **Targeted SMCD of a single page load**: If the attacker compromises the server and serves malicious code to exactly one user for exactly one page load, then reverts: the fleet gossip may not detect it (depends on timing), the third-party verifier may miss it (depends on polling frequency), and the extension only helps if installed. This is the hardest attack to detect.
+### Honest comparison
 
-5. **Browser cache/SW eviction on iOS**: iOS Safari is aggressive about evicting service worker caches under storage pressure. After eviction, the next load is unprotected. There is no way to prevent this on iOS.
+| Property | Native App (v2) | Web + Hardened SW (v1) |
+|----------|----------------|----------------------|
+| First-load trust | App Store + code signing | None (TOFU) |
+| Update verification | OS verifies signature | SW verifies manifest (self-referential on first load) |
+| Targeted SMCD resistance | Strong | Weak (detection, not prevention) |
+| Persistence of trust | App stays installed | SW can be evicted (especially iOS) |
+| Independent trust anchor | Apple/Google | Sigstore (audit trail, not runtime enforcement) |
 
-6. **Self-hosting hash diversity**: Self-hosted deployments build their own bundles, producing different hashes than the reference build. The WEBCAT/Sigstore approach still works (each operator signs their own manifest), but third-party verifiers cannot verify self-hosted instances against the reference build. Self-hosters must run their own verifier infrastructure.
-
-### Honest comparison to native apps
-
-| Property | Native App (iOS/Android) | Web + Extension (Firefox Android) | Web + SW Only (Chrome/Safari) |
-|----------|-------------------------|----------------------------------|------------------------------|
-| First-load trust | App Store review + code signing | Extension store + Sigstore log | None (TOFU) |
-| Update verification | OS verifies signature | Extension verifies manifest | SW verifies manifest (self-referential) |
-| Targeted SMCD resistance | Strong (app binary is signed) | Strong (extension blocks bad code) | Weak (in-page verifier is self-referential) |
-| Persistence of trust | App stays installed | Extension stays installed | SW can be evicted |
-| Independent trust anchor | Apple/Google | Mozilla (AMO) + Sigstore | None |
-
-**The gap**: Web + SW Only (the situation for Chrome Android and iOS without extension) provides meaningfully weaker guarantees than native apps. This is an honest, permanent limitation of the web platform for these configurations. The mitigation is to steer users toward Firefox Android (with extension) or the desktop Tauri app for the highest security tier.
+**The honest conclusion**: The v1 web client with these mitigations provides meaningful detection and raises the cost of attack significantly. But it cannot match native app trust guarantees. Native clients (v2 Tauri desktop + future iOS/Android) are the definitive answer. The v1 mitigations buy time while v2 ships.
 
 ---
 
-## 8. Migration Path
+## 8. Research Appendix
 
-### Phase 1: Service Worker Hardening (Low risk, high impact)
+This section preserves the research findings for future reference. The browser extension approaches documented here were evaluated and deliberately deferred in favor of native clients.
 
-1. Switch to `registerType: 'prompt'`
-2. Add manifest verification to SW install/update flow
-3. Add anti-downgrade check
-4. Add user-facing update prompt with version information
+### Browser extension landscape (evaluated, deferred)
 
-This is the most impactful change with the least risk. It protects all returning users on all platforms.
+- **WEBCAT** (Freedom of the Press Foundation, IACR 2025/797): Blocking code verification via Sigstore. Firefox-only (MV2). Strongest web-based solution but limited to ~2% of mobile users. Integrated with Element, Bitwarden, Jitsi, GlobaLeaks.
+- **WhatsApp Code Verify**: Desktop-only. Validates the extension pattern but no mobile version.
+- **Firefox Android**: Only mobile browser with full `webRequest` blocking. Mozilla has no plans to deprecate MV2.
+- **Safari iOS extensions**: `declarativeNetRequest` only -- detection, not prevention. No `webRequest`.
+- **Firefox iOS**: No extension support. WebKit forced (except EU DMA, where Gecko hasn't shipped).
+- **Chrome Android**: No extension support at all.
 
-### Phase 2: Sigstore Integration
+### Platform approaches (evaluated, not viable for v1)
 
-1. Add Sigstore signing to the release workflow
-2. Add `sigstore-browser` verification to the binary verifier
-3. Extend the release manifest schema
-4. Publish to Rekor transparency log
+- **Trusted Web Activities (TWA)**: Play Store distribution but no content integrity -- web content still fetched from server each load.
+- **Isolated Web Apps (IWA)**: Architecturally correct (signed Web Bundles) but ChromeOS-only, no mobile timeline.
+- **Signed HTTP Exchanges (SXG)**: Chrome-only, declining ecosystem (Cloudflare deprecated Oct 2025).
+- **Import Maps with integrity**: Chrome 127+, Safari 18+. Protects against CDN tampering but not origin compromise.
 
-This strengthens the auditing layer for all tiers.
+### Web platform proposals (monitoring)
 
-### Phase 3: Firefox Extension (WEBCAT-compatible)
-
-1. Build the extension following WEBCAT architecture
-2. Integrate Sigstore verification
-3. Publish to AMO for desktop and Android
-4. Add browser recommendation to onboarding
-
-This provides the strongest mobile protection for users who follow the recommendation.
-
-### Phase 4: Safari iOS Extension
-
-1. Build the Safari Web Extension (detection mode)
-2. Publish to iOS App Store
-3. Integrate with the SW for cooperative verification
-
-This fills the iOS gap as much as the platform allows.
-
-### Phase 5: Documentation and Transparency
-
-1. Update THREAT_MODEL.md
-2. Update WHITEPAPER.md
-3. Update residual risk statement
-4. Add browser security guidance to onboarding
+- **Source Code Transparency** (Daniel Huigens / Proton, W3C WICG): Transparency log for web app code hashes. No browser implementation yet. The right long-term direction.
+- **Binary Transparency for web** (WAIT paper): Extends Android Binary Transparency to web. Concept stage.
 
 ---
 
@@ -709,40 +302,18 @@ This fills the iOS gap as much as the platform allows.
 
 ### Academic and Industry Papers
 
-- Berra, G. (2025). "WEBCAT: Web-based Code Assurance and Transparency." IACR ePrint 2025/797. https://eprint.iacr.org/2025/797
-- Sutter, T. & Berlich, P. (2021). "Web Content Signing with Service Workers." arXiv:2105.05551. https://arxiv.org/pdf/2105.05551
-- Stark, E. (2023). "E2EE on the web: isolating plaintext." https://emilymstark.com/2023/09/09/e2ee-on-the-web-isolating-plaintext.html
-- Stark, E. (2024). "E2EE on the web: is the web really that bad?" https://emilymstark.com/2024/02/09/e2ee-on-the-web-is-the-web-really-that-bad.html
-- Huigens, D. (2023). "Source Code Transparency." W3C Secure the Web Forward Workshop. https://www.w3.org/2023/03/secure-the-web-forward/talks/source-code-transparency.html
-
-### Specifications and Proposals
-
-- Source Code Transparency proposal: https://github.com/twiss/source-code-transparency/blob/main/explainer.md
-- Isolated Web Apps: https://github.com/WICG/isolated-web-apps
-- Import Maps (with integrity): https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/script/type/importmap
-- WEBCAT GitHub: https://github.com/freedomofpress/webcat
-- Sigstore: https://docs.sigstore.dev/
-- Sigstore browser libraries (Tinfoil): https://tinfoil.sh/blog/2025-12-18-browser-native-verification
+- Berra, G. (2025). "WEBCAT: Web-based Code Assurance and Transparency." IACR ePrint 2025/797.
+- Sutter, T. & Berlich, P. (2021). "Web Content Signing with Service Workers." arXiv:2105.05551.
+- Stark, E. (2023). "E2EE on the web: isolating plaintext."
+- Stark, E. (2024). "E2EE on the web: is the web really that bad?"
+- Huigens, D. (2023). "Source Code Transparency." W3C Secure the Web Forward Workshop.
 
 ### Production Implementations
 
-- WhatsApp Code Verify: https://engineering.fb.com/2022/03/10/security/code-verify/
-- WEBCAT alpha (SecureDrop): https://securedrop.org/news/webcat-alpha/
-- Proton Key Transparency: https://proton.me/support/key-transparency
-- aldur.blog, "Code integrity for web apps": https://aldur.blog/articles/2025/09/02/web-code-verify
-
-### Browser Extension Documentation
-
-- Firefox Android extensions: https://extensionworkshop.com/documentation/develop/developing-extensions-for-firefox-for-android/
-- Safari Web Extensions on iOS: https://developer.apple.com/documentation/safariservices/safari-web-extensions
-- Safari declarativeNetRequest: https://developer.apple.com/documentation/safariservices/blocking-content-with-your-safari-web-extension
-- Firefox iOS extension status: https://support.mozilla.org/en-US/kb/add-ons-firefox-ios
-
-### Platform Documentation
-
-- Trusted Web Activities: https://developer.android.com/develop/ui/views/layout/webapps/trusted-web-activities
-- iOS alternative browser engines (EU DMA): https://developer.apple.com/support/alternative-browser-engines/
-- Chromium Service Worker Security FAQ: https://chromium.googlesource.com/chromium/src/+/main/docs/security/service-worker-security-faq.md
+- WhatsApp Code Verify (Meta, 2022)
+- WEBCAT alpha (SecureDrop / Freedom of the Press Foundation)
+- Proton Key Transparency
+- Sigstore browser-native verification (Tinfoil, 2025)
 
 ### Existing Llamenos Infrastructure
 
