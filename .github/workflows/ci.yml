@@ -203,7 +203,7 @@ jobs:
         run: bun run test:unit -- --reporter=junit --reporter-outfile=junit-unit.xml
 
       - name: Unit test report
-        uses: dorny/test-reporter@a6ddd83ac95ff4586f5d3aceeb314d9a1841db95 # v3.0.0
+        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
         if: always()
         with:
           name: Unit Tests
@@ -252,7 +252,7 @@ jobs:
         run: bun run test:integration -- --reporter=junit --reporter-outfile=junit-integration.xml
 
       - name: Integration test report
-        uses: dorny/test-reporter@a6ddd83ac95ff4586f5d3aceeb314d9a1841db95 # v3.0.0
+        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
         if: always()
         with:
           name: Integration Tests
@@ -389,7 +389,7 @@ jobs:
         run: bunx playwright test --project=api-setup --project=api --workers=6
 
       - name: API test report
-        uses: dorny/test-reporter@a6ddd83ac95ff4586f5d3aceeb314d9a1841db95 # v3.0.0
+        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
         if: always()
         with:
           name: API Tests
