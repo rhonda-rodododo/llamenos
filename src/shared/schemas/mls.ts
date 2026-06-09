@@ -1,5 +1,22 @@
 import { z } from '@hono/zod-openapi'
 
+/**
+ * MLS ciphersuite for all Llámenos groups.
+ *
+ * MLS_256_DHKEMP384_AES256GCM_SHA384_P384 (RFC 9420 §17.1, value 7):
+ *   KEM: DHKEM(P-384, HKDF-SHA384)
+ *   AEAD: AES-256-GCM
+ *   Hash: SHA-384
+ *   Signature: ECDSA-P384
+ *
+ * Chosen over the previous MLS_128 (AES-128-GCM) suite to match the AES-256-GCM
+ * security level used by all other crypto in this crate (HPKE, symmetric encryption).
+ * The threat model assumes nation-state adversaries — AES-128's 128-bit security
+ * margin is insufficient when AES-256 (~192-bit post-quantum margin via Grover) is
+ * available at negligible performance cost for MLS group sizes under 1000.
+ */
+export const MLS_CIPHERSUITE = 7
+
 // --- Shared param schemas ---
 
 export const MlsHubIdParamSchema = z.object({

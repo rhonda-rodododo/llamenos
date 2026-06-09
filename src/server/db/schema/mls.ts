@@ -1,3 +1,4 @@
+import { MLS_CIPHERSUITE } from '@shared/schemas/mls'
 import {
   bigint,
   customType,
@@ -22,7 +23,7 @@ export const mlsHubState = pgTable('mls_hub_state', {
     .primaryKey()
     .references(() => hubs.id, { onDelete: 'cascade' }),
   groupId: bytea('group_id').notNull(),
-  ciphersuite: smallint('ciphersuite').notNull().default(1),
+  ciphersuite: smallint('ciphersuite').notNull().default(MLS_CIPHERSUITE),
   currentEpoch: bigint('current_epoch', { mode: 'number' }).notNull().default(0),
   lastCommitAt: timestamp('last_commit_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

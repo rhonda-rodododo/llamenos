@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test'
+import { MLS_CIPHERSUITE } from '@shared/schemas/mls'
 import type { CryptoWorkerClient } from '../crypto-worker-client'
 
 // ---- Mock MLS API client ----
@@ -6,7 +7,7 @@ import type { CryptoWorkerClient } from '../crypto-worker-client'
 const mockBootstrapGroup = mock(async () => ({
   hubId: 'hub-new',
   groupId: 'llamenos:hub:hub-new',
-  ciphersuite: 1,
+  ciphersuite: MLS_CIPHERSUITE,
   epoch: 0,
   createdAt: '2026-04-19T00:00:00Z',
 }))
@@ -16,7 +17,7 @@ const mockUploadKeyPackages = mock(async () => ({ uploaded: 100 }))
 const mockFetchCurrentEpoch = mock(async () => ({
   hubId: 'hub-new',
   groupId: 'llamenos:hub:hub-new',
-  ciphersuite: 1,
+  ciphersuite: MLS_CIPHERSUITE,
   currentEpoch: 0,
   lastCommitAt: null,
 }))

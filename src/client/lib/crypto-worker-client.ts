@@ -508,7 +508,7 @@ export class CryptoWorkerClient {
 
   /**
    * Create a new MLS group (conversation) for the given group ID.
-   * Uses CS 1 (MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519) and Basic credentials.
+   * Uses CS 7 (MLS_256_DHKEMP384_AES256GCM_SHA384_P384) and Basic credentials.
    *
    * @param groupId - MLS group identifier (e.g. `llamenos:hub:<hubId>`)
    */

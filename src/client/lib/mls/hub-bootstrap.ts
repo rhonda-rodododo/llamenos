@@ -9,6 +9,7 @@
  * without MLS and bootstrap can be retried on next load.
  */
 
+import { MLS_CIPHERSUITE } from '@shared/schemas/mls'
 import { createDebugLog } from '@/lib/debug-log'
 import { logMlsGroupInit } from '../audit-log-client'
 import type { CryptoWorkerClient } from '../crypto-worker-client'
@@ -33,7 +34,7 @@ export async function bootstrapMlsForNewHub(
   hubId: string,
   worker: CryptoWorkerClient,
   deviceId: string,
-  ciphersuite = 1
+  ciphersuite = MLS_CIPHERSUITE
 ): Promise<MlsConversation | null> {
   try {
     const conv = await MlsConversation.createGroup(hubId, worker, deviceId)

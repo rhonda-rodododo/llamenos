@@ -727,7 +727,7 @@ async function handleMlsInit(clientId: string, explicitKekHex?: string): Promise
       databaseName: MLS_DATABASE_NAME,
       key: dbKey,
       clientId: ccClientId,
-      ciphersuites: [Ciphersuite.MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519],
+      ciphersuites: [Ciphersuite.MLS_256_DHKEMP384_AES256GCM_SHA384_P384],
       nbKeyPackage: MLS_DEFAULT_KEY_PACKAGE_COUNT,
     })
 
@@ -752,7 +752,7 @@ async function handleMlsGenerateKeyPackages(count: number): Promise<Uint8Array[]
   ).loadCoreCrypto()
   return mlsInstance!.transaction((ctx) =>
     ctx.clientKeypackages(
-      Ciphersuite.MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519,
+      Ciphersuite.MLS_256_DHKEMP384_AES256GCM_SHA384_P384,
       CredentialType.Basic,
       count
     )
@@ -820,7 +820,7 @@ async function handleMlsCreateGroup(groupId: string): Promise<void> {
   const convId = new ConversationId(new TextEncoder().encode(groupId))
   await mlsInstance!.transaction((ctx) =>
     ctx.createConversation(convId, CredentialType.Basic, {
-      ciphersuite: Ciphersuite.MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519,
+      ciphersuite: Ciphersuite.MLS_256_DHKEMP384_AES256GCM_SHA384_P384,
     })
   )
 }

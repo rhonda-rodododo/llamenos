@@ -1,5 +1,6 @@
 import { createRoute, z } from '@hono/zod-openapi'
 import {
+  MLS_CIPHERSUITE,
   MlsBootstrapRequestSchema,
   MlsBootstrapResponseSchema,
   MlsCommitRequestSchema,
@@ -71,7 +72,7 @@ mlsRoutes.openapi(bootstrapRoute, async (c) => {
   await db.insert(mlsHubState).values({
     hubId,
     groupId: groupIdBytes,
-    ciphersuite: 1,
+    ciphersuite: MLS_CIPHERSUITE,
     currentEpoch: 0,
     createdAt: new Date(now),
     updatedAt: new Date(now),
@@ -82,7 +83,7 @@ mlsRoutes.openapi(bootstrapRoute, async (c) => {
   await services.records.addAuditEntry(hubId, 'mls_group_init', pubkey, {
     hubId,
     groupId: body.groupId,
-    ciphersuite: 1,
+    ciphersuite: MLS_CIPHERSUITE,
     creatorDeviceId: body.deviceId,
     epoch: 0,
   })
@@ -91,7 +92,7 @@ mlsRoutes.openapi(bootstrapRoute, async (c) => {
     {
       hubId,
       groupId: body.groupId,
-      ciphersuite: 1,
+      ciphersuite: MLS_CIPHERSUITE,
       epoch: 0,
       createdAt: now,
     },

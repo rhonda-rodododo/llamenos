@@ -1,5 +1,6 @@
 import { createRoute, z } from '@hono/zod-openapi'
 import { LABEL_HUB_KEY_WRAP, LABEL_STORAGE_CREDENTIAL_WRAP } from '@shared/crypto-labels'
+import { MLS_CIPHERSUITE } from '@shared/schemas/mls'
 import { eq } from 'drizzle-orm'
 import type { Hub } from '../../shared/types'
 import { getDb } from '../db'
@@ -124,7 +125,7 @@ routes.openapi(createHubRoute, async (c) => {
     await db.insert(mlsHubState).values({
       hubId: hub.id,
       groupId: groupIdBytes,
-      ciphersuite: 1,
+      ciphersuite: MLS_CIPHERSUITE,
       currentEpoch: 0,
       createdAt: new Date(),
       updatedAt: new Date(),

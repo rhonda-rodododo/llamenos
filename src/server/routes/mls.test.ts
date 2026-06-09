@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test'
+import { MLS_CIPHERSUITE } from '@shared/schemas/mls'
 import { Hono } from 'hono'
 import type { AppEnv } from '../types'
 
@@ -182,7 +183,7 @@ describe('MLS Routes', () => {
       expect(res.status).toBe(201)
       const body = await res.json()
       expect(body.hubId).toBe(HUB_ID)
-      expect(body.ciphersuite).toBe(1)
+      expect(body.ciphersuite).toBe(MLS_CIPHERSUITE)
       expect(body.epoch).toBe(0)
       expect(mockDbState.mlsHubState).toHaveLength(1)
       expect(auditEntries).toHaveLength(1)
@@ -328,7 +329,7 @@ describe('MLS Routes', () => {
       mockDbState.mlsHubState.push({
         hubId: HUB_ID,
         groupId: Buffer.from(`llamenos:hub:${HUB_ID}`, 'utf-8'),
-        ciphersuite: 1,
+        ciphersuite: MLS_CIPHERSUITE,
         currentEpoch: 5,
         lastCommitAt: new Date(),
       })
@@ -338,7 +339,7 @@ describe('MLS Routes', () => {
       const body = await res.json()
       expect(body.hubId).toBe(HUB_ID)
       expect(body.currentEpoch).toBe(5)
-      expect(body.ciphersuite).toBe(1)
+      expect(body.ciphersuite).toBe(MLS_CIPHERSUITE)
     })
   })
 

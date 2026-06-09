@@ -2,6 +2,7 @@ import { afterEach, describe, expect, mock, test } from 'bun:test'
 import { schnorr } from '@noble/curves/secp256k1.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { computeEntryHash } from '@shared/lib/audit-entry-hash'
+import { MLS_CIPHERSUITE } from '@shared/schemas/mls'
 import * as realCryptoWorkerClient from './crypto-worker-client'
 
 const TEST_PRIVKEY = 'ab'.repeat(32)
@@ -78,14 +79,14 @@ describe('MLS audit helpers', () => {
       const entry = await logMlsGroupInit({
         hubId: UUID,
         groupId: 'llamenos:hub:test',
-        ciphersuite: 1,
+        ciphersuite: MLS_CIPHERSUITE,
         creatorDeviceId: DEVICE_ID,
       })
 
       expect(entry.payload.type).toBe('mls_group_init')
       expect((entry.payload as Record<string, unknown>).hubId).toBe(UUID)
       expect((entry.payload as Record<string, unknown>).groupId).toBe('llamenos:hub:test')
-      expect((entry.payload as Record<string, unknown>).ciphersuite).toBe(1)
+      expect((entry.payload as Record<string, unknown>).ciphersuite).toBe(MLS_CIPHERSUITE)
       expect((entry.payload as Record<string, unknown>).creatorDeviceId).toBe(DEVICE_ID)
       expect((entry.payload as Record<string, unknown>).epoch).toBe(0)
       expect(entry.signerDeviceId).toBe(DEVICE_ID)
@@ -100,7 +101,7 @@ describe('MLS audit helpers', () => {
       const entry = await logMlsGroupInit({
         hubId: UUID,
         groupId: 'llamenos:hub:test',
-        ciphersuite: 1,
+        ciphersuite: MLS_CIPHERSUITE,
         creatorDeviceId: DEVICE_ID,
       })
 
@@ -229,7 +230,7 @@ describe('MLS audit helpers', () => {
       const entry = await logMlsGroupInit({
         hubId: UUID,
         groupId: 'llamenos:hub:test',
-        ciphersuite: 1,
+        ciphersuite: MLS_CIPHERSUITE,
         creatorDeviceId: DEVICE_ID,
       })
 

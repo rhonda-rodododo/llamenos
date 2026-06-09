@@ -13,6 +13,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
+import { MLS_CIPHERSUITE } from '@shared/schemas/mls'
 import type { CryptoWorkerClient } from '../crypto-worker-client'
 import type { MlsCommitBundle, MlsDecryptResult } from './types'
 
@@ -21,7 +22,7 @@ import type { MlsCommitBundle, MlsDecryptResult } from './types'
 const mockBootstrapGroup = mock(async () => ({
   hubId: 'hub-1',
   groupId: 'llamenos:hub:hub-1',
-  ciphersuite: 1,
+  ciphersuite: MLS_CIPHERSUITE,
   epoch: 0,
   createdAt: '2026-01-01T00:00:00Z',
 }))
@@ -47,7 +48,7 @@ const mockFetchCommits = mock(async () => ({
 const mockFetchCurrentEpoch = mock(async () => ({
   hubId: 'hub-1',
   groupId: 'llamenos:hub:hub-1',
-  ciphersuite: 1,
+  ciphersuite: MLS_CIPHERSUITE,
   currentEpoch: 0,
   lastCommitAt: null,
 }))
