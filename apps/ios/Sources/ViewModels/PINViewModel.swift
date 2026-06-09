@@ -229,17 +229,12 @@ final class PINViewModel {
                 return
             }
 
-            // PINs match — complete onboarding with this PIN
+            // PINs match — complete onboarding with this PIN.
+            // Biometric is NOT auto-enabled — the user must explicitly opt in
+            // via Settings > Preferences > Biometric Unlock (AUTH-1).
             isLoading = true
             do {
-                let enableBiometric = BiometricPrompt.isAvailable
-                try authService.completeOnboarding(pin: enteredPIN, enableBiometric: enableBiometric)
-
-                // Store PIN for biometric unlock if biometric is available (C5)
-                if enableBiometric {
-                    try? keychainService.storePINForBiometric(enteredPIN)
-                }
-
+                try authService.completeOnboarding(pin: enteredPIN, enableBiometric: false)
                 isLoading = false
                 onSuccess()
             } catch {

@@ -187,11 +187,19 @@ final class WebSocketService: @unchecked Sendable {
 
     // MARK: - Initialization
 
+    /// Certificate pinning delegate shared with APIService.
+    /// Ensures WebSocket connections are subject to the same pin validation.
+    private let pinningDelegate = CertificatePinningDelegate()
+
     init(cryptoService: CryptoService) {
         self.cryptoService = cryptoService
         let config = URLSessionConfiguration.default
         config.waitsForConnectivity = true
-        self.session = URLSession(configuration: config)
+        self.session = URLSession(
+            configuration: config,
+            delegate: pinningDelegate,
+            delegateQueue: nil
+        )
     }
 
     // MARK: - Connect

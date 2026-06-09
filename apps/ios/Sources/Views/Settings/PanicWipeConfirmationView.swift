@@ -112,10 +112,42 @@ struct PanicWipeConfirmationView: View {
         appState.userRole = .volunteer
         appState.unreadConversationCount = 0
 
-        // 7. Clear URL cache
+        // 7. Clear Documents directory
+        if let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+            if let contents = try? FileManager.default.contentsOfDirectory(
+                at: documentsURL, includingPropertiesForKeys: nil
+            ) {
+                for fileURL in contents {
+                    try? FileManager.default.removeItem(at: fileURL)
+                }
+            }
+        }
+
+        // 8. Clear Caches directory
+        if let cachesURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first {
+            if let contents = try? FileManager.default.contentsOfDirectory(
+                at: cachesURL, includingPropertiesForKeys: nil
+            ) {
+                for fileURL in contents {
+                    try? FileManager.default.removeItem(at: fileURL)
+                }
+            }
+        }
+
+        // 9. Clear tmp directory
+        let tmpURL = FileManager.default.temporaryDirectory
+        if let contents = try? FileManager.default.contentsOfDirectory(
+            at: tmpURL, includingPropertiesForKeys: nil
+        ) {
+            for fileURL in contents {
+                try? FileManager.default.removeItem(at: fileURL)
+            }
+        }
+
+        // 10. Clear URL cache
         URLCache.shared.removeAllCachedResponses()
 
-        // 8. Clear cookies
+        // 11. Clear cookies
         let storage = HTTPCookieStorage.shared
         storage.cookies?.forEach { storage.deleteCookie($0) }
     }

@@ -416,8 +416,6 @@ final class AppState {
         if !relayURL.hasPrefix("wss://") && !relayURL.hasPrefix("ws://") {
             if relayURL.hasPrefix("https://") {
                 relayURL = relayURL.replacingOccurrences(of: "https://", with: "wss://")
-            } else if relayURL.hasPrefix("http://") {
-                relayURL = relayURL.replacingOccurrences(of: "http://", with: "ws://")
             } else {
                 relayURL = "wss://\(relayURL)"
             }

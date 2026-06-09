@@ -43,5 +43,10 @@
 	<string>Llamenos uses the microphone for voice-to-text input when filling out report fields.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Llamenos uses speech recognition to transcribe voice input into report fields.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+	</dict>
 </dict>
 </plist>

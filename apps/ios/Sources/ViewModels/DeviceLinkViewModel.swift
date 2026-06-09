@@ -1,6 +1,36 @@
 import Foundation
 import AVFoundation
 
+// MARK: - ZeroizableSecret
+
+/// A mutable byte buffer for sensitive key material that can be explicitly zeroed.
+/// Swift Strings are immutable and may leave copies in memory; this wrapper uses
+/// a contiguous `[UInt8]` array that is overwritten with zeros on `zeroize()`.
+final class ZeroizableSecret {
+    private var bytes: [UInt8]
+
+    init(hex: String) {
+        self.bytes = Array(hex.utf8)
+    }
+
+    /// The secret as a hex String. Returns a new String each time — callers should
+    /// avoid caching the result and let it go out of scope quickly.
+    var hexString: String {
+        String(bytes: bytes, encoding: .utf8) ?? ""
+    }
+
+    /// Overwrite stored bytes with zeros to prevent memory remnants.
+    func zeroize() {
+        for i in bytes.indices {
+            bytes[i] = 0
+        }
+    }
+
+    deinit {
+        zeroize()
+    }
+}
+
 // MARK: - DeviceLinkStep
 
 /// Steps in the device linking flow.
@@ -61,18 +91,20 @@ final class DeviceLinkViewModel {
     private var relayURL: String?
 
     /// Our ephemeral keypair for this linking session.
-    private var ephemeralSecret: String?
+    /// Uses ZeroizableSecret for the private key to prevent memory remnants (MS-2).
+    private var ephemeralSecret: ZeroizableSecret?
     private var ephemeralPublic: String?
 
     /// The other device's ephemeral public key.
     private var theirEphemeralPublic: String?
 
-    /// The derived shared secret.
-    private var sharedSecret: String?
+    /// The derived shared secret. Zeroizable to prevent memory remnants (MS-2).
+    private var sharedSecret: ZeroizableSecret?
 
     /// Encrypted nsec received before SAS confirmation (H4).
     /// Held pending until the user confirms SAS codes match.
-    private var pendingEncryptedNsec: String?
+    /// Zeroizable because it contains encrypted key material (MS-2).
+    private var pendingEncryptedNsec: ZeroizableSecret?
 
     /// WebSocket task for the provisioning relay connection.
     private var webSocketTask: URLSessionWebSocketTask?
@@ -179,9 +211,9 @@ final class DeviceLinkViewModel {
             return
         }
 
-        // Generate our ephemeral keypair
+        // Generate our ephemeral keypair (MS-2: secret stored as zeroizable bytes)
         let keypair = cryptoService.generateEphemeralKeypair()
-        ephemeralSecret = keypair.secretHex
+        ephemeralSecret = ZeroizableSecret(hex: keypair.secretHex)
         ephemeralPublic = keypair.publicHex
 
         // Connect to the relay
@@ -291,11 +323,11 @@ final class DeviceLinkViewModel {
             guard let theirPubkey = contentObj["pubkey"] as? String else { return }
             theirEphemeralPublic = theirPubkey
 
-            // Derive shared secret
+            // Derive shared secret (MS-2: extract hex only for the API call, then discard)
             guard let ourSecret = ephemeralSecret else { return }
             do {
-                let shared = try cryptoService.deriveSharedSecret(ourSecret: ourSecret, theirPublic: theirPubkey)
-                sharedSecret = shared
+                let shared = try cryptoService.deriveSharedSecret(ourSecret: ourSecret.hexString, theirPublic: theirPubkey)
+                sharedSecret = ZeroizableSecret(hex: shared)
 
                 // Derive and display SAS code
                 let sas = try cryptoService.deriveSASCode(sharedSecret: shared)
@@ -321,11 +353,11 @@ final class DeviceLinkViewModel {
             if sasConfirmed {
                 // SAS already confirmed — import immediately
                 Task {
-                    await importEncryptedNsec(encryptedNsec, sharedSecret: shared)
+                    await importEncryptedNsec(encryptedNsec, sharedSecret: shared.hexString)
                 }
             } else {
-                // Hold the encrypted nsec until SAS is confirmed
-                pendingEncryptedNsec = encryptedNsec
+                // Hold the encrypted nsec until SAS is confirmed (MS-2: zeroizable)
+                pendingEncryptedNsec = ZeroizableSecret(hex: encryptedNsec)
                 if case .verifying = currentStep {
                     // Already showing SAS — user just needs to confirm
                 } else {
@@ -362,9 +394,12 @@ final class DeviceLinkViewModel {
 
         // H4: Process any pending encrypted nsec that arrived before SAS confirmation
         if let encrypted = pendingEncryptedNsec, let shared = sharedSecret {
+            let encHex = encrypted.hexString
+            let sharedHex = shared.hexString
+            pendingEncryptedNsec?.zeroize()
             pendingEncryptedNsec = nil
             Task {
-                await importEncryptedNsec(encrypted, sharedSecret: shared)
+                await importEncryptedNsec(encHex, sharedSecret: sharedHex)
             }
         }
     }
@@ -463,17 +498,21 @@ final class DeviceLinkViewModel {
     }
 
     /// Clean up WebSocket and ephemeral key material.
+    /// MS-2: Explicitly zeroizes secret bytes before releasing references.
     private func cleanup() {
         receiveTask?.cancel()
         receiveTask = nil
         webSocketTask?.cancel(with: .normalClosure, reason: nil)
         webSocketTask = nil
 
-        // Zero out ephemeral secrets and pending data
+        // MS-2: Zeroize secret material before releasing references
+        ephemeralSecret?.zeroize()
         ephemeralSecret = nil
         ephemeralPublic = nil
         theirEphemeralPublic = nil
+        sharedSecret?.zeroize()
         sharedSecret = nil
+        pendingEncryptedNsec?.zeroize()
         pendingEncryptedNsec = nil
         sasConfirmed = false
     }
