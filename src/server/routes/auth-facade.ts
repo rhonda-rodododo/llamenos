@@ -92,6 +92,8 @@ interface AuthFacadeEnv {
     pubkey: string
     /** Set by jwtAuth middleware — permissions from the access token */
     permissions: string[]
+    /** Set by jwtAuth middleware — JWT issued-at timestamp (seconds since epoch) */
+    tokenIssuedAt: number
   }
 }
 
@@ -104,6 +106,9 @@ const rateLimitStore = new Map<string, { count: number; expiresAt: number }>()
 const LIMIT_PIN_CHANGE_PER_HOUR = 5
 const LIMIT_RECOVERY_ROTATE_PER_DAY = 3
 const LIMIT_LOCKDOWN_PER_15MIN = 3
+
+/** Max age (seconds) a JWT can be for high-impact actions (lockdown, PIN change) */
+const FRESH_AUTH_MAX_AGE_SEC = 5 * 60
 
 function isRateLimited(key: string, maxPerWindow: number, windowMs = 5 * 60 * 1000): boolean {
   const now = Date.now()
@@ -142,6 +147,7 @@ const jwtAuth = createMiddleware<AuthFacadeEnv>(async (c, next) => {
   }
   c.set('pubkey', payload.sub)
   c.set('permissions', payload.permissions ?? [])
+  c.set('tokenIssuedAt', typeof payload.iat === 'number' ? payload.iat : 0)
   await next()
 })
 
@@ -1101,6 +1107,10 @@ const lockdownRoute = createRoute({
       description: 'Invalid PIN proof',
       content: { 'application/json': { schema: z.object({ error: z.string() }) } },
     },
+    403: {
+      description: 'Session too old — re-authenticate required',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
     409: {
       description: 'Unlock required first',
       content: { 'application/json': { schema: z.object({ error: z.string() }) } },
@@ -1114,6 +1124,13 @@ const lockdownRoute = createRoute({
 
 authFacade.openapi(lockdownRoute, async (c) => {
   const pubkey = c.get('pubkey')
+
+  // H2: Lockdown is a high-impact action — require a fresh session (token issued within 5 minutes)
+  const tokenAge = Math.floor(Date.now() / 1000) - c.get('tokenIssuedAt')
+  if (tokenAge > FRESH_AUTH_MAX_AGE_SEC) {
+    return c.json({ error: 'Session too old — please re-authenticate before lockdown' }, 403)
+  }
+
   if (isRateLimited(`lockdown:${pubkey}`, LIMIT_LOCKDOWN_PER_15MIN, 15 * 60 * 1000)) {
     return c.json({ error: 'Too many lockdown attempts' }, 429)
   }
@@ -1165,6 +1182,10 @@ const pinChangeRoute = createRoute({
       description: 'Invalid current PIN proof',
       content: { 'application/json': { schema: z.object({ error: z.string() }) } },
     },
+    403: {
+      description: 'Session too old — re-authenticate required',
+      content: { 'application/json': { schema: z.object({ error: z.string() }) } },
+    },
     409: {
       description: 'Unlock required first',
       content: { 'application/json': { schema: z.object({ error: z.string() }) } },
@@ -1178,6 +1199,13 @@ const pinChangeRoute = createRoute({
 
 authFacade.openapi(pinChangeRoute, async (c) => {
   const pubkey = c.get('pubkey')
+
+  // Require fresh session for PIN change (token issued within 5 minutes)
+  const tokenAge = Math.floor(Date.now() / 1000) - c.get('tokenIssuedAt')
+  if (tokenAge > FRESH_AUTH_MAX_AGE_SEC) {
+    return c.json({ error: 'Session too old — please re-authenticate before changing PIN' }, 403)
+  }
+
   if (isRateLimited(`pin-change:${pubkey}`, LIMIT_PIN_CHANGE_PER_HOUR, 60 * 60 * 1000)) {
     return c.json({ error: 'Too many PIN change attempts' }, 429)
   }

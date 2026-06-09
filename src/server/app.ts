@@ -111,7 +111,16 @@ api.use('*', httpMetrics)
 api.route('/health', healthRoutes)
 api.route('/metrics', metricsRoutes)
 
-// OpenAPI spec — auto-generated from route definitions
+// OpenAPI spec and docs — only available in development/demo/staging
+const devOnlyGuard = createMiddleware<AppEnv>(async (c, next) => {
+  const env = c.env.ENVIRONMENT ?? process.env.ENVIRONMENT
+  if (env === 'production') {
+    return c.json({ error: 'Not Found' }, 404)
+  }
+  await next()
+})
+
+api.use('/openapi.json', devOnlyGuard)
 api.doc('/openapi.json', {
   openapi: '3.1.0',
   info: {
@@ -143,6 +152,7 @@ api.doc('/openapi.json', {
 // Scalar interactive API docs
 api.get(
   '/docs',
+  devOnlyGuard,
   Scalar({
     url: '/api/openapi.json',
     theme: 'kepler',

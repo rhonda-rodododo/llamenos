@@ -2,6 +2,7 @@ import { createRoute, z } from '@hono/zod-openapi'
 import type { MessagingChannelType, TelephonyProviderType } from '@shared/types'
 import { getTelephony } from '../lib/adapters'
 import { createRouter } from '../lib/openapi'
+import { validateExternalUrlWithDns } from '../lib/ssrf-guard'
 import { MESSAGING_CAPABILITIES } from '../messaging/capabilities'
 import { checkPermission, requirePermission } from '../middleware/permission-guard'
 import { TELEPHONY_CAPABILITIES } from '../telephony/capabilities'
@@ -500,6 +501,16 @@ settings.openapi(testTelephonyRoute, async (c) => {
   const parsed = capabilities.credentialSchema.safeParse(config)
   if (!parsed.success)
     return c.json({ ok: false, error: 'Invalid config', details: parsed.error }, 400)
+
+  // DNS rebinding protection: validate any URL fields in self-hosted provider configs
+  const data = parsed.data as Record<string, unknown>
+  for (const key of ['ariUrl', 'eslUrl'] as const) {
+    const val = data[key]
+    if (typeof val === 'string') {
+      const err = await validateExternalUrlWithDns(val, key)
+      if (err) return c.json({ ok: false, error: err }, 400)
+    }
+  }
 
   try {
     const result = await capabilities.testConnection(parsed.data)

@@ -106,7 +106,10 @@ providerSetup.openapi(postWebhooksRoute, async (c) => {
   const provider = body.provider as TelephonyProviderType
   const capabilities = TELEPHONY_CAPABILITIES[provider]
   if (!capabilities) return c.json({ error: `Unknown provider: ${body.provider}` }, 400)
-  const baseUrl = body.baseUrl || c.env.APP_URL || new URL(c.req.url).origin
+  const baseUrl = body.baseUrl || c.env.APP_URL
+  if (!baseUrl) {
+    return c.json({ error: 'APP_URL not configured — cannot generate webhook URLs' }, 400)
+  }
   return c.json(capabilities.getWebhookUrls(baseUrl, body.hubId), 200)
 })
 
@@ -137,7 +140,10 @@ providerSetup.openapi(getWebhooksRoute, async (c) => {
   const provider = (config?.type ?? 'twilio') as TelephonyProviderType
   const capabilities = TELEPHONY_CAPABILITIES[provider]
   if (!capabilities) return c.json({ error: `Unknown provider: ${provider}` }, 400)
-  const baseUrl = c.env.APP_URL || new URL(c.req.url).origin
+  const baseUrl = c.env.APP_URL
+  if (!baseUrl) {
+    return c.json({ error: 'APP_URL not configured — cannot generate webhook URLs' }, 400)
+  }
   return c.json(capabilities.getWebhookUrls(baseUrl, hubId ?? undefined), 200)
 })
 
@@ -332,10 +338,11 @@ providerSetup.openapi(configureWebhooksRoute, async (c) => {
   const parsed = capabilities.credentialSchema.safeParse(credentials)
   if (!parsed.success) return c.json({ error: 'Invalid credentials', details: parsed.error }, 400)
 
-  const webhookUrls = capabilities.getWebhookUrls(
-    c.env.APP_URL || new URL(c.req.url).origin,
-    c.get('hubId') ?? undefined
-  )
+  const appUrl = c.env.APP_URL
+  if (!appUrl) {
+    return c.json({ error: 'APP_URL not configured — cannot configure webhooks' }, 400)
+  }
+  const webhookUrls = capabilities.getWebhookUrls(appUrl, c.get('hubId') ?? undefined)
   const result = await capabilities.configureWebhooks(
     parsed.data,
     body.phoneNumber as string,

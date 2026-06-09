@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { isInternalAddress, validateExternalUrl } from './ssrf-guard'
+import { isInternalAddress, validateExternalUrl, validateExternalUrlWithDns } from './ssrf-guard'
 
 describe('isInternalAddress', () => {
   test('blocks 127.0.0.1 (loopback)', () => expect(isInternalAddress('127.0.0.1')).toBe(true))
@@ -59,4 +59,38 @@ describe('validateExternalUrl', () => {
   test('invalid URL error', () => expect(validateExternalUrl('not-a-url')).toContain('Invalid'))
   test('custom label', () =>
     expect(validateExternalUrl('ftp://x.com', 'Bridge URL')).toContain('Bridge URL'))
+})
+
+describe('validateExternalUrlWithDns', () => {
+  test('blocks internal IP without DNS', async () => {
+    const result = await validateExternalUrlWithDns('https://192.168.1.1')
+    expect(result).toContain('internal')
+  })
+
+  test('blocks localhost', async () => {
+    const result = await validateExternalUrlWithDns('https://localhost')
+    expect(result).toContain('internal')
+  })
+
+  test('allows public URL', async () => {
+    const result = await validateExternalUrlWithDns('https://example.com')
+    expect(result).toBeNull()
+  })
+
+  test('blocks non-resolving hostname', async () => {
+    const result = await validateExternalUrlWithDns(
+      'https://this-domain-does-not-exist-xyzzy.example'
+    )
+    expect(result).toContain('does not resolve')
+  })
+
+  test('blocks invalid URL', async () => {
+    const result = await validateExternalUrlWithDns('not-a-url')
+    expect(result).toContain('Invalid')
+  })
+
+  test('IP literal skips DNS resolution', async () => {
+    const result = await validateExternalUrlWithDns('https://8.8.8.8')
+    expect(result).toBeNull()
+  })
 })

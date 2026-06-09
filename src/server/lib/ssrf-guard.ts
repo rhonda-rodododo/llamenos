@@ -1,3 +1,5 @@
+import { resolve4, resolve6 } from 'node:dns/promises'
+
 /**
  * Comprehensive SSRF protection for user-supplied URLs.
  *
@@ -101,6 +103,55 @@ export function validateExternalUrl(url: string, label = 'URL'): string | null {
 
   if (isInternalAddress(parsed.hostname)) {
     return `${label} must not point to internal/loopback addresses`
+  }
+
+  return null
+}
+
+/**
+ * Validate a URL with DNS resolution to prevent DNS rebinding attacks.
+ *
+ * Resolves the hostname and checks all resolved IPs against the internal
+ * address blocklist. This prevents TOCTOU attacks where a hostname resolves
+ * to a public IP at check time but an internal IP at fetch time.
+ */
+export async function validateExternalUrlWithDns(
+  url: string,
+  label = 'URL'
+): Promise<string | null> {
+  const staticCheck = validateExternalUrl(url, label)
+  if (staticCheck) return staticCheck
+
+  const { hostname } = new URL(url)
+
+  // If hostname is already an IP literal, skip DNS resolution (already checked by validateExternalUrl)
+  if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname) || hostname.includes(':')) {
+    return null
+  }
+
+  // Resolve A and AAAA records and check all resolved addresses
+  const resolvedAddresses: string[] = []
+  try {
+    const v4 = await resolve4(hostname).catch(() => [] as string[])
+    resolvedAddresses.push(...v4)
+  } catch {
+    // No A records
+  }
+  try {
+    const v6 = await resolve6(hostname).catch(() => [] as string[])
+    resolvedAddresses.push(...v6)
+  } catch {
+    // No AAAA records
+  }
+
+  if (resolvedAddresses.length === 0) {
+    return `${label} hostname does not resolve`
+  }
+
+  for (const addr of resolvedAddresses) {
+    if (isInternalAddress(addr)) {
+      return `${label} resolves to an internal address`
+    }
   }
 
   return null

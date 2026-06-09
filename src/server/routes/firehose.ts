@@ -248,10 +248,11 @@ const getRoute = createRoute({
 
 firehoseRoutes.openapi(getRoute, async (c) => {
   const services = c.get('services')
+  const hubId = c.get('hubId') ?? 'global'
   const { id } = c.req.valid('param')
 
   const row = await services.firehose.getConnection(id)
-  if (!row) {
+  if (!row || row.hubId !== hubId) {
     return c.json({ error: 'Firehose connection not found' }, 404)
   }
   return c.json({ connection: mapConnection(row) }, 200)
@@ -299,7 +300,7 @@ firehoseRoutes.openapi(updateRoute, async (c) => {
   const body = c.req.valid('json')
 
   const existing = await services.firehose.getConnection(id)
-  if (!existing) {
+  if (!existing || existing.hubId !== hubId) {
     return c.json({ error: 'Firehose connection not found' }, 404)
   }
 
@@ -376,7 +377,7 @@ firehoseRoutes.openapi(deleteRoute, async (c) => {
   const { id } = c.req.valid('param')
 
   const existing = await services.firehose.getConnection(id)
-  if (!existing) {
+  if (!existing || existing.hubId !== hubId) {
     return c.json({ error: 'Firehose connection not found' }, 404)
   }
 
