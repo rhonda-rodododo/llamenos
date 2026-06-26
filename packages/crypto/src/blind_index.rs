@@ -8,21 +8,18 @@
 //! - **Epoch bucketing**: HMAC at day/week/month granularity (for date ranges)
 //! - **Trigram tokenization**: HMAC of each 3-char substring (for name search)
 
+use chrono::NaiveDate;
+use hkdf::Hkdf;
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
-use hkdf::Hkdf;
 use unicode_normalization::UnicodeNormalization;
-use chrono::NaiveDate;
 
 type HmacSha256 = Hmac<Sha256>;
 
 /// Derive a field-specific blind index key from the hub key.
 /// Each field gets its own key to prevent cross-field correlation.
 pub fn derive_blind_index_key(hub_key: &[u8; 32], field_name: &str) -> [u8; 32] {
-    let hkdf = Hkdf::<Sha256>::new(
-        Some(b"llamenos:blind-index-key"),
-        hub_key,
-    );
+    let hkdf = Hkdf::<Sha256>::new(Some(b"llamenos:blind-index-key"), hub_key);
     let mut okm = [0u8; 32];
     let info = format!("llamenos:blind-idx:{}", field_name);
     hkdf.expand(info.as_bytes(), &mut okm)
@@ -52,8 +49,16 @@ pub fn date_blind_indexes(
     field_name: &str,
     iso_date: &str,
 ) -> Vec<(String, String)> {
-    let date_str = if iso_date.len() >= 10 { &iso_date[..10] } else { iso_date };
-    let month_str = if iso_date.len() >= 7 { &iso_date[..7] } else { iso_date };
+    let date_str = if iso_date.len() >= 10 {
+        &iso_date[..10]
+    } else {
+        iso_date
+    };
+    let month_str = if iso_date.len() >= 7 {
+        &iso_date[..7]
+    } else {
+        iso_date
+    };
     let week_str = iso_week_string(date_str);
 
     vec![
@@ -82,13 +87,21 @@ pub fn name_trigram_indexes(hub_key: &[u8; 32], field_name: &str, value: &str) -
 
     if chars.len() < 3 {
         // For very short values, index the whole value
-        return vec![blind_index(hub_key, &format!("{}:trigram", field_name), &canonical)];
+        return vec![blind_index(
+            hub_key,
+            &format!("{}:trigram", field_name),
+            &canonical,
+        )];
     }
 
     let mut tokens: Vec<String> = Vec::new();
     for i in 0..=(chars.len().saturating_sub(3)) {
         let trigram: String = chars[i..i + 3].iter().collect();
-        tokens.push(blind_index(hub_key, &format!("{}:trigram", field_name), &trigram));
+        tokens.push(blind_index(
+            hub_key,
+            &format!("{}:trigram", field_name),
+            &trigram,
+        ));
     }
     tokens.sort();
     tokens.dedup();
