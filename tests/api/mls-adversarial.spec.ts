@@ -276,7 +276,7 @@ test.describe('MLS Adversarial Tests', () => {
     const epochRes = await adminApi.get(mlsPath(hubId, '/epoch'))
     expect(epochRes.status()).toBe(200)
     const state = await epochRes.json()
-    expect(state.ciphersuite).toBe(1)
+    expect(state.ciphersuite).toBe(7)
     expect(state.groupId).toContain(hubId)
   })
 
@@ -348,7 +348,7 @@ test.describe('MLS Full Lifecycle Integration', () => {
     expect(epochRes.status()).toBe(200)
     const initialState = await epochRes.json()
     expect(initialState.currentEpoch).toBe(0)
-    expect(initialState.ciphersuite).toBe(1)
+    expect(initialState.ciphersuite).toBe(7)
 
     // 2. Submit epoch 1 commit (simulating admin self-add)
     const commit1Res = await lifecycleAdmin.post(mlsPath(hubId, '/commits'), {

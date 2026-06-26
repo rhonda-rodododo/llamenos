@@ -38,7 +38,7 @@ test.describe('MLS Server Routes', () => {
     expect(res.status()).toBe(200)
     const body = await res.json()
     expect(body.currentEpoch).toBe(0)
-    expect(body.ciphersuite).toBe(1)
+    expect(body.ciphersuite).toBe(7)
     expect(body.groupId).toContain(hubId)
   })
 
@@ -61,7 +61,7 @@ test.describe('MLS Server Routes', () => {
     expect(res.status()).toBe(200)
     const body = await res.json()
     expect(body.currentEpoch).toBe(0)
-    expect(body.ciphersuite).toBe(1)
+    expect(body.ciphersuite).toBe(7)
     expect(body.groupId).toContain(hubId)
   })
 
