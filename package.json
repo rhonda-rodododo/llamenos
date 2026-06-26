@@ -171,5 +171,8 @@
     "vitest": "^4.1.0",
     "webdriverio": "^9.25.0",
     "wrangler": "^4.72.0"
+  },
+  "overrides": {
+    "shell-quote": "^1.9.0"
   }
 }
