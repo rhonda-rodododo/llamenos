@@ -137,17 +137,24 @@ test.describe('Provider OAuth Auto-Config', () => {
   // --- Webhook URL Generation ---
 
   test('Webhook URL generation works for known providers', async () => {
+    // M9: APP_URL is not set in test env; pass explicit baseUrl in body instead
     const res = await adminApi.post('/api/setup/provider/webhooks', {
       provider: 'twilio',
+      baseUrl: 'https://test.example.com',
     })
     expect(res.ok()).toBeTruthy()
     const data = await res.json()
     expect(data).toBeTruthy()
   })
 
-  test('Webhook GET endpoint returns URLs', async () => {
+  test('Webhook GET endpoint returns 400 without APP_URL', async () => {
+    // M9: GET /webhooks requires APP_URL; request URL origin is no longer used
+    // as a fallback to prevent DNS-rebinding SSRF. Without APP_URL configured
+    // the endpoint correctly returns 400.
     const res = await adminApi.get('/api/setup/provider/webhooks')
-    expect(res.ok()).toBeTruthy()
+    expect(res.status()).toBe(400)
+    const data = await res.json()
+    expect(data.error).toContain('APP_URL not configured')
   })
 
   // --- Number Management ---
