@@ -18,7 +18,10 @@ export type { KeyEnvelope, RecipientEnvelope, RecipientKeyEnvelope } from '@shar
 // Tauri injects __TAURI_INTERNALS__ at startup. If present, use IPC.
 // Otherwise, use WASM (browser/test builds).
 
-const useTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+// In PLAYWRIGHT_TEST builds, route everything through the mocked invoke()
+// so Vite doesn't need to bundle the WASM module (which isn't built in CI).
+const useTauri = (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window)
+  || import.meta.env.PLAYWRIGHT_TEST === 'true'
 
 // ── Tauri IPC wrapper (desktop only) ─────────────────────────────────
 
@@ -39,7 +42,7 @@ async function getWasm(): Promise<WasmModule> {
   if (!wasmModulePromise) {
     wasmModulePromise = (async () => {
       try {
-        const mod = await import('../../../packages/crypto/dist/wasm/llamenos_core')
+        const mod = await import(/* @vite-ignore */ '../../../packages/crypto/dist/wasm/llamenos_core')
         await mod.default()
         return mod
       } catch (e) {

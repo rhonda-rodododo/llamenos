@@ -61,6 +61,9 @@ export default defineConfig({
     target: 'esnext',
     chunkSizeWarningLimit: 650,
     rollupOptions: {
+      // In test builds, WASM module is dead code (platform.ts routes through invoke()
+      // because PLAYWRIGHT_TEST sets useTauri=true). Mark external so Rollup skips it.
+      ...(isTestBuild ? { external: [/llamenos_core/] } : {}),
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {

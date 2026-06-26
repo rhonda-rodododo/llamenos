@@ -33,7 +33,7 @@ export function initWasmCrypto(): Promise<void> {
 
   initPromise = (async () => {
     try {
-      const mod = await import('../../packages/crypto/dist/wasm/llamenos_core')
+      const mod = await import(/* @vite-ignore */ '../../packages/crypto/dist/wasm/llamenos_core')
       await mod.default()
       wasmModule = mod
       cryptoState = new mod.WasmCryptoState()
