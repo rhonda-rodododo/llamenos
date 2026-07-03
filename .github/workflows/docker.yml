@@ -113,7 +113,7 @@ jobs:
       # When multi-arch is introduced, this pattern must be reworked — see spec follow-ups.
       - name: Build (phase 1 — for scanning, not pushed)
         id: build_scan
-        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           file: deploy/docker/Dockerfile
@@ -160,7 +160,7 @@ jobs:
       # and SLSA build provenance to the image manifest as OCI referrers.
       - name: Build and push (phase 2)
         id: build_push
-        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           file: deploy/docker/Dockerfile
@@ -247,7 +247,7 @@ jobs:
 
       - name: Build (phase 1 — for scanning, not pushed)
         id: build_scan
-        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           # sip-bridge is a self-contained subproject with its own package.json,
           # bun.lock, and src/. Build context must be the subproject directory,
@@ -282,7 +282,7 @@ jobs:
 
       - name: Build and push (phase 2)
         id: build_push
-        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: ./sip-bridge
           file: ./sip-bridge/Dockerfile
